@@ -430,6 +430,16 @@ describe.skipIf(!DATASET_DIR || !HAS_VECTORS)(
         const derivedWeights: number[] = [];
         const evidences: number[] = [];
         const rerankedRanks: Array<number | null> = [];
+        // **The constant's own rerank column, kept beside the product's so the two are comparable inside one run.**
+        //
+        // §26's rule is that a published figure must be the arm the product runs; §28's is that a difference smaller than
+        // the reranker's own variance cannot be attributed. Together they leave one option: rerank *both* arms in the
+        // same run, which costs a second completion per question (~0.35 USD) and removes the variance from the
+        // comparison rather than from the report.
+        const rerankedConstantRanks: Array<number | null> = [];
+        let reorderedConstant = 0;
+        let rescuedConstant = 0;
+        let lostConstant = 0;
         const provider = CAN_ASK_A_MODEL ? new DeepSeekProvider({ timeout: 60_000 }) : null;
         let reranked = 0;
         // **The reranker's ledger, which no published table reports and every reader of the 102 misses needs.**
@@ -497,14 +507,51 @@ describe.skipIf(!DATASET_DIR || !HAS_VECTORS)(
           const derivedWeight = deriveVectorWeight(lexicalSlice, vectorSlice, row.doc);
           derivedWeights.push(derivedWeight);
           evidences.push(selfEvidence(row.doc, lexicalHits[0]?.node));
-          derivedRanks.push(
-            rankOf(hybrid.fuseResults(lexicalSlice, vectorSlice, 60, DEPTH, derivedWeight), index),
+          const derivedArm = hybrid.fuseResults(
+            lexicalSlice,
+            vectorSlice,
+            60,
+            DEPTH,
+            derivedWeight,
           );
+          derivedRanks.push(rankOf(derivedArm, index));
 
           const fusedRank = fusedRanksByDepth.get(DEPTH)![index]!;
 
           if (provider) {
-            const entries = arm.map((hit, position) => ({ rank: position + 1, hit }));
+            // **The constant first**, which is the arm every earlier run published, then the derived arm the product
+            // runs now. Two calls per question rather than one, and the only way the pair is comparable.
+            const constantEntries = arm.map((hit, position) => ({ rank: position + 1, hit }));
+            const constantResult = await rerankCandidates(
+              row.doc,
+              constantEntries,
+              (entry) => ({
+                rank: entry.rank,
+                name: entry.hit.node.name,
+                qualifiedName: entry.hit.node.qualifiedName,
+                filePath: entry.hit.node.filePath,
+                signature: entry.hit.node.signature,
+                excerpt:
+                  typeof entry.hit.node.properties['body'] === 'string'
+                    ? entry.hit.node.properties['body'].slice(0, 240)
+                    : null,
+              }),
+              provider,
+              { timeout: 60_000 },
+            );
+            if (constantResult.applied) reorderedConstant += 1;
+            const constantIndex = constantResult.ordered.findIndex(
+              (entry) => fileIndex(entry.hit) === index,
+            );
+            const constantRank = constantIndex >= 0 ? constantIndex + 1 : null;
+            rerankedConstantRanks.push(constantRank);
+            if (fusedRank === null || fusedRank > 10) {
+              if (constantRank !== null && constantRank <= 10) rescuedConstant += 1;
+            } else if (constantRank === null || constantRank > 10) {
+              lostConstant += 1;
+            }
+
+            const entries = derivedArm.map((hit, position) => ({ rank: position + 1, hit }));
             const result = await rerankCandidates(
               row.doc,
               entries,
@@ -533,7 +580,8 @@ describe.skipIf(!DATASET_DIR || !HAS_VECTORS)(
             // defects: `rescued` is a question the fused order missed in the top ten and the model recovered, `lost` is
             // one the fused order already had and the model moved out. **A reranker whose net is zero can still be
             // spending money to shuffle** - this is the pair of counters that says so.
-            if (fusedRank === null || fusedRank > 10) {
+            const derivedRank = rankOf(derivedArm, index);
+            if (derivedRank === null || derivedRank > 10) {
               if (rerankedRank !== null && rerankedRank <= 10) rescued += 1;
             } else if (rerankedRank === null || rerankedRank > 10) {
               lost += 1;
@@ -647,8 +695,22 @@ describe.skipIf(!DATASET_DIR || !HAS_VECTORS)(
           },
           ...(provider
             ? {
-                reranked: { ...score(rerankedRanks), reordered: reranked },
+                // **The product's arm**: the fused list the engine now produces, then the same reorder.
+                reranked: { ...score(rerankedRanks), reordered: reranked, from: 'derived' },
                 rerankEffect: { reordered: reranked, rescued, lost, net: rescued - lost },
+                // **The arm every earlier run published**, reranked in this same run so that the difference between the
+                // two columns is the fusion weight rather than the reranker's run-to-run variance.
+                rerankedConstant: {
+                  ...score(rerankedConstantRanks),
+                  reordered: reorderedConstant,
+                  from: 'weight-1',
+                },
+                rerankEffectConstant: {
+                  reordered: reorderedConstant,
+                  rescued: rescuedConstant,
+                  lost: lostConstant,
+                  net: rescuedConstant - lostConstant,
+                },
               }
             : {
                 reranked: { reason: 'DEEPSEEK_API_KEY is absent, so nothing could be reordered' },
@@ -667,7 +729,8 @@ describe.skipIf(!DATASET_DIR || !HAS_VECTORS)(
             `lexical=R@1 ${score(lexicalRanks).recallAt1}/R@10 ${score(lexicalRanks).recallAt10}/MRR ${score(lexicalRanks).mrrAt10} ` +
             `fused=R@1 ${score(fusedRanksByDepth.get(DEPTH)!).recallAt1}/R@10 ${score(fusedRanksByDepth.get(DEPTH)!).recallAt10}/MRR ${score(fusedRanksByDepth.get(DEPTH)!).mrrAt10} ` +
             (provider
-              ? `rerank=R@1 ${score(rerankedRanks).recallAt1}/R@10 ${score(rerankedRanks).recallAt10}/MRR ${score(rerankedRanks).mrrAt10} rescued=${rescued} lost=${lost}`
+              ? `rerank=R@1 ${score(rerankedRanks).recallAt1}/R@10 ${score(rerankedRanks).recallAt10}/MRR ${score(rerankedRanks).mrrAt10} rescued=${rescued} lost=${lost} ` +
+                `rerankConstant=R@10 ${score(rerankedConstantRanks).recallAt10}/MRR ${score(rerankedConstantRanks).mrrAt10} rescued=${rescuedConstant} lost=${lostConstant}`
               : 'rerank=none'),
         );
 

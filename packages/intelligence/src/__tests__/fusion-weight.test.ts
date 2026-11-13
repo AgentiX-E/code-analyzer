@@ -25,6 +25,7 @@ import {
   deriveVectorWeight,
   selfEvidence,
 } from '../search/fusion-weight.js';
+import { retrieveContext } from '../qa/ask.js';
 import { HybridSearchEngine } from '../search/hybrid-search.js';
 
 import type { RankedResult } from '../search/hybrid-search.js';
@@ -227,5 +228,57 @@ describe('the product path fuses at the weight the question implies', () => {
     // **The override is visible**: the derived weight gives [1, 2, 3] and this gives [2, 1, 3], so a sweep that passed
     // a weight and got the product's column back would fail here rather than in a report nobody re-reads.
     expect(overridden.map((h) => h.node.id)).toEqual([2, 1, 3]);
+  });
+});
+
+/**
+ * **The second fusion site, which is the one that made the first one a half-truth.**
+ *
+ * `ask.ts` builds its own two lists instead of calling `search()`, so the derived weight had to be wired there as well;
+ * a test of `search()` alone would have passed while the answer path kept the constant. The assertion is again a pair -
+ * the answer path equals the fusion at the derived weight **and differs from the fusion at one** - because equality
+ * alone is satisfied by an engine that derives nothing.
+ */
+describe('the answer path fuses at the same derived weight', () => {
+  it('orders its candidates the way the derived weight orders them', async () => {
+    const store = new InMemoryGraphStore();
+    const answer = makeNode({
+      id: 1,
+      name: 'signSessionCookie',
+      docstring: 'Sign the session cookie, cookie lifetime 30 days',
+      filePath: '/a.ts',
+    });
+    const runnerUp = makeNode({ id: 2, name: 'cookieSigner', filePath: '/b.ts' });
+    for (const node of [answer, runnerUp]) store.insertNode(node);
+
+    const engine = new HybridSearchEngine(store);
+    engine.initialize();
+    const vectors = new Map<number, Float32Array>([
+      [1, Float32Array.from([0.1, 1])],
+      [2, Float32Array.from([1, 0.1])],
+    ]);
+    engine.registerEmbeddings(
+      (id) => vectors.get(id) ?? null,
+      async () => Float32Array.from([1, 0]),
+    );
+
+    const question = 'why does cookie leak memory under load';
+    const lexical = engine.bm25Search(question);
+    const vector = await engine.vectorSearch(question, 2, null);
+    const weight = deriveVectorWeight(lexical, vector, question);
+    expect(weight).toBe(FUSION_WEIGHT_BOUNDS.max);
+
+    const retrieval = await retrieveContext({
+      question,
+      store,
+      search: engine,
+      options: { rerank: false },
+    });
+    const atDerived = engine.fuseResults(lexical, vector, 60, 60, weight);
+    const atOne = engine.fuseResults(lexical, vector, 60, 60, 1);
+    // **The file order is the observable**, because `PoolEntry` is per file rather than per node: the two weights put a
+    // different file first, and that is what a reader of an answer sees.
+    expect(retrieval.rankedFiles[0]).toBe(atDerived[0]!.node.filePath);
+    expect(atOne[0]!.node.filePath).not.toBe(atDerived[0]!.node.filePath);
   });
 });

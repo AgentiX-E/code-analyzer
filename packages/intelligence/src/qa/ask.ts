@@ -24,6 +24,7 @@ import { assembleContext, contextChars, filesOf, rankCandidates } from './contex
 import { answerPrompt } from './prompt.js';
 import { resolveScope } from './scope.js';
 import { FILE_AGGREGATION, rankFiles } from '../search/file-ranking.js';
+import { deriveVectorWeight } from '../search/fusion-weight.js';
 import { reciprocalRankFusion } from '../search/fusion.js';
 import { HybridSearchEngine } from '../search/hybrid-search.js';
 import { rerankCandidates } from '../search/rerank.js';
@@ -90,12 +91,18 @@ export async function retrieveContext(
 
   const lexical = input.search.bm25Search(input.question);
   const vector = await input.search.vectorSearch(input.question, limit, null);
+  // **The weight is derived here too, and this is the site that made it necessary to say so.**
+  //
+  // `ask.ts` builds its own two lists rather than calling `search()`, so wiring the derived weight into `search()` left
+  // *this* fusion at a constant one - the answer path would have kept the old behaviour while the benchmark measured the
+  // new one, which is §26's defect (`the published arm is not the arm that ran`) with the sign flipped. **Both sites
+  // now read the same function**, and `fusion-weight.ts` is the only place the three weights are written down.
   const fused = input.search.fuseResults(
     lexical.map((hit) => ({ node: hit.node, score: hit.score })),
     vector.map((hit) => ({ node: hit.node, score: hit.score })),
     60,
     limit,
-    1,
+    deriveVectorWeight(lexical, vector, input.question),
   );
 
   let compacted = rankCandidates(

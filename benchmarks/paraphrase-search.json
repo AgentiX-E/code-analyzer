@@ -30,7 +30,7 @@
     "**`poolDepth` is that ceiling measured on the fused list** at every depth a reranker could be given. It costs",
     "no completion: the fused list at depth d is the fusion of the two candidate lists cut at d"
   ],
-  "measuredAt": "2026-11-07",
+  "measuredAt": "2026-11-13",
   "querySet": {
     "source": "frozen",
     "path": "benchmarks/paraphrase-queries.json",
@@ -38,8 +38,8 @@
   },
   "corpus": {
     "path": "benchmarks/retrieval-corpus",
-    "snapshot": "superseded",
-    "supersededReason": "measured on benchmarks/retrieval-corpus before two changes to the corpus bytes: the C++ provider inside it was changed to bound a modifier run, and the Svelte reader was changed to accept an end tag that carries attributes - both are the same class of fix (a pattern that could be made to crawl, and a block boundary that ended in the wrong place), and both mean the file that was measured is no longer the file in the directory. Re-run with a key before quoting these figures.",
+    "snapshot": "pinned",
+    "digest": "5b18a85ff3e2c644162fff371587dc8ca1b843294062a4bedf018fc517e44dd9",
     "nodes": 3257,
     "queries": 99,
     "dropped": 1,
@@ -55,11 +55,11 @@
   "lexical": {
     "recallAt5": 0.303,
     "recallAt20": 0.4545,
-    "mrr": 0.1952,
+    "mrr": 0.196,
     "found": 45
   },
   "lexicalDepth": {
-    "recall": [0.303, 0.3636, 0.4545, 0.4646, 0.5051, 0.5657, 0.596, 0.6566, 0.6768],
+    "recall": [0.303, 0.3636, 0.4545, 0.4646, 0.5051, 0.5657, 0.596, 0.6667, 0.6869],
     "reachable": 0.8889,
     "medianFoundRank": 20
   },
@@ -68,14 +68,14 @@
       "size": 47,
       "recallAt5": 0.1064,
       "recallAt20": 0.1702,
-      "mrr": 0.0306,
+      "mrr": 0.0305,
       "found": 8
     },
     "withLeak": {
       "size": 52,
       "recallAt5": 0.4808,
       "recallAt20": 0.7115,
-      "mrr": 0.344,
+      "mrr": 0.3455,
       "found": 37
     }
   },
@@ -131,23 +131,23 @@
       "name": "hyde",
       "note": "the product index; the query vector is the mean of the question and a hypothesis",
       "hypotheses": 99,
-      "recallAt5": 0.5051,
-      "recallAt20": 0.6768,
-      "mrr": 0.3556,
-      "found": 67,
+      "recallAt5": 0.4848,
+      "recallAt20": 0.6667,
+      "mrr": 0.3512,
+      "found": 66,
       "slices": {
         "leakFree": {
           "size": 47,
-          "recallAt5": 0.2766,
-          "recallAt20": 0.4468,
-          "mrr": 0.1484,
-          "found": 21
+          "recallAt5": 0.234,
+          "recallAt20": 0.4255,
+          "mrr": 0.1434,
+          "found": 20
         },
         "withLeak": {
           "size": 52,
           "recallAt5": 0.7115,
           "recallAt20": 0.8846,
-          "mrr": 0.5429,
+          "mrr": 0.539,
           "found": 46
         }
       }
@@ -155,26 +155,26 @@
     {
       "name": "rerank",
       "note": "the fused top 50, reordered by a model, cut at 20",
-      "reranked": 99,
+      "reranked": 98,
       "poolDepth": 50,
       "poolRecallAt20": 0.7172,
       "recallAt5": 0.6465,
       "recallAt20": 0.7172,
-      "mrr": 0.5237,
+      "mrr": 0.5182,
       "found": 71,
       "slices": {
         "leakFree": {
           "size": 47,
-          "recallAt5": 0.4468,
+          "recallAt5": 0.4681,
           "recallAt20": 0.5106,
-          "mrr": 0.3506,
+          "mrr": 0.3546,
           "found": 24
         },
         "withLeak": {
           "size": 52,
-          "recallAt5": 0.8269,
+          "recallAt5": 0.8077,
           "recallAt20": 0.9038,
-          "mrr": 0.6803,
+          "mrr": 0.666,
           "found": 47
         }
       }
@@ -182,26 +182,26 @@
     {
       "name": "rerank-deep",
       "note": "the fused top 150, reordered by a model, cut at 20",
-      "reranked": 98,
+      "reranked": 99,
       "poolDepth": 150,
       "poolRecallAt20": 0.8485,
-      "recallAt5": 0.6869,
+      "recallAt5": 0.7273,
       "recallAt20": 0.8384,
-      "mrr": 0.5293,
+      "mrr": 0.5446,
       "found": 83,
       "slices": {
         "leakFree": {
           "size": 47,
           "recallAt5": 0.5745,
           "recallAt20": 0.7234,
-          "mrr": 0.4251,
+          "mrr": 0.4254,
           "found": 34
         },
         "withLeak": {
           "size": 52,
-          "recallAt5": 0.7885,
+          "recallAt5": 0.8654,
           "recallAt20": 0.9423,
-          "mrr": 0.6235,
+          "mrr": 0.6523,
           "found": 49
         }
       }
@@ -233,7 +233,7 @@
       "vectorWeight": 0.1,
       "recallAt5": 0.3535,
       "recallAt20": 0.4545,
-      "mrr": 0.2786,
+      "mrr": 0.2818,
       "found": 45
     }
   ],
@@ -243,6 +243,17 @@
     "recallAt20": 0.6061,
     "mrr": 0.3531,
     "found": 60
+  },
+  "derived": {
+    "recallAt5": 0.4444,
+    "recallAt20": 0.596,
+    "mrr": 0.3562,
+    "found": 59,
+    "weights": {
+      "lexical": 0,
+      "neutral": 0,
+      "semantic": 99
+    }
   },
   "target": {
     "recall": 0.9,

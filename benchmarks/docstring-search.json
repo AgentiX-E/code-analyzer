@@ -12,11 +12,11 @@
     "`semanticSweep` row is that same lexical list fused with one semantic list at that weight; `space` names the",
     "vector space on each side, because a cosine between two spaces is noise and this file once published one."
   ],
-  "measuredAt": "2026-11-07",
+  "measuredAt": "2026-11-13",
   "corpus": {
     "path": "benchmarks/retrieval-corpus",
-    "snapshot": "superseded",
-    "supersededReason": "measured on benchmarks/retrieval-corpus before two changes to the corpus bytes: the C++ provider inside it was changed to bound a modifier run, and the Svelte reader was changed to accept an end tag that carries attributes - both are the same class of fix (a pattern that could be made to crawl, and a block boundary that ended in the wrong place), and both mean the file that was measured is no longer the file in the directory. Re-run with a key before quoting these figures.",
+    "snapshot": "pinned",
+    "digest": "5b18a85ff3e2c644162fff371587dc8ca1b843294062a4bedf018fc517e44dd9",
     "nodes": 3257,
     "nodesWithADocstring": 220,
     "queries": 219
@@ -70,6 +70,22 @@
     "recallAt20": 1,
     "mrr": 0.9711,
     "found": 219
+  },
+  "derived": {
+    "recallAt5": 0.9954,
+    "recallAt20": 1,
+    "mrr": 0.9794,
+    "found": 219,
+    "weights": {
+      "lexical": 214,
+      "neutral": 2,
+      "semantic": 3
+    },
+    "selfEvidence": {
+      "p10": 0.973,
+      "p50": 1,
+      "p90": 1
+    }
   },
   "target": {
     "recall": 0.9,
