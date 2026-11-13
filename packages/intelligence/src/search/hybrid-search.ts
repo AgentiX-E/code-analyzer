@@ -724,7 +724,13 @@ export class HybridSearchEngine {
       options.vectorWeight ?? deriveVectorWeight(bm25Results, vectorResults, options.query);
 
     // Fuse results
-    return this.fuseResults(bm25Results, vectorResults, 60, options.limit ?? undefined, vectorWeight);
+    return this.fuseResults(
+      bm25Results,
+      vectorResults,
+      60,
+      options.limit ?? undefined,
+      vectorWeight,
+    );
   }
 
   /**

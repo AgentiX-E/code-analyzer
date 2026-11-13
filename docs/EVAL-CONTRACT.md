@@ -2810,3 +2810,22 @@ and this section closes 0.0458 of the pre-rerank part of it. The remaining terms
    misses 149 of 500;
 3. **the lexical channel's 206** - BM25 sees the answer in the top ten for two questions in five, and no weighting
    recovers a document it never returned.
+
+### 30.6 Three limits of the classifier, recorded before they are found the hard way
+
+**A share of a small set of terms is a coarse number.** A one-word query can only score 0 or 1, so `selfEvidence` sends
+it to one bound or the other with no middle - and the middle is where a weak match belongs. The three corpora do not
+expose this (their questions are sentences; the median question holds six to ten terms), which is exactly why it is
+written down rather than measured: **a product query of `auth` will take the lexical weight whenever the best hit's name
+or comment contains `auth`, and that hit may well be the wrong one.**
+
+**The evidence is about the best answer, not about the right one.** A corpus whose documentation paraphrases its
+questions would look much like one that repeats them: both put most of the question's terms in _some_ document's comment.
+The statistic therefore separates this document's two corpora, and what it claims in general is narrower - **it measures
+whether the lexical channel has an answer it can state in the question's own words**, not whether that answer is
+correct.
+
+**A threshold calibrated on two corpora is a threshold calibrated on two corpora.** 0.8 and 0.5 were chosen from a
+distribution over 719 questions in this repository; the separation is 98.6 % there and unmeasured anywhere else. The
+gates in the three suites are what keep that honest: a corpus where the classifier fires the wrong way fails a test
+rather than a report, and the two columns in 30.3 are what a reader compares before moving either cut.
