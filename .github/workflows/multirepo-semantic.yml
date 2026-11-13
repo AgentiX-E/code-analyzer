@@ -40,6 +40,16 @@ on:
         type: choice
         options: ['replay', 'generate']
         default: replay
+      weights:
+        # **The fusion weights to sweep, because the weight is what the twenty-two-point cost was attributed to.**
+        # `deriveVectorWeight` reads the question, a rewritten question shares no words with its answer, and the derived
+        # weight is 4 - the top of the measured bounds - so the vector list dominates. **A variable that moves a figure
+        # by 22 points is measured rather than chosen**: every column the sweep writes is the same vectors, the same
+        # questions and the same index, and only the weight differs. Empty means "use the derived weight", which is what
+        # the product does and what every figure before this input was measured at.
+        description: 'Fusion weights to sweep, e.g. 0.1,0.35,1,4 (empty uses the derived weight)'
+        type: string
+        default: ''
 
 concurrency:
   group: multirepo-semantic
@@ -121,9 +131,15 @@ jobs:
           set -o pipefail
           # **A separate artifact path**, so the lexical figure every document quotes keeps its own file and the two
           # runs cannot overwrite each other. The pair is what a reader compares.
+          # **The sweep is an argument and not a second script**, so a run with weights and a run without differ in one
+          # line of YAML and in nothing else.
+          WEIGHTS='${{ inputs.weights }}'
+          WEIGHT_FLAGS=""
+          if [ -n "$WEIGHTS" ]; then WEIGHT_FLAGS="--weights $WEIGHTS"; fi
           npx tsx scripts/multirepo-paraphrase.ts \
             --mode '${{ inputs.mode }}' \
             --embed \
+            $WEIGHT_FLAGS \
             --out benchmarks/multirepo-qa-paraphrase-semantic.json 2>&1 | tee /tmp/multirepo-semantic.log
 
       - name: The artifact has to say which space it used

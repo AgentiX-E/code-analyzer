@@ -564,6 +564,14 @@ async function main(): Promise<void> {
       `PARAPHRASE semantic paraphrase found@10=${rate(artifact.conditions.semanticParaphrase!)} mrr=${artifact.conditions.semanticParaphrase!.mrr} verbatim found@10=${rate(artifact.conditions.semanticVerbatim!)} mrr=${artifact.conditions.semanticVerbatim!.mrr}`,
     );
   }
+  // **One line per weight**, because the sweep's whole point is a column a reader can compare with the lexical one it
+  // is a re-weighting of - and the paired counts are what say whether a difference is a difference or a coin toss.
+  for (const [weight, column] of Object.entries(artifact.semanticSweep ?? {})) {
+    console.log(
+      `PARAPHRASE-SWEEP weight=${weight} found@10=${((100 * column.found) / Math.max(1, column.n)).toFixed(1)}% mrr=${column.mrr} ` +
+        `onlySweep=${column.paired.onlyA} onlyLexical=${column.paired.onlyB} p=${column.paired.pValue.toFixed(4)} deltaMrr=${column.paired.deltaMrr.toFixed(4)}`,
+    );
+  }
 
   // **The columns and the aggregates are printed together**, and the gate test recomputes one from the other.
   const decoded = decodeRanks(artifact.perQuestion.paraphrase, accepted.length);
