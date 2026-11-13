@@ -3167,3 +3167,54 @@ repository, which is what an unindexed group would otherwise become.
 aggregate printed beside it, the discordant counts of the paired test, and the membership of the two subsets. It also
 holds the corpus to its pins: four repositories, four languages, each a 40-character commit. **An aggregate that does not
 follow from the rows fails the build**, which is the same contract §31.5 imposed on the CoSQA artifact.
+
+## 34. The replication ran, the direction held, and the depth contrast is still not a paired test
+
+§32.6 registered a decision rule before dispatching the replication, so that the answer could not be chosen after the
+fact: if 25 and 50 came back indistinguishable in both arms the default stays at 50; **if 50 came back better in either
+arm, the ladder's "one more question" is re-read as underpowered rather than as a flattening**. `43394763480` is that
+run: `rerankDepths=25,50`, both arms, the same 500 questions, one job, **4 702 206 prompt tokens and 1.515 USD measured**.
+
+### 34.1 The two runs, side by side
+
+| depth | arm      | ladder found@10 | ladder MRR | replication found@10 | replication MRR |
+| ----: | -------- | --------------: | ---------: | -------------------: | --------------: |
+|    25 | derived  |             382 |     0.5633 |                  385 |          0.5692 |
+|    25 | constant |             377 |     0.5606 |                  376 |          0.5588 |
+|    50 | derived  |             383 |     0.5627 |                  393 |          0.5609 |
+|    50 | constant |             392 |     0.5659 |                  394 |          0.5672 |
+
+**Both runs lean the same way at fifty, and the replication leans harder.** The ladder had constant at +15 questions for
+depth 50 (p = 0.058, unresolved); the replication has it at **+18**, and the derived arm moves from **+1 to +8**. A
+fifteen-question lean that reverses would have been run-to-run noise; two runs leaning the same way, one of them twice as
+far, is what an underpowered contrast looks like.
+
+**So the default stays at 50**, and the sentence in §32.5 that said twenty-five is "indistinguishable from fifty at 54 %
+of the bill" is now read as **"twenty-five is cheaper and finds fewer answers, by an amount that one run could not
+resolve"**. A cost win that costs recall is not a cost win.
+
+### 34.2 What cannot yet be said, and why
+
+**The depth contrast is not a paired test in either run, and the artifact is the reason.** `rerankByDepth[<depth>][<arm>]`
+publishes `found@10`, MRR, `rescued` and `lost` per depth, and the per-question rank columns exist only for the depth the
+top-level `reranked` block reports. **A paired McNemar needs the per-question columns of both depths**, so the figures
+above are totals from two calls of the same harness, not a paired comparison of one run.
+
+The numbers are still evidence — the questions, the pool and the two arms are identical, and the arms are compared within
+each depth — but **they are the weaker kind**, and this document has spent two sections arguing that the weaker kind is
+how a 0.0054 becomes a mechanism. The fix is a column, not an argument: **publish `perQuestion` inside each
+`rerankByDepth` entry**, and the depth contrast becomes the same paired test every other figure in this document uses.
+
+That is registered here as the next measurement, at the price the ladder already established: **~1.5 USD and ~70
+minutes** for a four-arm ladder, or ~0.9 USD for two depths of one arm.
+
+### 34.3 The bill for the iteration
+
+| item                                                                        |                   cost |
+| --------------------------------------------------------------------------- | ---------------------: |
+| four-repository QA corpus, 469 questions, three conditions, one paired test |           **0.00 USD** |
+| replication of the depth ladder (`43394763480`)                             | **1.515 USD** measured |
+| **this iteration**                                                          |          **1.515 USD** |
+
+**The cheapest question in the table was the one about the product's largest gap**, and it cost nothing: a corpus, a
+script, a gate and a workflow, all of which run on every push that touches the paths they measure.
