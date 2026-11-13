@@ -3723,3 +3723,95 @@ asked to answer.** The measurement that would decide it is this sweep on the two
 and a sweep that wins is a hypothesis until the two single-repository corpora say whether the bound or the question is at
 fault. **The bill is one dispatch and no completions**: the vectors were built once, and the four columns are four
 passes over an index that was already in memory.
+
+## 39. The weight was asking one side of the question, and the two-sided rule is registered before it runs
+
+§38.8 left a hypothesis and a refusal: **`selfEvidence` measures whether the lexical list knows the question's words, and
+the fusion weight needs to know whether the lexical list's _ranking_ is trustworthy - two questions, one number.** The
+refusal was deliberate. A sweep that shows the derived weight is the worst of four is not permission to pick the best of
+four by hand; a weight chosen after seeing the curve is a parameter fitted to 454 questions and quoted as a rule.
+
+This section registers the alternative, in the order it has to be registered: **the rule first, the acceptance criteria
+second, the run third.**
+
+### 39.1 What was actually wrong, said as a shape rather than a number
+
+`deriveVectorWeight` reads `lexical[0]` and nothing else. Its three outcomes are a threshold on one channel's evidence,
+so the **vector** channel's evidence cannot enter the decision at all. Concerning a question whose answer nothing spells,
+both channels are blind, and the rule interprets the lexical channel's blindness as a mandate for the other one.
+
+The CoSQA corpus is where that reading was correct, and the measurement says why: on 500 questions the vector channel
+puts the answer in its top ten **340** times and the lexical channel **206** times, so a query the index cannot spell is a
+query where the stronger channel is being held back. The four-repository corpus is the mirror: the lexical channel finds
+**360 of 454** rewritten questions in the top ten and the vector channel, fused at the derived weight, **295**. **The same
+evidence, the same rule, opposite correct answers - which is the definition of a signal that is missing a term.**
+
+### 39.2 The term, and the arithmetic that makes it a rule rather than a knob
+
+The missing term is the other channel's own evidence, and it is already computable: both lists are in memory when the
+weight is decided. This iteration exposed them (`HybridSearchEngine.channels`, `FederatedSearchEngine.channels`) so that
+a rule can read both **and so that the lists a rule reads are the lists the answer was fused from** - a rule applied to a
+second retrieval is a rule about a retrieval nobody saw.
+
+Then, in `search/fusion-weight.ts`:
+
+| name                  | what it is                                                                                                       |
+| --------------------- | ---------------------------------------------------------------------------------------------------------------- |
+| `channelEvidence`     | the mean `selfEvidence` of a channel's **top five** answers                                                      |
+| `EVIDENCE_DEPTH`      | 5 - the cut the CoSQA recall columns are published at, and a top-one read is a read of a channel's luckiest slot |
+| `EVIDENCE_SMOOTHING`  | 0.05 - **one carried term in twenty**, the same absolute slack at every length                                   |
+| `evidenceRatioWeight` | `clamp((vector + 0.05) / (lexical + 0.05), 0.1, 4)`                                                              |
+
+**A channel's vote is worth as much as the share of the question its own answers carry.** The ratio is not a new
+constant wearing an arithmetic costume: every number in it is one of the four the sweep already scored. What it predicts,
+before any run, is checkable against §38.8's measured optima:
+
+| corpus                               | what the ratio is asked             |     value |                        measured optimum |
+| ------------------------------------ | ----------------------------------- | --------: | --------------------------------------: |
+| doc-comment lookups, 219 questions   | both lists carry the question       |  **1.00** | flat: 0.9711 at 1 against 0.9718 at 0.1 |
+| rewritten questions, 454, four repos | lexical carries 3× the vector share | **0.375** |           **0.35**, +14/−1, `p = 0.001` |
+| CoSQA, 500 questions                 | vector carries it, lexical does not |  **4.00** |      **4**, 338 against 321 at weight 1 |
+
+**Three corpora, three optima, one formula, and the third row is the one that matters**: a rule that returned 0.375
+everywhere would have retired CoSQA's win, and a rule that returned 4 everywhere is the rule §38.8 falsified.
+
+### 39.3 Registered acceptance criteria, written before the run
+
+The candidate is adopted **only if all four hold**, on one dispatch of `multirepo-semantic.yml` (weights
+`0.1,0.35,1,2,4`) and one of `code-qa-benchmark.yml` (weights `0.35,1,2,4`), both on `master` at `d8429d9`:
+
+1. **Rewritten questions, four repositories**: candidate `found@10` ≥ **0.7930** (the lexical list alone) and
+   `candidate-vs-derived` shows the candidate ahead, `p < 0.05`.
+2. **Quoted questions, same index, same run**: candidate `found@10` ≥ **0.9912** (451 of 454) - the channel may not buy
+   the paraphrase condition by moving the quoted one.
+3. **CoSQA**: candidate `found@10` ≥ **321** (the weight-one baseline) and not worse than the derived arm's **338** by
+   more than its paired interval.
+4. **The two shares are in the artifact**, per question, and recompute the weight column to three decimals - a rule whose
+   inputs are not published is a rule nobody can check.
+
+**If a criterion fails the candidate is retired and the product keeps the one-sided rule**, and §39 records the failure
+with the same table it would have used for a success. §38 registered the weight as a variable rather than a setting; this
+section registers the _rule_ the same way.
+
+### 39.4 The auditability fix, which is separate from the rule and does not depend on it
+
+§38.8 published four aggregates and no columns. The consequence is exact: a reader could see that weight 0.35 was
+thirteen questions better than weight 4 and **could not ask which thirteen** - and the next analysis of the same vectors
+would have had to re-embed a four-repository corpus to find out. Every swept weight now publishes its own per-question
+column (`perQuestion.sweep.<weight>`), beside the candidate's column and the two evidence columns it came from.
+
+Two gates, because one of them has to run on a checkout that predates the columns:
+
+- `tests/unit/scripts/a-paraphrase-answer-can-be-recomputed.test.ts` recomputes **every published aggregate from its own
+  column** and every candidate weight from its two shares. It tolerates an artifact written before the columns existed.
+- `multirepo-semantic.yml` re-checks the artifact **this run wrote** and fails if any swept weight has an aggregate and no
+  column. **The tolerance is therefore one commit wide and cannot become the rule.**
+
+The same change makes the next sweep of these vectors analysable without the key: the columns are the corpus's answer
+pattern, and eighteen such sweeps can now be re-read from a JSON file.
+
+### 39.5 Cost
+
+Two dispatches, no completions, no judge: ~12 072 vectors for the four-repository corpus and ~1 000 short embeddings for
+CoSQA, both inside the existing workflows' free-tier minutes. **The instrumentation itself is free** - two means and one
+division per question over lists that were already in memory.
