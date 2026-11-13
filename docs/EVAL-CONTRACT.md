@@ -3680,3 +3680,46 @@ measured would be a second guess wearing the first one's clothes.
 **Empty is the default and it is the product's behaviour**: `deriveVectorWeight` reads the question, and every figure
 before this input existed was measured at the weight it derives. **A sweep is a measurement, and a measurement is
 opt-in** — the same rule that keeps a paid workflow out of a push trigger.
+
+### 38.8 The sweep: the derived weight is the worst of the four, and 0.35 is the best
+
+One dispatch, one corpus, the same 12 072 vectors and the same 454 questions. **Only the weight differs.**
+
+| fusion weight                    |         found@10 |     MRR@10 | only sweep | only lexical |    exact p |                            Δ MRR |
+| -------------------------------- | ---------------: | ---------: | ---------: | -----------: | ---------: | -------------------------------: |
+| lexical only (no vectors)        |     0.7930 (360) |     0.6299 |          — |            — |          — |                                — |
+| **0.1**                          |     0.8062 (366) |     0.6525 |      **6** |            0 |  **0.031** | **+0.0226** `[+0.0043, +0.0406]` |
+| **0.35**                         | **0.8216 (373)** | **0.6575** |     **14** |        **1** | **0.0010** | **+0.0277** `[+0.0008, +0.0541]` |
+| 1                                |     0.8040 (365) |     0.5771 |         21 |           16 |      0.511 |                          −0.0528 |
+| **4 — what the product derives** | **0.5330 (242)** | **0.4830** |         21 |      **139** |    1.5e-22 | **−0.1468** `[−0.1949, −0.0989]` |
+
+**Three things follow, and the first one rewrites §38.1's conclusion.**
+
+1. **The vector channel is not worthless; the weight the product derives for a paraphrase is the worst value in the
+   sweep.** At 0.35 it is worth **+13 questions and +0.0277 MRR, 14 against 1, `p = 0.001`** — a paired result with a
+   one-directional count, not a tie. §38.1's "it costs twenty-two points" was true of the _configuration_, and calling
+   it a property of the channel would have been the same error this document spent §37 correcting in the other
+   direction.
+2. **The curve is not monotone, and the shape is the finding.** 0.35 > 0.1 > 1 > 4: the fused list is already worse at
+   weight 1 by MRR (−0.0528) while gaining five questions, so **the vector list adds recall and costs rank** — it finds
+   answers 14 questions earlier than lexical alone at 0.35, and at 1 the two lists disagree about 37 questions and the
+   vector list wins 21 of them. The lexical rank is the better rank; the vector list is the better _candidate generator_.
+   That is the opposite of what a weight of 4 assumes.
+3. **`deriveVectorWeight` returns 4 here, and 4 is where the channel loses 26 points.** The function reads
+   `selfEvidence` — the share of the question's terms the lexical best answer carries — on the reasoning that a question
+   the lexical list already answers in its own words should not hand over to a semantic list. **A paraphrase scores low,
+   so the function hands over almost entirely, and the corpus says that is exactly backwards**: a question that shares no
+   words with its answer is precisely the one where the lexical list's _ranking_ is still the better one, because the
+   names and signatures it matched are the answer's own.
+
+**So the derived weight needs a second signal, and this document does not invent one.** The registered hypothesis is
+narrow and testable: **`selfEvidence` measures whether the lexical list knows the question's words, and the fusion
+weight needs to know whether the lexical list's rank is trustworthy — two different questions that one number is being
+asked to answer.** The measurement that would decide it is this sweep on the two single-repository corpora
+(`docstring-search`, `cosqa-retrieval`), because if 0.35 also wins there the bounds are wrong rather than the boundary in
+`FUSION_WEIGHT_BOUNDS`.
+
+**Nothing changed in the product.** The default is still derived, every published figure is still at the derived weight,
+and a sweep that wins is a hypothesis until the two single-repository corpora say whether the bound or the question is at
+fault. **The bill is one dispatch and no completions**: the vectors were built once, and the four columns are four
+passes over an index that was already in memory.
