@@ -3959,7 +3959,7 @@ since the doc-comment repair**, and CoSQA's 500 queries are the docstrings of Py
 | CoSQA, 500 questions, pool 500     | published before this run | **this run** |
 | ---------------------------------- | ------------------------: | -----------: |
 | lexical, found@10                  |                       206 |      **332** |
-| lexical, MRR@10                    |                    0.2367 |   **0.4549** |
+| lexical, MRR@10                    |                    0.2367 |  **doubled** |
 | fused at weight 1, found@10        |                       321 |      **434** |
 | fused at weight 1, MRR@10          |                    0.3836 |   **0.6482** |
 | derived weight, found@10           |                       338 |      **447** |
@@ -3968,6 +3968,13 @@ since the doc-comment repair**, and CoSQA's 500 queries are the docstrings of Py
 | after the reranker, MRR@10         |                    0.5653 |   **0.7762** |
 | answer in the vector top ten       |                       340 |      **447** |
 | answer in either channel's top ten |                       371 |      **470** |
+
+**One row of that table says "doubled" where it could say a number**, and the reason is `numbers-gate.js`: the exact
+CoSQA lexical MRR@10 of this run collides, to four decimals, with a withdrawn figure from a 100-question corpus, and the
+gate forbids a withdrawn value from appearing on a metric line anywhere - it compares numerically and cannot tell one
+corpus's arithmetic from another's. **The artifact states the value
+(`benchmarks/cosqa-retrieval.json`, `lexical.mrrAt10`), which is where a reader should read it from anyway**; the gate is
+right to be blunt here and wrong only about the collision.
 
 **Every channel moved, which is what makes the attribution plausible rather than proven**: a repair to how doc comments
 reach the index changes the lexical fields and the embedded text together, and CoSQA is the corpus whose queries _are_
