@@ -3081,3 +3081,8 @@ finding.
 
 **Depth is not a quality dial above twenty-five.** Nothing here says the product gets better with a wider pool; it says
 the product stops getting worse below fifty, and that below twenty-five it starts to.
+
+**Two runs, two sets of absolute numbers, and the file holds the newer one.** `benchmarks/cosqa-retrieval.json` is this
+ladder's artifact; §31's figures are `43352844317`'s. They differ by seven questions on the same arm at the same depth
+(383 here against 388 there), which is the run-to-run variance §31.6 describes — and it is why every comparison in both
+sections is made inside one run and cited with its id.
