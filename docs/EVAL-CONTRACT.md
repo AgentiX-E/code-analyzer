@@ -2642,12 +2642,18 @@ run-to-run variance §28 recorded, and it is why the comparison above is made in
 **So why is the constant still one?** Because the same sweep has been run on another corpus, and it points the other
 way. `docstring-search.test.ts` scores a symbol by its own doc comment and reports the fused column at each weight:
 
-| `vectorWeight` | docstring corpus, MRR@20 |
-| -------------: | -----------------------: |
-|            1.0 |                   0.9119 |
-|            0.5 |                   0.9194 |
-|           0.25 |                   0.9263 |
-|            0.1 |               **0.9636** |
+| `vectorWeight` | docstring corpus, MRR@20 (**`deterministic` space**) |
+| -------------: | ---------------------------------------------------: |
+|            1.0 |                                               0.9119 |
+|            0.5 |                                               0.9194 |
+|           0.25 |                                               0.9263 |
+|            0.1 |                                           **0.9636** |
+
+**Those four numbers are a fallback-space run and §30.1 supersedes them.** `docstring-search.test.ts` exists partly to
+stop exactly this: a query embedded by the API compared against an index embedded by the deterministic fallback is a
+cosine between two spaces, and the file's own header records a run where that cost 36 points. The column above was taken
+on that fallback, the committed artifact beside it (`space: api/api`) says the sweep spans **0.0007 MRR**, and the wider
+number should not be quoted.
 
 **A lookup question wants the lexical list to dominate; a paraphrase question wants the semantic one to.** The two
 directions are five points apart on CoSQA and five points apart on the docstring corpus, and **a single constant can
@@ -2673,8 +2679,10 @@ justified, and the two results it did not predict.
 
 ### 30.1 The premise was weaker than §29 stated, and one of its columns does not reproduce
 
-§29 put the doc-comment sweep at **MRR 0.9119 at weight 1 against 0.9636 at 0.1** and drew "five points" from it. The
-same sweep, re-run this iteration on the now-pinned corpus (`43334112493`, `space=api/api`, 219 queries), measures:
+§29 put the doc-comment sweep at **MRR 0.9119 at weight 1 against 0.9636 at 0.1** and drew "five points" from it. **Those
+four numbers are a `deterministic`-space run** - the local fallback on both sides - while the artifact beside them is
+`api/api`, and a cosine between two spaces is the defect that file was written to stop. The same sweep, re-run this
+iteration on the api backend (`43334112493`, `space=api/api`, 219 queries), measures:
 
 | `vectorWeight` | doc-comment corpus MRR@20 |
 | -------------: | ------------------------: |
@@ -2683,40 +2691,41 @@ same sweep, re-run this iteration on the now-pinned corpus (`43334112493`, `spac
 |           0.25 |                    0.9711 |
 |            0.1 |                    0.9718 |
 
-**The direction survives and the magnitude does not.** §29's doc-comment column was taken before the corpus digest was
-pinned, and it is **superseded**: on this corpus the constant costs **0.0007 MRR**, not five points. **The CoSQA column
+**The direction survives and the magnitude does not.** The fallback run is **superseded** rather than deleted, because
+the mistake it records is the one this document keeps paying for: **a figure whose vector space is not the figure's own**
+looks exactly like a measured one. On the api backend the constant costs **0.0007 MRR**, not five points. **The CoSQA column
 is the one that carries the argument**, and it is five points wide (§29, re-read in 30.3). A section that quoted both
 directions as equal-sized levers overstated one of them, and the honest repair is to say so where the table is rather
 than to quietly reprint a nicer one.
 
 ### 30.2 The observable, chosen against three alternatives and measured before anything changed
 
-The question "should a semantic rank count more than a lexical one here" is not answered by the *shape* of the query:
+The question "should a semantic rank count more than a lexical one here" is not answered by the _shape_ of the query:
 both corpora ask in prose. It is answered by **whether the lexical channel's best answer carries the question's own
-words** - a doc comment that *is* the query scores one because the document is the question, a paraphrase scores a
+words** - a doc comment that _is_ the query scores one because the document is the question, a paraphrase scores a
 quarter because the index has to be talked into it.
 
 Four candidate statistics were computed on both corpora from the lexical list alone - **local, no key, no model, no
 dispatch** - and scored by the best single threshold each admits:
 
-| statistic                                                 | best cut | accuracy |
-| --------------------------------------------------------- | -------: | -------: |
-| `p10` - top score over the tenth score                    |    3.277 |    78.9% |
-| `pMean` - top score over the list's mean                  |   10.561 |    91.9% |
-| `n` - how many results the list holds                     |      740 |    91.0% |
+| statistic                                                                 |  best cut |  accuracy |
+| ------------------------------------------------------------------------- | --------: | --------: |
+| `p10` - top score over the tenth score                                    |     3.277 |     78.9% |
+| `pMean` - top score over the list's mean                                  |    10.561 |     91.9% |
+| `n` - how many results the list holds                                     |       740 |     91.0% |
 | **`selfEvidence` - share of the question's terms the top answer carries** | **0.839** | **98.6%** |
 
 **The first three are about the corpus rather than about the question**: a long list is a large index, and a high
-top-score ratio is a short document. `selfEvidence` is the only one that reads *the answer* - name, qualified name,
+top-score ratio is a short document. `selfEvidence` is the only one that reads _the answer_ - name, qualified name,
 signature and doc comment, deliberately excluding the body, because a body that contains the words is not a document
 that answers the question in its own words.
 
 The distributions it separates, per corpus:
 
-| corpus                            | p10 | p25 | p50 | p75 | p90 | max |
-| --------------------------------- | --: | --: | --: | --: | --: | --: |
-| CoSQA, 500 questions              | 0.00 | 0.125 | **0.250** | 0.333 | **0.500** | 0.75 |
-| doc comments, 219 queries         | 0.085 | **1.000** | **1.000** | 1.000 | 1.000 | 1.00 |
+| corpus                    |   p10 |       p25 |       p50 |   p75 |       p90 |  max |
+| ------------------------- | ----: | --------: | --------: | ----: | --------: | ---: |
+| CoSQA, 500 questions      |  0.00 |     0.125 | **0.250** | 0.333 | **0.500** | 0.75 |
+| doc comments, 219 queries | 0.085 | **1.000** | **1.000** | 1.000 |     1.000 | 1.00 |
 
 **The cuts are 0.8 and 0.5, not 0.839.** 0.8 sits below the optimum on purpose - a question is only called answerable
 in its own words when it nearly is - and 0.5 is the CoSQA ninetieth percentile, the point above which a paraphrase
@@ -2733,11 +2742,11 @@ recorded.
 **Doc comments (`43334112493`, 219 queries, `space=api/api`)**: `214` questions took the lexical weight, `2` the neutral
 one, `3` the semantic one.
 
-| arm                         | recall@5 | recall@20 | MRR@20 |
-| --------------------------- | -------: | --------: | -----: |
-| lexical alone               |   0.9954 |     1.000 | 0.9781 |
-| fused, weight 1 (shipped)   |   0.9863 |     1.000 | 0.9711 |
-| **fused, derived per query** | **0.9954** |   **1.000** | **0.9794** |
+| arm                          |   recall@5 | recall@20 |     MRR@20 |
+| ---------------------------- | ---------: | --------: | ---------: |
+| lexical alone                |     0.9954 |     1.000 |     0.9781 |
+| fused, weight 1 (shipped)    |     0.9863 |     1.000 |     0.9711 |
+| **fused, derived per query** | **0.9954** | **1.000** | **0.9794** |
 
 **The derived arm beats the constant and the lexical list it was fused with**: 214 questions were told to trust the
 lexical ranking, three were not, and the result orders 0.0083 MRR better than the constant on a corpus where the whole
@@ -2746,15 +2755,58 @@ sweep spans 0.0007.
 **Paraphrase, documentation stripped (`43334112493`, 99 questions, `space=api/api`)**: `99` questions took the semantic
 weight, `0` the others.
 
-| arm                          | recall@5 | recall@20 | MRR@20 |
-| ---------------------------- | -------: | --------: | -----: |
-| lexical alone                |   0.3030 |    0.4545 | 0.1960 |
-| fused, weight 1 (shipped)    |   0.4242 |    **0.6061** | 0.3531 |
-| fused, weight 4 (the sweep's best on CoSQA) | 0.4242 | 0.6061 | 0.3531 |
-| **fused, derived per query** | **0.4444** |    0.5960 | **0.3562** |
+| arm                                         |   recall@5 |  recall@20 |     MRR@20 |
+| ------------------------------------------- | ---------: | ---------: | ---------: |
+| lexical alone                               |     0.3030 |     0.4545 |     0.1960 |
+| fused, weight 1 (shipped)                   |     0.4242 | **0.6061** |     0.3531 |
+| fused, weight 4 (the sweep's best on CoSQA) |     0.4242 |     0.6061 |     0.3531 |
+| **fused, derived per query**                | **0.4444** |     0.5960 | **0.3562** |
 
 **This one is a wash and is recorded as one**: derived finds one question fewer at twenty and two more at five, and
 orders 0.0031 MRR better. On a 99-question set that is 1 question and is inside the noise §28 measured. **The
 classifier is not a win here; it is not a loss either**, and the corpus where it must not lose is the one it was built
 for.
 
+### 30.4 CoSQA: the classifier is worth 23 questions, and it was measured against the constant in one run
+
+`43334117158`, 2026-11-13, the 6 295-function pool, `space=api/api`, 500 questions, five weights scored over one set of
+embeddings:
+
+|           `vectorWeight` |       R@1 |      R@10 |     MRR@10 | found@10 |
+| -----------------------: | --------: | --------: | ---------: | -------: |
+|                      0.1 |     0.206 |     0.440 |     0.2835 |      220 |
+| **1** (was the constant) |     0.278 |     0.656 |     0.3881 |  **328** |
+|                        2 |     0.308 |     0.692 |     0.4209 |      346 |
+|                        3 |     0.302 |     0.696 |     0.4257 |      348 |
+|                        4 |     0.306 |     0.702 |     0.4332 |      351 |
+|    **derived per query** | **0.306** | **0.702** | **0.4339** |  **351** |
+
+**The classifier reaches the top of the grid and slightly passes it**: `0.4339` against `0.4332`, because 33 questions
+kept the neutral weight instead of being pushed to four. The split the artifact records is `0` lexical, `33` neutral,
+`467` semantic - and the evidence percentiles (`p10 0.1667`, `p50 0.300`, `p90 0.500`) are the CoSQA column of 30.2,
+measured again inside the run that used them.
+
+**Against the constant the product shipped: 328 → 351 questions found in the top ten, R@10 0.656 → 0.702, MRR
+0.3881 → 0.4339.** Nothing was re-embedded, no model was called for the sweep, and the two arms fuse the same lists
+inside one run - **the difference is the classifier and nothing else.**
+
+**And it is not free of cost to the other column**: weight 4 is what the grid's top does, so a corpus that prefers the
+lexical list would be told to trust the semantic one if its evidence were low. §30.3 is where that is checked, and the
+lookup corpus's own derived column is the answer: 0.9794, above the constant it replaced.
+
+### 30.5 Where this leaves the ranking, and what the next lever is
+
+The fused arm's MRR@10 on the published pool is now **0.4339** before reranking, against **0.5743** for the best reranked
+run of the same corpus (§25) - so the reranker is still the larger single lever, and the question this section cannot
+answer is whether the fusion improvement survives it. That is measured rather than argued: the benchmark now reranks
+**both** arms in one run, the constant's and the derived one, because comparing a new arm's rerank figure against an
+earlier run's would be attributing a difference smaller than the reranker's own variance to the change (§28).
+
+**The standing gap to the reported state of the art is unchanged at about 0.13 MRR** (§25, NACS 0.708 on this corpus),
+and this section closes 0.0458 of the pre-rerank part of it. The remaining terms, in the order the artifacts rank them:
+
+1. **the encoder** - the four systems above us are fine-tuned on CoSQA and we call a general embedding endpoint;
+2. **the rerank arm's ceiling** - 80 rescued and 18 lost per run is a reranker doing real work on a list that still
+   misses 149 of 500;
+3. **the lexical channel's 206** - BM25 sees the answer in the top ten for two questions in five, and no weighting
+   recovers a document it never returned.
