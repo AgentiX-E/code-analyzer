@@ -83,14 +83,14 @@ describe('the multi-repository artifact can be re-derived from its own columns',
     expect(new Set(artifact.perQuestion.keys).size).toBe(n);
     expect(decodeRanks(artifact.perQuestion.federated, n)).toHaveLength(n);
     expect(decodeRanks(artifact.perQuestion.scoped, n)).toHaveLength(n);
-    expect(artifact.conditions.federated!.n).toBe(n);
-    expect(artifact.conditions.scoped!.n).toBe(n);
+    expect(artifact.conditions['federated']!!.n).toBe(n);
+    expect(artifact.conditions['scoped']!!.n).toBe(n);
   });
 
   it('prints no aggregate the columns do not produce', () => {
     const n = artifact.questions.scored;
-    expect(recompute(artifact.perQuestion.federated, n)).toEqual(artifact.conditions.federated);
-    expect(recompute(artifact.perQuestion.scoped, n)).toEqual(artifact.conditions.scoped);
+    expect(recompute(artifact.perQuestion.federated, n)).toEqual(artifact.conditions['federated']!);
+    expect(recompute(artifact.perQuestion.scoped, n)).toEqual(artifact.conditions['scoped']!);
   });
 
   it('counts the paired discordance the columns show, rather than stating one', () => {
