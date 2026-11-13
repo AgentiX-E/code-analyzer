@@ -47,5 +47,7 @@ benchmarks/aacr-bench.json
 # would make the committed file differ from the measured one, in fourteen lines, for no reason a reader of either could
 # state. **The harness's output is the artifact, and Prettier is not a second author of it.** Verified: the only
 # difference Prettier finds in either file is array layout.
-benchmarks/multirepo-qa.json
-benchmarks/multirepo-qa-paraphrase.json
+# **Every artifact the harness writes, by one pattern rather than by a list that has to be extended.** The list was
+# extended twice in two iterations - a new `-semantic.json` and a regenerated `-corpus.json` each arrived unformatted and
+# turned the format gate red on a commit that had nothing to do with formatting. A pattern cannot be forgotten.
+benchmarks/multirepo-qa*.json

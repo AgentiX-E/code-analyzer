@@ -342,6 +342,24 @@ async function main(): Promise<void> {
     semanticEngine.registerEmbeddings(semantic.lookup, semantic.embed);
   }
 
+  /**
+   * The weights to sweep, when a run is measuring the fusion rather than using it.
+   *
+   * **`deriveVectorWeight` reads the question and returns 4 for a paraphrase** - the share of the question's terms the
+   * lexical best answer carries is low, so the vector list is allowed to dominate - and on this corpus that fused column
+   * is 22 points worse than the lexical one (§38.1). **A weight that can move a figure by 22 points is a variable, not a
+   * setting**, so the sweep that the single-repository corpora already run is available here as an input: four weights,
+   * one dispatch, the same vectors, the same questions.
+   *
+   * **Empty by default**, because a run that does not ask for a sweep should not pay for one in wall clock.
+   */
+  const weights = arg('weights', '')
+    .split(',')
+    .map((value) => value.trim())
+    .filter((value) => value.length > 0)
+    .map(Number)
+    .filter((value) => Number.isFinite(value) && value >= 0);
+
   const verbatimFederated: Array<number | null> = [];
   const verbatimScoped: Array<number | null> = [];
   const paraphraseFederated: Array<number | null> = [];
@@ -349,6 +367,8 @@ async function main(): Promise<void> {
   const semanticParaphrase: Array<number | null> = [];
   const semanticParaphraseScoped: Array<number | null> = [];
   const semanticVerbatim: Array<number | null> = [];
+  /** One column per swept weight, in the order the weights were given. */
+  const swept = new Map<number, Array<number | null>>();
 
   for (const row of accepted) {
     const question = byKey.get(row.key)!;
@@ -389,6 +409,18 @@ async function main(): Promise<void> {
 
       const fusedVerbatim = await semanticEngine.search(row.verbatim, { maxResults: DEPTH });
       semanticVerbatim.push(rankOf(fusedVerbatim.results, question));
+
+      // **The sweep, on the same rows and the same vectors.** Only the weight differs, so the columns are comparable
+      // question by question and the paired test says which of them found what the others did not.
+      for (const weight of weights) {
+        const column = swept.get(weight) ?? [];
+        const at = await semanticEngine.search(row.paraphrase, {
+          maxResults: DEPTH,
+          vectorWeight: weight,
+        });
+        column.push(rankOf(at.results, asked));
+        swept.set(weight, column);
+      }
     }
   }
 
@@ -444,6 +476,21 @@ async function main(): Promise<void> {
             semanticVerbatim: score(semanticVerbatim),
           }),
     },
+    // **The sweep, when one was asked for**, each column scored and paired against the lexical list it is a re-weighting
+    // of. A column that beats 0.7930 is a weight the product could adopt; a column that does not is evidence that the
+    // channel is not a channel this corpus can use, and both are results.
+    ...(swept.size === 0
+      ? {}
+      : {
+          semanticSweep: Object.fromEntries(
+            [...swept.entries()]
+              .sort((a, b) => a[0] - b[0])
+              .map(([weight, column]) => [
+                String(weight),
+                { ...score(column), paired: compareArms(column, paraphraseFederated) },
+              ]),
+          ),
+        }),
     paired: {
       // **The two questions this file exists to answer.** The first is what wording costs; the other two are what the
       // three neighbouring repositories cost, asked once under each wording - because a scope that helps by three
