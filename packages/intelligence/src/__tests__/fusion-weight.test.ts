@@ -69,7 +69,11 @@ describe('selfEvidence', () => {
   });
 
   it('is one when the answer carries every term of the question', () => {
-    const node = makeNode({ id: 1, name: 'signSessionCookie', docstring: 'Sign the session cookie' });
+    const node = makeNode({
+      id: 1,
+      name: 'signSessionCookie',
+      docstring: 'Sign the session cookie',
+    });
     // `tokenize` splits camelCase, so the question and the name meet on the same four terms.
     expect(selfEvidence('sign session cookie', node)).toBe(1);
   });
@@ -94,7 +98,11 @@ describe('selfEvidence', () => {
 });
 
 describe('deriveVectorWeight', () => {
-  const answer = makeNode({ id: 1, name: 'signSessionCookie', docstring: 'Sign the session cookie' });
+  const answer = makeNode({
+    id: 1,
+    name: 'signSessionCookie',
+    docstring: 'Sign the session cookie',
+  });
   const spare = makeNode({ id: 2, name: 'renderPage' });
 
   it('trusts the lexical list when the question is answered in the index own words', () => {
