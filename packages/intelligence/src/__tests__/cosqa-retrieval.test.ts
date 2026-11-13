@@ -32,7 +32,14 @@ import { mapWithConcurrency, recordArtifact } from '@code-analyzer/shared';
 import { describe, expect, it } from 'vitest';
 
 import { DeepSeekProvider } from '../review/llm/provider.js';
-import { deriveVectorWeight, selfEvidence, FUSION_WEIGHT_BOUNDS } from '../search/fusion-weight.js';
+import {
+  channelEvidence,
+  deriveVectorWeight,
+  evidenceRatioWeight,
+  selfEvidence,
+  EVIDENCE_DEPTH,
+  FUSION_WEIGHT_BOUNDS,
+} from '../search/fusion-weight.js';
 import { HybridSearchEngine } from '../search/hybrid-search.js';
 import { compareArms, decodeRanks, encodeRanks } from '../search/paired-stats.js';
 import { rerankCandidates } from '../search/rerank.js';
@@ -486,6 +493,22 @@ describe.skipIf(!DATASET_DIR || !HAS_VECTORS)(
         const derivedWeights: number[] = [];
         const evidences: number[] = [];
         /**
+         * **The two-sided candidate's column, and the two numbers it is made of.**
+         *
+         * `deriveVectorWeight` reads the lexical list alone and §38.1 measured what that costs on a corpus it was not
+         * fitted to: the rule derives the top of the weight range for a paraphrase, and a paraphrase is exactly the case
+         * where *neither* list can spell the question. `evidenceRatioWeight` asks the comparative question instead -
+         * which list carries more of it - and this is the arm that decides whether the comparison is worth the two
+         * extra statistics (§39).
+         *
+         * **The evidence columns are published rather than summarised**, because a rule is a claim about a distribution
+         * and a reader who cannot see the distribution can only take the claim on trust.
+         */
+        const candidateWeights: number[] = [];
+        const candidateRanks: Array<number | null> = [];
+        const lexicalEvidence: number[] = [];
+        const vectorEvidence: number[] = [];
+        /**
          * **The reranker's columns and its bill, keyed `${arm}@${depth}`.**
          *
          * The arm is in the key because the two arms are reranked in the same run (§28's rule: a difference smaller than
@@ -613,6 +636,27 @@ describe.skipIf(!DATASET_DIR || !HAS_VECTORS)(
           );
           derivedWeights.push(derivedWeight);
           evidences.push(selfEvidence(row.doc, lexicalHits[0]?.node));
+
+          // **The comparison, computed from the same two prefixes the arm above fused** - so the two columns differ in
+          // the rule and in nothing else: no second search, no model, no wider list. Two numbers, one division.
+          const lexicalAtProductDepth = lexicalHits
+            .slice(0, DEPTH)
+            .map((hit) => ({ node: hit.node, score: hit.score }));
+          const vectorAtProductDepth = vectorHits
+            .slice(0, DEPTH)
+            .map((hit) => ({ node: hit.node, score: hit.score }));
+          const lexicalShare = channelEvidence(row.doc, lexicalAtProductDepth, EVIDENCE_DEPTH);
+          const vectorShare = channelEvidence(row.doc, vectorAtProductDepth, EVIDENCE_DEPTH);
+          lexicalEvidence.push(lexicalShare);
+          vectorEvidence.push(vectorShare);
+          const candidateWeight = evidenceRatioWeight(
+            lexicalAtProductDepth,
+            vectorAtProductDepth,
+            row.doc,
+          );
+          candidateWeights.push(candidateWeight);
+          candidateRanks.push(rankOf(fuseAt(DEPTH, candidateWeight), index));
+
           for (const depth of RERANK_DEPTHS) {
             derivedByDepth.get(depth)!.push(rankOf(fuseAt(depth, derivedWeight), index));
           }
@@ -831,6 +875,28 @@ describe.skipIf(!DATASET_DIR || !HAS_VECTORS)(
               p90: percentile(evidences, 0.9),
             },
           },
+          // **The two-sided candidate, beside the one-sided rule it would replace** - measured here and nowhere else
+          // until this run, because a rule that only its own unit test had called is a rule with no figure (§39).
+          candidate: {
+            ...score(candidateRanks),
+            weight: {
+              min: percentile(candidateWeights, 0),
+              p10: percentile(candidateWeights, 0.1),
+              p50: percentile(candidateWeights, 0.5),
+              p90: percentile(candidateWeights, 0.9),
+              max: percentile(candidateWeights, 1),
+              atFloor: candidateWeights.filter((w) => w === FUSION_WEIGHT_BOUNDS.min).length,
+              atCeiling: candidateWeights.filter((w) => w === FUSION_WEIGHT_BOUNDS.max).length,
+            },
+            evidence: {
+              lexicalP50: percentile(lexicalEvidence, 0.5),
+              vectorP50: percentile(vectorEvidence, 0.5),
+              // **The share of questions the two-sided rule gives the vector list more than half the vote**, which is
+              // the number that says whether the rule discriminates at all or simply sits near one.
+              vectorAhead: lexicalEvidence.filter((value, at) => vectorEvidence[at]! > value)
+                .length,
+            },
+          },
           // **Where the ceiling is, channel by channel.** `neither` is the number of questions no widening of these two
           // lists can help, and it is the honest denominator for "a better first stage" - every other question has its
           // answer somewhere in the pool and is a ranking problem rather than a recall one.
@@ -945,6 +1011,16 @@ describe.skipIf(!DATASET_DIR || !HAS_VECTORS)(
             derived: encodeRanks(derivedRanks),
             vectorWeight: encodeRanks(derivedWeights),
             selfEvidence: evidences.map((value) => Math.round(value * 1_000) / 1_000).join(','),
+            candidate: encodeRanks(candidateRanks),
+            candidateWeight: encodeRanks(candidateWeights),
+            // **The two numbers the candidate is made of**, at the same three decimals a rank is written at, so a
+            // reader can recompute `candidateWeight` from this artifact without the corpus, the key or the model.
+            lexicalEvidence: lexicalEvidence
+              .map((value) => Math.round(value * 1_000) / 1_000)
+              .join(','),
+            vectorEvidence: vectorEvidence
+              .map((value) => Math.round(value * 1_000) / 1_000)
+              .join(','),
             ...(provider
               ? {
                   reranked: encodeRanks(rerankedRanks),
@@ -967,6 +1043,11 @@ describe.skipIf(!DATASET_DIR || !HAS_VECTORS)(
               : {
                   fusedDerivedVsConstant: compareArms(derivedRanks, fusedRanksByDepth.get(DEPTH)!),
                 }),
+            // **The candidate against both things it could be adopted over**: the one-sided rule it would replace and
+            // the lexical list it would still have to beat. A rule that only beat its predecessor while losing to no
+            // fusion at all would be a rule that should be turned off, and the two pairs are what tell them apart.
+            candidateVsDerived: compareArms(candidateRanks, derivedRanks),
+            candidateVsLexical: compareArms(candidateRanks, lexicalRanks),
             ...(provider && RERANK_DEPTHS.length > 1
               ? {
                   rerankDepthPairs: Object.fromEntries(
@@ -1030,6 +1111,17 @@ describe.skipIf(!DATASET_DIR || !HAS_VECTORS)(
             `semanticWeight ${derivedWeights.filter((w) => w === FUSION_WEIGHT_BOUNDS.max).length} ` +
             `neutral ${derivedWeights.filter((w) => w === 1).length} ` +
             `evidence p10 ${percentile(evidences, 0.1)} p50 ${percentile(evidences, 0.5)} p90 ${percentile(evidences, 0.9)}`,
+        );
+
+        // **The two-sided candidate, on one line**, with the two distributions it is a function of: a reader decides
+        // between the rules from this line and the one above it, which is why they print the same columns.
+        // eslint-disable-next-line no-console
+        console.log(
+          `COSQA-CANDIDATE R@1 ${score(candidateRanks).recallAt1} R@5 ${score(candidateRanks).recallAt5} R@10 ${score(candidateRanks).recallAt10} MRR ${score(candidateRanks).mrrAt10} found ${score(candidateRanks).foundAt10} ` +
+            `weight min ${percentile(candidateWeights, 0)} p50 ${percentile(candidateWeights, 0.5)} max ${percentile(candidateWeights, 1)} ` +
+            `atFloor ${candidateWeights.filter((w) => w === FUSION_WEIGHT_BOUNDS.min).length} atCeiling ${candidateWeights.filter((w) => w === FUSION_WEIGHT_BOUNDS.max).length} ` +
+            `lexicalEvidence p50 ${percentile(lexicalEvidence, 0.5)} vectorEvidence p50 ${percentile(vectorEvidence, 0.5)} ` +
+            `vectorAhead ${lexicalEvidence.filter((value, at) => vectorEvidence[at]! > value).length}`,
         );
 
         // **The paired verdicts, on one line each**, because the job summary is where a reader decides whether a
@@ -1102,6 +1194,7 @@ describe.skipIf(!DATASET_DIR || !HAS_VECTORS)(
           ['lexical', artifact.perQuestion.lexical, lexicalRanks],
           ['fused', artifact.perQuestion.fused, fusedRanksByDepth.get(DEPTH)!],
           ['derived', artifact.perQuestion.derived, derivedRanks],
+          ['candidate', artifact.perQuestion.candidate, candidateRanks],
         ];
         for (const [name, encoded, source] of columns) {
           const decoded = decodeRanks(encoded, rows.length);

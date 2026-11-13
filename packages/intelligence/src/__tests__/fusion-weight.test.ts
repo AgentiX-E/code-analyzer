@@ -20,10 +20,13 @@ import { describe, expect, it } from 'vitest';
 
 import { retrieveContext } from '../qa/ask.js';
 import {
+  EVIDENCE_DEPTH,
   FUSION_WEIGHT_BOUNDS,
   SELF_EVIDENCE_CONFIDENT,
   SELF_EVIDENCE_GUESSING,
+  channelEvidence,
   deriveVectorWeight,
+  evidenceRatioWeight,
   selfEvidence,
 } from '../search/fusion-weight.js';
 import { HybridSearchEngine } from '../search/hybrid-search.js';
@@ -144,6 +147,148 @@ describe('deriveVectorWeight', () => {
     expect(SELF_EVIDENCE_GUESSING).toBeLessThan(SELF_EVIDENCE_CONFIDENT);
     expect(FUSION_WEIGHT_BOUNDS.min).toBeGreaterThan(0);
     expect(FUSION_WEIGHT_BOUNDS.max).toBeGreaterThan(1);
+  });
+});
+
+/**
+ * **The one-sided rule, falsified on a corpus it was not fitted to - and the two-sided rule that replaces the question
+ * it asked.**
+ *
+ * `deriveVectorWeight` reads only the lexical list. Its three outcomes are read off one number, so **a question whose
+ * answer nothing in the index can spell is pushed to the top of the weight range whether or not the vector list can
+ * spell it either** - and on four released repositories the vector list cannot: the rewritten-question corpus scores
+ * **0.6500** at the weight the rule derives and **0.7930** at the lexical list alone (§38.1). The rule was fitted where
+ * the vector channel was the stronger one (CoSQA: 340 answers in its top ten against the lexical channel's 206) and
+ * applied where it is the weaker one.
+ *
+ * The question the weight actually asks is **not** "can the lexical list spell this question" but **"which of the two
+ * lists can spell it better"**, and that is a comparison. {@link channelEvidence} makes it from the answers each channel
+ * already returned - no model, no labels, no second search - and {@link evidenceRatioWeight} turns the comparison into
+ * the weight: **a channel's vote is worth as much as the share of the question its own answers carry.**
+ *
+ * **These tests pin the arithmetic, not an adoption.** The rule is a candidate until a run has measured it beside the
+ * lexical list on every corpus (`EVAL-CONTRACT.md` §39), and the product still fuses with the one-sided rule.
+ */
+describe('channelEvidence', () => {
+  const answer = makeNode({
+    id: 1,
+    name: 'signSessionCookie',
+    docstring: 'Sign the session cookie',
+  });
+  const other = makeNode({ id: 2, name: 'renderPage' });
+
+  it('is zero for a list that returned nothing', () => {
+    expect(channelEvidence('sign the session cookie', [])).toBe(0);
+  });
+
+  it('averages the answers the channel stands behind, not only its first', () => {
+    // The top answer carries nothing, the next two carry everything: a channel that found the answer twice is not a
+    // channel that found it never, and a top-one read would report the empty first slot as its verdict.
+    const evidence = channelEvidence(
+      'sign the session cookie',
+      list([other, answer, answer], [9, 8, 7]),
+    );
+    expect(evidence).toBeCloseTo(2 / 3, 10);
+  });
+
+  it('reads no further than its depth, so a long list cannot buy evidence with its tail', () => {
+    const tail = Array.from({ length: EVIDENCE_DEPTH }, (_, at) =>
+      makeNode({ id: 10 + at, name: `filler${at}` }),
+    );
+    const withAnswerInTail = list([...tail, answer], [9, 8, 7, 6, 5, 4]);
+    expect(EVIDENCE_DEPTH).toBe(5);
+    expect(channelEvidence('sign the session cookie', withAnswerInTail)).toBe(0);
+    // …and the same answer one slot earlier is inside the window, which is what makes the assertion above about the
+    // depth rather than about the answer.
+    expect(
+      channelEvidence('sign the session cookie', list([...tail.slice(0, 4), answer], [])),
+    ).toBe(1 / 5);
+  });
+});
+
+describe('evidenceRatioWeight', () => {
+  const talkative = makeNode({
+    id: 1,
+    name: 'signSessionCookie',
+    docstring: 'Sign the session cookie',
+  });
+  const quiet = makeNode({ id: 2, name: 'renderPage' });
+
+  it('claims nothing when one of the two lists is empty', () => {
+    // The same reasoning as `deriveVectorWeight`: with one list the weight multiplies every candidate and cannot
+    // reorder them, so a derived number there would be a comparison reported that never happened.
+    expect(evidenceRatioWeight(list([talkative], [40]), [], 'sign the session cookie')).toBe(1);
+    expect(evidenceRatioWeight([], list([talkative], [0.9]), 'sign the session cookie')).toBe(1);
+  });
+
+  it('claims nothing when both lists carry the question equally', () => {
+    // **The case the one-sided rule got wrong and this one gets right by construction.** A symbol looked up from its
+    // own doc comment is found by both channels and described by both, so there is no side to take - and the doc-comment
+    // sweep agrees: MRR 0.9711 at weight one against 0.9718 at a tenth, a difference of seven ten-thousandths.
+    const both = list([talkative], [40]);
+    expect(evidenceRatioWeight(both, list([talkative], [0.9]), 'sign the session cookie')).toBe(1);
+    // The one-sided rule moved a tenth of the way for exactly this question, which is the disagreement.
+    expect(deriveVectorWeight(both, list([talkative], [0.9]), 'sign the session cookie')).toBe(
+      FUSION_WEIGHT_BOUNDS.min,
+    );
+  });
+
+  it('gives the vector list less when it carries less of the question', () => {
+    // Lexical carries three of four terms, vector one of four: the ratio is (0.25 + 0.05) / (0.75 + 0.05) = 0.375, which
+    // is where the four-repository sweep finds its optimum (0.35, §38.7).
+    const lexical = list([talkative], [40]);
+    const vector = list([makeNode({ id: 3, name: 'loadBalancer' })], [0.9]);
+    expect(evidenceRatioWeight(lexical, vector, 'sign session cookie load')).toBeCloseTo(0.375, 10);
+    expect(evidenceRatioWeight(lexical, vector, 'sign session cookie load')).toBeLessThan(1);
+  });
+
+  it('gives the vector list more when the lexical one cannot spell the question at all', () => {
+    // The CoSQA shape: the lexical list is a guess, the vector list found the docstring the question was written from.
+    const weight = evidenceRatioWeight(
+      list([quiet], [12]),
+      list([talkative], [0.9]),
+      'sign the session cookie',
+    );
+    expect(weight).toBe(FUSION_WEIGHT_BOUNDS.max);
+  });
+
+  it('stays inside the bounds the sweeps measured', () => {
+    const cases = [
+      ['sign the session cookie', list([quiet], [1]), list([talkative], [1])],
+      ['sign the session cookie', list([talkative], [1]), list([quiet], [1])],
+      [
+        'sign the session cookie',
+        list([talkative, quiet], [2, 1]),
+        list([quiet, talkative], [2, 1]),
+      ],
+    ] as const;
+    for (const [query, lexical, vector] of cases) {
+      const weight = evidenceRatioWeight(lexical, vector, query);
+      expect(weight).toBeGreaterThanOrEqual(FUSION_WEIGHT_BOUNDS.min);
+      expect(weight).toBeLessThanOrEqual(FUSION_WEIGHT_BOUNDS.max);
+    }
+  });
+
+  it('is monotone in the vector channel evidence', () => {
+    // A rule that sometimes rewarded a better vector list with a smaller vote would not be a rule. Each step adds one
+    // carried term to the vector list and the weight may never fall.
+    const query = 'sign session cookie load';
+    const carries = (count: number): GraphNode =>
+      makeNode({
+        id: 20 + count,
+        name: ['sign', 'session', 'cookie', 'load'].slice(0, count).join(' '),
+      });
+    let previous = 0;
+    for (const count of [0, 1, 2, 3, 4]) {
+      const weight = evidenceRatioWeight(
+        list([talkative], [40]),
+        list([carries(count)], [0.9]),
+        query,
+      );
+      expect(weight).toBeGreaterThanOrEqual(previous);
+      previous = weight;
+    }
+    expect(previous).toBeGreaterThan(1);
   });
 });
 

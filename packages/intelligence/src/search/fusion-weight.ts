@@ -104,3 +104,79 @@ export function deriveVectorWeight(
   if (evidence <= SELF_EVIDENCE_GUESSING) return FUSION_WEIGHT_BOUNDS.max;
   return NEUTRAL_VECTOR_WEIGHT;
 }
+
+/**
+ * **How many of a channel's answers are asked before its vote is decided.**
+ *
+ * Five, because a top-one read of a channel is a read of its luckiest slot: a list whose first answer carries nothing
+ * and whose next four carry the question is a list that found the answer, and `selfEvidence` on `list[0]` would report
+ * it as a list that found nothing. Five is also the cut the CoSQA recall columns are published at (`recallAt5`), so the
+ * statistic is read at a depth the corpus already reports.
+ */
+export const EVIDENCE_DEPTH = 5;
+
+/**
+ * **One term in twenty, which is what stops an empty list from dividing by zero and a thin list from shouting.**
+ *
+ * The ratio is `(vector + λ) / (lexical + λ)`. With `λ` at zero, a lexical list that carries nothing - the paraphrase
+ * case this rule exists for - would send the ratio to infinity on a single stray term. At **0.05 the smoothing is worth
+ * exactly one carried term in twenty**, so it moves a two-term answer by a tenth and a twenty-term answer by a
+ * four-hundredth: **the same absolute slack everywhere, which is the property a smoothing constant should have.**
+ */
+export const EVIDENCE_SMOOTHING = 0.05;
+
+/**
+ * **The share of the question one channel's own answers carry, averaged over the answers it stands behind.**
+ *
+ * This is `selfEvidence` read at {@link EVIDENCE_DEPTH} rather than at the first slot, and it is the half of the weight
+ * that the one-sided rule never computed. **A channel that cannot spell a question has nothing to say about it**, and
+ * "cannot spell" is a fact about the list, not about the corpus: the same index spells a doc comment and cannot spell a
+ * paraphrase of it, and only one of the two is a reason to hand the vote to the other channel.
+ */
+export function channelEvidence(
+  query: string,
+  answers: readonly RankedResult[],
+  depth: number = EVIDENCE_DEPTH,
+): number {
+  const window = answers.slice(0, Math.max(0, depth));
+  if (window.length === 0) return 0;
+
+  let total = 0;
+  for (const answer of window) total += selfEvidence(query, answer.node);
+  return total / window.length;
+}
+
+/**
+ * **The weight as a comparison between the two channels rather than a verdict about one of them - a candidate rule.**
+ *
+ * `deriveVectorWeight` reads the lexical list alone, so its answer is "how much does the index know about this
+ * question". On four released repositories that question has the wrong sign: the rewritten-question corpus scores
+ * **0.6500** at the weight it derives and **0.7930** at the lexical list alone, because a paraphrase is exactly the case
+ * where *neither* channel can spell the question and the rule reads that as a reason to trust the vector one
+ * (`EVAL-CONTRACT.md` §38.1). **The rule was fitted on CoSQA, where the vector channel is the stronger one - 340 answers
+ * in its top ten against the lexical channel's 206 - and applied to a corpus where it is the weaker one.**
+ *
+ * The comparison is the repair: **a channel's vote is worth as much as the share of the question its own answers
+ * carry.** Two channels carrying the same share are two channels with nothing to choose between, and the weight stays
+ * at one; a vector list carrying three times less of the question counts a third, which is where the four-repository
+ * sweep finds its optimum (0.35); a vector list carrying the whole question while the lexical list carries none counts
+ * the bound.
+ *
+ * **This is a candidate and not the product's rule.** Nine hundred and fifty-four questions across two corpora have a
+ * figure for it (§39 records which), a corpus where it loses would retire it, and `deriveVectorWeight` remains what
+ * `search()` and `ask()` call until a run has measured the two side by side.
+ */
+export function evidenceRatioWeight(
+  lexical: readonly RankedResult[],
+  vector: readonly RankedResult[],
+  query: string,
+  depth: number = EVIDENCE_DEPTH,
+): number {
+  if (lexical.length === 0 || vector.length === 0) return NEUTRAL_VECTOR_WEIGHT;
+
+  const ratio =
+    (channelEvidence(query, vector, depth) + EVIDENCE_SMOOTHING) /
+    (channelEvidence(query, lexical, depth) + EVIDENCE_SMOOTHING);
+
+  return Math.min(FUSION_WEIGHT_BOUNDS.max, Math.max(FUSION_WEIGHT_BOUNDS.min, ratio));
+}

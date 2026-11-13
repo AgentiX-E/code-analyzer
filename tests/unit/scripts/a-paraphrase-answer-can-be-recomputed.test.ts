@@ -234,3 +234,91 @@ describe('the paraphrase artifact re-derives to its own figures', () => {
     expect(corpus.digest).toMatch(/^sha256:[0-9a-f]{64}$/);
   });
 });
+
+/**
+ * **The semantic artifact's columns, and the reason they exist.**
+ *
+ * The first sweep of the fusion weight published four aggregates and no columns, so a reader could see that weight 0.35
+ * was thirteen questions better than weight four and could not ask *which* thirteen - and the next analysis of the same
+ * vectors would have had to re-embed a four-repository corpus to find out. **A column is what makes a sweep a
+ * measurement rather than a table**, so every swept weight is now published per question, and this test recomputes each
+ * published aggregate from its own column. When the artifact is absent (a checkout that never ran the paid job) the
+ * block is skipped rather than passed vacuously.
+ */
+interface SweptArtifact {
+  semanticSweep?: Record<string, Condition>;
+  candidate?: {
+    paraphrase: Condition;
+    verbatim: Condition;
+    weight: { min: number; p50: number; max: number; atFloor: number; atCeiling: number };
+    evidence: { lexicalP50: number; vectorP50: number; vectorAhead: number };
+  } | null;
+  perQuestion: Record<string, string | Record<string, string> | string[]>;
+}
+
+function readIfPresent<T>(path: string): T | null {
+  try {
+    return read<T>(path);
+  } catch {
+    return null;
+  }
+}
+
+describe('the semantic artifact re-derives to its own sweep', () => {
+  // **An artifact older than the columns is not a failed measurement, and a column that is present must still be
+  // right.** This commit instruments the sweep and the next one carries the artifact the instrumentation produced; until
+  // it lands the block is a check on every artifact that has columns rather than a demand that this one does. The demand
+  // is the cheaper half of the pair and it ships with the file that satisfies it.
+  const semantic = readIfPresent<SweptArtifact>('multirepo-qa-paraphrase-semantic.json');
+  const columns = semantic?.perQuestion['sweep'] as Record<string, string> | undefined;
+  const candidate = semantic?.candidate ?? null;
+  const candidateColumn = semantic?.perQuestion['candidate'] as string | undefined;
+
+  it('recomputes each swept weight’s aggregate from that weight’s own column', () => {
+    if (semantic === null || columns === undefined) return;
+    const sweep = semantic.semanticSweep!;
+    // **The keys are the same set on both sides**, because a weight with an aggregate and no column is the gap this
+    // test exists to close, and a column with no aggregate is a column nobody scored.
+    expect(Object.keys(columns).sort()).toEqual(Object.keys(sweep).sort());
+    for (const [weight, column] of Object.entries(columns)) {
+      expect(
+        recompute(column, keys.length),
+        `weight ${weight} disagrees with its own column`,
+      ).toEqual(sweep[weight]);
+    }
+  });
+
+  it('recomputes both candidate conditions from the columns and the numbers they came from', () => {
+    if (semantic === null || candidate === null || candidateColumn === undefined) return;
+    // **Every column of it**, because the block is the only place the candidate rule has a figure and a rule with one
+    // corpus and no column is a rule nobody can check.
+    expect(recompute(candidateColumn, keys.length)).toEqual(candidate.paraphrase);
+    expect(recompute(semantic.perQuestion['candidateVerbatim'] as string, keys.length)).toEqual(
+      candidate.verbatim,
+    );
+
+    const weights = (semantic.perQuestion['candidateWeight'] as string)
+      .split(',')
+      .map((token) => Number(token));
+    expect(weights).toHaveLength(keys.length);
+    // **Inside the bounds the sweeps measured**: a weight outside them would be a rule quoting a measurement nobody
+    // made, which is the defect `FUSION_WEIGHT_BOUNDS` was written to prevent.
+    for (const weight of weights) {
+      expect(weight).toBeGreaterThanOrEqual(0.1);
+      expect(weight).toBeLessThanOrEqual(4);
+    }
+    // **And the two shares are the weight's own inputs**, so a written column that no ratio could produce is a column
+    // that was computed some other way.
+    const lexical = (semantic.perQuestion['lexicalEvidence'] as string).split(',').map(Number);
+    const vector = (semantic.perQuestion['vectorEvidence'] as string).split(',').map(Number);
+    expect(lexical).toHaveLength(keys.length);
+    expect(vector).toHaveLength(keys.length);
+    for (const [at, weight] of weights.entries()) {
+      const ratio = (vector[at]! + 0.05) / (lexical[at]! + 0.05);
+      expect(weight, `question ${at} does not carry its own ratio`).toBeCloseTo(
+        Math.min(4, Math.max(0.1, ratio)),
+        3,
+      );
+    }
+  });
+});

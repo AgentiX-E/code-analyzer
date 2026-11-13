@@ -37,6 +37,10 @@ import {
 } from './lib/multirepo-harness.js';
 import { FederatedSearchEngine } from '../packages/intelligence/src/cross-repo/federated-search.js';
 import {
+  channelEvidence,
+  evidenceRatioWeight,
+} from '../packages/intelligence/src/search/fusion-weight.js';
+import {
   DeepSeekProvider,
   LLMRateLimitError,
 } from '../packages/intelligence/src/review/llm/provider.js';
@@ -49,6 +53,18 @@ import { rateLimitDelayMs } from '../packages/intelligence/src/search/rerank.js'
 import { mapWithConcurrency } from '../packages/shared/src/index.js';
 
 const DEPTH = CUT;
+
+/**
+ * **A column of weights or shares, written as the three decimals they are.**
+ *
+ * Not `encodeRanks`: that encoder is a rank's encoder and `decodeRanks` rejects anything that is not a 1-based integer,
+ * so a weight written through it would be a published column its own reader refuses to read. Three decimals is the
+ * resolution every share in this file is computed at, and it is what a reader needs to recompute a weight from the two
+ * shares it came out of.
+ */
+function shareOf(values: readonly number[]): string {
+  return values.map((value) => String(Math.round(value * 1_000) / 1_000)).join(',');
+}
 
 /**
  * **The prompt's version, recorded in the corpus.**
@@ -370,6 +386,24 @@ async function main(): Promise<void> {
   /** One column per swept weight, in the order the weights were given. */
   const swept = new Map<number, Array<number | null>>();
 
+  /**
+   * **The two-sided candidate's columns, and the two numbers it is made of.**
+   *
+   * `deriveVectorWeight` reads the lexical list alone and §38.1 measured what that costs on this corpus: the derived
+   * weight is four for a rewritten question, and four is the worst of the four weights the sweep scored. The rule was
+   * fitted where the vector channel is the stronger one (CoSQA) and applied where it is the weaker one, and **a rule
+   * that reads one side of a compromise cannot notice that**.
+   *
+   * `evidenceRatioWeight` asks the comparative question - which list carries more of the question - and these columns
+   * are what decide whether the comparison is worth adopting (§39). Both conditions are measured, because a rule that
+   * lifts the rewritten questions and costs the quoted ones has moved the defect rather than fixed it.
+   */
+  const candidateParaphrase: Array<number | null> = [];
+  const candidateVerbatim: Array<number | null> = [];
+  const candidateWeights: number[] = [];
+  const lexicalEvidence: number[] = [];
+  const vectorEvidence: number[] = [];
+
   for (const row of accepted) {
     const question = byKey.get(row.key)!;
     const asked = { ...question, text: row.paraphrase };
@@ -421,6 +455,37 @@ async function main(): Promise<void> {
         column.push(rankOf(at.results, asked));
         swept.set(weight, column);
       }
+
+      // **The two lists the engine fused, read before it fused them**, so the candidate weight is a statement about the
+      // retrieval the answer came from and not about a second one. `channels()` builds the same filters `search()`
+      // does: five hundred lines of harness would otherwise be able to disagree with the product about what a channel
+      // is, and the disagreement would look like a rule that does not work.
+      const channels = await semanticEngine.channels(row.paraphrase, { maxResults: DEPTH });
+      const lexicalShare = channelEvidence(row.paraphrase, channels.lexical);
+      const vectorShare = channelEvidence(row.paraphrase, channels.vector);
+      lexicalEvidence.push(lexicalShare);
+      vectorEvidence.push(vectorShare);
+
+      const candidateWeight = evidenceRatioWeight(
+        channels.lexical,
+        channels.vector,
+        row.paraphrase,
+      );
+      candidateWeights.push(candidateWeight);
+
+      const candidate = await semanticEngine.search(row.paraphrase, {
+        maxResults: DEPTH,
+        vectorWeight: candidateWeight,
+      });
+      candidateParaphrase.push(rankOf(candidate.results, asked));
+
+      // **The regression guard, on the same rule.** A candidate that only lifts the rewritten questions is a candidate
+      // that has moved the vector channel's vote, not one that has improved it.
+      const candidateOnQuoted = await semanticEngine.search(row.verbatim, {
+        maxResults: DEPTH,
+        vectorWeight: candidateWeight,
+      });
+      candidateVerbatim.push(rankOf(candidateOnQuoted.results, question));
     }
   }
 
@@ -491,6 +556,45 @@ async function main(): Promise<void> {
               ]),
           ),
         }),
+    // **The two-sided candidate beside the one-sided rule it would replace**, on both conditions, because a rule that
+    // wins on rewritten questions and loses on quoted ones has moved the defect. **`null` when no vectors were
+    // registered**: a candidate weight multiplies a list that does not exist, and a score for it would be a lexical
+    // figure wearing a ratio's name.
+    candidate:
+      semanticEngine === null
+        ? null
+        : {
+            paraphrase: {
+              ...score(candidateParaphrase),
+              paired: compareArms(candidateParaphrase, paraphraseFederated),
+            },
+            verbatim: {
+              ...score(candidateVerbatim),
+              paired: compareArms(candidateVerbatim, verbatimFederated),
+            },
+            weight: {
+              min: Math.min(...candidateWeights),
+              p50: [...candidateWeights].sort((a, b) => a - b)[
+                Math.floor(candidateWeights.length / 2)
+              ]!,
+              max: Math.max(...candidateWeights),
+              atFloor: candidateWeights.filter((weight) => weight <= 0.1).length,
+              atCeiling: candidateWeights.filter((weight) => weight >= 4).length,
+            },
+            evidence: {
+              lexicalP50: [...lexicalEvidence].sort((a, b) => a - b)[
+                Math.floor(lexicalEvidence.length / 2)
+              ]!,
+              vectorP50: [...vectorEvidence].sort((a, b) => a - b)[
+                Math.floor(vectorEvidence.length / 2)
+              ]!,
+              // **How often the two-sided rule gives the vector list more than half the vote.** The one-sided rule put
+              // 467 of 500 CoSQA questions at the ceiling; a rule that puts every question at the ceiling here would be
+              // the same rule with more arithmetic.
+              vectorAhead: lexicalEvidence.filter((value, at) => vectorEvidence[at]! > value)
+                .length,
+            },
+          },
     paired: {
       // **The two questions this file exists to answer.** The first is what wording costs; the other two are what the
       // three neighbouring repositories cost, asked once under each wording - because a scope that helps by three
@@ -512,6 +616,15 @@ async function main(): Promise<void> {
               semanticParaphraseScoped,
               semanticParaphrase,
             ),
+            // **The two rules against each other, and the candidate against the list it has to beat.** A rule that beats
+            // its predecessor while losing to no fusion at all should be turned off, and these two pairs are what tell
+            // them apart.
+            'candidate-vs-derived-paraphrase': compareArms(candidateParaphrase, semanticParaphrase),
+            'candidate-vs-lexical-paraphrase': compareArms(
+              candidateParaphrase,
+              paraphraseFederated,
+            ),
+            'candidate-vs-derived-verbatim': compareArms(candidateVerbatim, semanticVerbatim),
           }),
     },
     perQuestion: {
@@ -526,6 +639,29 @@ async function main(): Promise<void> {
             semanticParaphrase: encodeRanks(semanticParaphrase),
             semanticParaphraseScoped: encodeRanks(semanticParaphraseScoped),
             semanticVerbatim: encodeRanks(semanticVerbatim),
+            // **The candidate's column and the two numbers it is made of.** Without them the candidate block above is a
+            // figure a reader has to trust; with them it is a figure a reader can recompute from the artifact alone,
+            // which is the rule every other column in this file follows.
+            candidate: encodeRanks(candidateParaphrase),
+            candidateVerbatim: encodeRanks(candidateVerbatim),
+            // **Decimals rather than `encodeRanks`**, because a weight is not a rank: `decodeRanks` refuses a
+            // non-integer on purpose, and a column its own reader rejects is a column nobody can check.
+            candidateWeight: shareOf(candidateWeights),
+            lexicalEvidence: shareOf(lexicalEvidence),
+            vectorEvidence: shareOf(vectorEvidence),
+          }),
+      // **One column per swept weight.** The sweep published four aggregates and no columns, so a reader could compare
+      // the totals and could not ask which questions moved between them - and a weight that helps fourteen and hurts one
+      // is a different finding from a weight that helps fifteen, which is what the paired count says and what only the
+      // columns can check. It is also what lets the next sweep be analysed without re-embedding a corpus.
+      ...(swept.size === 0
+        ? {}
+        : {
+            sweep: Object.fromEntries(
+              [...swept.entries()]
+                .sort((a, b) => a[0] - b[0])
+                .map(([weight, column]) => [String(weight), encodeRanks(column)]),
+            ),
           }),
     },
     rejected: rows
@@ -564,6 +700,27 @@ async function main(): Promise<void> {
       `PARAPHRASE semantic paraphrase found@10=${rate(artifact.conditions.semanticParaphrase!)} mrr=${artifact.conditions.semanticParaphrase!.mrr} verbatim found@10=${rate(artifact.conditions.semanticVerbatim!)} mrr=${artifact.conditions.semanticVerbatim!.mrr}`,
     );
   }
+  if (semantic !== null) {
+    const candidate = artifact.candidate!;
+    console.log(
+      `PARAPHRASE-CANDIDATE paraphrase found@10=${rate(candidate.paraphrase)} mrr=${candidate.paraphrase.mrr} ` +
+        `verbatim found@10=${rate(candidate.verbatim)} mrr=${candidate.verbatim.mrr} ` +
+        `vsDerived onlyCandidate=${candidate.paraphrase.paired.onlyA} onlyDerived=${candidate.paraphrase.paired.onlyB} p=${candidate.paraphrase.paired.pValue.toFixed(4)} ` +
+        `vsLexical onlyCandidate=${candidate.paraphrase.paired.onlyA} p=${candidate.paraphrase.paired.pValue.toFixed(4)} ` +
+        `weight min=${candidate.weight.min} p50=${candidate.weight.p50} max=${candidate.weight.max} ` +
+        `atFloor=${candidate.weight.atFloor} atCeiling=${candidate.weight.atCeiling} ` +
+        `lexicalEvidence=${candidate.evidence.lexicalP50} vectorEvidence=${candidate.evidence.vectorP50} vectorAhead=${candidate.evidence.vectorAhead}`,
+    );
+    for (const [name, pair] of Object.entries(artifact.paired).filter(([key]) =>
+      key.startsWith('candidate-'),
+    )) {
+      console.log(
+        `PARAPHRASE-CANDIDATE-PAIRED pair=${name} deltaMrr=${pair.deltaMrr.toFixed(4)} ` +
+          `onlyA=${pair.onlyA} onlyB=${pair.onlyB} p=${pair.pValue.toFixed(4)}`,
+      );
+    }
+  }
+
   // **One line per weight**, because the sweep's whole point is a column a reader can compare with the lexical one it
   // is a re-weighting of - and the paired counts are what say whether a difference is a difference or a coin toss.
   for (const [weight, column] of Object.entries(artifact.semanticSweep ?? {})) {

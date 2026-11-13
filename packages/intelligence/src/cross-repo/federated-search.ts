@@ -5,9 +5,11 @@
 import { EDGE_DEFINES } from '@code-analyzer/shared';
 
 import { resolveRepoScope, type RepoScope } from './search-scope.js';
+import { deriveVectorWeight } from '../search/fusion-weight.js';
 import { HybridSearchEngine } from '../search/hybrid-search.js';
 import { MinHashSimilarity } from '../similarity/minhash.js';
 
+import type { RankedResult } from '../search/hybrid-search.js';
 import type { InMemoryGraphStore } from '@code-analyzer/infra';
 import type { GraphNode, NodeLabel } from '@code-analyzer/shared';
 
@@ -214,28 +216,56 @@ export class FederatedSearchEngine {
    * for two hundred and fifty results from four repositories and keep whichever of its own survived, so a repository
    * whose best match was eleventh answered nothing while the same question asked of it alone answered first.
    */
-  async search(
+  /**
+   * **The two lists this engine fuses, before it fuses them.**
+   *
+   * A weight is a statement about two lists, and neither of them was reachable from here - which is why
+   * `deriveVectorWeight` reads only the lexical one, and why §38.1 caught it reading the wrong side: a rewritten question
+   * shares no word with its answer, the rule sees a lexical list it cannot spell, and it hands the vote to a vector list
+   * that cannot spell it either - **0.6500 against the lexical list's own 0.7930 on four released repositories.**
+   *
+   * The filters are built in one place so that a weight computed from these lists is a weight about the lists `search()`
+   * fuses: same labels, same resolved scope, same depth. A caller that built its own engine to inspect the channels
+   * would be computing a weight from a retrieval the answer never saw.
+   */
+  async channels(
     query: string,
     options: FederatedSearchOptions = {},
-  ): Promise<FederatedSearchResult> {
+  ): Promise<{ lexical: RankedResult[]; vector: RankedResult[] }> {
     if (!query) {
       throw new Error('Search query is required');
     }
 
     const maxResults = options.maxResults ?? 50;
-
-    // **Selectors are resolved against the candidates, not compared to a string.** `repoFilter` used to be a
-    // `Set.has` on `node.projectId`, which is `owner/name` on any real workspace and `name` in every unit fixture - so
-    // the filter matched on fixtures and matched nothing on the four released repositories it was measured on.
     const scope = this.resolveScope(options);
 
-    const ranked = await this.retrieval().search({
+    return this.retrieval().channels({
       query,
       limit: maxResults,
       labels: SYMBOL_LABELS,
       projectIds: scope ? [...scope.selected] : undefined,
-      vectorWeight: options.vectorWeight,
     });
+  }
+
+  async search(
+    query: string,
+    options: FederatedSearchOptions = {},
+  ): Promise<FederatedSearchResult> {
+    // **Selectors are resolved against the candidates, not compared to a string.** `repoFilter` used to be a
+    // `Set.has` on `node.projectId`, which is `owner/name` on any real workspace and `name` in every unit fixture - so
+    // the filter matched on fixtures and matched nothing on the four released repositories it was measured on.
+    const scope = this.resolveScope(options);
+    const maxResults = options.maxResults ?? 50;
+
+    const { lexical, vector } = await this.channels(query, options);
+
+    // **The weight is derived here rather than one layer down, because this is where both lists exist.** The engine
+    // below used to derive it from lists the caller could not see, so a measurement could compare weights but could not
+    // ask *why* a question got the one it got - and a rule that reads one side of a compromise cannot notice when the
+    // other side has nothing to say either (§38.1). Same function, same inputs, one layer closer to the caller.
+    const vectorWeight = options.vectorWeight ?? deriveVectorWeight(lexical, vector, query);
+
+    const ranked = this.retrieval().fuseResults(lexical, vector, 60, maxResults, vectorWeight);
 
     const repoBreakdown: Record<string, number> = {};
     // **`ranked[0]` exists whenever the map below does**, so the divisor is the best score in a non-empty list and the

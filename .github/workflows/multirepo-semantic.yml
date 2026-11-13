@@ -47,9 +47,13 @@ on:
         # by 22 points is measured rather than chosen**: every column the sweep writes is the same vectors, the same
         # questions and the same index, and only the weight differs. Empty means "use the derived weight", which is what
         # the product does and what every figure before this input was measured at.
-        description: 'Fusion weights to sweep, e.g. 0.1,0.35,1,4 (empty uses the derived weight)'
+        # **Five points rather than four, because the sweep's own optimum is between two of them.** 0.1 and 0.35 are
+        # the doc-comment optimum and the four-repository optimum; 1 is the constant the engine shipped; 2 and 4 are the
+        # grid the CoSQA sweep stops at and the value `deriveVectorWeight` returns for a paraphrase. A grid that stopped
+        # at its own best point could not see a curve, and the first run's grid stopped at 4 while CoSQA's best was 4.
+        description: 'Fusion weights to sweep, e.g. 0.1,0.35,1,2,4 (empty uses the derived weight)'
         type: string
-        default: ''
+        default: '0.1,0.35,1,2,4'
 
 concurrency:
   group: multirepo-semantic
@@ -178,6 +182,29 @@ jobs:
         run: |
           set -o pipefail
           npx vitest run tests/unit/scripts/a-paraphrase-answer-can-be-recomputed.test.ts 2>&1 | tee /tmp/multirepo-semantic-gate.log
+
+      # **A fresh artifact must carry the columns, and the gate above tolerates older ones.** That test runs on every
+      # checkout and therefore has to accept an artifact written before the sweep published columns; this step runs only
+      # on the artifact this job just wrote, so it can demand them. **The two together are what stop the tolerance from
+      # becoming the rule.**
+      - name: The artifact this run wrote must publish a column per swept weight
+        run: |
+          set -e
+          node -e "
+          const a = require('./benchmarks/multirepo-qa-paraphrase-semantic.json');
+          const weights = Object.keys(a.semanticSweep ?? {});
+          if (weights.length === 0) { console.error('::error::the run swept no weights, so it measured no curve'); process.exit(1); }
+          const columns = a.perQuestion?.sweep ?? {};
+          for (const weight of weights) {
+            if (typeof columns[weight] !== 'string') {
+              console.error('::error::weight ' + weight + ' has an aggregate and no column, so nobody can ask which questions moved');
+              process.exit(1);
+            }
+          }
+          if (!a.candidate) { console.error('::error::the run did not measure the two-sided candidate rule'); process.exit(1); }
+          if (typeof a.perQuestion?.candidateWeight !== 'string') { console.error('::error::the candidate has a figure and no column'); process.exit(1); }
+          console.log('weights', weights.join(' '), 'columns', Object.keys(columns).length);
+          "
 
       - name: Upload the figures
         if: always()

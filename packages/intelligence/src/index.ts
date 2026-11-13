@@ -5,7 +5,14 @@
 export { HybridSearchEngine, tokenize, cosineSimilarity } from './search/hybrid-search.js';
 export {
   deriveVectorWeight,
+  // **The two-sided candidate**, exported because a measurement has to be able to run it: the corpora publish its
+  // column beside the one-sided rule's (`EVAL-CONTRACT.md` §39), and a rule that only its own test could call would be
+  // a rule nobody measured.
+  evidenceRatioWeight,
+  channelEvidence,
   selfEvidence,
+  EVIDENCE_DEPTH,
+  EVIDENCE_SMOOTHING,
   FUSION_WEIGHT_BOUNDS,
   SELF_EVIDENCE_CONFIDENT,
   SELF_EVIDENCE_GUESSING,

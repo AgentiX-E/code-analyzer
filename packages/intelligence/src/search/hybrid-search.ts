@@ -694,9 +694,20 @@ export class HybridSearchEngine {
   }
 
   /**
-   * Hybrid BM25 + vector search with Reciprocal Rank Fusion (k=60).
+   * **The two lists fusion is a compromise between, before the compromise is made.**
+   *
+   * `search()` used to build them inside itself, which made the fusion weight the one decision a caller could not
+   * inspect and a measurement could not compare: **a weight is a statement about two lists, and neither of them was
+   * reachable from outside**. `deriveVectorWeight` reads only the lexical one for that reason, and §38.1 measured what
+   * reading one side costs - the rule has no way to notice that the vector list cannot spell the question either.
+   *
+   * Exposing the pair is the smallest change that lets a rule read both, and it is a public surface rather than a
+   * test-only door: the two lists are exactly what a reader of a ranked answer wants to see when the fusion order
+   * surprises them.
    */
-  async search(options: SearchOptions): Promise<HybridSearchResult[]> {
+  async channels(
+    options: SearchOptions,
+  ): Promise<{ lexical: RankedResult[]; vector: RankedResult[] }> {
     if (!this.initialized) {
       this.initialize();
     }
@@ -708,22 +719,29 @@ export class HybridSearchEngine {
     };
 
     // BM25 search (synchronous) — serves as candidate pre-filter
-    const bm25Results = this.bm25Search(options.query, filters);
+    const lexical = this.bm25Search(options.query, filters);
 
     // Vector search (async, requires embeddings)
     // Only compute vector similarity for BM25 candidates, not all nodes
     const topK = options.limit ?? 20;
-    const canVectorSearch = this.getEmbeddingForNode && this.embedContent;
-
-    let vectorResults: RankedResult[] = [];
-    if (canVectorSearch) {
+    let vector: RankedResult[] = [];
+    if (this.getEmbeddingForNode && this.embedContent) {
       // **The semantic list is not restricted to the lexical candidates, because that restriction is what made this
       // engine not hybrid.** It scored vectors only for nodes BM25 had already found - so a query whose words appear in
       // no identifier, which is the entire case semantic search exists for, could never surface anything new, and the
       // only thing left for the vector half to do was reshuffle a list it could not extend. Measured on this repository
       // with the real embedding endpoint: **recall@20 0.638 with vectors, 1.000 without.**
-      vectorResults = await this.vectorSearch(options.query, topK, null);
+      vector = await this.vectorSearch(options.query, topK, null);
     }
+
+    return { lexical, vector };
+  }
+
+  /**
+   * Hybrid BM25 + vector search with Reciprocal Rank Fusion (k=60).
+   */
+  async search(options: SearchOptions): Promise<HybridSearchResult[]> {
+    const { lexical: bm25Results, vector: vectorResults } = await this.channels(options);
 
     // **The weight is a property of the question, not of the engine.**
     //
