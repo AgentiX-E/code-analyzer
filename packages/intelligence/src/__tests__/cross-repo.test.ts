@@ -1751,12 +1751,20 @@ describe('Cross-Repo Edge Cases', () => {
   });
 
   it('should handle federated search with groupId filter', async () => {
-    const engine = new FederatedSearchEngine(store);
     const node = createProjectNode('group-a', 'findTarget', 'Function', 'src/target.ts', true);
     store.insertNode(node);
 
-    const result = await engine.search('findTarget', { groupId: 'group-a' });
-    expect(result.totalResults).toBeGreaterThanOrEqual(0);
+    // **A group id is expanded through the manager that owns it**, because a project id is `owner/name` on a real
+    // workspace and comparing a group id to it selects nothing. The assertion was `>= 0`, which an empty answer
+    // satisfies.
+    groupManager.createGroup('group-a', 'a', '');
+    groupManager.addRepo('group-a', 'o', 'group-a', '', '/tmp/group-a');
+    groupManager.setRepoProjectId('group-a', 'o/group-a', 'group-a');
+
+    const scoped = new FederatedSearchEngine(store, groupManager);
+    const result = await scoped.search('findTarget', { groupId: 'group-a' });
+    expect(result.totalResults).toBe(1);
+    expect(result.results[0]!.repo).toBe('group-a');
   });
 
   it('should handle federated search with repoFilter option', async () => {
@@ -2044,13 +2052,29 @@ describe('Cross-Repo Edge Cases', () => {
     expect(result.sourceType).toContain('Function');
   });
 
-  it('should handle federated search with groupId non-matching repos', async () => {
-    const engine = new FederatedSearchEngine(store);
+  it('should answer nothing when the group holds no repository outside the query', async () => {
     const node = createProjectNode('other-group', 'funcName', 'Function', 'src/app.ts', true);
     store.insertNode(node);
 
-    const result = await engine.search('funcName', { groupId: 'different-group' });
-    expect(Array.isArray(result.results)).toBe(true);
+    // The group exists and is indexed, but its one repository is `other-group` - so a question scoped to it may not
+    // answer from `funcName`, which lives elsewhere. The old assertion was `Array.isArray`, true of any answer.
+    const other = createProjectNode(
+      'third-group',
+      'unrelatedHelper',
+      'Function',
+      'src/other.ts',
+      true,
+    );
+    store.insertNode(other);
+
+    groupManager.createGroup('different-group', 'd', '');
+    groupManager.addRepo('different-group', 'o', 'third', '', '/tmp/third');
+    groupManager.setRepoProjectId('different-group', 'o/third', 'third-group');
+
+    const scoped = new FederatedSearchEngine(store, groupManager);
+    const result = await scoped.search('funcName', { groupId: 'different-group' });
+    expect(result.totalResults).toBe(0);
+    expect(result.unmatchedRepoFilters).toEqual([]);
   });
 
   it('should handle federated findSymbol with non-symbol labels', async () => {

@@ -6,6 +6,7 @@ import { InMemoryGraphStore } from '@code-analyzer/infra';
 import { describe, it, expect, beforeEach } from 'vitest';
 
 import { FederatedSearchEngine } from '../../cross-repo/federated-search.js';
+import { RepoGroupManager } from '../../cross-repo/repo-group-manager.js';
 
 import type { GraphNode } from '@code-analyzer/shared';
 
@@ -182,11 +183,19 @@ describe('FederatedSearchEngine — Edge Cases', () => {
     store.insertNode(nodeA);
     store.insertNode(nodeB);
 
-    const result = await engine.search('targetFunc', { groupId: 'group-a' });
-    expect(result.totalResults).toBeGreaterThanOrEqual(0);
-    for (const item of result.results) {
-      expect(item.repo).toBe('group-a');
-    }
+    // **The engine is given the manager that owns the group.** `groupId` used to be compared to `node.projectId`,
+    // which selected nothing on a workspace where a project id is `owner/name`, and the assertion here was
+    // `toBeGreaterThanOrEqual(0)` - true for an empty list and for every list.
+    const manager = new RepoGroupManager();
+    manager.createGroup('group-a', 'a', '');
+    manager.addRepo('group-a', 'o', 'group-a', '', '/tmp/a');
+    manager.setRepoProjectId('group-a', 'o/group-a', 'group-a');
+
+    const scoped = new FederatedSearchEngine(store, manager);
+    const result = await scoped.search('targetFunc', { groupId: 'group-a' });
+
+    expect(result.totalResults).toBe(1);
+    expect(result.results.map((item) => item.repo)).toEqual(['group-a']);
   });
 
   // -------------------------------------------------------------------

@@ -103,6 +103,21 @@ export class RepoGroupManager {
   }
 
   /**
+   * The project ids a group contains, which is what a search has to be scoped by.
+   *
+   * **A repository that was added but never indexed has no project id**, and it is skipped rather than returned as an
+   * empty string: the id is written by the indexer (`setRepoProjectId`) and a scope selected by `''` would match
+   * nothing while looking like a repository.
+   */
+  projectsInGroup(groupId: string): string[] {
+    return this.getRepos(groupId)
+      .map((repo) => repo.projectId)
+      .filter(
+        (projectId): projectId is string => typeof projectId === 'string' && projectId !== '',
+      );
+  }
+
+  /**
    * List all registered groups.
    */
   listGroups(): RepoGroup[] {

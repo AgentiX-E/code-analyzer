@@ -139,39 +139,55 @@ describe('three repositories, three languages, asked across both', () => {
     }
   }, 600_000);
 
-  // **Skipped, with the reason, because the assertion would be a lie in either direction.**
+  // **The skip that stood here for two iterations, and what it was hiding.**
   //
-  // `FederatedSearchEngine.search` over this store **returns 0 results for a symbol that is demonstrably in it** -
-  // the previous test asserts `computeKineticEnergy` is a node and this one cannot find it by name. **Asserting
-  // `> 0` would fail; asserting `=== 0` would freeze a defect as an expectation.** A skip is the third option, and it
-  // is visible in the run rather than silent.
+  // The comment said `FederatedSearchEngine.search` "returns 0 results for a symbol that is demonstrably in it" and
+  // named two possible causes: a registration step this test was not performing, or a repo-scoped store view it did not
+  // build. Neither was the cause. **The search was answering; the filter was broken.** `repoFilter` was compared to
+  // `node.projectId`, which the group indexer writes as `owner/name`, while the filter was given a repository name.
   //
-  // **It is the tenth member of one family**: a query that returns nothing, with nothing to say it returned nothing
-  // for a reason. The engine needs either a registration step this test is not performing or a repo-scoped store view
-  // it does not build - and **finding out which is the next step, not this test's job.**
-  it.skip('answers a question that crosses repositories, and narrows when asked to', async () => {
+  // Measured on four released repositories before the fix: asked **within the repository that holds the answer**,
+  // 0 of 469 questions returned it, while the same questions across all four returned 454. The skip is why that number
+  // did not exist for two iterations, and the sentence above it is why it was not investigated.
+  it('answers a question that crosses repositories, and narrows when asked to', async () => {
     const { store, root } = await index();
     try {
       const engine = new FederatedSearchEngine(store);
 
-      // **Across repositories.** The name alone, with nothing said about which repository holds it.
+      // **Across repositories.** The name alone, with nothing said about which repository holds it. Two of the three
+      // repositories define it, so the answer is not allowed to be a single row either.
       const all = await engine.search('computeKineticEnergy', {});
       expect(all.totalResults).toBeGreaterThan(0);
+      expect(new Set(all.results.map((r) => r.repo))).toEqual(
+        new Set(['AgentiX-E/alpha', 'AgentiX-E/gamma']),
+      );
 
-      // **Within one repository.** A filter must *narrow* - and the assertion is that it returns fewer results than
-      // the unfiltered question, not merely that it returns something.
+      // **Within one repository, by the name a user types.** A filter must *narrow*: fewer results than the
+      // unfiltered question, and every one of them from the repository that was named.
       const oneRepo = await engine.search('computeKineticEnergy', { repoFilter: ['alpha'] });
       expect(oneRepo.totalResults).toBeGreaterThan(0);
-      expect(oneRepo.totalResults).toBeLessThanOrEqual(all.totalResults);
+      expect(oneRepo.totalResults).toBeLessThan(all.totalResults);
+      for (const item of oneRepo.results) expect(item.repo).toBe('AgentiX-E/alpha');
 
-      // **Across languages.** The concept by the part all three spellings share - and the *camelCase* and *snake_case*
-      // spellings both contain it, so a language boundary that is crossed shows up here.
+      // **Across languages.** The concept by the part all three spellings share - camelCase and snake_case both
+      // contain it, so a language boundary that is crossed shows up here. All three repositories must appear.
       const acrossLanguages = await engine.search('kinetic', {});
-      expect(acrossLanguages.totalResults).toBeGreaterThan(0);
-
-      console.log(
-        `MRI crossRepo=${all.totalResults} filtered=${oneRepo.totalResults} acrossLanguages=${acrossLanguages.totalResults}`,
+      expect(new Set(acrossLanguages.results.map((r) => r.repo))).toEqual(
+        new Set(['AgentiX-E/alpha', 'AgentiX-E/beta', 'AgentiX-E/gamma']),
       );
+    } finally {
+      store.close();
+      rmSync(root, { recursive: true, force: true });
+    }
+  }, 600_000);
+
+  it('says when a filter named no repository, instead of answering nothing', async () => {
+    const { store, root } = await index();
+    try {
+      const engine = new FederatedSearchEngine(store);
+      const result = await engine.search('computeKineticEnergy', { repoFilter: ['delta'] });
+      expect(result.totalResults).toBe(0);
+      expect(result.unmatchedRepoFilters).toEqual(['delta']);
     } finally {
       store.close();
       rmSync(root, { recursive: true, force: true });

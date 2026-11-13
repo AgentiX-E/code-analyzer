@@ -410,7 +410,11 @@ describe('every module a package compiles is reachable from an entry its manifes
       // `hybrid-search.ts` **so that the classifier and the index agree about what a word is without the two modules
       // importing each other**. A shared tokenizer reached through a cycle is a tokenizer with two definitions waiting
       // to happen.
-      intelligence: 171,
+      // **172 since iteration 133**, which added `cross-repo/search-scope.ts`. A selector compared to `node.projectId`
+      // is the whole defect: `repoFilter: ['flask']` answered 0 of 469 questions inside the repository that held the
+      // answer, while the same questions unscoped answered 454. The rules of what a selector *means* are a module
+      // because they are arithmetic over identifiers, and the federated engine is not the only reader they will have.
+      intelligence: 172,
       mcp: 39,
       server: 24,
       // **11 since iteration 121**, which added `utils/type-text.ts`: the depth-counted removal of type arguments and

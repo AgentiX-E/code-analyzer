@@ -4,6 +4,7 @@
 
 import { EDGE_DEFINES } from '@code-analyzer/shared';
 
+import { resolveRepoScope, type RepoScope } from './search-scope.js';
 import { MinHashSimilarity } from '../similarity/minhash.js';
 
 import type { InMemoryGraphStore } from '@code-analyzer/infra';
@@ -28,6 +29,25 @@ export interface FederatedSearchResult {
   totalResults: number;
   repoBreakdown: Record<string, number>;
   results: FederatedSearchItem[];
+  /**
+   * Selectors from `repoFilter`/`groupId` that named none of the repositories the store offered as candidates.
+   *
+   * **An empty result set has two causes and only one of them is about the query.** This field is the other one, and
+   * it is reported only when there were candidates to resolve against - a query that found nothing at all cannot say
+   * which selector was at fault.
+   */
+  unmatchedRepoFilters: string[];
+}
+
+/**
+ * What a group id means to the search: the project ids it contains.
+ *
+ * `RepoGroupManager` satisfies this structurally, so the caller passes the manager it already owns rather than a map
+ * it would have to keep in step. **Without a resolver `groupId` throws rather than filtering nothing**, because a
+ * scope option that silently selects the empty set is the defect this interface was introduced to end.
+ */
+export interface RepoScopeResolver {
+  projectsInGroup(groupId: string): string[];
 }
 
 export interface FederatedSearchItem {
@@ -76,7 +96,10 @@ export interface UsageReport {
 export class FederatedSearchEngine {
   private minhash: MinHashSimilarity;
 
-  constructor(private store: InMemoryGraphStore) {
+  constructor(
+    private store: InMemoryGraphStore,
+    private scopes?: RepoScopeResolver,
+  ) {
     this.minhash = new MinHashSimilarity(128);
   }
 
@@ -97,13 +120,17 @@ export class FederatedSearchEngine {
     }
 
     const maxResults = options.maxResults ?? 50;
-    const repoFilter = options.repoFilter ? new Set(options.repoFilter) : null;
 
     // Use the store's FTS search
     const ftsResults = this.store.searchFts(query, {
       limit: maxResults * 5,
       offset: 0,
     });
+
+    // **Selectors are resolved against the candidates, not compared to a string.** `repoFilter` used to be a
+    // `Set.has` on `node.projectId`, which is `owner/name` on any real workspace and `name` in every unit fixture - so
+    // the filter matched on fixtures and matched nothing on the four released repositories it was measured on.
+    const scope = this.resolveScope(options);
 
     const items: FederatedSearchItem[] = [];
     const repoBreakdown: Record<string, number> = {};
@@ -113,9 +140,7 @@ export class FederatedSearchEngine {
       const repo = node.projectId;
 
       // Apply repo filter
-      if (repoFilter && !repoFilter.has(repo)) continue;
-      if (options.groupId && repo !== options.groupId && !repo.startsWith(options.groupId))
-        continue;
+      if (scope && !scope.selected.has(repo)) continue;
 
       // Apply label filter — prefer code symbols over internal nodes
       const isSymbolLabel =
@@ -147,7 +172,44 @@ export class FederatedSearchEngine {
       totalResults: items.length,
       repoBreakdown,
       results: items,
+      unmatchedRepoFilters: scope?.unmatched ?? [],
     };
+  }
+
+  /**
+   * The repositories this question is allowed to answer from, or `null` when it may answer from all of them.
+   *
+   * `groupId` and `repoFilter` compose: a group is expanded through the resolver it was registered with, and an
+   * explicit filter narrows what is left.
+   *
+   * **Selectors are resolved against the store's projects, not against the query's hits.** Resolving against the hits
+   * conflates "this repository exists and holds no match" with "this repository does not exist", which is the
+   * difference the caller needs in order to know whether to fix the filter or the question.
+   */
+  private resolveScope(options: FederatedSearchOptions): RepoScope | null {
+    const filter = options.repoFilter;
+    const groupId = options.groupId;
+
+    // No scope was asked for, so the question may answer from every repository it likes.
+    if (filter === undefined && groupId === undefined) return null;
+
+    const selectors: string[] = [...(filter ?? [])];
+
+    if (groupId !== undefined) {
+      if (!this.scopes) {
+        throw new Error(
+          'groupId requires a repo group resolver: construct FederatedSearchEngine with the RepoGroupManager that owns the group',
+        );
+      }
+      selectors.push(...this.scopes.projectsInGroup(groupId));
+    }
+
+    // **A scope was asked for and it names nothing** - a group whose repositories were added but never indexed. The
+    // answer is the empty set, not every repository: returning everything here would make an unindexed group the
+    // widest scope in the system.
+    if (selectors.length === 0) return { selected: new Set<string>(), unmatched: [] };
+
+    return resolveRepoScope(selectors, this.store.getProjectIds());
   }
 
   // -----------------------------------------------------------------------

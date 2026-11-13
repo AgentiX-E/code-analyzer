@@ -1215,6 +1215,19 @@ export class InMemoryGraphStore {
     return Array.from(this.nodes.values()).map((n) => this.toGraphNode(n));
   }
 
+  /**
+   * Every project id the store holds a node for.
+   *
+   * **This is the question a "did my filter name a repository?" check has to ask**, and it is not answerable from a
+   * query's own results: scoping `toJson` to a group whose repositories do not define `toJson` used to be
+   * indistinguishable from scoping it to a group that does not exist. The project index already answers it, so the
+   * method is a read of that index and not a scan of every node.
+   */
+  getProjectIds(): string[] {
+    this.ensureOpen();
+    return Array.from(this.projectNodesIndex.keys());
+  }
+
   getAllEdges(): GraphEdge[] {
     this.ensureOpen();
     return Array.from(this.edges.values()).map((e) => this.toGraphEdge(e));

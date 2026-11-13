@@ -396,7 +396,9 @@ export class ToolContextImpl implements ToolContext {
 
   getFederatedSearch(): FederatedSearchEngine {
     if (!this._federatedSearch) {
-      this._federatedSearch = new FederatedSearchEngine(this.store);
+      // **The group manager is what makes `groupId` mean anything.** Without it the engine throws rather than
+      // filtering nothing, so a scoped question could not be asked through this surface at all.
+      this._federatedSearch = new FederatedSearchEngine(this.store, this.getRepoGroupManager());
     }
     return this._federatedSearch;
   }
