@@ -213,3 +213,83 @@ describe('rerankCandidates', () => {
     expect(result.answer).toBe('I would rather not.');
   });
 });
+
+describe('the reranker reports what it was billed rather than what it was expected to cost', () => {
+  /** A three-candidate pool: enough for a reorder, small enough to write down. */
+  const pool = [candidate(1, 'a'), candidate(2, 'b'), candidate(3, 'c')];
+
+  /** A provider that answers with a fixed text and a bill. */
+  const billing = (
+    content: string,
+    extra: { usage?: unknown; costUsd?: number; model?: string } = {},
+  ): LLMProvider =>
+    ({
+      name: 'billing',
+      complete: async () => ({
+        content,
+        model: extra.model ?? 'deepseek-chat',
+        createdAt: new Date(0).toISOString(),
+        finishReason: 'stop',
+        ...(extra.usage === undefined ? {} : { usage: extra.usage }),
+        ...(extra.costUsd === undefined ? {} : { costUsd: extra.costUsd }),
+      }),
+    }) as unknown as LLMProvider;
+
+  it('carries the model, the tokens and the priced amount out of the call', async () => {
+    // **Every cost figure this repository published for the reranker was an estimate** ("~0.70 USD for two arms"), while
+    // the provider had been returning the tokens and the amount all along. This is the difference between the two.
+    const result = await rerankCandidates(
+      'q',
+      pool,
+      describeCandidate,
+      billing('2 1 3', {
+        usage: { promptTokens: 1_800, completionTokens: 40, totalTokens: 1_840 },
+        costUsd: 0.000_521,
+      }),
+    );
+    expect(result.applied).toBe(true);
+    expect(result.cost).toMatchObject({
+      model: 'deepseek-chat',
+      usage: { promptTokens: 1_800, completionTokens: 40, totalTokens: 1_840 },
+      usd: 0.000_521,
+    });
+  });
+
+  it('keeps an unpriced model unpriced rather than free', async () => {
+    // **A zero is absorbed by any total**, and a bill that reports an unknown model as costing nothing is worse than one
+    // that reports it as unknown. The price table refuses; this refuses the same way.
+    const result = await rerankCandidates(
+      'q',
+      pool,
+      describeCandidate,
+      billing('1 2 3', { usage: { promptTokens: 10, completionTokens: 2, totalTokens: 12 } }),
+    );
+    expect(result.cost).toBeDefined();
+    expect(result.cost?.usd).toBeUndefined();
+    expect(result.cost?.usage?.promptTokens).toBe(10);
+  });
+
+  it('records a bill for a call that answered nothing usable', async () => {
+    // **The prompt was paid for whether or not the parser could read the answer**, and an arm whose completions the
+    // model ignored would otherwise report as the cheapest one.
+    const result = await rerankCandidates('q', pool, describeCandidate, billing('no idea'));
+    expect(result.applied).toBe(false);
+    expect(result.cost?.model).toBe('deepseek-chat');
+  });
+
+  it('has no bill when nothing was sent', async () => {
+    // A failure, a single candidate and an absent provider are three ways not to call a model, and none of them costs
+    // anything - an attributable zero here would be a real zero rather than an unknown, and the field is absent.
+    const failing = {
+      name: 'failing',
+      complete: async () => {
+        throw new Error('429 rate limited');
+      },
+    } as unknown as LLMProvider;
+    expect((await rerankCandidates('q', pool, describeCandidate, failing)).cost).toBeUndefined();
+    expect((await rerankCandidates('q', pool, describeCandidate, null)).cost).toBeUndefined();
+    expect(
+      (await rerankCandidates('q', [candidate(1, 'only')], describeCandidate, billing('1'))).cost,
+    ).toBeUndefined();
+  });
+});

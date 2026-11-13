@@ -20,6 +20,7 @@
 // 2. **A failure returns the input.** No provider, a timeout, or an answer that parses to nothing leaves the fused
 //    order exactly as it was, and says so.
 
+import type { LLMTokenUsage } from '../review/llm/cost.js';
 import type { LLMProvider } from '../review/llm/provider.js';
 
 /** One candidate, as the prompt shows it and the caller gets it back. */
@@ -45,6 +46,24 @@ export interface RerankResult<T extends { rank: number }> {
   reason?: string;
   /** The raw answer, kept for a reader debugging a prompt rather than a score. */
   answer?: string;
+  /**
+   * **What the call was billed, when a call was made.**
+   *
+   * A reranker is the one stage of retrieval that costs money per query, and every figure this repository published
+   * about it was an estimate from a per-call average: *"~0.70 USD for two arms"*. **The provider already returns the
+   * tokens and the priced amount**, so a measurement that reports an estimate beside a returned number is reporting
+   * the weaker of the two. Absent when nothing was sent - no provider, one candidate, a transport failure.
+   */
+  cost?: RerankCost;
+}
+
+/** The bill for one completion, in the provider's own terms. */
+export interface RerankCost {
+  model: string;
+  /** Tokens as the vendor reported them, with the cache split when it sent one. */
+  usage?: LLMTokenUsage;
+  /** **`undefined` for a model the price table cannot price**, never `0` - see `costUsdOf`. */
+  usd?: number;
 }
 
 /**
@@ -168,6 +187,7 @@ export async function rerankCandidates<T extends { rank: number }>(
   }
 
   let answer: string;
+  let cost: RerankCost;
   try {
     const completion = await provider.complete(
       rerankPrompt(question, candidates.map(toCandidate)),
@@ -182,6 +202,13 @@ export async function rerankCandidates<T extends { rank: number }>(
       },
     );
     answer = completion.content;
+    // **The bill, carried out of the call rather than estimated outside it.** `costUsd` is absent for a model the price
+    // table does not know, and it stays absent: a measured zero and an unknown price are different facts.
+    cost = {
+      model: completion.model,
+      ...(completion.usage ? { usage: completion.usage } : {}),
+      ...(completion.costUsd === undefined ? {} : { usd: completion.costUsd }),
+    };
   } catch (error) {
     // **A rerank that fails must not fail the search**: the fused order is a valid answer, and the caller keeps it.
     return {
@@ -198,6 +225,9 @@ export async function rerankCandidates<T extends { rank: number }>(
       applied: false,
       reason: 'the answer contained no usable candidate number',
       answer,
+      // **A call that was billed and answered nothing is still a bill**, and a ledger that dropped it would report the
+      // cheapest arm as the one whose prompts the model ignored.
+      cost,
     };
   }
   const ordered = applyOrder(candidates, order);
@@ -207,5 +237,6 @@ export async function rerankCandidates<T extends { rank: number }>(
     applied,
     ...(applied ? {} : { reason: 'the answer kept the fused order' }),
     answer,
+    cost,
   };
 }
