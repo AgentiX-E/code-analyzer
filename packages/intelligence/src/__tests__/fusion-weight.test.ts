@@ -18,6 +18,7 @@
 import { InMemoryGraphStore } from '@code-analyzer/infra';
 import { describe, expect, it } from 'vitest';
 
+import { retrieveContext } from '../qa/ask.js';
 import {
   FUSION_WEIGHT_BOUNDS,
   SELF_EVIDENCE_CONFIDENT,
@@ -25,7 +26,6 @@ import {
   deriveVectorWeight,
   selfEvidence,
 } from '../search/fusion-weight.js';
-import { retrieveContext } from '../qa/ask.js';
 import { HybridSearchEngine } from '../search/hybrid-search.js';
 
 import type { RankedResult } from '../search/hybrid-search.js';
