@@ -799,6 +799,15 @@ describe.skipIf(!DATASET_DIR || !HAS_VECTORS)(
                         rescued: rescuedByKey.get(`constant@${depth}`)!,
                         lost: lostByKey.get(`constant@${depth}`)!,
                       },
+                      // **The two arms tested against each other *at this depth*.** The top-level
+                      // `paired.rerankedDerivedVsConstant` is the arm's own depth only, so a two-depth artifact used to
+                      // publish an arm contrast its reader could not test at the second depth - a figure without
+                      // evidence, which is the defect the whole `paired` block exists to remove. It is arithmetic on
+                      // columns already in memory, so it costs nothing to publish it at every depth instead of one.
+                      paired: compareArms(
+                        rerankedByKey.get(`derived@${depth}`)!,
+                        rerankedByKey.get(`constant@${depth}`)!,
+                      ),
                     },
                   ]),
                 ),
@@ -1030,6 +1039,28 @@ describe.skipIf(!DATASET_DIR || !HAS_VECTORS)(
           // read as a finding.
           expect(pair.mrrInterval[0]).toBeLessThanOrEqual(pair.deltaMrr);
           expect(pair.mrrInterval[1]).toBeGreaterThanOrEqual(pair.deltaMrr);
+        }
+
+        // **Every depth that publishes two arms publishes the test between them.** The arm contrast is the one number a
+        // reader is most likely to quote, and a depth without it is a depth that can be quoted but not checked.
+        const rerankByDepth = (
+          artifact as { rerankByDepth?: Record<string, { paired: ReturnType<typeof compareArms> }> }
+        ).rerankByDepth;
+        if (rerankByDepth) {
+          for (const [depth, entry] of Object.entries(rerankByDepth)) {
+            expect(entry.paired.queries, `rerankByDepth.${depth}.paired covers a subset`).toBe(
+              rows.length,
+            );
+            // **And it must be the verdict of the columns printed beside it**, recomputed here from those columns
+            // rather than trusted: a block that carried the arm's own depth by copy would agree with a neighbour it
+            // did not measure, and no reader could tell.
+            expect(entry.paired).toEqual(
+              compareArms(
+                rerankedByKey.get(`derived@${depth}`)!,
+                rerankedByKey.get(`constant@${depth}`)!,
+              ),
+            );
+          }
         }
       } finally {
         rmSync(workdir, { recursive: true, force: true });
