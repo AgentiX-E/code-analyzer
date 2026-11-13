@@ -32,6 +32,7 @@ import { recordArtifact } from '@code-analyzer/shared';
 import { describe, expect, it } from 'vitest';
 
 import { DeepSeekProvider } from '../review/llm/provider.js';
+import { deriveVectorWeight, selfEvidence, FUSION_WEIGHT_BOUNDS } from '../search/fusion-weight.js';
 import { HybridSearchEngine } from '../search/hybrid-search.js';
 import { rerankCandidates } from '../search/rerank.js';
 
@@ -165,6 +166,19 @@ function score(ranks: Array<number | null>): Metrics {
     ),
     foundAt10: within(10),
   };
+}
+
+/**
+ * **A quantile of the evidence the classifier saw, so the split can be checked rather than trusted.**
+ *
+ * Nearest-rank rather than an interpolated quantile: the values are a share of a small set of distinct terms, and an
+ * interpolated 0.5 would report a number between two of them that no question produced.
+ */
+function percentile(values: number[], q: number): number {
+  if (values.length === 0) return 0;
+  const sorted = [...values].sort((a, b) => a - b);
+  const at = Math.min(sorted.length - 1, Math.max(0, Math.ceil(q * sorted.length) - 1));
+  return Math.round(sorted[at]! * 10000) / 10000;
 }
 
 /** Whether a 1-based rank is inside the published cut. **`null` is absent rather than last**, so it is never inside. */
@@ -405,6 +419,16 @@ describe.skipIf(!DATASET_DIR || !HAS_VECTORS)(
         const fusedRanksByWeight = new Map<number, Array<number | null>>(
           VECTOR_WEIGHTS.map((weight) => [weight, [] as Array<number | null>]),
         );
+        // **The arm the product now runs**: one weight per question, read off the lexical answer's own words.
+        //
+        // §29 established that the two corpora point in opposite directions and that one constant must therefore be
+        // wrong for one of them; §30 replaces the constant with `deriveVectorWeight`, and **this is the column that says
+        // whether the replacement beats the constant it replaced on the corpus that motivated it**. The weight is
+        // derived from the same two lists the arm fuses - not from a wider one - because a weight computed from a list
+        // the caller never sees is a measurement of a different retrieval.
+        const derivedRanks: Array<number | null> = [];
+        const derivedWeights: number[] = [];
+        const evidences: number[] = [];
         const rerankedRanks: Array<number | null> = [];
         const provider = CAN_ASK_A_MODEL ? new DeepSeekProvider({ timeout: 60_000 }) : null;
         let reranked = 0;
@@ -463,6 +487,19 @@ describe.skipIf(!DATASET_DIR || !HAS_VECTORS)(
                   );
             fusedRanksByWeight.get(weight)!.push(rankOf(fusedAtWeight, index));
           }
+
+          const lexicalSlice = lexicalHits
+            .slice(0, DEPTH)
+            .map((hit) => ({ node: hit.node, score: hit.score }));
+          const vectorSlice = vectorHits
+            .slice(0, DEPTH)
+            .map((hit) => ({ node: hit.node, score: hit.score }));
+          const derivedWeight = deriveVectorWeight(lexicalSlice, vectorSlice, row.doc);
+          derivedWeights.push(derivedWeight);
+          evidences.push(selfEvidence(row.doc, lexicalHits[0]?.node));
+          derivedRanks.push(
+            rankOf(hybrid.fuseResults(lexicalSlice, vectorSlice, 60, DEPTH, derivedWeight), index),
+          );
 
           const fusedRank = fusedRanksByDepth.get(DEPTH)![index]!;
 
@@ -579,6 +616,22 @@ describe.skipIf(!DATASET_DIR || !HAS_VECTORS)(
               score(fusedRanksByWeight.get(weight)!),
             ]),
           ),
+          // **The arm the product runs now, beside the constant it replaced.** `weights` is how the 500 questions were
+          // split between the two bounds and the neutral middle, and `selfEvidence` is the statistic that split them -
+          // a figure a reader can check against the corpus rather than a threshold they have to trust.
+          derived: {
+            ...score(derivedRanks),
+            weights: {
+              lexical: derivedWeights.filter((w) => w === FUSION_WEIGHT_BOUNDS.min).length,
+              neutral: derivedWeights.filter((w) => w === 1).length,
+              semantic: derivedWeights.filter((w) => w === FUSION_WEIGHT_BOUNDS.max).length,
+            },
+            selfEvidence: {
+              p10: percentile(evidences, 0.1),
+              p50: percentile(evidences, 0.5),
+              p90: percentile(evidences, 0.9),
+            },
+          },
           // **Where the ceiling is, channel by channel.** `neither` is the number of questions no widening of these two
           // lists can help, and it is the honest denominator for "a better first stage" - every other question has its
           // answer somewhere in the pool and is a ranking problem rather than a recall one.
@@ -635,6 +688,25 @@ describe.skipIf(!DATASET_DIR || !HAS_VECTORS)(
             `COSQA-WEIGHT vector=${weight} R@1 ${at.recallAt1} R@5 ${at.recallAt5} R@10 ${at.recallAt10} MRR ${at.mrrAt10} found ${at.foundAt10}`,
           );
         }
+
+        // **The derived arm, on one line**, beside the constant it replaces: `weights` says how the questions split, so
+        // a reader can tell a classifier that fired from one that never did.
+        // eslint-disable-next-line no-console
+        console.log(
+          `COSQA-DERIVED R@1 ${score(derivedRanks).recallAt1} R@5 ${score(derivedRanks).recallAt5} R@10 ${score(derivedRanks).recallAt10} MRR ${score(derivedRanks).mrrAt10} found ${score(derivedRanks).foundAt10} ` +
+            `lexicalWeight ${derivedWeights.filter((w) => w === FUSION_WEIGHT_BOUNDS.min).length} ` +
+            `semanticWeight ${derivedWeights.filter((w) => w === FUSION_WEIGHT_BOUNDS.max).length} ` +
+            `neutral ${derivedWeights.filter((w) => w === 1).length} ` +
+            `evidence p10 ${percentile(evidences, 0.1)} p50 ${percentile(evidences, 0.5)} p90 ${percentile(evidences, 0.9)}`,
+        );
+
+        // **The acceptance bar for the classifier, on the corpus that motivated it**: the derived arm must find at least
+        // as many answers in the top ten as the constant it replaced. Both arms fuse the same two lists inside this run,
+        // so the comparison carries no embedding call, no model call and none of the run-to-run variance §28 recorded.
+        expect(
+          score(derivedRanks).foundAt10,
+          `the derived weight found ${score(derivedRanks).foundAt10} against the constant's ${score(fusedRanksByDepth.get(DEPTH)!).foundAt10}`,
+        ).toBeGreaterThanOrEqual(score(fusedRanksByDepth.get(DEPTH)!).foundAt10);
 
         // **The only claim this file can make without a comparison**: the product finds the answer at all, and the
         // semantic half is not worse than the lexical one on a corpus neither of them was tuned on.

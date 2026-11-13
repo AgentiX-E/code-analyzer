@@ -3,6 +3,13 @@
 
 // Search
 export { HybridSearchEngine, tokenize, cosineSimilarity } from './search/hybrid-search.js';
+export {
+  deriveVectorWeight,
+  selfEvidence,
+  FUSION_WEIGHT_BOUNDS,
+  SELF_EVIDENCE_CONFIDENT,
+  SELF_EVIDENCE_GUESSING,
+} from './search/fusion-weight.js';
 export type { RankedResult, HybridSearchResult } from './search/hybrid-search.js';
 export { FILE_AGGREGATION, FILE_AGGREGATIONS, rankFiles } from './search/file-ranking.js';
 export type { FileAggregation, PoolEntry, RankedFile } from './search/file-ranking.js';

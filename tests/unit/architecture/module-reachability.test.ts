@@ -397,7 +397,14 @@ describe('every module a package compiles is reachable from an entry its manifes
       // the coordinates a model cannot recover from the text. It is a module because the alternative was a private
       // method on the review engine, and **a window that can only be tested through a provider call is a window nobody
       // tests** - the 21 cases beside it need a file and a diff, not a model.
-      intelligence: 168,
+      //
+      // **170 since iteration 131**, which added `search/fusion-weight.ts` and `search/text-tokens.ts`. The first is
+      // the weight the question chooses rather than the engine - two sweeps disagreed by five points in opposite
+      // directions and a single constant had to be wrong for one of them - and the second is `tokenize` moved out of
+      // `hybrid-search.ts` **so that the classifier and the index agree about what a word is without the two modules
+      // importing each other**. A shared tokenizer reached through a cycle is a tokenizer with two definitions waiting
+      // to happen.
+      intelligence: 170,
       mcp: 39,
       server: 24,
       // **11 since iteration 121**, which added `utils/type-text.ts`: the depth-counted removal of type arguments and

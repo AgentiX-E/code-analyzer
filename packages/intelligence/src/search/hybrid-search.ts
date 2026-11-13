@@ -6,9 +6,21 @@ import { basename, extname } from 'node:path';
 import { InMemoryGraphStore } from '@code-analyzer/infra';
 
 import { DataflowSearchEngine, type DataflowPath } from './dataflow-search.js';
+import { deriveVectorWeight } from './fusion-weight.js';
 import { compareNodeIdentity, sortByScoreThenIdentity } from './ranking.js';
+import { tokenize } from './text-tokens.js';
 
 import type { GraphNode, SearchOptions, NodeLabel } from '@code-analyzer/shared';
+
+/**
+ * **`tokenize` lives in its own module because two things read it and one of them is the fusion weight.**
+ *
+ * `fusion-weight.ts` scores a question against the fields of one answer, and the arithmetic that decides whether a
+ * question and an answer share a word has to be *the index's* arithmetic rather than a second one that agrees until it
+ * does not. Importing it from here would have made the two modules each other's dependency, which is a cycle bought
+ * for a file boundary; moving the function is the cheaper trade, and nothing about it changes.
+ */
+export { tokenize } from './text-tokens.js';
 
 // ---------------------------------------------------------------------------
 // Search-specific interfaces
@@ -103,35 +115,6 @@ function fileStemOf(node: Pick<GraphNode, 'filePath'>): string {
 function distinctTokensOf(body: unknown): string {
   if (typeof body !== 'string' || body === '') return '';
   return [...new Set(tokenize(body))].join(' ');
-}
-
-/** Tokenize an identifier string by splitting on camelCase, snake_case, and kebab-case boundaries.
- * Example: "getUserProfile" -> ["get", "user", "profile"]
- * Example: "process_request" -> ["process", "request"]
- * Example: "my-component" -> ["my", "component"]
- */
-export function tokenize(text: string): string[] {
-  if (!text) return [];
-
-  // Replace separators with spaces
-  const withSpaces = text
-    .replace(/([a-z])([A-Z])/g, '$1 $2') // camelCase
-    .replace(/([A-Z]+)([A-Z][a-z])/g, '$1 $2') // ACRONYMCamel
-    // **Any character that is not a letter or a digit is a boundary**, which is what a word boundary is. The earlier
-    // rule listed `_ - . : /` and that list was complete for identifiers - a qualified name is `file:types:ZodType`,
-    // and splitting on `:` is what stopped `file:types` from being one word - **but it was not complete for text**.
-    // A declaration's body is source, where the words that matter are quoted (`['escape',` kept its brackets and
-    // apostrophe) and a developer's question is prose (`input?` kept its question mark), so the two halves of the
-    // vocabulary could not meet. `\p{L}` and `\p{N}` rather than `a-z0-9`: a letter is a letter in any script, and a
-    // character class that deletes a Chinese identifier is not a tokenizer.
-    .replace(/[^\p{L}\p{N}]+/gu, ' ') // every non-word character: snake_case, kebab-case, paths, quotes, punctuation
-    .replace(/\s+/g, ' ')
-    .trim();
-
-  return withSpaces
-    .split(' ')
-    .map((t) => t.toLowerCase())
-    .filter((t) => t.length > 0);
 }
 
 // ---------------------------------------------------------------------------
@@ -726,8 +709,22 @@ export class HybridSearchEngine {
       vectorResults = await this.vectorSearch(options.query, topK, null);
     }
 
+    // **The weight is a property of the question, not of the engine.**
+    //
+    // The sweeps in `docstring-search.test.ts` and `cosqa-retrieval.test.ts` disagree by about five points in opposite
+    // directions - a symbol looked up from its own doc comment wants the lexical list to dominate, a paraphrase wants
+    // the semantic one to - and **one constant can only be wrong for one of them**. `deriveVectorWeight` reads the
+    // question against the answer the lexical channel already returned; `fusion-weight.ts` carries the two cuts and
+    // the measurement behind them, `EVAL-CONTRACT.md` §30 carries the distributions.
+    //
+    // A caller may pass `vectorWeight` to override it, **because a measurement has to be able to ask for a weight the
+    // product would not choose** - and an override that silently fell back to the derived value would make two sweeps
+    // one sweep.
+    const vectorWeight =
+      options.vectorWeight ?? deriveVectorWeight(bm25Results, vectorResults, options.query);
+
     // Fuse results
-    return this.fuseResults(bm25Results, vectorResults, 60, options.limit ?? undefined);
+    return this.fuseResults(bm25Results, vectorResults, 60, options.limit ?? undefined, vectorWeight);
   }
 
   /**

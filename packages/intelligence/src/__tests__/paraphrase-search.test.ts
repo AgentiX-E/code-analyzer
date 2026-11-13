@@ -36,6 +36,7 @@ import { describe, expect, it } from 'vitest';
 
 import { corpusDigest } from '../benchmark/corpus-digest.js';
 import { DeepSeekProvider } from '../review/llm/provider.js';
+import { FUSION_WEIGHT_BOUNDS, deriveVectorWeight } from '../search/fusion-weight.js';
 import { DEFAULT_FIELD_WEIGHTING, HybridSearchEngine } from '../search/hybrid-search.js';
 import { expandToVector } from '../search/query-expansion.js';
 import { rerankCandidates } from '../search/rerank.js';
@@ -1479,6 +1480,35 @@ describe.skipIf(!HAS_VECTORS || (NEEDS_QUERY_AUTHOR && !CAN_WRITE_QUERIES))(
         return { vectorWeight, ...summarise(cases) };
       });
 
+      // **The weight the product derives per question, on the corpus where fusion has to beat lexical.** This is the
+      // third corpus the classifier is measured on and the only one whose gate is strict, so the derived arm is scored
+      // by the same arithmetic as the sweep - same two lists, one more pass, no model call.
+      const derivedWeights = paraphrases.map((candidate, index) =>
+        deriveVectorWeight(
+          lexicalLists[index]!.slice(0, TOP_K).map((hit) => ({ node: hit.node, score: hit.score })),
+          (semanticLists[index] ?? []).map((hit) => ({ node: hit.node, score: hit.score })),
+          candidate.query,
+        ),
+      );
+      const derivedColumn = summarise(
+        paraphrases.map((candidate, index) => {
+          const fused = hybrid.fuseResults(
+            lexicalLists[index]!.slice(0, TOP_K).map((hit) => ({
+              node: hit.node,
+              score: hit.score,
+            })),
+            (semanticLists[index] ?? []).map((hit) => ({ node: hit.node, score: hit.score })),
+            60,
+            TOP_K,
+            derivedWeights[index],
+          );
+          const rank = fused.findIndex(
+            (hit) => answerKey(hit.node, corpusRoot) === frozenKey(candidate),
+          );
+          return { ...candidate, rank: rank >= 0 ? rank + 1 : null };
+        }),
+      );
+
       const lexicalColumn = summarise(lexical);
       const semantic = backend !== 'deterministic' && queryEmbedder !== null;
 
@@ -1811,7 +1841,17 @@ describe.skipIf(!HAS_VECTORS || (NEEDS_QUERY_AUTHOR && !CAN_WRITE_QUERIES))(
         variants,
         semanticSweep: sweep,
         // The row the product runs - see the note in `docstring-search.test.ts`.
-        fused: { ...(sweep.find((row) => row.vectorWeight === 1) ?? sweep[0]) },
+        fused: { ...(sweep.find((row) => row.vectorWeight === 1) ?? sweep[0]!) },
+        // **And the row it runs now**: one weight per question, on the corpus whose gate fusion has to pass. The split
+        // is reported so a classifier that never fired is visible as `neutral` alone.
+        derived: {
+          ...derivedColumn,
+          weights: {
+            lexical: derivedWeights.filter((w) => w === FUSION_WEIGHT_BOUNDS.min).length,
+            neutral: derivedWeights.filter((w) => w === 1).length,
+            semantic: derivedWeights.filter((w) => w === FUSION_WEIGHT_BOUNDS.max).length,
+          },
+        },
         target: {
           recall: 0.9,
           competitorRecall: 0.75,
@@ -1842,7 +1882,10 @@ describe.skipIf(!HAS_VECTORS || (NEEDS_QUERY_AUTHOR && !CAN_WRITE_QUERIES))(
             )
             .join(' ')} ` +
           `pool=${poolDepth.map((row) => `${row.depth}:${row.ceiling}`).join('/')} ` +
-          `ceiling=${depthCurve(lexical).reachable}`,
+          `ceiling=${depthCurve(lexical).reachable} ` +
+          // **The derived arm, beside the constant it replaces**, and the split that produced it.
+          `derived=@20=${derivedColumn.recallAt20}/mrr=${derivedColumn.mrr} ` +
+          `weights=${derivedWeights.filter((w) => w === FUSION_WEIGHT_BOUNDS.min).length}/${derivedWeights.filter((w) => w === 1).length}/${derivedWeights.filter((w) => w === FUSION_WEIGHT_BOUNDS.max).length}`,
       );
 
       // **The only claim this file can make without a semantic half**: the questions are answerable at all on an index
@@ -1860,6 +1903,19 @@ describe.skipIf(!HAS_VECTORS || (NEEDS_QUERY_AUTHOR && !CAN_WRITE_QUERIES))(
         expect(best.mrr, `best weight ${best.vectorWeight} MRR`).toBeGreaterThanOrEqual(
           lexicalColumn.mrr,
         );
+
+        // **And the derived arm holds the same floor as the best fixed weight**, on the corpus whose gate fusion has to
+        // pass. Both arms fuse the same two lists in this run, so a difference is the classifier and nothing else; a
+        // classifier that fired the wrong way here - lexical dominance on a corpus that stripped the documentation -
+        // would fall to the lexical figure and fail.
+        expect(
+          derivedColumn.recallAt20,
+          `the derived weight answered ${derivedColumn.recallAt20} against lexical ${lexicalColumn.recallAt20}`,
+        ).toBeGreaterThanOrEqual(lexicalColumn.recallAt20);
+        expect(
+          derivedColumn.mrr,
+          `the derived weight ordered at MRR ${derivedColumn.mrr} against lexical ${lexicalColumn.mrr}`,
+        ).toBeGreaterThanOrEqual(lexicalColumn.mrr);
       }
 
       // **Every variant is held to the same floor the product is**: a composition that answers fewer questions than the

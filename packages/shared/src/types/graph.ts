@@ -616,6 +616,16 @@ export interface SearchOptions {
   filePath?: string;
   limit?: number;
   offset?: number;
+  /**
+   * **How much a semantic rank counts against a lexical one, when the caller knows better than the question does.**
+   *
+   * Absent is the normal case: `HybridSearchEngine.search` derives it from the question and the lexical answer
+   * (`deriveVectorWeight`), because the fusion weight a doc-comment lookup wants is a tenth of the one a paraphrase
+   * wants. **It is settable because a measurement has to be able to ask for a weight the product would not choose** -
+   * the sweeps that set the bounds dispatch it explicitly, and a sweep whose override was quietly ignored would report
+   * the product's column under a candidate's name.
+   */
+  vectorWeight?: number;
 }
 
 /** A single search result from the knowledge graph */

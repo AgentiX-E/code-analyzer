@@ -33,7 +33,12 @@ import {
 } from '@code-analyzer/analyzer';
 import { getDefaultConfig } from '@code-analyzer/core';
 import { InMemoryGraphStore } from '@code-analyzer/infra';
-import { HybridSearchEngine } from '@code-analyzer/intelligence';
+import {
+  FUSION_WEIGHT_BOUNDS,
+  HybridSearchEngine,
+  deriveVectorWeight,
+  selfEvidence,
+} from '@code-analyzer/intelligence';
 import { recordArtifact } from '@code-analyzer/shared';
 import { describe, expect, it } from 'vitest';
 
@@ -114,6 +119,18 @@ function summarise(cases: QueryCase[]): Column {
     ),
     found,
   };
+}
+
+/**
+ * **A quantile of the evidence the classifier saw**, nearest-rank rather than interpolated: the values are a share of a
+ * small set of distinct terms, and an interpolated median would report a number between two questions' evidence that no
+ * question produced.
+ */
+function quantile(values: number[], q: number): number {
+  if (values.length === 0) return 0;
+  const sorted = [...values].sort((a, b) => a - b);
+  const at = Math.min(sorted.length - 1, Math.max(0, Math.ceil(q * sorted.length) - 1));
+  return Math.round(sorted[at]! * 10000) / 10000;
 }
 
 describe('the recall arithmetic', () => {
@@ -233,6 +250,34 @@ describe('finding a symbol from its own doc comment', () => {
       return { vectorWeight, ...summarise(cases) };
     });
 
+    // **The arm the product runs now**: one weight per question, derived from the lexical answer's own words.
+    //
+    // This corpus is the one that wants the lexical list to dominate, and `VECTOR_WEIGHTS` says by how much: the sweep's
+    // best row is 0.1 and the shipped constant was 1. **The classifier has to recover that row without being told which
+    // corpus it is on**, and `derived` is the column that says whether it did.
+    const derivedWeights = candidates.map((candidate, i) =>
+      deriveVectorWeight(
+        lexicalLists[i]!.map((r) => ({ node: r.node, score: r.bm25Score })),
+        semanticLists[i] ?? [],
+        candidate.query,
+      ),
+    );
+    const derivedCases: QueryCase[] = candidates.map((candidate, i) => {
+      const fused = hybrid.fuseResults(
+        lexicalLists[i]!.map((r) => ({ node: r.node, score: r.bm25Score })),
+        semanticLists[i] ?? [],
+        60,
+        TOP_K,
+        derivedWeights[i],
+      );
+      const rank = fused.findIndex((f) => f.node?.name === candidate.name);
+      return { ...candidate, rank: rank >= 0 ? rank + 1 : null };
+    });
+    const derived = summarise(derivedCases);
+    const evidences = candidates.map((candidate, i) =>
+      selfEvidence(candidate.query, lexicalLists[i]![0]?.node),
+    );
+
     const semantic = queryEmbedder?.backend === 'api' || queryEmbedder?.backend === 'onnx';
     const artifact = {
       comment: [
@@ -278,7 +323,22 @@ describe('finding a symbol from its own doc comment', () => {
       // **The row the product runs**, named so a consumer has one path to read instead of guessing which sweep row is
       // the default. `competitor-matrix.json` points at `fused.recall`; before this it pointed at a field that no longer
       // existed and the cell silently became MISSING.
-      fused: { ...(sweep.find((row) => row.vectorWeight === DEFAULT_VECTOR_WEIGHT) ?? sweep[0]) },
+      fused: { ...(sweep.find((row) => row.vectorWeight === DEFAULT_VECTOR_WEIGHT) ?? sweep[0]!) },
+      // **The arm the product runs**, beside the constant it replaced: the weights the questions were split across and
+      // the median evidence that split them, so a reader can tell a classifier that fired from one that never did.
+      derived: {
+        ...derived,
+        weights: {
+          lexical: derivedWeights.filter((w) => w === FUSION_WEIGHT_BOUNDS.min).length,
+          neutral: derivedWeights.filter((w) => w === 1).length,
+          semantic: derivedWeights.filter((w) => w === FUSION_WEIGHT_BOUNDS.max).length,
+        },
+        selfEvidence: {
+          p10: quantile(evidences, 0.1),
+          p50: quantile(evidences, 0.5),
+          p90: quantile(evidences, 0.9),
+        },
+      },
       target: { recall: 0.9, competitorRecall: 0.75, competitor: 'Cody, quoted by the whitepaper' },
       misses: lexicalCases
         .filter((c) => c.rank === null)
@@ -297,7 +357,12 @@ describe('finding a symbol from its own doc comment', () => {
       `DOCSTRING-SEARCH lexical@5=${lexical.recallAt5} @20=${lexical.recallAt20} mrr=${lexical.mrr} ` +
         `space=${indexBackend}/${queryEmbedder?.backend ?? 'none'} ` +
         // **Recall and MRR per weight**, because recall at 20 is saturated on this corpus and the order is what moves.
-        `sweep=${sweep.map((s) => `${s.vectorWeight}:@20=${s.recallAt20}/mrr=${s.mrr}`).join(' ')}`,
+        `sweep=${sweep.map((s) => `${s.vectorWeight}:@20=${s.recallAt20}/mrr=${s.mrr}`).join(' ')} ` +
+        // **The derived arm, on the same line as the sweep it replaces**: the weights the questions were split across
+        // and the median evidence that split them, so a classifier that never fired is visible as `neutral` alone.
+        `derived=@5=${derived.recallAt5}/@20=${derived.recallAt20}/mrr=${derived.mrr} ` +
+        `weights=${derivedWeights.filter((w) => w === FUSION_WEIGHT_BOUNDS.min).length}/${derivedWeights.filter((w) => w === 1).length}/${derivedWeights.filter((w) => w === FUSION_WEIGHT_BOUNDS.max).length} ` +
+        `evidence=${quantile(evidences, 0.5)}`,
     );
 
     // **The gate that was missing: an assertion a retriever can fail.** The old file asserted `recall >= 0` and
@@ -338,6 +403,19 @@ describe('finding a symbol from its own doc comment', () => {
       // MRR; on this corpus the same weight costs 11.9 positions. A gate that watched only the best row would accept
       // any shipped default, and a gate that demanded the best row everywhere would force a weight the realistic corpus
       // rejects - so the shipped row is held to the weaker bound, and its figure is printed above either way.
+      // **And the row the product actually runs now**, held to the row it replaced: the derived weight must not order
+      // this corpus worse than the constant did. The two arms are fused from the same two lists inside one run, so this
+      // comparison carries no embedding call, no model call and no run-to-run variance - it is a statement about the
+      // classifier, which is the only thing that differs between them.
+      //
+      // **This is the gate §30 exists for.** A classifier that fired on nothing would return the constant's own figure
+      // and pass by construction; a classifier that fired the wrong way - semantic weight on a lookup corpus - would
+      // fail here, and that is the failure worth failing on.
+      expect(
+        derived.mrr,
+        `the derived weight ordered at MRR ${derived.mrr} against the shipped constant's ${artifact.fused.mrr}`,
+      ).toBeGreaterThanOrEqual(artifact.fused.mrr);
+
       const shipped = artifact.fused;
       expect(
         shipped.mrr,
