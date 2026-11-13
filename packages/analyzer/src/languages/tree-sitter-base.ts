@@ -329,6 +329,17 @@ export abstract class TreeSitterBaseProvider implements LanguageProvider {
   protected pendingDocComment: string | null = null;
 
   /**
+   * The line the pending comment ended on, so "it documents what follows" is a fact about the file.
+   *
+   * **Without it the distance is unmeasurable and the comment reached any declaration below it.** One blank line is a
+   * convention - `express` writes it for every method of an application - and two is a paragraph break, after which a
+   * comment is a section header. `cross-repo-indexer.ts` has enforced that boundary since it started keeping docstrings,
+   * and **two rules for one question is how a symbol's documentation came out different depending on which surface
+   * indexed it.**
+   */
+  protected pendingDocCommentEndLine = -1;
+
+  /**
    * The nearest enclosing class-like node, per node range, for one file.
    *
    * **A capture asks for its container, and the answer is the same for every node that shares an ancestor.** The
@@ -408,6 +419,7 @@ export abstract class TreeSitterBaseProvider implements LanguageProvider {
   parse(source: string, filePath: string): UnifiedCapture[] {
     // **Per file**, so the last comment of one file cannot land on the first symbol of the next.
     this.pendingDocComment = null;
+    this.pendingDocCommentEndLine = -1;
     this.parseFellBack = false;
     // Strip BOM (Byte Order Mark) and zero-width characters before parsing.
     const sanitized = this.sanitizeSource(source);
@@ -731,7 +743,16 @@ export abstract class TreeSitterBaseProvider implements LanguageProvider {
         // **A declaration that already carries documentation keeps it.** Go writes the doc comment above a method and
         // Kotlin writes `@param` lines above the same declaration through a grammar that emits them as comments; the
         // more specific producer is the one that spoke first.
-        if (properties['docstring'] === undefined) properties['docstring'] = pending;
+        //
+        // **And a comment two blank lines above a declaration documents the file, not the declaration.** The pending
+        // value had no distance check at all, so it reached the next declaration however far away it was - one blank
+        // line is a convention (`express` writes it for every method of an application) and two is a paragraph break,
+        // after which a comment is a section header. `cross-repo-indexer.ts` has enforced the same two-line rule since
+        // it started keeping docstrings, and **two rules for one question is how a symbol's documentation came out
+        // different depending on which surface indexed it**.
+        if (properties['docstring'] === undefined && capture.startLine - pendingEndLine <= 2) {
+          properties['docstring'] = pending;
+        }
         pending = null;
         pendingEndLine = -1;
       }
@@ -842,8 +863,32 @@ export abstract class TreeSitterBaseProvider implements LanguageProvider {
     });
 
     if (collected.length === 0) return;
+
+    // **A comment node may contain another comment node, and the walk sees both.**
+    //
+    // tree-sitter-rust spells `/// text` as a `line_comment` holding an `outer_doc_comment_marker` and a `doc_comment`,
+    // and the inner node's text is the sentence *without* the marker - so one written line produced two captures whose
+    // texts differ. The join rule in `attachDocCommentsInOrder` reads "the next capture starts on the line after the
+    // pending one", and the duplicate starts on the *same* line: it replaced the block instead of extending it, so a
+    // four-line Rust doc comment arrived as its last sentence. **The outer node is the comment**; an inner one that
+    // begins at or after another's start and ends at or before its end is the same comment read twice.
+    //
+    // **A scan over the sorted spans, not a pairwise test**, because a grammar may nest three deep and the count is
+    // however many comments a file has. Sorting by start and taking the furthest end so far is linear, and it is the
+    // same argument the doc-comment reader above makes about containment.
+    const ordered = [...collected].sort(
+      (a, b) => a.startByte - b.startByte || b.endByte - a.endByte,
+    );
+    const outermost: UnifiedCapture[] = [];
+    let coveredUntil = -1;
+    for (const capture of ordered) {
+      if (capture.startByte < coveredUntil) continue;
+      outermost.push(capture);
+      coveredUntil = capture.endByte;
+    }
+
     // **Copied element by element**, because an argument list of a hundred thousand captures is a stack overflow.
-    for (const capture of collected) captures.push(capture);
+    for (const capture of outermost) captures.push(capture);
     captures.sort((a, b) => a.startLine - b.startLine || a.startByte - b.startByte);
   }
 
@@ -1088,12 +1133,20 @@ export abstract class TreeSitterBaseProvider implements LanguageProvider {
   protected attachDocComment(capture: UnifiedCapture): UnifiedCapture {
     if (capture.tag === CAPTURE_TAGS.DOCSTRING || capture.tag === CAPTURE_TAGS.COMMENT) {
       const text = stripCommentSyntax(capture.text);
-      if (text.length > 0) this.pendingDocComment = text;
+      if (text.length > 0) {
+        this.pendingDocComment = text;
+        this.pendingDocCommentEndLine = capture.endLine;
+      }
       return capture;
     }
     if (this.pendingDocComment !== null) {
-      (capture.properties as Record<string, unknown>)['docstring'] = this.pendingDocComment;
+      // **The same two-line boundary the ordered pass applies**, and the same one the cross-repository indexer applies:
+      // a comment two blank lines above a declaration is a section header for what follows, not documentation of it.
+      if (capture.startLine - this.pendingDocCommentEndLine <= 2) {
+        (capture.properties as Record<string, unknown>)['docstring'] = this.pendingDocComment;
+      }
       this.pendingDocComment = null;
+      this.pendingDocCommentEndLine = -1;
     }
     return capture;
   }

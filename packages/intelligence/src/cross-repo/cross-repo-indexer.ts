@@ -698,7 +698,25 @@ export class CrossRepoIndexer {
       // says "add middleware to the app router" - with no documentation at all, which is why no question containing
       // that word could reach it. **Two blank lines is a paragraph break**, and a comment above one of those belongs
       // to the file rather than to the declaration below.
-      const docstring = pending && startLine - pending.endLine <= 2 ? pending.text : null;
+      // **The provider has already decided what the documentation is.**
+      //
+      // It joined a Go or Rust block into one comment, stripped the marker, dropped a `@param` that is not prose and
+      // attached the result to the declaration it documents. **Re-deciding it here from the last comment capture threw
+      // all of that away**: `pending.text` is one raw capture - the *last* node of a multi-line comment, marker
+      // included - so a two-line `//` comment documented a Go function with its second sentence and the `//` still on
+      // the front. Every question in the cross-repository corpus is the first sentence of this field, so the corpus was
+      // asking about the last line of comments the provider had read correctly.
+      //
+      // **The pending capture stays as the fallback**, because a grammar that publishes comments without the base
+      // class's attach pass - a text-based provider, a parse that fell back - still has its comments in the list and
+      // those are the only documentation available.
+      const declared = (capture.properties as Record<string, unknown> | undefined)?.['docstring'];
+      const docstring =
+        typeof declared === 'string' && declared.trim().length > 0
+          ? declared
+          : pending && startLine - pending.endLine <= 2
+            ? stripCommentMarkers(pending.text)
+            : null;
       pending = null;
 
       nodes.push({
@@ -2294,6 +2312,22 @@ const SOURCE_EXTENSION_PATTERN =
 /** `'src/types.ts'` -> `'src/types'`; already-extensionless paths are returned unchanged. */
 function stripExtension(filePath: string): string {
   return filePath.replace(SOURCE_EXTENSION_PATTERN, '');
+}
+
+/**
+ * A raw comment with its markers taken off, for the fallback path where the provider published none.
+ *
+ * **Only the markers, not the layout.** A block keeps its lines so a caller can still read it as a paragraph, and the
+ * leading `*` of each line goes because it is indentation the file needed rather than prose the author wrote.
+ */
+function stripCommentMarkers(text: string): string {
+  return text
+    .replace(/^\s*\/\*+/, '')
+    .replace(/\*+\/\s*$/, '')
+    .split('\n')
+    .map((line) => line.replace(/^\s*(?:\*|\/\/+|#+|--+)\s?/, '').trimEnd())
+    .join('\n')
+    .trim();
 }
 
 /** Does this node carry the symbol named `lower`? Exact name, or the tail of a qualified name. */
