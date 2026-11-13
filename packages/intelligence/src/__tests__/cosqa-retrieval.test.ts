@@ -34,6 +34,7 @@ import { describe, expect, it } from 'vitest';
 import { DeepSeekProvider } from '../review/llm/provider.js';
 import { deriveVectorWeight, selfEvidence, FUSION_WEIGHT_BOUNDS } from '../search/fusion-weight.js';
 import { HybridSearchEngine } from '../search/hybrid-search.js';
+import { compareArms, decodeRanks, encodeRanks } from '../search/paired-stats.js';
 import { rerankCandidates } from '../search/rerank.js';
 
 import type { HybridSearchResult } from '../search/hybrid-search.js';
@@ -68,8 +69,26 @@ const DEPTH = readPositiveInt(process.env['COSQA_DEPTH'], 50);
  * the rerank depth alone; `COSQA_SWEEP=50,100,200` asks for the curve.
  */
 const SWEEP = readDepthSweep(process.env['COSQA_SWEEP'], DEPTH);
-/** The deepest list either channel has to produce: the sweep's widest prefix and the rerank arm, whichever is larger. */
-const RETRIEVAL_DEPTH = Math.max(DEPTH, ...SWEEP);
+/**
+ * **The depths the reranker is asked about, because "does a deeper pool change the gap" was the open question §30.5
+ * registered.**
+ *
+ * A rerank depth is not free the way a sweep depth is: each one buys a completion per question **per arm**, so this is
+ * opt-in and defaults to the single arm every published figure was measured at. `COSQA_RERANK_DEPTHS=50,100` reranks
+ * both arms at both depths **inside one run**, which is the only design in which the two depths are paired: a second
+ * job would put the model's run-to-run variance back into the comparison it was separated to remove.
+ */
+const RERANK_DEPTHS = readDepthSweep(process.env['COSQA_RERANK_DEPTHS'], DEPTH);
+
+/**
+ * **The deepest list either channel has to produce.**
+ *
+ * It has to cover **every depth anything downstream slices at**, which is three lists rather than two: the sweep, the
+ * rerank arm, and now the rerank depths. A run that widened the reranker to a hundred candidates while the vector search
+ * still returned fifty would rerank a fifty-deep list under a hundred-deep name, and the column would report the deeper
+ * pool as worth nothing - **the depth defect §29 already paid for, one variable over**.
+ */
+const RETRIEVAL_DEPTH = retrievalDepth(DEPTH, SWEEP, RERANK_DEPTHS);
 
 /**
  * **The fusion weights the fused arm is scored at, on the same two lists.**
@@ -106,6 +125,11 @@ function readPositiveInt(raw: string | undefined, fallback: number): number {
   if (raw === undefined || raw.trim() === '') return fallback;
   const value = Number.parseInt(raw, 10);
   return Number.isInteger(value) && value > 0 ? value : fallback;
+}
+
+/** The widest prefix any part of a run asks for: **a depth nothing slices at is a depth that measures nothing wider**. */
+function retrievalDepth(arm: number, ...sweeps: ReadonlyArray<ReadonlyArray<number>>): number {
+  return Math.max(arm, ...sweeps.flat());
 }
 
 /** The depths a sweep asks for: positive integers, ascending, **without duplicates**, always including the arm. */
@@ -149,7 +173,7 @@ interface Metrics {
 }
 
 /** Recall at each cut plus MRR@10, **the arithmetic the published tables use**. */
-function score(ranks: Array<number | null>): Metrics {
+function score(ranks: ReadonlyArray<number | null>): Metrics {
   const within = (cut: number): number =>
     ranks.filter((rank) => rank !== null && rank <= cut).length;
   const round = (value: number): number => Math.round(value * 10000) / 10000;
@@ -256,6 +280,16 @@ describe('a depth that came from the environment is still a depth', () => {
     expect(readDepthSweep('100,100,100', 50)).toEqual([50, 100]);
     expect(readDepthSweep(' 25 , bad ,7 ', 50)).toEqual([7, 25, 50]);
     expect(readDepthSweep('', 50)).toEqual([50]);
+  });
+
+  it('widens the retrieval to the deepest prefix anything slices at', () => {
+    // **The defect this guards is silent**: a run that reranked at a hundred while the vector search returned fifty would
+    // slice a fifty-entry list and report the deeper pool as worth nothing.
+    expect(retrievalDepth(50, [50], [50])).toBe(50);
+    expect(retrievalDepth(50, [50, 100], [50])).toBe(100);
+    expect(retrievalDepth(50, [50], [50, 200])).toBe(200);
+    // **No sweep at all still produces the arm's own depth**, because the arm is the one depth a run always scores.
+    expect(retrievalDepth(75, [], [])).toBe(75);
   });
 
   it('counts a rank inside the cut and an absent answer outside it', () => {
@@ -426,25 +460,53 @@ describe.skipIf(!DATASET_DIR || !HAS_VECTORS)(
         // whether the replacement beats the constant it replaced on the corpus that motivated it**. The weight is
         // derived from the same two lists the arm fuses - not from a wider one - because a weight computed from a list
         // the caller never sees is a measurement of a different retrieval.
-        const derivedRanks: Array<number | null> = [];
+        // **One rank column per rerank depth**, including the arm's own, so a second depth is a column rather than a
+        // second run. §30.5's open question was "does a deeper pool change the post-rerank gap", and a job that measured
+        // the deeper arm alone would answer it with the model's run-to-run variance in the difference.
+        const derivedByDepth = new Map<number, Array<number | null>>(
+          RERANK_DEPTHS.map((depth) => [depth, [] as Array<number | null>]),
+        );
         const derivedWeights: number[] = [];
         const evidences: number[] = [];
-        const rerankedRanks: Array<number | null> = [];
-        // **The constant's own rerank column, kept beside the product's so the two are comparable inside one run.**
-        //
-        // §26's rule is that a published figure must be the arm the product runs; §28's is that a difference smaller than
-        // the reranker's own variance cannot be attributed. Together they leave one option: rerank *both* arms in the
-        // same run, which costs a second completion per question (~0.35 USD) and removes the variance from the
-        // comparison rather than from the report.
-        const rerankedConstantRanks: Array<number | null> = [];
-        let reorderedConstant = 0;
-        let rescuedConstant = 0;
-        let lostConstant = 0;
+        /**
+         * **The reranker's columns and its bill, keyed `${arm}@${depth}`.**
+         *
+         * The arm is in the key because the two arms are reranked in the same run (§28's rule: a difference smaller than
+         * the model's own variance cannot be attributed), and the depth is in the key because a wider pool is a
+         * different question about the same model.
+         */
+        const rerankedByKey = new Map<string, Array<number | null>>();
+        const reorderedByKey = new Map<string, number>();
+        const rescuedByKey = new Map<string, number>();
+        const lostByKey = new Map<string, number>();
+        /** **What the calls were billed**, in the vendor's own tokens and in dollars, per arm and depth. */
+        const billByKey = new Map<
+          string,
+          {
+            calls: number;
+            promptTokens: number;
+            completionTokens: number;
+            usd: number;
+            unpriced: number;
+          }
+        >();
+        for (const depth of RERANK_DEPTHS) {
+          for (const armKey of ['derived', 'constant']) {
+            const key = `${armKey}@${depth}`;
+            rerankedByKey.set(key, []);
+            reorderedByKey.set(key, 0);
+            rescuedByKey.set(key, 0);
+            lostByKey.set(key, 0);
+            billByKey.set(key, {
+              calls: 0,
+              promptTokens: 0,
+              completionTokens: 0,
+              usd: 0,
+              unpriced: 0,
+            });
+          }
+        }
         const provider = CAN_ASK_A_MODEL ? new DeepSeekProvider({ timeout: 60_000 }) : null;
-        let reranked = 0;
-        // **The reranker's ledger, which no published table reports and every reader of the 102 misses needs.**
-        let rescued = 0;
-        let lost = 0;
 
         /** The 1-based rank at which a question's own answer sits in a hit list, or `null` when it is absent. */
         const rankOf = (
@@ -466,128 +528,135 @@ describe.skipIf(!DATASET_DIR || !HAS_VECTORS)(
           const vectorHits = await hybrid.vectorSearch(row.doc, RETRIEVAL_DEPTH, null);
           vectorRanks.push(rankOf(vectorHits, index));
 
-          let arm: HybridSearchResult[] = [];
-          for (const depth of SWEEP) {
-            const fusedAtDepth = hybrid.fuseResults(
-              lexicalHits.slice(0, depth).map((hit) => ({ node: hit.node, score: hit.score })),
-              vectorHits.slice(0, depth).map((hit) => ({ node: hit.node, score: hit.score })),
+          /** The two channel prefixes fused at one depth and one weight - the only place fusion is called in this loop. */
+          const fuseAt = (at: number, weight: number): HybridSearchResult[] =>
+            hybrid.fuseResults(
+              lexicalHits.slice(0, at).map((hit) => ({ node: hit.node, score: hit.score })),
+              vectorHits.slice(0, at).map((hit) => ({ node: hit.node, score: hit.score })),
               60,
-              depth,
-              1,
+              at,
+              weight,
             );
-            fusedRanksByDepth.get(depth)!.push(rankOf(fusedAtDepth, index));
-            if (depth === DEPTH) arm = fusedAtDepth;
+
+          for (const depth of SWEEP) {
+            fusedRanksByDepth.get(depth)!.push(rankOf(fuseAt(depth, 1), index));
           }
 
           // **The same two channel lists, fused at each weight**, which costs one more pass over fifty entries and no
           // model call at all. The arm itself stays at weight one: a run that scores a different arm than it reranks
           // would be the §26 defect again, one field over.
           for (const weight of VECTOR_WEIGHTS) {
-            const fusedAtWeight =
-              weight === 1
-                ? arm
-                : hybrid.fuseResults(
-                    lexicalHits
-                      .slice(0, DEPTH)
-                      .map((hit) => ({ node: hit.node, score: hit.score })),
-                    vectorHits.slice(0, DEPTH).map((hit) => ({ node: hit.node, score: hit.score })),
-                    60,
-                    DEPTH,
-                    weight,
-                  );
-            fusedRanksByWeight.get(weight)!.push(rankOf(fusedAtWeight, index));
+            fusedRanksByWeight.get(weight)!.push(rankOf(fuseAt(DEPTH, weight), index));
           }
 
-          const lexicalSlice = lexicalHits
-            .slice(0, DEPTH)
-            .map((hit) => ({ node: hit.node, score: hit.score }));
-          const vectorSlice = vectorHits
-            .slice(0, DEPTH)
-            .map((hit) => ({ node: hit.node, score: hit.score }));
-          const derivedWeight = deriveVectorWeight(lexicalSlice, vectorSlice, row.doc);
+          // **The weight is derived from the product's own depth**, once, and applied unchanged to a deeper list: it is a
+          // statement about the question ("does the lexical answer carry its words"), and a statement about the question
+          // does not change because the pool around the answer got wider.
+          const derivedWeight = deriveVectorWeight(
+            lexicalHits.slice(0, DEPTH).map((hit) => ({ node: hit.node, score: hit.score })),
+            vectorHits.slice(0, DEPTH).map((hit) => ({ node: hit.node, score: hit.score })),
+            row.doc,
+          );
           derivedWeights.push(derivedWeight);
           evidences.push(selfEvidence(row.doc, lexicalHits[0]?.node));
-          const derivedArm = hybrid.fuseResults(
-            lexicalSlice,
-            vectorSlice,
-            60,
-            DEPTH,
-            derivedWeight,
-          );
-          derivedRanks.push(rankOf(derivedArm, index));
-
-          const fusedRank = fusedRanksByDepth.get(DEPTH)![index]!;
+          for (const depth of RERANK_DEPTHS) {
+            derivedByDepth.get(depth)!.push(rankOf(fuseAt(depth, derivedWeight), index));
+          }
 
           if (provider) {
-            // **The constant first**, which is the arm every earlier run published, then the derived arm the product
-            // runs now. Two calls per question rather than one, and the only way the pair is comparable.
-            const constantEntries = arm.map((hit, position) => ({ rank: position + 1, hit }));
-            const constantResult = await rerankCandidates(
-              row.doc,
-              constantEntries,
-              (entry) => ({
-                rank: entry.rank,
-                name: entry.hit.node.name,
-                qualifiedName: entry.hit.node.qualifiedName,
-                filePath: entry.hit.node.filePath,
-                signature: entry.hit.node.signature,
-                excerpt:
-                  typeof entry.hit.node.properties['body'] === 'string'
-                    ? entry.hit.node.properties['body'].slice(0, 240)
-                    : null,
-              }),
-              provider,
-              { timeout: 60_000 },
-            );
-            if (constantResult.applied) reorderedConstant += 1;
-            const constantIndex = constantResult.ordered.findIndex(
-              (entry) => fileIndex(entry.hit) === index,
-            );
-            const constantRank = constantIndex >= 0 ? constantIndex + 1 : null;
-            rerankedConstantRanks.push(constantRank);
-            if (fusedRank === null || fusedRank > 10) {
-              if (constantRank !== null && constantRank <= 10) rescuedConstant += 1;
-            } else if (constantRank === null || constantRank > 10) {
-              lostConstant += 1;
-            }
+            /**
+             * **One rerank of one list, and everything it did or cost.**
+             *
+             * Written once because the four calls a two-depth run makes are the same experiment at four addresses: a
+             * copy per arm would be a copy that could drift, and the columns would then differ by the copy rather than
+             * by the arm.
+             */
+            const rerankArm = async (
+              hits: HybridSearchResult[],
+              key: string,
+            ): Promise<number | null> => {
+              const entries = hits.map((hit, position) => ({ rank: position + 1, hit }));
+              const result = await rerankCandidates(
+                row.doc,
+                entries,
+                (entry) => ({
+                  rank: entry.rank,
+                  name: entry.hit.node.name,
+                  qualifiedName: entry.hit.node.qualifiedName,
+                  filePath: entry.hit.node.filePath,
+                  signature: entry.hit.node.signature,
+                  excerpt:
+                    typeof entry.hit.node.properties['body'] === 'string'
+                      ? entry.hit.node.properties['body'].slice(0, 240)
+                      : null,
+                }),
+                provider,
+                { timeout: 60_000 },
+              );
+              if (result.applied) reorderedByKey.set(key, reorderedByKey.get(key)! + 1);
+              // **The bill, summed from the calls rather than estimated from an average**: the provider returns the
+              // tokens and the amount, and a report that multiplied a per-call guess by five hundred was the weaker of
+              // the two numbers it could have had.
+              const bill = billByKey.get(key)!;
+              if (result.cost) {
+                bill.calls += 1;
+                bill.promptTokens += result.cost.usage?.promptTokens ?? 0;
+                bill.completionTokens += result.cost.usage?.completionTokens ?? 0;
+                // **An unpriced model is counted, not folded in as zero**: a total that absorbed it would report a bill
+                // smaller than the one that was paid.
+                if (result.cost.usd === undefined) bill.unpriced += 1;
+                else bill.usd += result.cost.usd;
+              }
+              // **The rank the answer lands at after the reorder**: `indexOf` inside the ordered list, not its fused
+              // rank, because the whole point of the reorder is that the two differ.
+              const at = result.ordered.findIndex((entry) => fileIndex(entry.hit) === index);
+              const rank = at >= 0 ? at + 1 : null;
+              rerankedByKey.get(key)!.push(rank);
+              return rank;
+            };
 
-            const entries = derivedArm.map((hit, position) => ({ rank: position + 1, hit }));
-            const result = await rerankCandidates(
-              row.doc,
-              entries,
-              (entry) => ({
-                rank: entry.rank,
-                name: entry.hit.node.name,
-                qualifiedName: entry.hit.node.qualifiedName,
-                filePath: entry.hit.node.filePath,
-                signature: entry.hit.node.signature,
-                excerpt:
-                  typeof entry.hit.node.properties['body'] === 'string'
-                    ? entry.hit.node.properties['body'].slice(0, 240)
-                    : null,
-              }),
-              provider,
-              { timeout: 60_000 },
-            );
-            if (result.applied) reranked += 1;
-            // **The rank the answer lands at after the reorder**: `indexOf` inside the ordered list, not its fused rank.
-            const rerankedIndex = result.ordered.findIndex(
-              (entry) => fileIndex(entry.hit) === index,
-            );
-            const rerankedRank = rerankedIndex >= 0 ? rerankedIndex + 1 : null;
-            rerankedRanks.push(rerankedRank);
-            // **A reorder is only worth its completions if it moves the answer**, and the two directions are different
-            // defects: `rescued` is a question the fused order missed in the top ten and the model recovered, `lost` is
-            // one the fused order already had and the model moved out. **A reranker whose net is zero can still be
-            // spending money to shuffle** - this is the pair of counters that says so.
-            const derivedRank = rankOf(derivedArm, index);
-            if (derivedRank === null || derivedRank > 10) {
-              if (rerankedRank !== null && rerankedRank <= 10) rescued += 1;
-            } else if (rerankedRank === null || rerankedRank > 10) {
-              lost += 1;
+            /** **A reorder is only worth its completions if it moves the answer.** Two directions, both counted. */
+            const recordEffect = (
+              key: string,
+              fusedRank: number | null,
+              rank: number | null,
+            ): void => {
+              if (fusedRank === null || fusedRank > 10) {
+                if (rank !== null && rank <= 10) rescuedByKey.set(key, rescuedByKey.get(key)! + 1);
+              } else if (rank === null || rank > 10) {
+                lostByKey.set(key, lostByKey.get(key)! + 1);
+              }
+            };
+
+            for (const depth of RERANK_DEPTHS) {
+              // **The constant first**, which is the arm every earlier run published.
+              const constantList = fuseAt(depth, 1);
+              const constantRank = await rerankArm(constantList, `constant@${depth}`);
+              recordEffect(`constant@${depth}`, rankOf(constantList, index), constantRank);
+
+              const derivedList = fuseAt(depth, derivedWeight);
+              const derivedRank = await rerankArm(derivedList, `derived@${depth}`);
+              recordEffect(`derived@${depth}`, rankOf(derivedList, index), derivedRank);
             }
           }
         }
+
+        /**
+         * **The columns the published figures are about, at the arm's own depth.**
+         *
+         * A two-depth run is four columns, and only one of them is the product: the deeper arms are the measurement of a
+         * lever. Aliasing rather than duplicating means the top-level fields and the per-depth tables cannot disagree -
+         * they are the same array.
+         */
+        const derivedRanks = derivedByDepth.get(DEPTH)!;
+        const rerankedRanks = rerankedByKey.get(`derived@${DEPTH}`)!;
+        const rerankedConstantRanks = rerankedByKey.get(`constant@${DEPTH}`)!;
+        const reranked = reorderedByKey.get(`derived@${DEPTH}`)!;
+        const rerankedConstant = reorderedByKey.get(`constant@${DEPTH}`)!;
+        const rescued = rescuedByKey.get(`derived@${DEPTH}`)!;
+        const lost = lostByKey.get(`derived@${DEPTH}`)!;
+        const rescuedConstant = rescuedByKey.get(`constant@${DEPTH}`)!;
+        const lostConstant = lostByKey.get(`constant@${DEPTH}`)!;
 
         const artifact = {
           comment: [
@@ -702,19 +771,116 @@ describe.skipIf(!DATASET_DIR || !HAS_VECTORS)(
                 // two columns is the fusion weight rather than the reranker's run-to-run variance.
                 rerankedConstant: {
                   ...score(rerankedConstantRanks),
-                  reordered: reorderedConstant,
+                  reordered: rerankedConstant,
                   from: 'weight-1',
                 },
                 rerankEffectConstant: {
-                  reordered: reorderedConstant,
+                  reordered: rerankedConstant,
                   rescued: rescuedConstant,
                   lost: lostConstant,
                   net: rescuedConstant - lostConstant,
                 },
+                // **The second depth, when a run was asked for one.** `COSQA_RERANK_DEPTHS=50,100` reranks both arms
+                // twice inside one job, and this is where the pair is published: the same questions, the same model,
+                // the same prompt shape, and a pool twice as wide.
+                rerankByDepth: Object.fromEntries(
+                  RERANK_DEPTHS.map((depth) => [
+                    String(depth),
+                    {
+                      derived: {
+                        ...score(rerankedByKey.get(`derived@${depth}`)!),
+                        reordered: reorderedByKey.get(`derived@${depth}`)!,
+                        rescued: rescuedByKey.get(`derived@${depth}`)!,
+                        lost: lostByKey.get(`derived@${depth}`)!,
+                      },
+                      constant: {
+                        ...score(rerankedByKey.get(`constant@${depth}`)!),
+                        reordered: reorderedByKey.get(`constant@${depth}`)!,
+                        rescued: rescuedByKey.get(`constant@${depth}`)!,
+                        lost: lostByKey.get(`constant@${depth}`)!,
+                      },
+                    },
+                  ]),
+                ),
+                // **What the reranker cost, measured rather than estimated.** Every earlier figure was a per-call
+                // average multiplied by five hundred; these are the vendor's own tokens and the price table's own
+                // arithmetic. A depth costs what the deeper prompt costs, and now the artifact says which.
+                rerankCost: Object.fromEntries(
+                  RERANK_DEPTHS.map((depth) => [
+                    String(depth),
+                    Object.fromEntries(
+                      ['derived', 'constant'].map((armKey) => {
+                        const bill = billByKey.get(`${armKey}@${depth}`)!;
+                        return [
+                          armKey,
+                          {
+                            calls: bill.calls,
+                            promptTokens: bill.promptTokens,
+                            completionTokens: bill.completionTokens,
+                            // **Rounded to six decimal places, because a float sum of five hundred prices has
+                            // seventeen digits and a bill does not.
+                            usd: Math.round(bill.usd * 1_000_000) / 1_000_000,
+                            unpricedCalls: bill.unpriced,
+                          },
+                        ];
+                      }),
+                    ),
+                  ]),
+                ),
               }
             : {
                 reranked: { reason: 'DEEPSEEK_API_KEY is absent, so nothing could be reordered' },
               }),
+          // **The per-question ranks, which are the difference between a figure and evidence.** Everything above is
+          // an aggregate; with these columns a reader can recompute every aggregate, run a paired test between any two
+          // arms of this run, and re-derive the fusion weight from `selfEvidence` - on the published artifact, without
+          // the corpus, the key or the model.
+          //
+          // **Encoded as comma strings**, because Prettier expands an array of five hundred numbers into five hundred
+          // lines and a table is what this artifact is. `decodeRanks` in `search/paired-stats.ts` is the reader.
+          perQuestion: {
+            note: '1-based rank of the question\'s own answer per arm, "-" when absent; decode with decodeRanks()',
+            lexical: encodeRanks(lexicalRanks),
+            fused: encodeRanks(fusedRanksByDepth.get(DEPTH)!),
+            derived: encodeRanks(derivedRanks),
+            vectorWeight: encodeRanks(derivedWeights),
+            selfEvidence: evidences.map((value) => Math.round(value * 1_000) / 1_000).join(','),
+            ...(provider
+              ? {
+                  reranked: encodeRanks(rerankedRanks),
+                  rerankedConstant: encodeRanks(rerankedConstantRanks),
+                }
+              : {}),
+          },
+          // **The paired tests, because a difference of two averages is a description of the instrument.** The two arms
+          // were measured on the same questions in the same run; these statistics are the only ones that keep that.
+          paired: {
+            note: 'paired bootstrap (95 %, seed 0x5eed) over questions for MRR@10, exact McNemar for found@10',
+            ...(provider
+              ? {
+                  rerankedDerivedVsConstant: compareArms(rerankedRanks, rerankedConstantRanks),
+                  fusedDerivedVsConstant: compareArms(derivedRanks, fusedRanksByDepth.get(DEPTH)!),
+                }
+              : {
+                  fusedDerivedVsConstant: compareArms(derivedRanks, fusedRanksByDepth.get(DEPTH)!),
+                }),
+            ...(provider && RERANK_DEPTHS.length > 1
+              ? {
+                  rerankDepthPairs: Object.fromEntries(
+                    RERANK_DEPTHS.filter((depth) => depth !== DEPTH).map((depth) => [
+                      `${depth}-against-${DEPTH}`,
+                      {
+                        derived: compareArms(rerankedByKey.get(`derived@${depth}`)!, rerankedRanks),
+                        constant: compareArms(
+                          rerankedByKey.get(`constant@${depth}`)!,
+                          rerankedConstantRanks,
+                        ),
+                      },
+                    ]),
+                  ),
+                }
+              : {}),
+          },
         };
 
         const recorded = recordArtifact('benchmarks/cosqa-retrieval.json', artifact);
@@ -763,6 +929,41 @@ describe.skipIf(!DATASET_DIR || !HAS_VECTORS)(
             `evidence p10 ${percentile(evidences, 0.1)} p50 ${percentile(evidences, 0.5)} p90 ${percentile(evidences, 0.9)}`,
         );
 
+        // **The paired verdicts, on one line each**, because the job summary is where a reader decides whether a
+        // difference is real: `delta` with its interval, the two discordant counts, and the exact p.
+        const publishPair = (name: string, pair: ReturnType<typeof compareArms>): void => {
+          // eslint-disable-next-line no-console
+          console.log(
+            `COSQA-PAIRED pair=${name} deltaMRR ${pair.deltaMrr.toFixed(4)} ci [${pair.mrrInterval[0].toFixed(4)},${pair.mrrInterval[1].toFixed(4)}] ` +
+              `foundA ${pair.foundA} foundB ${pair.foundB} onlyA ${pair.onlyA} onlyB ${pair.onlyB} p ${pair.pValue.toFixed(4)} ` +
+              `distinguishable ${pair.distinguishable}`,
+          );
+        };
+        publishPair('derived-vs-constant-fused', artifact.paired.fusedDerivedVsConstant);
+        if (provider) {
+          publishPair(
+            'reranked-derived-vs-constant',
+            (artifact.paired as { rerankedDerivedVsConstant: ReturnType<typeof compareArms> })
+              .rerankedDerivedVsConstant,
+          );
+        }
+
+        // **The reranker at each depth it was asked about, with its bill**, so a second depth is a comparable row rather
+        // than a paragraph: the same questions, the same model, a wider pool, and what the wider prompt cost.
+        for (const depth of RERANK_DEPTHS) {
+          if (!provider) break;
+          for (const armKey of ['derived', 'constant'] as const) {
+            const at = score(rerankedByKey.get(`${armKey}@${depth}`)!);
+            const bill = billByKey.get(`${armKey}@${depth}`)!;
+            // eslint-disable-next-line no-console
+            console.log(
+              `COSQA-RERANK-DEPTH depth=${depth} arm=${armKey} R@1 ${at.recallAt1} R@10 ${at.recallAt10} MRR ${at.mrrAt10} found ${at.foundAt10} ` +
+                `rescued ${rescuedByKey.get(`${armKey}@${depth}`)!} lost ${lostByKey.get(`${armKey}@${depth}`)!} ` +
+                `calls ${bill.calls} promptTokens ${bill.promptTokens} usd ${bill.usd.toFixed(6)} unpriced ${bill.unpriced}`,
+            );
+          }
+        }
+
         // **The acceptance bar for the classifier, on the corpus that motivated it**: the derived arm must find at least
         // as many answers in the top ten as the constant it replaced. Both arms fuse the same two lists inside this run,
         // so the comparison carries no embedding call, no model call and none of the run-to-run variance §28 recorded.
@@ -790,6 +991,45 @@ describe.skipIf(!DATASET_DIR || !HAS_VECTORS)(
         // has is a column that describes a subset nobody chose.
         for (const weight of VECTOR_WEIGHTS) {
           expect(score(fusedRanksByWeight.get(weight)!).queries).toBe(rows.length);
+        }
+        // **The artifact has to be readable back into the measurement it published.** A column that decodes to a
+        // different list than the one it was written from is a figure that cannot be recomputed, which is the whole
+        // reason the columns exist.
+        const columns: Array<[string, string, ReadonlyArray<number | null>]> = [
+          ['lexical', artifact.perQuestion.lexical, lexicalRanks],
+          ['fused', artifact.perQuestion.fused, fusedRanksByDepth.get(DEPTH)!],
+          ['derived', artifact.perQuestion.derived, derivedRanks],
+        ];
+        for (const [name, encoded, source] of columns) {
+          const decoded = decodeRanks(encoded, rows.length);
+          expect(
+            decoded,
+            `perQuestion.${name} does not decode to the column it was written from`,
+          ).toEqual(source);
+          // **And the aggregate recomputes from the decoded column**, so the JSON carries both the figure and its
+          // evidence rather than a figure a reader has to trust.
+          expect(
+            score(decoded),
+            `perQuestion.${name} does not reproduce its own aggregate`,
+          ).toEqual(score(source));
+        }
+
+        // **The paired comparisons cover every question in the corpus.** A comparison over a subset nobody chose is the
+        // defect a paired test exists to prevent, and the encoder refuses it - so this gate is about the caller.
+        const pairs = Object.entries(artifact.paired).filter(
+          (entry): entry is [string, ReturnType<typeof compareArms>] =>
+            typeof entry[1] === 'object' && entry[1] !== null && 'queries' in entry[1],
+        );
+        expect(pairs.length).toBeGreaterThan(0);
+        for (const [name, pair] of pairs) {
+          expect(
+            pair.queries,
+            `${name} was computed over ${pair.queries} of ${rows.length} questions`,
+          ).toBe(rows.length);
+          // **A percentile interval that does not contain its own point estimate is a resampling bug**, and it would
+          // read as a finding.
+          expect(pair.mrrInterval[0]).toBeLessThanOrEqual(pair.deltaMrr);
+          expect(pair.mrrInterval[1]).toBeGreaterThanOrEqual(pair.deltaMrr);
         }
       } finally {
         rmSync(workdir, { recursive: true, force: true });

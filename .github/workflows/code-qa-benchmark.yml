@@ -40,6 +40,15 @@ on:
         required: false
         default: ''
         type: string
+      rerankDepths:
+        # **The question §30.5 registered, and the reason it is a dispatch rather than a schedule.** A rerank depth buys a
+        # completion per question per arm, so a two-depth run costs twice a one-depth run; and it has to be *one* run,
+        # because measuring the deeper arm in a second job puts the model's run-to-run variance back into the comparison
+        # the two-arm design removed. `50,100` reranks both arms at both depths and publishes the paired tests.
+        description: 'Depths to rerank at, comma separated (e.g. 50,100). Empty reranks once at depth'
+        required: false
+        default: ''
+        type: string
 
 concurrency:
   group: code-qa-benchmark
@@ -148,6 +157,10 @@ jobs:
           # and the arm a run pays for are separate decisions.
           COSQA_DEPTH: ${{ inputs.depth || '50' }}
           COSQA_SWEEP: ${{ inputs.sweep || '' }}
+          # **The rerank depths, which are the paid part of a run.** Empty means the arm's own depth, which is what the
+          # weekly job measures; a dispatch that names two pays for both arms at both and gets a paired comparison
+          # between them rather than two figures a year apart.
+          COSQA_RERANK_DEPTHS: ${{ inputs.rerankDepths || '' }}
           # **The fusion weight, which the depth sweep pointed at**: at the collection pool the fused list finds the
           # answer fewer times than either channel alone, so the compromise itself is the suspect.
           COSQA_VECTOR_WEIGHTS: ${{ inputs.vectorWeights || '' }}
@@ -161,7 +174,9 @@ jobs:
           npx vitest run --config vitest.config.ts packages/intelligence/src/__tests__/cosqa-retrieval.test.ts 2>&1 | tee /tmp/cosqa.log
           # **Every line the test published, not the last one**: the summary line is the arm and `COSQA-SWEEP` is the
           # depth curve, and a job summary that kept only the tail would drop the measurement the dispatch asked for.
-          grep -oE 'COSQA-(RETRIEVAL|SWEEP|WEIGHT) .*' /tmp/cosqa.log | tee -a "$GITHUB_STEP_SUMMARY"
+          # **Every line the run published**, matched by prefix rather than by an enumerated list: the list was three
+          # names long and a fourth line (`COSQA-PAIRED`) was being published into a log nobody reads.
+          grep -oE 'COSQA-[A-Z-]+ .*' /tmp/cosqa.log | tee -a "$GITHUB_STEP_SUMMARY"
 
       - name: Upload the CoSQA figure
         if: always() && steps.credential.outputs.vectors == 'true'
