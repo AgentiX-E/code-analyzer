@@ -47,6 +47,15 @@ interface SearchFilters {
   isExported?: boolean;
   minComplexity?: number;
   maxComplexity?: number;
+  /**
+   * **The repositories a question is allowed to answer from, applied before the cut rather than after it.**
+   *
+   * Filtering a page of results decides the answer twice: a scoped cross-repository question used to ask for ten
+   * results from all four repositories and then drop three quarters of them, so a repository whose own best match was
+   * eleventh answered nothing while the same question asked of it alone answered first. The filter belongs where the
+   * ranking is, which is here.
+   */
+  projectIds?: readonly string[];
 }
 
 // ---------------------------------------------------------------------------
@@ -566,6 +575,12 @@ class InvertedIndex {
       if (!filters.labels.includes(node.label)) return false;
     }
 
+    if (filters.projectIds !== undefined) {
+      if (node.projectId === undefined || !filters.projectIds.includes(node.projectId)) {
+        return false;
+      }
+    }
+
     if (filters.filePattern) {
       if (!node.filePath) return false;
       const regex = new RegExp(filters.filePattern.replace(/\*/g, '.*'), 'i');
@@ -689,6 +704,7 @@ export class HybridSearchEngine {
     const filters: SearchFilters = {
       labels: options.labels,
       filePattern: options.filePath,
+      projectIds: options.projectIds,
     };
 
     // BM25 search (synchronous) — serves as candidate pre-filter

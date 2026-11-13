@@ -3379,10 +3379,122 @@ an unresolved lean.
 | **measured cost**                             | **1.5153 USD** | **0.7860 USD** |
 
 **The same completion work, five per cent more prompt tokens, and half the money — nineteen cents per million
-tokens against thirty-two, with the price table unchanged.**
-that produces that pair is prompt-cache hits, and **the artifact records the token split the vendor returned but not the
-cached fraction**, so this document can state the arithmetic and not the cause. That is a field to add rather than a
-sentence to write: a billing section that cannot say _why_ two identical runs cost 2× apart is a section a reader has to
-take on trust.
+tokens against thirty-two, with the price table unchanged.** The only mechanism that produces that pair is prompt-cache
+hits, and **the artifact records the token split the vendor returned but not the cached fraction**, so this document can
+state the arithmetic and not the cause. That is a field to add rather than a sentence to write: a billing section that
+cannot say _why_ two identical runs cost 2× apart is a section a reader has to take on trust.
 
 **This iteration: 0.786 USD for the ladder and 0.01539 USD for the paraphrase generation — 0.80 USD in total.**
+
+## 37. The lexical channel was the wrong one, and the right one was already in the repository
+
+§35.5 named the next lever as _"a lexical-only first stage answering a question whose words are absent from the
+index"_, and proposed a vector channel, HyDE, and a re-measurement. **The first measurement of this iteration says the
+diagnosis was half right and the first step was not the vector channel.** Before adding a channel it is worth asking
+which one is being replaced, and the answer was a function that answers by containment.
+
+### 37.1 Where the answer actually is
+
+The 447 rewritten questions were asked of the engine with the cut raised from ten to five hundred, so that "not found"
+and "not found _at ten_" stop being the same number:
+
+| where the intended answer sits     | federated | scoped |
+| ---------------------------------- | --------: | -----: |
+| top ten (what the product reports) |       173 |    192 |
+| positions 11–100                   |       172 |    180 |
+| positions 101–500                  |        71 |     59 |
+| nowhere in five hundred            |    **31** | **16** |
+
+**416 of 447 answers — 93.1 % — are in the list the lexical channel already produced.** The gap this document has been
+attributing to a missing semantic channel is, for eight questions in nine, an ordering problem: the answer is in the
+candidate set and something else is above it. A vector channel would have been bought to fix a ranking defect.
+
+**This sweep is its own run and its top-ten column reads 173 / 192, against the 173 / 189 the published artifact
+recorded.** The three-question difference is the run-to-run band §36.2 measured (up to twelve on one arm, two serial
+runs included), and it is stated rather than smoothed: the split below is a property of one run, and the paired tests in
+§37.3 are computed inside the artifact's run, not across two.
+
+### 37.2 Two lexical channels, one index, the same questions
+
+`HybridSearchEngine` has shipped a field-weighted BM25 for many iterations — term frequency, inverse document frequency,
+per-field weights (`name` 1, `docstring` 3, `signature` 1, `path` 0.5, `vocabulary` 0.25) and length normalisation — and
+the cross-repository path never used it. `FederatedSearchEngine.search` called `InMemoryGraphStore.searchFts`, which
+asks of each term whether a lowercased field _contains_ it, gives the node the weight of its **best single field**, and
+adds three per matched term. There is no term frequency, no inverse document frequency, no per-field weight and no
+length normalisation.
+
+Same four checkouts, same index, same questions, **no embeddings and no model call on either side**:
+
+| condition & channel                    | found@10 |      share |     MRR@10 |
+| -------------------------------------- | -------: | ---------: | ---------: |
+| verbatim, `searchFts` (shipped then)   |      432 |     0.9664 |     0.9098 |
+| verbatim, field-weighted BM25          |  **447** | **1.0000** | **0.9217** |
+| paraphrase, `searchFts` (shipped then) |      173 |     0.3870 |     0.1954 |
+| paraphrase, field-weighted BM25        |  **358** | **0.8010** | **0.6207** |
+
+**Twelve documented symbols were being lost on questions that quote their own documentation**, which is the one condition
+the containment channel was supposed to own. And on the questions a person would ask, **173 → 358 found, 0.1954 → 0.6207
+MRR**: 3.2× the MRR, at a cost of zero, because the code was already in the repository under a different call site.
+
+The row that explains the size of it: `searchFts` scores a doc-comment match at **3** and a name match at **10**. A
+question shares four words with the doc comment that answers it and one word with a neighbouring function's _name_, and
+`3 + 4 × 3 = 15` loses to `10 + 1 × 3 = 13` only when the doc comment is short. Across four repositories the neighbouring
+names are many and the doc comments are the ones being asked about.
+
+### 37.3 The scope effect, under a channel that ranks
+
+| wording    | federated | scoped | only scoped | only federated | exact p |
+| ---------- | --------: | -----: | ----------: | -------------: | ------: |
+| verbatim   |    1.0000 | 1.0000 |       **0** |          **0** |  1.0000 |
+| paraphrase |    0.8010 | 0.8299 |      **13** |          **0** |  2.4e-4 |
+
+**The verbatim scope effect is gone rather than smaller**: 3 questions and `p = 0.25` became 0 questions and `p = 1.000`.
+That is what the mechanism in §35.3 predicted — the three neighbouring repositories cost a question only when the
+ranking lets a merely-local match outrank an exact one, and a length-normalised, idf-weighted ranking does not.
+
+**On rewritten questions the effect survives at 13**, down from 16, and it is still overwhelmingly one-directional (13
+against 0). So §35.3's conclusion stands with a sharper edge: **immunity to cross-repository interference is a property
+of the wording, not of the engine's ability to filter** — a channel that ranks correctly removes it for quoted text and
+cannot remove it for a question that shares no words with any answer, because there the neighbourhood genuinely holds
+plausible candidates.
+
+### 37.4 The four-column reading on the verbatim corpus
+
+| condition                  |       before |            after | Δ found |
+| -------------------------- | -----------: | ---------------: | ------: |
+| federated, all 469         | 0.9680 (454) | **0.9980 (468)** |     +14 |
+| scoped, all 469            | 0.9744 (457) | **0.9980 (468)** |     +11 |
+| federated, name-free (422) | 0.9692 (409) | **0.9976 (421)** |     +12 |
+| federated, ambiguous (23)  |  0.9565 (22) |  **1.0000 (23)** |      +1 |
+| ambiguous MRR              |       0.9022 |       **0.9457** |       — |
+
+**The ambiguous subset — the one whose symbol name exists in two or more repositories — is now perfect at ten**, and its
+MRR rose 0.0435. That is the sub-question a federated search exists to get right, and it used to be the one it got
+wrong most often.
+
+### 37.5 One column moved the other way, and it is reported
+
+**R@1 on the verbatim corpus fell from 0.8699 to 0.8657**, two questions. A ranking that sums evidence across five
+fields can put a second declaration above the exact one where containment scoring had a single hard rule for "the name
+_is_ the query". The trade is fourteen answers found at ten for two answers demoted from first, and the paired MRR moved
++0.0093 [−0.0031, +0.0221] in the same run — **the direction is stated, the exact top-1 rule is not, and no attempt was
+made to special-case a name equality back into the BM25 path.** A hybrid that reintroduces a hard rule for one field is
+the defect this section removed.
+
+### 37.6 What this changes about the next lever
+
+§35.5's three steps keep their order and their content, but their baseline is not 0.3870 any more. **The remaining
+paraphrase gap is 89 questions (0.8010 against 1.0000) and ΔMRR is −0.3010 [−0.3396, −0.2629]**, down from 261 questions
+and −0.7144. So:
+
+1. **A vector channel is now measured against 0.8010, not 0.3870.** What is left of the gap is the part no lexical
+   channel can close: a question that shares no word with the answer's name _or_ its doc comment.
+2. **HyDE is unchanged in cost and is now worth more per question**, because the lexical half it expands into is one that
+   ranks. It was measured against a channel that could not use the expansion.
+3. **The two conditions are still paired and the corpus is still frozen**, so the next run reports its delta on these same
+   447 questions in the same instrument.
+
+**The bill for this iteration is zero.** No completion, no embedding, no dispatch beyond the two local replays: the
+corpus, the questions and both channels are in the repository. The artifacts are
+`benchmarks/multirepo-qa.json` (`2026-11-13T12:49:38Z`) and `benchmarks/multirepo-qa-paraphrase.json`
+(`2026-11-13T12:51:00Z`), and both carry the per-question columns the paired tests are computed from.

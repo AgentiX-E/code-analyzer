@@ -6,7 +6,7 @@
     "question and not the corpus, the embedding backend or the engine. Every aggregate can be recomputed from",
     "`perQuestion`, and a test does recompute them."
   ],
-  "measuredAt": "2026-11-13T11:35:02.453Z",
+  "measuredAt": "2026-11-13T12:51:00.325Z",
   "cut": 10,
   "depth": 10,
   "model": "replayed",
@@ -18,13 +18,13 @@
     "totalEdges": 741,
     "crossRepoEdges": 20,
     "contracts": 0,
-    "duration": 20610,
+    "duration": 18096,
     "errors": [],
     "edgesByType": {
       "CROSS_REPO_IMPORTS": 20,
       "IMPORTS": 721
     },
-    "durationMs": 20610
+    "durationMs": 18096
   },
   "corpus": [
     {
@@ -62,75 +62,87 @@
   "conditions": {
     "verbatimFederated": {
       "n": 447,
-      "found": 432,
-      "r1": 0.8702,
-      "mrr": 0.9098
+      "found": 447,
+      "r1": 0.8658,
+      "mrr": 0.9217
     },
     "verbatimScoped": {
       "n": 447,
-      "found": 435,
-      "r1": 0.8702,
-      "mrr": 0.9112
+      "found": 447,
+      "r1": 0.8658,
+      "mrr": 0.9217
     },
     "paraphraseFederated": {
       "n": 447,
-      "found": 173,
-      "r1": 0.1141,
-      "mrr": 0.1954
+      "found": 358,
+      "r1": 0.5235,
+      "mrr": 0.6207
     },
     "paraphraseScoped": {
       "n": 447,
-      "found": 189,
-      "r1": 0.1409,
-      "mrr": 0.2263
+      "found": 371,
+      "r1": 0.557,
+      "mrr": 0.6551
     }
   },
   "paired": {
     "paraphrase-vs-verbatim-federated": {
       "queries": 447,
-      "deltaMrr": -0.7143709385320125,
-      "mrrInterval": [-0.7492436348141046, -0.680213770817798],
-      "foundA": 173,
-      "foundB": 432,
-      "onlyA": 2,
-      "onlyB": 261,
-      "pValue": 4.684716620737669e-75,
+      "deltaMrr": -0.30100138489400247,
+      "mrrInterval": [
+        -0.3395919889208481,
+        -0.2629372181385605
+      ],
+      "foundA": 358,
+      "foundB": 447,
+      "onlyA": 0,
+      "onlyB": 89,
+      "pValue": 3.2311742677852794e-27,
       "distinguishable": true,
       "cut": 10
     },
     "paraphrase-vs-verbatim-scoped": {
       "queries": 447,
-      "deltaMrr": -0.6849090941372823,
-      "mrrInterval": [-0.7207334611697032, -0.6498828166613406],
-      "foundA": 189,
-      "foundB": 435,
-      "onlyA": 1,
-      "onlyB": 247,
-      "pValue": 1.1010078567518657e-72,
+      "deltaMrr": -0.2665690138844502,
+      "mrrInterval": [
+        -0.3037871524448706,
+        -0.2292399062533291
+      ],
+      "foundA": 371,
+      "foundB": 447,
+      "onlyA": 0,
+      "onlyB": 76,
+      "pValue": 2.64697796016969e-23,
       "distinguishable": true,
       "cut": 10
     },
     "paraphrase-scoped-vs-federated": {
       "queries": 447,
-      "deltaMrr": 0.03089378928305103,
-      "mrrInterval": [0.020317992968999676, 0.04304357089591989],
-      "foundA": 189,
-      "foundB": 173,
-      "onlyA": 16,
+      "deltaMrr": 0.03443237100955221,
+      "mrrInterval": [
+        0.02210237562586556,
+        0.04872962607861935
+      ],
+      "foundA": 371,
+      "foundB": 358,
+      "onlyA": 13,
       "onlyB": 0,
-      "pValue": 0.000030517578125000014,
+      "pValue": 0.00024414062500000016,
       "distinguishable": true,
       "cut": 10
     },
     "verbatim-scoped-vs-federated": {
       "queries": 447,
-      "deltaMrr": 0.0014319448883207272,
-      "mrrInterval": [0.0003417847377578921, 0.0029411242498490822],
-      "foundA": 435,
-      "foundB": 432,
-      "onlyA": 3,
+      "deltaMrr": 0,
+      "mrrInterval": [
+        0,
+        0
+      ],
+      "foundA": 447,
+      "foundB": 447,
+      "onlyA": 0,
       "onlyB": 0,
-      "pValue": 0.25000000000000006,
+      "pValue": 1,
       "distinguishable": false,
       "cut": 10
     }
@@ -585,99 +597,144 @@
       "sindresorhus/got#project:sindresorhus/got:test/helpers/error-matching.ts:errorMatching",
       "sindresorhus/got#project:sindresorhus/got:test/helpers/rejects.ts:rejects"
     ],
-    "verbatim": "1,1,1,1,1,-,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,8,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,2,1,2,1,1,1,1,1,1,1,1,3,1,1,1,1,1,1,1,1,2,1,2,1,1,1,2,1,1,1,1,1,1,1,2,4,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,3,1,1,1,1,2,2,1,1,1,1,1,-,3,-,-,-,-,2,1,1,1,1,1,1,1,1,1,2,1,1,1,1,1,1,1,1,1,1,1,1,1,6,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,6,1,1,4,2,1,1,1,-,2,1,1,1,1,1,1,1,2,1,1,1,1,1,1,1,2,1,1,1,1,1,2,1,1,2,1,1,1,1,2,1,1,1,1,1,1,-,1,1,1,1,1,10,1,1,1,3,1,8,3,1,1,1,1,1,1,1,1,1,1,2,1,1,1,2,1,1,1,1,1,-,1,1,4,1,1,1,1,1,1,1,1,1,1,1,-,-,1,1,1,1,1,1,1,1,1,2,1,1,1,1,-,1,1,-,1,1,1,1,1,1,1,-,2,1,1,1,1,1,1,2,4,1,1,1,1,1,1,1,1,1,2,2,2,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,2,1,1,1,3,1,1,1,1,1,1,2,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,-,1,1,1,1,1,1,1,1,1,1,1,1,2,1,1,1,1,1,1,1",
-    "verbatimScoped": "1,1,1,1,1,-,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,6,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,2,1,2,1,1,1,1,1,1,1,1,2,1,1,1,1,1,1,1,1,2,1,2,1,1,1,2,1,1,1,1,1,1,1,2,4,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,3,1,1,1,1,2,2,1,1,1,1,1,-,3,-,-,-,-,2,1,1,1,1,1,1,1,1,1,2,1,1,1,1,1,1,1,1,1,1,1,1,1,6,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,6,1,1,4,2,1,1,1,-,2,1,1,1,1,1,1,1,2,1,1,1,1,1,1,1,2,1,1,1,1,1,2,1,1,2,1,1,1,1,2,1,1,1,1,1,1,-,1,1,1,1,1,9,1,1,1,3,1,8,3,1,1,1,1,1,1,1,1,1,1,2,1,1,1,2,1,1,1,1,1,9,1,1,4,1,1,1,1,1,1,1,1,1,1,1,6,7,1,1,1,1,1,1,1,1,1,2,1,1,1,1,-,1,1,-,1,1,1,1,1,1,1,-,2,1,1,1,1,1,1,2,4,1,1,1,1,1,1,1,1,1,2,2,2,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,2,1,1,1,3,1,1,1,1,1,1,2,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,-,1,1,1,1,1,1,1,1,1,1,1,1,2,1,1,1,1,1,1,1",
-    "paraphrase": "-,2,-,-,1,-,-,-,8,1,-,-,-,-,4,-,-,-,-,4,-,3,-,-,-,-,-,2,2,3,9,-,3,-,-,7,-,-,2,-,2,-,-,-,2,2,-,6,2,-,-,-,5,-,-,-,5,-,-,5,-,-,-,2,8,-,-,-,-,-,-,-,-,1,-,-,-,-,-,-,-,-,-,-,-,3,-,-,-,10,-,2,-,-,-,-,-,-,10,-,6,4,-,-,-,-,1,-,2,3,3,-,-,-,1,-,1,-,1,-,-,-,-,-,-,-,-,-,-,-,-,-,-,4,-,-,-,-,-,6,-,7,-,-,3,-,-,-,-,8,-,-,-,-,-,-,-,-,-,-,-,-,-,1,-,-,-,-,-,-,-,-,5,-,9,-,-,8,-,3,-,-,-,-,-,1,-,-,-,-,-,1,5,-,-,5,3,-,2,5,-,2,-,5,4,2,-,-,-,3,3,7,8,-,7,1,5,-,-,-,-,4,1,-,1,2,-,2,1,-,-,-,1,-,5,-,-,-,3,-,1,1,2,-,2,-,-,-,7,2,-,-,7,3,6,9,-,3,-,6,4,1,-,-,-,-,-,-,4,2,-,-,-,-,-,6,9,-,-,2,-,-,-,-,-,-,-,-,9,-,4,-,-,1,-,-,-,5,-,1,-,1,3,1,-,-,-,6,-,-,4,3,-,3,10,-,-,1,1,-,1,-,7,-,1,1,5,2,-,-,3,-,-,-,-,3,8,-,-,-,-,-,-,5,1,-,-,-,-,6,5,1,-,4,-,-,2,7,1,1,1,1,-,5,-,4,-,-,-,-,4,-,6,-,3,1,1,1,-,2,1,2,2,-,-,-,-,-,-,-,4,-,-,3,-,-,-,2,-,4,-,-,-,1,6,1,-,2,3,2,-,1,1,2,1,1,2,-,2,-,-,-,-,-,-,1,-,2,4,1,-,1,-,6,-,9,-,-,1,2,1,1,1,-,3,1,-",
-    "paraphraseScoped": "-,1,-,-,1,-,-,-,3,1,-,-,-,6,1,-,5,-,4,1,3,1,-,-,-,-,-,1,2,3,9,-,2,-,8,5,-,-,2,-,2,-,-,-,1,2,-,6,2,-,-,-,5,-,-,-,5,-,-,5,-,-,-,2,8,-,-,-,-,-,-,-,-,1,-,-,-,-,-,-,-,-,-,-,-,2,-,-,-,10,-,2,-,-,-,-,-,-,10,-,6,4,9,-,9,-,1,-,2,3,3,-,-,-,1,-,1,-,1,-,-,-,-,-,-,-,-,-,-,-,-,-,-,4,-,-,-,-,-,5,-,7,-,-,3,-,-,-,-,7,-,-,-,-,-,-,-,-,-,-,-,-,-,1,-,-,-,-,-,-,-,-,5,-,7,-,-,8,-,3,-,-,-,-,-,1,-,-,-,-,-,1,5,-,-,2,3,-,2,4,-,2,-,3,2,2,-,-,-,3,3,6,8,8,7,1,5,-,-,-,-,4,1,-,1,2,-,2,1,-,-,-,1,-,5,-,-,-,3,-,1,1,2,-,2,-,-,-,7,2,-,-,6,3,6,9,-,3,-,6,4,1,-,-,-,-,-,-,4,2,-,-,-,-,-,6,9,-,-,2,-,-,-,-,-,-,-,-,9,-,4,-,-,1,-,-,-,5,-,1,-,1,3,1,-,-,-,5,-,-,4,2,-,3,10,-,-,1,1,-,1,-,7,-,1,1,5,2,-,-,3,-,-,-,-,3,8,-,-,-,-,-,-,5,1,-,-,-,-,6,5,1,-,4,-,-,2,7,1,1,1,1,-,5,-,4,-,-,-,-,4,-,5,-,3,1,1,1,-,2,1,2,2,-,-,-,-,-,-,-,4,-,-,3,-,-,-,2,-,2,-,-,1,1,1,1,2,2,1,1,-,1,1,2,1,1,2,-,2,-,7,-,-,4,10,1,-,1,2,1,3,1,-,2,-,7,-,-,1,2,1,1,1,3,1,1,3"
+    "verbatim": "1,1,1,1,1,1,1,1,1,2,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,2,3,1,1,1,2,1,1,1,1,1,1,1,1,1,1,1,1,1,1,2,1,3,1,1,1,1,3,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,2,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,2,1,2,1,1,1,1,1,1,1,1,1,1,1,2,4,1,1,1,1,1,1,1,1,3,1,1,1,1,1,1,1,1,1,1,1,2,1,1,1,2,2,2,1,1,1,2,1,1,1,1,2,1,1,1,2,1,1,1,2,5,6,7,9,4,1,1,1,1,1,1,1,1,3,1,1,1,1,1,1,1,1,1,1,3,1,1,1,1,1,2,1,2,1,1,1,1,1,1,1,1,1,1,1,2,1,1,1,2,3,1,1,1,1,1,1,1,1,1,1,2,1,1,1,3,1,1,1,3,1,1,1,1,1,1,1,1,2,1,1,1,1,1,1,1,2,1,1,1,1,1,1,1,1,2,1,1,1,2,1,1,1,1,1,1,2,3,1,1,1,1,1,1,1,1,1,3,1,1,1,1,1,1,1,1,1,1,1,1,1,2,1,1,1,1,1,1,1,1,1,4,1,1,1,1,1,2,1,1,1,1,2,1,1,1,1,2,1,1,1,1,1,1,1,1,1,2,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,2,2,1,1,1,1,1,1,1,3,1,1,1,1,1,1,1,2,2,1,1,1,1,1,1,1,2,1,1,1,5,1,1,1,1,1,1,1,1,1,1,1,3,1,4,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,3,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,2,1,1,1",
+    "verbatimScoped": "1,1,1,1,1,1,1,1,1,2,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,2,3,1,1,1,2,1,1,1,1,1,1,1,1,1,1,1,1,1,1,2,1,3,1,1,1,1,3,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,2,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,2,1,2,1,1,1,1,1,1,1,1,1,1,1,2,4,1,1,1,1,1,1,1,1,3,1,1,1,1,1,1,1,1,1,1,1,2,1,1,1,2,2,2,1,1,1,2,1,1,1,1,2,1,1,1,2,1,1,1,2,5,6,7,9,4,1,1,1,1,1,1,1,1,3,1,1,1,1,1,1,1,1,1,1,3,1,1,1,1,1,2,1,2,1,1,1,1,1,1,1,1,1,1,1,2,1,1,1,2,3,1,1,1,1,1,1,1,1,1,1,2,1,1,1,3,1,1,1,3,1,1,1,1,1,1,1,1,2,1,1,1,1,1,1,1,2,1,1,1,1,1,1,1,1,2,1,1,1,2,1,1,1,1,1,1,2,3,1,1,1,1,1,1,1,1,1,3,1,1,1,1,1,1,1,1,1,1,1,1,1,2,1,1,1,1,1,1,1,1,1,4,1,1,1,1,1,2,1,1,1,1,2,1,1,1,1,2,1,1,1,1,1,1,1,1,1,2,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,2,2,1,1,1,1,1,1,1,3,1,1,1,1,1,1,1,2,2,1,1,1,1,1,1,1,2,1,1,1,5,1,1,1,1,1,1,1,1,1,1,1,3,1,4,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,3,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,2,1,1,1",
+    "paraphrase": "1,1,5,2,7,10,3,3,1,4,6,9,-,-,-,-,-,3,1,1,1,1,1,5,1,-,-,1,1,2,1,-,-,-,1,2,-,1,1,1,1,1,1,3,1,3,-,1,2,-,1,3,5,-,4,-,1,1,2,4,-,1,-,5,5,-,-,1,1,1,2,5,1,1,1,-,1,1,1,1,2,2,1,1,5,1,9,1,2,3,4,1,1,2,1,4,1,1,1,1,1,1,1,1,1,1,1,-,2,1,1,1,-,1,1,1,1,3,1,-,-,-,3,2,1,-,1,-,-,-,-,1,-,1,2,2,1,6,1,2,-,3,1,8,1,1,1,1,2,1,1,1,2,-,-,1,1,-,-,1,2,2,-,3,-,-,8,-,-,-,-,-,1,2,1,6,2,2,1,3,1,3,1,1,3,1,-,-,3,1,-,1,1,1,1,1,-,-,1,1,1,1,1,1,2,2,-,1,2,1,2,3,1,1,-,3,1,3,2,4,-,1,1,-,1,1,2,1,1,-,2,8,1,1,3,2,1,1,1,2,1,1,1,2,1,-,1,1,1,1,1,2,1,1,1,1,2,1,1,1,2,1,-,1,1,-,1,10,2,1,1,-,5,-,2,1,3,1,1,3,1,1,1,1,1,-,1,1,1,2,1,4,1,1,1,1,3,1,1,1,-,1,2,1,4,1,-,1,-,1,2,1,2,2,1,1,1,1,1,1,1,2,1,4,1,1,-,10,1,9,1,1,7,1,1,1,1,8,10,-,2,1,1,1,1,1,-,1,4,2,3,1,2,3,4,1,1,6,1,1,1,1,-,1,2,2,1,1,-,-,2,-,1,1,9,1,1,1,5,1,1,1,1,-,1,1,1,-,-,1,3,1,-,5,-,-,7,1,1,1,1,-,1,6,4,1,8,1,-,1,8,-,1,1,1,2,1,-,2,1,1,-,1,2,1,-,1,1,1,2,-,-,-,1,-,1,4,-,1,-,1,1,1,-,1,2,1",
+    "paraphraseScoped": "1,1,1,2,1,3,1,1,1,2,1,1,-,7,9,7,8,2,1,1,1,1,1,3,1,1,3,1,1,2,1,-,-,-,1,2,-,1,1,1,1,1,1,3,1,2,-,1,2,-,1,3,5,10,4,-,1,1,2,4,-,1,-,3,5,-,-,1,1,1,2,5,1,1,1,-,1,1,1,1,2,2,1,1,5,1,8,1,2,3,4,1,1,2,1,4,1,1,1,1,1,1,1,1,1,1,1,-,2,1,1,1,-,1,1,1,1,3,1,-,-,-,3,2,1,-,1,-,-,-,-,1,-,1,2,2,1,6,1,2,-,3,1,8,1,1,1,1,2,1,1,1,2,-,10,1,1,-,-,1,2,2,6,2,-,-,8,9,-,-,-,-,1,2,1,6,2,2,1,3,1,3,1,1,2,1,-,-,2,1,-,1,1,1,1,1,-,-,1,1,1,1,1,1,1,2,-,1,2,1,2,3,1,1,-,3,1,3,2,3,-,1,1,-,1,1,2,1,1,-,2,4,1,1,3,2,1,1,1,2,1,1,1,2,1,-,1,1,1,1,1,2,1,1,1,1,2,1,1,1,2,1,-,1,1,-,1,9,2,1,1,-,2,-,2,1,3,1,1,2,1,1,1,1,1,-,1,1,1,2,1,4,1,1,1,1,3,1,1,1,-,1,2,1,4,1,-,1,-,1,2,1,2,2,1,1,1,1,1,1,1,2,1,4,1,1,-,10,1,9,1,1,7,1,1,1,1,7,9,-,2,1,1,1,1,1,-,1,2,2,1,1,2,3,4,1,1,6,1,1,1,1,-,1,2,2,1,1,-,-,2,-,1,1,9,1,1,1,5,1,1,1,1,-,1,1,1,-,-,1,3,1,-,5,-,-,7,1,1,1,1,-,1,1,1,1,1,1,-,1,5,5,1,1,1,2,1,-,2,1,1,-,1,1,1,-,1,1,1,1,-,-,-,1,-,1,3,-,1,5,1,1,1,10,1,1,1"
   },
   "rejected": [
     {
       "key": "expressjs/express#project:expressjs/express:lib/application.js:set",
-      "reasons": ["spells the symbol name"]
+      "reasons": [
+        "spells the symbol name"
+      ]
     },
     {
       "key": "expressjs/express#project:expressjs/express:lib/request.js:range",
-      "reasons": ["spells the symbol name"]
+      "reasons": [
+        "spells the symbol name"
+      ]
     },
     {
       "key": "expressjs/express#project:expressjs/express:lib/response.js:links",
-      "reasons": ["spells the symbol name", "copies six words from the documentation"]
+      "reasons": [
+        "spells the symbol name",
+        "copies six words from the documentation"
+      ]
     },
     {
       "key": "google/gson#project:google/gson:gson/src/main/java/com/google/gson/Gson.java:getDelegateAdapter",
-      "reasons": ["copies six words from the documentation"]
+      "reasons": [
+        "copies six words from the documentation"
+      ]
     },
     {
       "key": "google/gson#project:google/gson:gson/src/main/java/com/google/gson/GsonBuilder.java:enableComplexMapKeySerialization",
-      "reasons": ["copies six words from the documentation"]
+      "reasons": [
+        "copies six words from the documentation"
+      ]
     },
     {
       "key": "google/gson#project:google/gson:gson/src/main/java/com/google/gson/GsonBuilder.java:setFieldNamingPolicy",
-      "reasons": ["copies six words from the documentation"]
+      "reasons": [
+        "copies six words from the documentation"
+      ]
     },
     {
       "key": "google/gson#project:google/gson:gson/src/main/java/com/google/gson/internal/JavaVersion.java:isJava9OrLater",
-      "reasons": ["copies six words from the documentation"]
+      "reasons": [
+        "copies six words from the documentation"
+      ]
     },
     {
       "key": "google/gson#project:google/gson:gson/src/main/java/com/google/gson/internal/Primitives.java:isWrapperType",
-      "reasons": ["copies six words from the documentation"]
+      "reasons": [
+        "copies six words from the documentation"
+      ]
     },
     {
       "key": "google/gson#project:google/gson:gson/src/main/java/com/google/gson/JsonObject.java:JsonObject",
-      "reasons": ["spells the symbol name"]
+      "reasons": [
+        "spells the symbol name"
+      ]
     },
     {
       "key": "google/gson#project:google/gson:gson/src/main/java/com/google/gson/JsonParser.java:parseString",
-      "reasons": ["copies six words from the documentation"]
+      "reasons": [
+        "copies six words from the documentation"
+      ]
     },
     {
       "key": "google/gson#project:google/gson:gson/src/main/java/com/google/gson/JsonSerializationContext.java:serialize",
-      "reasons": ["spells the symbol name"]
+      "reasons": [
+        "spells the symbol name"
+      ]
     },
     {
       "key": "google/gson#project:google/gson:gson/src/main/java/com/google/gson/reflect/TypeToken.java:typeEquals",
-      "reasons": ["copies six words from the documentation"]
+      "reasons": [
+        "copies six words from the documentation"
+      ]
     },
     {
       "key": "google/gson#project:google/gson:gson/src/main/java/com/google/gson/stream/JsonWriter.java:JsonWriter",
-      "reasons": ["copies six words from the documentation"]
+      "reasons": [
+        "copies six words from the documentation"
+      ]
     },
     {
       "key": "google/gson#project:google/gson:gson/src/main/java/com/google/gson/stream/JsonWriter.java:nullValue",
-      "reasons": ["spells the symbol name"]
+      "reasons": [
+        "spells the symbol name"
+      ]
     },
     {
       "key": "google/gson#project:google/gson:gson/src/test/java/com/google/gson/common/TestTypes.java:TestTypes",
-      "reasons": ["copies six words from the documentation"]
+      "reasons": [
+        "copies six words from the documentation"
+      ]
     },
     {
       "key": "google/gson#project:google/gson:gson/src/test/java/com/google/gson/functional/InstanceCreatorTest.java:testInstanceCreatorForCollectionType",
-      "reasons": ["copies six words from the documentation"]
+      "reasons": [
+        "copies six words from the documentation"
+      ]
     },
     {
       "key": "google/gson#project:google/gson:gson/src/test/java/com/google/gson/functional/MoreSpecificTypeSerializationTest.java:testWildcardTypeVariableSubclassFields",
-      "reasons": ["copies six words from the documentation"]
+      "reasons": [
+        "copies six words from the documentation"
+      ]
     },
     {
       "key": "google/gson#project:google/gson:gson/src/test/java/com/google/gson/functional/TypeVariableTest.java:TypeVariableTest",
-      "reasons": ["copies six words from the documentation"]
+      "reasons": [
+        "copies six words from the documentation"
+      ]
     },
     {
       "key": "google/gson#project:google/gson:test-jpms/src/test/java/com/google/gson/jpms_test/ExportedPackagesTest.java:testReflectionInternalField",
-      "reasons": ["copies six words from the documentation"]
+      "reasons": [
+        "copies six words from the documentation"
+      ]
     },
     {
       "key": "sindresorhus/got#project:sindresorhus/got:source/core/response.ts:copyRedirectDecision",
-      "reasons": ["copies six words from the documentation"]
+      "reasons": [
+        "copies six words from the documentation"
+      ]
     },
     {
       "key": "sindresorhus/got#project:sindresorhus/got:source/core/timed-out.ts:isArmableTimerDelay",
-      "reasons": ["copies six words from the documentation"]
+      "reasons": [
+        "copies six words from the documentation"
+      ]
     },
     {
       "key": "sindresorhus/got#project:sindresorhus/got:test/headers.ts:withRawServer",
-      "reasons": ["copies six words from the documentation"]
+      "reasons": [
+        "copies six words from the documentation"
+      ]
     }
   ]
 }

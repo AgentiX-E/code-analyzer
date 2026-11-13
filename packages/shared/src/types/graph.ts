@@ -613,6 +613,14 @@ export interface SearchOptions {
   query: string;
   labels?: NodeLabel[];
   projectId?: string;
+  /**
+   * **Several repositories, because a cross-repository question is asked of a set of them and rarely of one.**
+   *
+   * `projectId` is a single project and stays what it was; this is the plural form a federated scope resolves to, and
+   * it is a filter on the index rather than a filter on a page of results - the difference between "this repository
+   * holds no match" and "this repository's match was eleventh in a list of four".
+   */
+  projectIds?: string[];
   filePath?: string;
   limit?: number;
   offset?: number;

@@ -154,12 +154,22 @@ describe('three repositories, three languages, asked across both', () => {
     try {
       const engine = new FederatedSearchEngine(store);
 
-      // **Across repositories.** The name alone, with nothing said about which repository holds it. Two of the three
-      // repositories define it, so the answer is not allowed to be a single row either.
+      // **Across repositories, and now across spellings.**
+      //
+      // This assertion used to read `{alpha, gamma}` and it was right about the channel it was measuring: `searchFts`
+      // lowercases the whole query and splits on whitespace, so `computeKineticEnergy` became the single term
+      // `computekineticenergy`, which is a substring of the TypeScript and JavaScript declarations and **is not a
+      // substring of `compute_kinetic_energy`** — the Python name that is the same function in another language.
+      // The federated channel now ranks with the tokenizer the rest of the product uses, which splits camelCase and
+      // underscores into the same three words, so **the Python declaration is found by the JavaScript spelling**.
+      //
+      // That is the capability this story is about, not a regression: a cross-repository question is asked by someone
+      // who does not know which language holds the answer. The assertion is updated to the true state and the reason is
+      // written here rather than in a commit message nobody reads.
       const all = await engine.search('computeKineticEnergy', {});
       expect(all.totalResults).toBeGreaterThan(0);
       expect(new Set(all.results.map((r) => r.repo))).toEqual(
-        new Set(['AgentiX-E/alpha', 'AgentiX-E/gamma']),
+        new Set(['AgentiX-E/alpha', 'AgentiX-E/beta', 'AgentiX-E/gamma']),
       );
 
       // **Within one repository, by the name a user types.** A filter must *narrow*: fewer results than the
