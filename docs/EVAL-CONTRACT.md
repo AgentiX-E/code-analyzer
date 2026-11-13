@@ -3522,3 +3522,116 @@ name lookups (`searchFts(symbolName, { limit: 1 })`), which is the one question 
 CLI and the GraphQL field are general queries and carry the measured defect. **The cost is now a number instead of an
 opinion: 173 against 358 on 447 rewritten questions**, and the next iteration that touches either surface has the
 comparison to justify itself.
+
+## 38. The vector channel was measured, and on rewritten questions it costs twenty-two points
+
+§37.6 closed by naming the vector channel as the next lever and setting its baseline at 0.8010: _"what is left of the
+gap is the part no lexical channel can close"_. **That was a diagnosis about the questions, and this section is the
+first measurement of the proposed remedy.** It is dispatch-only (`multirepo-semantic.yml`), it runs both corpora in
+parallel on one key, and it costs a few cents of embeddings and no completions.
+
+### 38.1 What it measured
+
+| condition (frozen corpus)     |    lexical | with vectors |                            Δ MRR | only lexical | only vectors | exact p |
+| ----------------------------- | ---------: | -----------: | -------------------------------: | -----------: | -----------: | ------: |
+| quoted questions, found@10    |     0.9980 |   **1.0000** |     +0.0051 `[−0.0031, +0.0133]` |            0 |        **1** |   1.000 |
+| quoted questions, MRR@10      |     0.9201 |   **0.9252** |                                — |            — |            — |       — |
+| rewritten questions, found@10 | **0.8010** |       0.5840 | **−0.1682** `[−0.2161, −0.1224]` |      **120** |           23 |  < 1e-4 |
+| rewritten questions, MRR@10   | **0.6207** |       0.4525 |                                — |            — |            — |       — |
+
+**The quoted corpus was already at 0.998 and the vector list bought the last question.** That is what a channel that
+answers "the index's own words" looks like when the index's own words are the question: nothing left to add.
+
+**On the questions the channel was bought for, it is 22 points worse and the paired test is unambiguous**: 120 questions
+the lexical channel answered and the fused one did not, against 23 the other way. Every other figure in this document
+that moved by more than five questions moved for a nameable reason; this one moved the wrong way with the remedy in
+place, so the reason is the remedy or the weight.
+
+### 38.2 The weight is the suspect, and the arithmetic says why
+
+The two lists are fused by reciprocal rank with a weight that `deriveVectorWeight` reads from the question: the share of
+the question's terms the lexical channel's best answer already carries. A rewritten question scores low - it shares no
+words with the answer - so **the weight is 4, the highest the sweep bounds allow, and the vector list dominates a
+ranking that is 22 points worse.** The fused column is therefore not "the vectors, mildly"; it is "mostly the vectors",
+on the one corpus where the vectors are worst.
+
+**That is a measured statement about the derived weight, not about vectors.** Nothing here says a vector channel cannot
+help: it says that at the weight this repository derives for a paraphrase, on this corpus, it does not. The next step is
+the sweep the single-repository corpora already run (`docstring-search` over `[1, 0.5, 0.25, 0.1]`, `cosqa-retrieval`
+over `COSQA_VECTOR_WEIGHTS`) - **and this document does not get to call the channel a failure before that sweep exists**,
+for the same reason §37 did not get to add a channel before asking where the answers were.
+
+### 38.3 The corpus was asking about the last line of every comment
+
+While wiring the channel, one probe found a defect that had been in every published figure of this corpus: **a
+multi-line doc comment reached the index as its last line.**
+
+Two causes, both real:
+
+1. **`tree-sitter-rust` spells `/// text` as a `line_comment` that contains an `outer_doc_comment_marker` and a
+   `doc_comment`.** The pass that collects comments from the tree saw both nodes, with different texts (`/// text` and
+   ` text`). The join rule reads "the next capture starts on the line after the pending one" - and a duplicate that
+   starts on the _same_ line replaced the block instead of extending it. A four-line Rust comment arrived as its last
+   sentence.
+2. **`cross-repo-indexer.ts` re-decided the attribution from the last raw comment capture** (`pending.text`), ignoring
+   the `docstring` the provider had already computed. That capture is one node of a multi-line comment, _marker
+   included_ - so a two-line Go comment documented its function with its second sentence and the `//` still on the front,
+   while the provider in the same process held the correct, joined, stripped block.
+
+**Both are fixed** (§38.4), and the corpus they fed is not the corpus this document was quoting:
+
+| the quoted corpus     | before |              after | why                                                                             |
+| --------------------- | -----: | -----------------: | ------------------------------------------------------------------------------- |
+| questions derived     |    469 |            **494** | a joined block is long enough to be a question where one trailing line was not  |
+| federated found@10    | 0.9980 |         **0.9860** | the question is now the block's first sentence, not its last                    |
+| federated MRR@10      | 0.9201 |         **0.9056** | same                                                                            |
+| ambiguous subset (31) | 1.0000 |         **0.9677** | same                                                                            |
+| only-scoped, quoted   |      0 | **3** (`p = 0.25`) | the neighbourhood matches a longer question less often, so the scope costs less |
+
+**The fall is the corpus getting harder, and the sentence is not allowed to stop there.** Two things changed in one
+commit - the questions and the indexed text - so no single factor is attributed. What can be said is the direction: the
+questions are now what a person reads first, which is the only thing a question should ever have been.
+
+### 38.4 One rule for one question
+
+The distance rule lived in two places and disagreed: the indexer refused a comment more than two lines above a
+declaration, and the provider had no distance at all - so a JSDoc block two blank lines above a function documented it
+through one surface and not through the other. **Both now apply the same two-line boundary**, and the comment says why
+in one sentence: one blank line is a convention (`express` writes it for every method of an application) and two is a
+paragraph break, after which a comment is a section header.
+
+The tests that hold it (`a-doc-comment-is-the-block-not-its-last-line.test.ts`): a two-line Go comment joins, a Rust
+comment joins across its empty `///` line, a Rust comment's sentence appears once and not twice, and a Kotlin block -
+which is one node there, so it passed before the fix - still comes out whole. **The Kotlin case is the control**: a
+change that repaired Rust by rewriting how blocks are joined would break it.
+
+**The bill for §38.3 and §38.4 is zero.** No model call: the probe, the fix and the re-measurement are all local, and
+the corpus they produce is re-indexed from the same four pinned checkouts.
+
+### 38.5 The corpus was regenerated, and the baseline it produced
+
+Fixing §38.3 changed the text every question is taken from, so the rewritten corpus had to be written again - the
+rewrites are a model's answer to _those_ sentences, and a corpus written from a comment's last line is not a corpus
+written from its first. One `generate` dispatch, 494 rewrites, **0.016475 USD**:
+
+| the rewritten corpus               |    before the fix |                            after |
+| ---------------------------------- | ----------------: | -------------------------------: |
+| questions asked                    |               447 |                          **454** |
+| rejected by the rules              |                22 |                           **40** |
+| verbatim, found@10                 |            1.0000 |                       **0.9930** |
+| paraphrase, found@10               |            0.8010 |                       **0.7930** |
+| paraphrase, MRR@10                 |            0.6207 |                       **0.6299** |
+| paraphrase penalty, ΔMRR           |           −0.3010 | **−0.2762** `[−0.3145, −0.2374]` |
+| found only by the verbatim wording |                89 |                           **92** |
+| scoped over federated, rewritten   | 13 (`p = 2.4e-4`) |            **14** (`p = 1.0e-4`) |
+| scoped over federated, quoted      |       0 (`p = 1`) |               **3** (`p = 0.25`) |
+
+**The paraphrase condition did not get easier or harder in a way that matters**: 0.8010 to 0.7930 is seven questions on a
+corpus of 454, and the penalty moved from −0.3010 to −0.2762 with overlapping intervals. What did change is the
+**rejection rate, 22 to 40** — the rewrites are generated from longer source sentences now, and a longer sentence gives
+the model more phrases it can copy, which the rules refuse. **A rule that catches twice as many rewrites is a rule
+working, not a corpus failing.**
+
+**So the vector-channel result of §38.1 stands on the corpus it was measured on, and is re-measured on this one before
+anything is concluded about it.** The sequence is deliberate: the deficit was found on a corpus with a known defect,
+and a channel is not condemned on evidence from a corpus that has since been corrected.
