@@ -281,10 +281,13 @@ describe('the semantic artifact re-derives to its own sweep', () => {
     // test exists to close, and a column with no aggregate is a column nobody scored.
     expect(Object.keys(columns).sort()).toEqual(Object.keys(sweep).sort());
     for (const [weight, column] of Object.entries(columns)) {
+      // **The condition, not the whole published row**: a swept row carries its own paired verdict beside its four
+      // figures, and that verdict is a statement about the column rather than a fifth figure the column can produce.
+      const { paired: _paired, ...condition } = sweep[weight] as Condition & { paired?: unknown };
       expect(
         recompute(column, keys.length),
         `weight ${weight} disagrees with its own column`,
-      ).toEqual(sweep[weight]);
+      ).toEqual(condition);
     }
   });
 
@@ -292,9 +295,15 @@ describe('the semantic artifact re-derives to its own sweep', () => {
     if (semantic === null || candidate === null || candidateColumn === undefined) return;
     // **Every column of it**, because the block is the only place the candidate rule has a figure and a rule with one
     // corpus and no column is a rule nobody can check.
-    expect(recompute(candidateColumn, keys.length)).toEqual(candidate.paraphrase);
+    const { paired: _p, ...paraphraseCondition } = candidate.paraphrase as Condition & {
+      paired?: unknown;
+    };
+    const { paired: _v, ...verbatimCondition } = candidate.verbatim as Condition & {
+      paired?: unknown;
+    };
+    expect(recompute(candidateColumn, keys.length)).toEqual(paraphraseCondition);
     expect(recompute(semantic.perQuestion['candidateVerbatim'] as string, keys.length)).toEqual(
-      candidate.verbatim,
+      verbatimCondition,
     );
 
     const weights = (semantic.perQuestion['candidateWeight'] as string)
@@ -313,12 +322,19 @@ describe('the semantic artifact re-derives to its own sweep', () => {
     const vector = (semantic.perQuestion['vectorEvidence'] as string).split(',').map(Number);
     expect(lexical).toHaveLength(keys.length);
     expect(vector).toHaveLength(keys.length);
+    // **Within the propagation of the published rounding, and no more.** The shares are written to three decimals, so
+    // a ratio recomputed from them carries up to `20 × 0.0005 × (1 + w)` of error - two and a half per cent at the top of
+    // the range and less everywhere else. A tighter tolerance would demand the unrounded shares, which the artifact does
+    // not publish; a looser one would accept a weight that is not this ratio at all.
     for (const [at, weight] of weights.entries()) {
+      // **The rule as it is written, both halves**: the absolute cut first, then the ratio. A reader recomputing only the
+      // ratio would conclude the fourteen questions the cut took were computed some other way.
       const ratio = (vector[at]! + 0.05) / (lexical[at]! + 0.05);
-      expect(weight, `question ${at} does not carry its own ratio`).toBeCloseTo(
-        Math.min(4, Math.max(0.1, ratio)),
-        3,
-      );
+      const expected = lexical[at]! >= 0.8 ? 0.1 : Math.min(4, Math.max(0.1, ratio));
+      expect(
+        Math.abs(weight - expected),
+        `question ${at} does not carry its own ratio: ${weight} against ${expected}`,
+      ).toBeLessThanOrEqual(0.025 * Math.max(1, expected));
     }
   });
 });

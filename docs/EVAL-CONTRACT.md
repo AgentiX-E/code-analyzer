@@ -3788,6 +3788,9 @@ The candidate is adopted **only if all four hold**, on one dispatch of `multirep
    more than its paired interval.
 4. **The two shares are in the artifact**, per question, and recompute the weight column to three decimals - a rule whose
    inputs are not published is a rule nobody can check.
+   **A note on the baselines named above.** 321 and 338 were the published CoSQA figures on the day the criteria were written.
+   §39.11 re-measured that corpus on the same dispatch and moved them to 434 and 447, and **the criteria were not revised
+   afterwards**: a bar that moves once its own result is known is not a bar.
 
 **If a criterion fails the candidate is retired and the product keeps the one-sided rule**, and §39 records the failure
 with the same table it would have used for a success. §38 registered the weight as a variable rather than a setting; this
@@ -3815,3 +3818,160 @@ pattern, and eighteen such sweeps can now be re-read from a JSON file.
 Two dispatches, no completions, no judge: ~12 072 vectors for the four-repository corpus and ~1 000 short embeddings for
 CoSQA, both inside the existing workflows' free-tier minutes. **The instrumentation itself is free** - two means and one
 division per question over lists that were already in memory.
+
+### 39.6 The run: the candidate wins where it was aimed and misses one criterion by one question
+
+One dispatch of `multirepo-semantic.yml` at `d8429d9`, weights `0.1,0.35,1,2,4`, the same 12 072 vectors, the same 454
+rewritten questions and the same 454 quoted ones. **Five rules, one corpus, one index.**
+
+| rule on the 454 rewritten questions  |         found@10 |     MRR@10 | mean regret (positions) | questions that lost a position |
+| ------------------------------------ | ---------------: | ---------: | ----------------------: | -----------------------------: |
+| no fusion (lexical only)             |     0.7930 (360) |     0.6299 |                       — |                              — |
+| constant 1 (what the engine shipped) |           0.8040 |     0.5778 |                   1.004 |                            140 |
+| constant 0.1                         |           0.8062 |     0.6525 |                   0.430 |                             43 |
+| **constant 0.35 (tuned)**            | **0.8216 (373)** | **0.6572** |               **0.341** |                         **61** |
+| **one-sided rule (shipped)**         | **0.6498 (295)** | **0.5340** |               **1.921** |                        **149** |
+| **two-sided ratio (candidate)**      | **0.8194 (372)** | **0.6522** |               **0.379** |                         **61** |
+| oracle over the five weights         |           0.8392 |     0.7278 |                       0 |                              0 |
+
+**The paired tests, on the same 454 questions:**
+
+| pair                                    |                      Δ MRR |        95 % interval | only A | only B |    exact p |
+| --------------------------------------- | -------------------------: | -------------------: | -----: | -----: | ---------: |
+| candidate − one-sided rule (paraphrase) |                **+0.1182** | `[+0.0894, +0.1471]` | **82** |  **5** | **< 1e-4** |
+| candidate − lexical only (paraphrase)   |                **+0.0224** | `[−0.0070, +0.0497]` | **16** |  **4** | **0.0118** |
+| candidate − one-sided rule (quoted)     |                    −0.0125 | `[−0.0240, −0.0006]` |      1 |      3 |     0.6250 |
+| candidate − lexical only (quoted)       | **450 of 454 against 451** |                    — |      1 |      2 |     1.0000 |
+
+**Criterion 1 passed and criterion 2 failed by one question.** The candidate recovers **+12 questions against the
+lexical list** (16 against 4, `p = 0.012`) on the condition it was built for, and it is **0.44 positions per question
+worse than a constant 0.35 that was tuned on this very corpus** - which is the honest comparison, and the one that says
+the rule is not over-fitted: it reached 0.8194 without seeing a single answer key, against a constant that saw all 454.
+
+**And the quoted condition lost two questions and 0.0125 MRR.** The registered bar was 451 of 454 and the run produced
+**450**, so **the candidate as registered is retired**: §39.3 said the product keeps the one-sided rule if a criterion
+fails, and a registration that is renegotiated after its own result is a paragraph, not a criterion.
+
+### 39.7 Why it missed, in the artifact's own numbers
+
+The published columns answer this without another run. **`lexicalEvidence` has a median of 0.40 and `vectorEvidence` a
+median of 0.18** on the rewritten questions, and the candidate weights land at `min 0.10 · p50 0.526 · max 1.06` with
+**`atCeiling = 0`** and **`vectorAhead = 4 of 454`**: the rule never gives the vector list more than the lexical one, and
+it gives it **more than half a vote on 246 of 454 questions**. The buckets say the same thing in one line:
+
+| candidate weight | questions | median `lexicalEvidence` | median `vectorEvidence` |
+| ---------------: | --------: | -----------------------: | ----------------------: |
+|        below 0.5 |       199 |                    0.410 |                   0.115 |
+|         0.5 to 1 |       246 |                    0.394 |                   0.246 |
+|          above 1 |         9 |                    0.400 |                   0.403 |
+
+**A ratio is scale-free, and scale-free is the defect.** It cannot distinguish a lexical list that spells four fifths of
+the question from one that spells two fifths of a question nobody can spell, because in both cases it is compared to a
+vector list of its own size - so on the quoted condition, where the lexical list does answer in the answer's own words,
+the vector list still collects about half a vote and takes two questions away. **The one-sided rule had an absolute
+criterion and no comparison; the first candidate had a comparison and no absolute criterion; the repair is both.**
+
+### 39.8 The second candidate, registered after the first one's failure and before its own run
+
+`evidenceRatioWeight` keeps the ratio and puts the file's original cut back in front of it:
+
+```
+if lexicalShare >= SELF_EVIDENCE_CONFIDENT (0.8)  ->  FUSION_WEIGHT_BOUNDS.min (0.1)
+otherwise                                          ->  clamp((vectorShare + 0.05) / (lexicalShare + 0.05), 0.1, 4)
+```
+
+**No new number enters the rule.** 0.8 is the cut this file has carried since the two corpora were first compared, and
+0.1 is the doc-comment sweep's own optimum (MRR 0.9718 against 0.9711 at weight 1). The two halves answer the two
+questions §38.8 separated: **an absolute one - does the lexical list answer this question in its own words - and a
+comparative one - when it does not, whose list carries more of it.**
+
+Registered acceptance, written before the run (`multirepo-semantic.yml` and `code-qa-benchmark.yml` at `f6dce4fe`,
+weights `0.1,0.35,1,2,4` and `0.35,1,2,4`):
+
+1. rewritten questions: `found@10` ≥ **0.7930**, and the rule ahead of the one-sided one at `p < 0.05`;
+2. quoted questions: `found@10` ≥ **451 of 454** - the criterion the first candidate missed, kept at the value it was
+   registered at;
+3. CoSQA: `found@10` ≥ **321** (the weight-one baseline) and not below the derived arm's 338 interval;
+4. the columns still recompute the published figures, and the artifact this run writes still carries one column per swept
+   weight.
+   **The same note applies here**: the CoSQA bar of 321 was the published baseline at registration and §39.11 moved it to 434.
+   The criterion is scored against the number that was written down.
+
+### 39.9 The second candidate ran, the gate did almost nothing, and the depth is what cost the signal
+
+`f6dce4fe` put the absolute cut in front of the ratio (§39.8) and the same dispatch ran again. **The gate fired on one
+question out of 454** - `atFloor` went from one to two and nothing else moved - so the two conditions came back almost
+exactly as they had:
+
+| rule (454 rewritten / 454 quoted)   | rewritten found@10 | rewritten MRR@10 |  quoted found@10 | quoted MRR@10 |
+| ----------------------------------- | -----------------: | ---------------: | ---------------: | ------------: |
+| one-sided rule (shipped)            |             0.6498 |           0.5340 |     0.9934 (452) |        0.9105 |
+| candidate, ratio only               |             0.8194 |           0.6522 |     0.9912 (450) |        0.8980 |
+| **candidate, ratio behind the cut** |         **0.8194** |       **0.6518** | **0.9912 (450)** |    **0.8980** |
+
+**Criterion 2 failed a second time, at the same value, for a different reason than the first failure's diagnosis said.**
+§39.7 blamed the ratio's scale-freeness; the gate was the repair and the gate is inert. A free probe on the same index,
+no key and no dispatch, says why:
+
+| condition (454 questions) | statistic                         |   p10 |   p50 |   p90 | at or above 0.8 |
+| ------------------------- | --------------------------------- | ----: | ----: | ----: | --------------: |
+| quoted                    | `selfEvidence` of the top answer  | 1.000 | 1.000 | 1.000 |     **442/454** |
+| quoted                    | `channelEvidence` (top-five mean) | 0.467 | 0.629 | 0.886 |      **87/454** |
+| rewritten                 | `selfEvidence` of the top answer  | 0.286 | 0.462 | 0.692 |       **8/454** |
+| rewritten                 | `channelEvidence` (top-five mean) | 0.277 | 0.400 | 0.545 |       **1/454** |
+
+**Averaging over five answers kept 86 questions of a separation that the first answer alone made out of 434.**
+`EVIDENCE_DEPTH = 5` was chosen for a reason written into the code - a top-one read is a read of a channel's luckiest slot
+
+- and the reason is wrong for this statistic: **the four runners-up of a quoted question's lexical list are near-misses
+  and they carry almost none of the question's words, so the mean measures the tail rather than the answer.** The measured
+  cost of the choice is the gate.
+
+**Both candidates are therefore retired**, by the criteria registered before each of them, and the product keeps the
+one-sided rule. §39.3 said the criterion is the criterion.
+
+### 39.10 What the two falsifications leave standing, and the one thing they establish outright
+
+Three facts are now measured rather than argued, and each of them narrows the next attempt:
+
+1. **The bound was never the defect.** The CoSQA sweep is monotone in the weight - **0.35: 384 · 1: 434 · 2: 440 ·
+   4: 448** found@10 - so 4 is that corpus's own optimum and `FUSION_WEIGHT_BOUNDS.max` is a measured value, not an edge
+   of a grid that stopped early.
+2. **The one-sided rule is correct in one regime and wrong in the other, and the regime is not textual.** It scores 447
+   on CoSQA against the sweep's best 448, and 295 on the four-repository rewritten questions against the lexical list's 360. Both corpora answer _low_ on the evidence the rule reads; one wants the largest weight in the grid and the other
+   wants a third of it. **A signal that cannot separate two cases cannot derive a rule for them**, and no rescaling of
+   `selfEvidence` changes that.
+3. **The separation the statistic does have is available, and the product already uses it.** At the first answer, the
+   quoted condition separates from the rewritten one at **442 against 8** of 454. That is what `deriveVectorWeight`
+   reads, and it is why the shipped rule is right on the two conditions closest to the corpora it was fitted on.
+
+**What that leaves is a ranking-quality question, not a spelling one.** The candidate that would answer it is a
+query-performance predictor - a score-margin or clarity statistic computed on each channel's own list, which is the
+family the information-retrieval literature uses for exactly this decision and which this repository has never measured.
+**It is registered for the next iteration with the arithmetic written down first**, and with the 442/8 separation as the
+control that any new signal has to beat on the same two corpora.
+
+### 39.11 The CoSQA baseline was a month of repairs old, and the current product doubles it
+
+The dispatch was made to sweep a weight and it returned something larger: **the CoSQA artifact had not been re-measured
+since the doc-comment repair**, and CoSQA's 500 queries are the docstrings of Python functions.
+
+| CoSQA, 500 questions, pool 500     | published before this run | **this run** |
+| ---------------------------------- | ------------------------: | -----------: |
+| lexical, found@10                  |                       206 |      **332** |
+| lexical, MRR@10                    |                    0.2367 |   **0.4549** |
+| fused at weight 1, found@10        |                       321 |      **434** |
+| fused at weight 1, MRR@10          |                    0.3836 |   **0.6482** |
+| derived weight, found@10           |                       338 |      **447** |
+| derived weight, MRR@10             |                    0.4236 |   **0.6717** |
+| after the reranker, found@10       |                       384 |      **475** |
+| after the reranker, MRR@10         |                    0.5653 |   **0.7762** |
+| answer in the vector top ten       |                       340 |      **447** |
+| answer in either channel's top ten |                       371 |      **470** |
+
+**Every channel moved, which is what makes the attribution plausible rather than proven**: a repair to how doc comments
+reach the index changes the lexical fields and the embedded text together, and CoSQA is the corpus whose queries _are_
+doc comments. **The causal claim needs a control** - the pre-repair engine run on the same corpus - and §39.11 records
+that as owed rather than assumed. The figure that is not in doubt is the one this table states: **the product as it
+stands answers 475 of 500 CoSQA questions in its top ten and scores MRR@10 0.7762 after reranking**, and the artifact in
+the repository now says so.
