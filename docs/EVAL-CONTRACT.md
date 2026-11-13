@@ -2867,28 +2867,28 @@ rather than a report, and the two columns in 30.3 are what a reader compares bef
 
 **§30.5 ended with a sentence that was not a result**: the post-rerank difference of 0.0054 was "inside the band", where
 the band was a run-to-run wobble of 0.0085 measured by re-running one arm. A band is not a test. This section replaces
-it with two tests that are, publishes the columns they read, and answers §30.5's registered question — *does a deeper
-pool change the post-rerank gap* — with a measurement rather than a second run.
+it with two tests that are, publishes the columns they read, and answers §30.5's registered question — _does a deeper
+pool change the post-rerank gap_ — with a measurement rather than a second run.
 
 Everything below is one job (`43352844317`), `pool=all` (6 295 functions, 500 questions), `space=api/api`,
 `sweep=50,100`, `rerankDepths=50,100`, both arms reranked at both depths **on the same questions in the same run**.
 
 ### 31.1 Four instruments had to be built before any of it could be believed
 
-| what was wrong                                                                | what replaced it                                                                                                                                                                                       |
-| ----------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
-| "the difference is inside the band" (a wobble, not a test)                     | `search/paired-stats.ts`: exact McNemar on the per-question hits, seeded paired bootstrap on the per-question reciprocals. **Resolution is now explicit**: six one-sided discordant questions is p = 0.03125, five is a coin. |
-| an aggregate nobody could recompute                                            | `perQuestion` columns in the artifact — four rank lists, the derived weights and the evidences, encoded as comma strings and decoded by `decodeRanks`. **The gate asserts each column reproduces the aggregate printed beside it.** |
-| every cost figure was `average × 500`                                          | `RerankResult.cost` carries the vendor's own tokens and the price table's arithmetic; `rerankCost[depth][arm]` is the sum of the calls. An unpriced model stays **unpriced**, not free. |
-| `RETRIEVAL_DEPTH` covered the sweep and the arm but **not the rerank depths**  | `retrievalDepth()` takes the maximum of all three. The defect it removes is silent: a hundred-deep rerank slicing a fifty-deep list reports the wider pool as worth nothing. |
+| what was wrong                                                                | what replaced it                                                                                                                                                                                                                    |
+| ----------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| "the difference is inside the band" (a wobble, not a test)                    | `search/paired-stats.ts`: exact McNemar on the per-question hits, seeded paired bootstrap on the per-question reciprocals. **Resolution is now explicit**: six one-sided discordant questions is p = 0.03125, five is a coin.       |
+| an aggregate nobody could recompute                                           | `perQuestion` columns in the artifact — four rank lists, the derived weights and the evidences, encoded as comma strings and decoded by `decodeRanks`. **The gate asserts each column reproduces the aggregate printed beside it.** |
+| every cost figure was `average × 500`                                         | `RerankResult.cost` carries the vendor's own tokens and the price table's arithmetic; `rerankCost[depth][arm]` is the sum of the calls. An unpriced model stays **unpriced**, not free.                                             |
+| `RETRIEVAL_DEPTH` covered the sweep and the arm but **not the rerank depths** | `retrievalDepth()` takes the maximum of all three. The defect it removes is silent: a hundred-deep rerank slicing a fifty-deep list reports the wider pool as worth nothing.                                                        |
 
 ### 31.2 At fusion the classifier is worth 0.051 MRR, and that is now a verdict
 
-| arm                         | R@1   | R@10  | MRR@10    | found@10 |
-| --------------------------- | ----: | ----: | --------: | -------: |
-| lexical only                | 0.160 | 0.412 |    0.2367 |      206 |
-| fused, constant weight 1    | 0.278 | 0.644 |    0.3872 |      322 |
-| fused, derived weight       | 0.316 | 0.698 | **0.4382** |  **349** |
+| arm                      |   R@1 |  R@10 |     MRR@10 | found@10 |
+| ------------------------ | ----: | ----: | ---------: | -------: |
+| lexical only             | 0.160 | 0.412 |     0.2367 |      206 |
+| fused, constant weight 1 | 0.278 | 0.644 |     0.3872 |      322 |
+| fused, derived weight    | 0.316 | 0.698 | **0.4382** |  **349** |
 
 Paired on the same 500 questions: **MRR +0.0510, 95 % interval [0.0324, 0.0677]**, found@10 **39 rescued against 12
 lost**, exact McNemar **p = 0.000198**. The interval excludes zero, and its lower bound is 63 % of the estimate it brackets; the discordant counts are 3:1 in
@@ -2897,15 +2897,15 @@ instrument**, and it is the measurement §29 asked for.
 
 The split on this corpus is `0 / 33 / 467`: **the lexical bound never fires**, because no CoSQA question has 80 % of its
 terms in the best hit's own name, signature or doc comment (`selfEvidence` p90 is 0.50). On this corpus the classifier is
-therefore a two-way switch between *neutral* and *semantic*, and the confident branch that §30 designed is exercised only
+therefore a two-way switch between _neutral_ and _semantic_, and the confident branch that §30 designed is exercised only
 by the doc-comment corpus. Recorded here because a branch a corpus never reaches is a branch a corpus never tests.
 
 ### 31.3 After the reranker reads the candidates the two arms are identical, and "inside the band" was too weak a way to say it
 
-| arm                            | R@1   | R@10  | MRR@10    | found@10 | reordered | rescued | lost |
-| ------------------------------ | ----: | ----: | --------: | -------: | --------: | ------: | ---: |
-| reranked, constant weight      | 0.468 | 0.776 |    0.5699 |      388 |       495 |      82 |   16 |
-| reranked, derived weight       | 0.468 | 0.776 |    0.5665 |      388 |       497 |      63 |   24 |
+| arm                       |   R@1 |  R@10 | MRR@10 | found@10 | reordered | rescued | lost |
+| ------------------------- | ----: | ----: | -----: | -------: | --------: | ------: | ---: |
+| reranked, constant weight | 0.468 | 0.776 | 0.5699 |      388 |       495 |      82 |   16 |
+| reranked, derived weight  | 0.468 | 0.776 | 0.5665 |      388 |       497 |      63 |   24 |
 
 Paired: **MRR −0.0034, 95 % interval [−0.0254, 0.0172]**, found@10 **26 against 26**, exact McNemar **p = 1**. The
 interval is twelve times wider than the effect it brackets, and the discordant counts are not merely "not significant" —
@@ -2916,14 +2916,14 @@ questions twice with two different inputs.
 
 | of the 39 the classifier rescued at fusion | count |
 | ------------------------------------------ | ----: |
-| the reranker keeps it in **both** arms      |    30 |
-| only the derived arm keeps it               |     3 |
-| only the constant arm keeps it              |     2 |
-| neither arm keeps it                        |     4 |
+| the reranker keeps it in **both** arms     |    30 |
+| only the derived arm keeps it              |     3 |
+| only the constant arm keeps it             |     2 |
+| neither arm keeps it                       |     4 |
 
-| of the 12 the classifier dropped at fusion  | count |
-| ------------------------------------------- | ----: |
-| both arms still find it                     |     7 |
+| of the 12 the classifier dropped at fusion | count |
+| ------------------------------------------ | ----: |
+| both arms still find it                    |     7 |
 
 So **33 of the 39 survive, and the 12 losses are mostly repaired**: the net becomes 26 : 26. The mechanism is not noise.
 The classifier's job is to guess **which channel to trust before reading the candidates**; the reranker reads the bodies
@@ -2937,17 +2937,17 @@ path keeps, measured in the same run: **MRR 0.4382 → 0.5665 (+0.128) and found
 
 ### 31.4 §30.5's registered question, answered: the pool does not move the gap, and doubling it buys nothing
 
-| rerank depth | arm      | R@10  | MRR@10    | found@10 | prompt tokens | USD (500 q) |
-| -----------: | -------- | ----: | --------: | -------: | ------------: | ----------: |
-|           50 | constant | 0.776 |    0.5699 |      388 |     1 749 316 |    0.609248 |
-|           50 | derived  | 0.776 |    0.5665 |      388 |     1 216 033 |    0.418486 |
-|          100 | constant | 0.792 |    0.5641 |      396 |     3 359 827 |    1.098569 |
-|          100 | derived  | 0.772 |    0.5612 |      386 |     2 344 737 |    0.725712 |
+| rerank depth | arm      |  R@10 | MRR@10 | found@10 | prompt tokens | USD (500 q) |
+| -----------: | -------- | ----: | -----: | -------: | ------------: | ----------: |
+|           50 | constant | 0.776 | 0.5699 |      388 |     1 749 316 |    0.609248 |
+|           50 | derived  | 0.776 | 0.5665 |      388 |     1 216 033 |    0.418486 |
+|          100 | constant | 0.792 | 0.5641 |      396 |     3 359 827 |    1.098569 |
+|          100 | derived  | 0.772 | 0.5612 |      386 |     2 344 737 |    0.725712 |
 
 Paired, 100 against 50, **within each arm**: constant **found 396 vs 388, onlyA 26 onlyB 18, p = 0.291**, MRR −0.0058
 [−0.0225, 0.0111]; derived **386 vs 388, p = 0.885**, MRR −0.0053 [−0.0209, 0.0099]. **Nothing at a hundred is
 distinguishable from fifty, in either arm, in either direction**, and the bill is **1.7–1.8×**. The registered question is
-therefore closed: *the post-rerank gap does not flip with depth, because at these widths there is no gap to flip.*
+therefore closed: _the post-rerank gap does not flip with depth, because at these widths there is no gap to flip._
 
 Two things follow, and both are cheaper than the run that produced them:
 
@@ -2955,7 +2955,7 @@ Two things follow, and both are cheaper than the run that produced them:
 - **The interesting direction is downward, and it is now dispatched** (`43364553771`, `rerankDepths=10,25,50`). Depth is
   the only cost knob with a known ceiling: at depth 10 the reranker can only reorder what fusion already found, so
   `found@10 ≤ 349` **by construction** and the arm measures pure reordering. The distance from there to 388 is what
-  *widening* buys, and the cheapest depth that reaches the plateau is the product's default.
+  _widening_ buys, and the cheapest depth that reaches the plateau is the product's default.
 
 The free columns carry a warning about depth as well: **fused at 100 is worse than fused at 50** (312 found against 322,
 MRR 0.3853 against 0.3872). A deeper merge lets the weaker channel contribute more entries to the same length of list,
@@ -2970,7 +2970,7 @@ the depth instead.
 
 One observation that is not a claim: **the derived arm's prompts were 30 % cheaper than the constant arm's at the same
 width and the same question count** (1.22 M against 1.75 M prompt tokens at depth 50). The two fusions return different
-*files* in their fifty slots — a weight changes which channel's entries survive — and excerpt cost follows the files.
+_files_ in their fifty slots — a weight changes which channel's entries survive — and excerpt cost follows the files.
 Whether the classifier systematically promotes terser documentation is unmeasured, so it is written as an observation
 with a candidate explanation rather than as a saving.
 
