@@ -24,6 +24,17 @@ export interface FederatedSearchOptions {
   maxResults?: number;
   /** Include code snippets in results */
   includeCode?: boolean;
+  /**
+   * How much the vector list counts against the lexical one, when vectors were registered.
+   *
+   * **Omitted means derived per question**, which is the shipped behaviour and the one every published figure was
+   * measured under. A caller sets it when it is *measuring* the weight rather than using it: the two lists are fused by
+   * reciprocal rank, so the weight is a property of the question-and-index pair and a sweep over it is the only way to
+   * say whether the derived value is the good one. Passing it on an engine with no vectors is not an error - the fused
+   * list degenerates to the lexical one - and it is not silently dropped either, because the artifact a caller writes
+   * records the weight it asked for.
+   */
+  vectorWeight?: number;
 }
 
 export interface FederatedSearchResult {
@@ -223,6 +234,7 @@ export class FederatedSearchEngine {
       limit: maxResults,
       labels: SYMBOL_LABELS,
       projectIds: scope ? [...scope.selected] : undefined,
+      vectorWeight: options.vectorWeight,
     });
 
     const repoBreakdown: Record<string, number> = {};

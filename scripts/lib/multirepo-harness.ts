@@ -13,6 +13,11 @@ import { execFileSync } from 'node:child_process';
 import { mkdirSync, readFileSync, renameSync, rmSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 
+import {
+  createQueryEmbedder,
+  defaultEmbedderLoader,
+  generateEmbeddings,
+} from '../../packages/analyzer/src/index.js';
 import { InMemoryGraphStore } from '../../packages/infra/src/index.js';
 import { CrossRepoIndexer, RepoGroupManager } from '../../packages/intelligence/src/index.js';
 import {
@@ -20,6 +25,12 @@ import {
   reciprocalRank,
   type RankList,
 } from '../../packages/intelligence/src/search/paired-stats.js';
+
+import type {
+  EmbeddingBackendName,
+  EmbeddingTextOptions,
+  NamedEmbedder,
+} from '../../packages/analyzer/src/index.js';
 
 /** Where the questions are answered from. **Ten, and stated once**, because a hit beyond it is a hit a reader cannot see. */
 export const CUT = 10;
@@ -262,4 +273,86 @@ export function deriveQuestions(store: InMemoryGraphStore): Question[] {
 export function sampleQuestions(questions: Question[], target = 400): Question[] {
   const step = Math.max(1, Math.floor(questions.length / target));
   return questions.filter((_, position) => position % step === 0);
+}
+
+/**
+ * Vectors for the indexed declarations, and the query embedder that lives in the same space.
+ *
+ * **This is the half of the measurement the cross-repository corpus never had.** Both scripts measured the lexical
+ * channel alone, so `0.8010` on four hundred and forty-seven rewritten questions was a *floor* - the questions that
+ * share no word with their answer's name or doc comment cannot be reached by any lexical channel, and this repository
+ * had no figure for whether a vector channel reaches them.
+ *
+ * **The two sides are built together on purpose.** A cosine between an index embedded by one model and a query embedded
+ * by another is a comparison between two unrelated spaces, and this project has already published one figure (0.638
+ * against a 1.000 lexical baseline) that was exactly that defect. `createQueryEmbedder` refuses to hand back a query
+ * embedder for a space the index does not hold, so the failure is a `null` here rather than a number later.
+ *
+ * **The cost is the index, not the questions.** One vector per declaration is `nodes` calls however many questions are
+ * asked, and the queries are cached by text: a question asked of four repositories open and then of one is one
+ * embedding, not two. The whole run is ~13k short embeddings, which is a fractions-of-a-cent operation and the reason
+ * this could be measured at all.
+ */
+export interface SemanticChannel {
+  /** The space the index's vectors live in. `deterministic` means no model ran and no semantic claim can be made. */
+  index: EmbeddingBackendName;
+  /** The space the questions are embedded into. Always equal to `index`, or this channel does not exist. */
+  query: EmbeddingBackendName;
+  model: string | null;
+  reason: string | null;
+  /** Declarations a vector was produced for. */
+  vectors: number;
+  embedMs: number;
+  lookup: (nodeId: number) => Float32Array | null;
+  embed: (text: string) => Promise<Float32Array>;
+}
+
+export async function embedWorkspace(
+  workspace: Workspace,
+  options: {
+    /** The model's name as the vendor spells it, or `null` when no model ran. Recorded, never inferred. */
+    model?: string | null;
+    loader?: () => Promise<NamedEmbedder | null>;
+    textOptions?: EmbeddingTextOptions;
+  } = {},
+): Promise<SemanticChannel | null> {
+  const nodes = new Map(workspace.store.getAllNodes().map((node) => [node.id, node]));
+
+  const started = Date.now();
+  const { results, backend, reason } = await generateEmbeddings(
+    nodes,
+    options.loader ?? defaultEmbedderLoader,
+    options.textOptions ?? {},
+  );
+
+  const byNode = new Map<number, Float32Array>();
+  for (const result of results) byNode.set(result.nodeId, Float32Array.from(result.embedding));
+
+  const queryEmbedder = await createQueryEmbedder(
+    backend,
+    // **The same loader on both sides**, which is what makes the two spaces the same space rather than two spaces that
+    // happen to agree on the model's name.
+    options.loader ?? defaultEmbedderLoader,
+  );
+  if (queryEmbedder === null) return null;
+
+  const cache = new Map<string, Float32Array>();
+  const embed = async (text: string): Promise<Float32Array> => {
+    const hit = cache.get(text);
+    if (hit !== undefined) return hit;
+    const vector = await queryEmbedder.embed(text);
+    cache.set(text, vector);
+    return vector;
+  };
+
+  return {
+    index: backend,
+    query: queryEmbedder.backend,
+    model: options.model ?? null,
+    reason: reason ?? null,
+    vectors: byNode.size,
+    embedMs: Date.now() - started,
+    lookup: (nodeId) => byNode.get(nodeId) ?? null,
+    embed,
+  };
 }

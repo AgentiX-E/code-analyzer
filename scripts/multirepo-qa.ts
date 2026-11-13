@@ -30,6 +30,7 @@ import {
   CUT,
   buildWorkspace,
   deriveQuestions,
+  embedWorkspace,
   rankOf,
   readCorpus,
   repoName,
@@ -64,10 +65,43 @@ async function main(): Promise<void> {
   const derived = deriveQuestions(store);
   const sample = sampleQuestions(derived);
 
+  // **The two engines are the two conditions, and they share one index.** Registering vectors on an engine is what
+  // switches the semantic half on, so the lexical column is the same code with the same store and one call omitted -
+  // which is the only way the difference between the columns can be the vectors rather than a second index.
   const engine = new FederatedSearchEngine(store, manager);
+
+  // **A vector channel that quietly became a hash channel would be a semantic figure measured on no model.** The phase
+  // falls back to deterministic vectors without a key, so the run asks for the model and refuses the fallback: an
+  // artifact that says `deterministic` is an artifact about the lexical channel with a semantic name.
+  const semantic = process.argv.includes('--embed')
+    ? await embedWorkspace(
+        { store, manager, index, indexMs },
+        {
+          model: process.env['ZHIPU_EMBEDDING_MODEL'] ?? null,
+        },
+      )
+    : null;
+  if (process.argv.includes('--embed')) {
+    if (semantic === null) {
+      throw new Error(
+        "--embed was asked for and no query embedder could be built in the index's space: a cosine across two spaces is not a semantic figure",
+      );
+    }
+    if (semantic.index === 'deterministic') {
+      throw new Error(
+        '--embed was asked for and the index fell back to hash vectors: set ZHIPU_API_KEY on a runner rather than publishing a semantic figure that used no model',
+      );
+    }
+  }
+  const semanticEngine = semantic === null ? null : new FederatedSearchEngine(store, manager);
+  if (semantic !== null && semanticEngine !== null) {
+    semanticEngine.registerEmbeddings(semantic.lookup, semantic.embed);
+  }
 
   const federated: Array<number | null> = [];
   const scoped: Array<number | null> = [];
+  const semanticFederated: Array<number | null> = [];
+  const semanticScoped: Array<number | null> = [];
   for (const question of sample) {
     const open = await engine.search(question.text, { maxResults: DEPTH });
     federated.push(rankOf(open.results, question));
@@ -77,6 +111,17 @@ async function main(): Promise<void> {
       repoFilter: [repoName(question.repo)],
     });
     scoped.push(rankOf(narrowed.results, question));
+
+    if (semanticEngine !== null) {
+      const fused = await semanticEngine.search(question.text, { maxResults: DEPTH });
+      semanticFederated.push(rankOf(fused.results, question));
+
+      const fusedScoped = await semanticEngine.search(question.text, {
+        maxResults: DEPTH,
+        repoFilter: [repoName(question.repo)],
+      });
+      semanticScoped.push(rankOf(fusedScoped.results, question));
+    }
   }
 
   // **The subset that only a cross-repository search can get wrong**: the name exists in more than one repository, so
@@ -95,7 +140,17 @@ async function main(): Promise<void> {
   const nameFreeFederated = nameFreeIndexes.map((index) => federated[index]!);
   const nameFreeScoped = nameFreeIndexes.map((index) => scoped[index]!);
 
+  // **The same two subsets under the vector channel**, because the questions a semantic channel is bought for are
+  // exactly the name-free ones: a question that spells its answer's name is a lookup, and both channels answer it.
+  const semanticNameFree =
+    semanticEngine === null ? [] : nameFreeIndexes.map((index) => semanticFederated[index]!);
+  const semanticAmbiguous =
+    semanticEngine === null ? [] : ambiguousIndexes.map((index) => semanticFederated[index]!);
+
   const pairedScoped = compareArms(scoped, federated);
+  const pairedSemantic = semanticEngine === null ? null : compareArms(semanticFederated, federated);
+  const pairedSemanticScoped =
+    semanticEngine === null ? null : compareArms(semanticScoped, semanticFederated);
 
   const byRepo: Record<string, { federated: number; scoped: number; n: number }> = {};
   sample.forEach((question, index) => {
@@ -115,12 +170,28 @@ async function main(): Promise<void> {
       '',
       '`perQuestion` holds the rank of the intended answer for each question, 1-based, `-` for not returned. Every',
       'aggregate above can be recomputed from those columns, and a test does recompute them.',
+      '',
+      '`space` is null when the run measured the lexical channel alone, and names the vector space when `--embed` was',
+      'given. The two kinds of run share one artifact shape so that a reader can tell them apart without a document.',
     ],
     measuredAt: new Date().toISOString(),
     cut: CUT,
     depth: DEPTH,
     corpus: corpus.repositories.map(({ id, sha, language, role }) => ({ id, sha, language, role })),
     index: { ...index, durationMs: indexMs },
+    // **Which space the vectors live in, when there are vectors.** `null` is a statement - the run measured the lexical
+    // channel - and it is the only honest way for one artifact shape to carry both kinds of run.
+    space:
+      semantic === null
+        ? null
+        : {
+            index: semantic.index,
+            query: semantic.query,
+            model: semantic.model,
+            reason: semantic.reason,
+            vectors: semantic.vectors,
+            embedMs: semantic.embedMs,
+          },
     questions: {
       derived: derived.length,
       scored: sample.length,
@@ -133,10 +204,24 @@ async function main(): Promise<void> {
       nameFree: score(nameFreeFederated),
       nameFreeScoped: score(nameFreeScoped),
       ambiguousFederated: score(ambiguousFederated),
+      ...(semanticEngine === null
+        ? {}
+        : {
+            semanticFederated: score(semanticFederated),
+            semanticScoped: score(semanticScoped),
+            semanticNameFree: score(semanticNameFree),
+            semanticAmbiguous: score(semanticAmbiguous),
+          }),
     },
     paired: {
       'scoped-vs-federated': pairedScoped,
       'scoped-vs-federated-name-free': compareArms(nameFreeScoped, nameFreeFederated),
+      ...(pairedSemantic === null || pairedSemanticScoped === null
+        ? {}
+        : {
+            'semantic-vs-lexical': pairedSemantic,
+            'semantic-scoped-vs-semantic-federated': pairedSemanticScoped,
+          }),
     },
     byRepo,
     perQuestion: {
@@ -144,6 +229,12 @@ async function main(): Promise<void> {
       federated: encodeRanks(federated),
       scoped: encodeRanks(scoped),
       ambiguous: ambiguousIndexes.map((index) => sample[index]!.key),
+      ...(semanticEngine === null
+        ? {}
+        : {
+            semanticFederated: encodeRanks(semanticFederated),
+            semanticScoped: encodeRanks(semanticScoped),
+          }),
     },
   };
 
@@ -169,6 +260,23 @@ async function main(): Promise<void> {
   console.log(
     `MULTIREPO paired onlyScoped=${pairedScoped.onlyA} onlyFederated=${pairedScoped.onlyB} p=${pairedScoped.pValue.toFixed(6)} deltaMrr=${pairedScoped.deltaMrr.toFixed(4)}`,
   );
+
+  // **The semantic column is printed only when there was one**, so a lexical run's log does not claim a channel it did
+  // not have, and a run with vectors prints the space it used next to the figure it produced.
+  if (semantic !== null && pairedSemantic !== null && pairedSemanticScoped !== null) {
+    console.log(
+      `MULTIREPO space index=${semantic.index} query=${semantic.query} model=${semantic.model ?? 'none'} vectors=${semantic.vectors} embedMs=${semantic.embedMs}`,
+    );
+    console.log(
+      `MULTIREPO semantic  found@10=${pct(artifact.conditions.semanticFederated!.found / sample.length)}% mrr=${artifact.conditions.semanticFederated!.mrr} namefree found@10=${pct(artifact.conditions.semanticNameFree!.found / Math.max(1, nameFreeIndexes.length))}%`,
+    );
+    console.log(
+      `MULTIREPO semantic  paired onlySemantic=${pairedSemantic.onlyA} onlyLexical=${pairedSemantic.onlyB} p=${pairedSemantic.pValue.toFixed(6)} deltaMrr=${pairedSemantic.deltaMrr.toFixed(4)}`,
+    );
+    console.log(
+      `MULTIREPO semantic-scoped onlyScoped=${pairedSemanticScoped.onlyA} onlyFederated=${pairedSemanticScoped.onlyB} p=${pairedSemanticScoped.pValue.toFixed(6)}`,
+    );
+  }
 
   // **The columns and the aggregates are printed together** so that a reader of the log has both, and the gate test
   // recomputes one from the other.

@@ -123,6 +123,7 @@ export {
   hasSimilaritySpace,
 } from './pipeline/phases/embed.js';
 export type {
+  Embedder,
   EmbeddingBackendName,
   EmbeddingTextOptions,
   NamedEmbedder,

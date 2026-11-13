@@ -27,6 +27,7 @@ import {
   CUT,
   buildWorkspace,
   deriveQuestions,
+  embedWorkspace,
   rankOf,
   readCorpus,
   repoName,
@@ -312,10 +313,42 @@ async function main(): Promise<void> {
   }
 
   const engine = new FederatedSearchEngine(store, manager);
+
+  // **The vector channel, built once and registered on its own engine**, so the lexical columns keep the engine they
+  // were measured on. `--embed` is refused rather than degraded when no model answers: a hash-vector run reporting a
+  // semantic figure is the defect `embedding-backend.yml` exists to prevent, and it is cheaper to refuse here.
+  const semantic = process.argv.includes('--embed')
+    ? await embedWorkspace(
+        { store, manager, index, indexMs },
+        {
+          model: process.env['ZHIPU_EMBEDDING_MODEL'] ?? null,
+        },
+      )
+    : null;
+  if (process.argv.includes('--embed')) {
+    if (semantic === null) {
+      throw new Error(
+        "--embed was asked for and no query embedder could be built in the index's space: a cosine across two spaces is not a semantic figure",
+      );
+    }
+    if (semantic.index === 'deterministic') {
+      throw new Error(
+        '--embed was asked for and the index fell back to hash vectors: set ZHIPU_API_KEY on a runner rather than publishing a semantic figure that used no model',
+      );
+    }
+  }
+  const semanticEngine = semantic === null ? null : new FederatedSearchEngine(store, manager);
+  if (semantic !== null && semanticEngine !== null) {
+    semanticEngine.registerEmbeddings(semantic.lookup, semantic.embed);
+  }
+
   const verbatimFederated: Array<number | null> = [];
   const verbatimScoped: Array<number | null> = [];
   const paraphraseFederated: Array<number | null> = [];
   const paraphraseScoped: Array<number | null> = [];
+  const semanticParaphrase: Array<number | null> = [];
+  const semanticParaphraseScoped: Array<number | null> = [];
+  const semanticVerbatim: Array<number | null> = [];
 
   for (const row of accepted) {
     const question = byKey.get(row.key)!;
@@ -340,6 +373,23 @@ async function main(): Promise<void> {
       repoFilter: [repoName(row.repo)],
     });
     verbatimScoped.push(rankOf(narrowedVerbatim.results, question));
+
+    // **The vector channel over the same questions, on the same index, in the same pass.** The verbatim column is kept
+    // because a channel that helps a rewritten question and costs a quoted one has not been shown to help: §37.5
+    // recorded exactly that trade for the lexical change and it had to be stated rather than averaged away.
+    if (semanticEngine !== null) {
+      const fused = await semanticEngine.search(row.paraphrase, { maxResults: DEPTH });
+      semanticParaphrase.push(rankOf(fused.results, asked));
+
+      const fusedScoped = await semanticEngine.search(row.paraphrase, {
+        maxResults: DEPTH,
+        repoFilter: [repoName(row.repo)],
+      });
+      semanticParaphraseScoped.push(rankOf(fusedScoped.results, asked));
+
+      const fusedVerbatim = await semanticEngine.search(row.verbatim, { maxResults: DEPTH });
+      semanticVerbatim.push(rankOf(fusedVerbatim.results, question));
+    }
   }
 
   const artifact = {
@@ -356,6 +406,19 @@ async function main(): Promise<void> {
     model: generation?.model ?? 'replayed',
     prompt: PROMPT_VERSION,
     index: { ...index, durationMs: indexMs },
+    // **`null` is the lexical run and a named space is the vector run**, so a reader can tell two artifacts apart
+    // without a document and a downstream gate can refuse a semantic claim that has no space.
+    space:
+      semantic === null
+        ? null
+        : {
+            index: semantic.index,
+            query: semantic.query,
+            model: semantic.model,
+            reason: semantic.reason,
+            vectors: semantic.vectors,
+            embedMs: semantic.embedMs,
+          },
     corpus: corpus.repositories.map(({ id, sha, language, role }) => ({ id, sha, language, role })),
     questions: {
       sampled: questions.length,
@@ -373,6 +436,13 @@ async function main(): Promise<void> {
       verbatimScoped: score(verbatimScoped),
       paraphraseFederated: score(paraphraseFederated),
       paraphraseScoped: score(paraphraseScoped),
+      ...(semanticEngine === null
+        ? {}
+        : {
+            semanticParaphrase: score(semanticParaphrase),
+            semanticParaphraseScoped: score(semanticParaphraseScoped),
+            semanticVerbatim: score(semanticVerbatim),
+          }),
     },
     paired: {
       // **The two questions this file exists to answer.** The first is what wording costs; the other two are what the
@@ -383,6 +453,19 @@ async function main(): Promise<void> {
       'paraphrase-vs-verbatim-scoped': compareArms(paraphraseScoped, verbatimScoped),
       'paraphrase-scoped-vs-federated': compareArms(paraphraseScoped, paraphraseFederated),
       'verbatim-scoped-vs-federated': compareArms(verbatimScoped, verbatimFederated),
+      // **Whether the vector channel changes either condition, paired on the same rows.** The verbatim pair is the
+      // regression guard: a semantic half that lifts the rewritten questions and drops the quoted ones has moved the
+      // defect rather than fixed it.
+      ...(semanticEngine === null
+        ? {}
+        : {
+            'semantic-vs-lexical-paraphrase': compareArms(semanticParaphrase, paraphraseFederated),
+            'semantic-vs-lexical-verbatim': compareArms(semanticVerbatim, verbatimFederated),
+            'semantic-scoped-vs-federated-paraphrase': compareArms(
+              semanticParaphraseScoped,
+              semanticParaphrase,
+            ),
+          }),
     },
     perQuestion: {
       keys: accepted.map((row) => row.key),
@@ -390,6 +473,13 @@ async function main(): Promise<void> {
       verbatimScoped: encodeRanks(verbatimScoped),
       paraphrase: encodeRanks(paraphraseFederated),
       paraphraseScoped: encodeRanks(paraphraseScoped),
+      ...(semanticEngine === null
+        ? {}
+        : {
+            semanticParaphrase: encodeRanks(semanticParaphrase),
+            semanticParaphraseScoped: encodeRanks(semanticParaphraseScoped),
+            semanticVerbatim: encodeRanks(semanticVerbatim),
+          }),
     },
     rejected: rows
       .filter((row) => row.rejected !== undefined)
@@ -417,6 +507,14 @@ async function main(): Promise<void> {
     console.log(
       `PARAPHRASE-PAIRED pair=${name} deltaMrr=${pair.deltaMrr.toFixed(4)} ci [${pair.mrrInterval[0].toFixed(4)},${pair.mrrInterval[1].toFixed(4)}] ` +
         `onlyParaphrase=${pair.onlyA} onlyVerbatim=${pair.onlyB} p=${pair.pValue.toFixed(4)}`,
+    );
+  }
+  if (semantic !== null) {
+    console.log(
+      `PARAPHRASE space index=${semantic.index} query=${semantic.query} model=${semantic.model ?? 'none'} vectors=${semantic.vectors} embedMs=${semantic.embedMs}`,
+    );
+    console.log(
+      `PARAPHRASE semantic paraphrase found@10=${rate(artifact.conditions.semanticParaphrase!)} mrr=${artifact.conditions.semanticParaphrase!.mrr} verbatim found@10=${rate(artifact.conditions.semanticVerbatim!)} mrr=${artifact.conditions.semanticVerbatim!.mrr}`,
     );
   }
 

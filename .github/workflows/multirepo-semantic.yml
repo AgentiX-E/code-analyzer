@@ -1,0 +1,289 @@
+name: Multi-Repo Semantic
+
+# **The channel the cross-repository measurement never had, and the reason it is a workflow of its own.**
+#
+# Iteration 135 replaced the federated engine's containment match with the product's field-weighted BM25 and moved the
+# paraphrase condition from **0.3870 to 0.8010** found@10 with no model call at all. What is left of that gap - **89 of
+# 447 rewritten questions** - is precisely the part no lexical channel can reach: a question that shares no word with
+# its answer's *name* or its *doc comment*.
+#
+# **The channel exists in the product and was never measured on this corpus.** `FederatedSearchEngine.registerEmbeddings`
+# is wired, `HybridSearchEngine` fuses the two lists by reciprocal rank, and `deriveVectorWeight` reads the question to
+# decide how much the vector list counts. None of that had a figure on four released repositories, because both
+# multi-repository scripts measured the lexical half alone and the machine that runs them has no key.
+#
+# **So this job is where the key is, and it is dispatch-only.** A workflow that names a provider credential must not be
+# triggered by the code it measures - `tests/unit/scripts/a-paid-workflow-is-not-triggered-by-the-code-it-measures.test.ts`
+# holds that rule - and the cost of one run is a handful of cents: ~13k short embeddings per corpus, no completion,
+# no judge.
+#
+# **Two jobs, because they are two corpora and neither depends on the other.** The paraphrase job is the one the channel
+# is bought for; the verbatim job is the regression guard, since a vector half that lifts rewritten questions and drops
+# quoted ones has moved the defect rather than fixed it (§37.5 recorded exactly that trade for the lexical change).
+#
+# **A run that cannot reach the model fails rather than publishing a number.** The embed phase falls back to hash
+# vectors without a key, and a hash-vector artifact that says "semantic" is the defect `embedding-backend.yml` exists to
+# prevent. Both scripts therefore refuse `--embed` when the space comes back `deterministic`, and the last step of each
+# job checks the artifact's own `space` block as a second pair of eyes.
+
+on:
+  # **No push, no schedule.** The corpus and the scripts are pinned and unchanged between runs, so the only honest
+  # trigger is a person deciding to spend - and the figure it produces is compared against an artifact in the repository
+  # rather than against a previous run of itself.
+  workflow_dispatch:
+    inputs:
+      mode:
+        # **`replay` reads the frozen corpus**, which is what makes two runs differ in the retriever and not in the
+        # questions. `generate` re-writes the 469 questions with DeepSeek first, which is the only mode that buys
+        # completions.
+        description: 'replay (frozen question corpus) or generate (rewrite the corpus first)'
+        type: choice
+        options: ['replay', 'generate']
+        default: replay
+
+concurrency:
+  group: multirepo-semantic
+  cancel-in-progress: false
+
+permissions:
+  contents: read
+
+jobs:
+  paraphrase:
+    name: Rewritten questions, with the vector channel on
+    runs-on: ubuntu-latest
+    # **Ninety minutes, and the arithmetic.** Four tarballs index in under two; ~13k embeddings at 16 per request is
+    # ~800 requests, which is 20-35 minutes depending on how often the endpoint queues; the searches themselves are
+    # local. A ceiling the paid step can reach is a ceiling that fails after the money is spent, and this one has room.
+    timeout-minutes: 90
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+
+      - name: Setup pnpm
+        uses: pnpm/action-setup@b906affcce14559ad1aafd4ab0e942779e9f58b1 # v4
+        with:
+          version: 9.15.0
+
+      - name: Setup Node.js
+        uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7
+        with:
+          node-version-file: .nvmrc
+          cache: 'pnpm'
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Build all packages
+        run: pnpm build
+
+      # **The key, said out loud when it is absent** rather than inferred from a figure later. The scripts refuse
+      # `--embed` without a model, so this step is a diagnosis and not the gate.
+      - name: Is the embedding credential present?
+        id: credential
+        env:
+          ZHIPU_API_KEY: ${{ secrets.ZHIPU_API_KEY }}
+        run: |
+          if [ -n "$ZHIPU_API_KEY" ]; then
+            echo "present=true" >> "$GITHUB_OUTPUT"
+            echo "ZHIPU_API_KEY is present -- the vector channel can run"
+          else
+            echo "present=false" >> "$GITHUB_OUTPUT"
+            echo "::error::ZHIPU_API_KEY is not configured, so this job has nothing to measure and would publish a lexical figure under a semantic name."
+            exit 1
+          fi
+
+      - name: Fetch the four checkouts at their pinned commits
+        run: |
+          set -euo pipefail
+          mkdir -p .cache/multirepo-qa
+          python3 -c "
+          import json
+          for repo in json.load(open('benchmarks/multirepo-qa-corpus.json'))['repositories']:
+              print(repo['id'], repo['sha'])
+          " > /tmp/multirepo-pins.txt
+          while read -r id sha; do
+            name="${id##*/}"
+            curl -fsSL --max-time 300 "https://codeload.github.com/${id}/tar.gz/${sha}" -o ".cache/multirepo-qa/${name}.tar.gz"
+            sha256sum ".cache/multirepo-qa/${name}.tar.gz" | tee -a "$GITHUB_STEP_SUMMARY"
+            mkdir -p ".cache/multirepo-qa/${name}"
+            tar -xzf ".cache/multirepo-qa/${name}.tar.gz" -C ".cache/multirepo-qa/${name}" --strip-components=1
+            echo "$sha" > ".cache/multirepo-qa/${name}/.complete"
+          done < /tmp/multirepo-pins.txt
+
+      - name: Measure both wordings with vectors registered
+        env:
+          ZHIPU_API_KEY: ${{ secrets.ZHIPU_API_KEY }}
+          ZHIPU_EMBEDDING_MODEL: embedding-3
+          DEEPSEEK_API_KEY: ${{ secrets.DEEPSEEK_API_KEY }}
+        run: |
+          set -o pipefail
+          # **A separate artifact path**, so the lexical figure every document quotes keeps its own file and the two
+          # runs cannot overwrite each other. The pair is what a reader compares.
+          npx tsx scripts/multirepo-paraphrase.ts \
+            --mode '${{ inputs.mode }}' \
+            --embed \
+            --out benchmarks/multirepo-qa-paraphrase-semantic.json 2>&1 | tee /tmp/multirepo-semantic.log
+
+      - name: The artifact has to say which space it used
+        run: |
+          set -e
+          node -e "
+          const a = require('./benchmarks/multirepo-qa-paraphrase-semantic.json');
+          if (!a.space) { console.error('::error::the artifact has no space block, so this run measured the lexical channel'); process.exit(1); }
+          console.log('space', JSON.stringify(a.space));
+          if (a.space.index === 'deterministic' || a.space.query === 'deterministic') {
+            console.error('::error::the space is the hash fallback, so no semantic claim can be made from this run');
+            process.exit(1);
+          }
+          if (a.space.index !== a.space.query) {
+            console.error('::error::the index and the queries were embedded into two different spaces');
+            process.exit(1);
+          }
+          "
+
+      - name: Publish the figures to the run summary
+        if: always()
+        run: |
+          {
+            echo '### Rewritten questions, vector channel on'
+            echo ''
+            echo '```'
+            grep -E '^PARAPHRASE' /tmp/multirepo-semantic.log || echo 'no figures were printed'
+            echo '```'
+          } >> "$GITHUB_STEP_SUMMARY"
+
+      # **The same gate the lexical artifact passes**, on the columns this one publishes: every aggregate is recomputed
+      # from the per-question ranks, so a figure that cannot be re-derived from its own artifact is a figure the
+      # documentation must not quote.
+      - name: Re-derive every figure from the published columns
+        if: inputs.mode == 'replay'
+        run: |
+          set -o pipefail
+          npx vitest run tests/unit/scripts/a-paraphrase-answer-can-be-recomputed.test.ts 2>&1 | tee /tmp/multirepo-semantic-gate.log
+
+      - name: Upload the figures
+        if: always()
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7
+        with:
+          name: multirepo-paraphrase-semantic
+          path: |
+            benchmarks/multirepo-qa-paraphrase-semantic.json
+            /tmp/multirepo-semantic.log
+          if-no-files-found: warn
+          retention-days: 90
+
+  verbatim:
+    name: Quoted questions, with the vector channel on
+    runs-on: ubuntu-latest
+    # **The regression guard, and it runs beside the other job rather than after it.** Two corpora, two indexes, one
+    # key: the runs share nothing but the corpus file, so serialising them would only make the wall clock longer.
+    timeout-minutes: 90
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+
+      - name: Setup pnpm
+        uses: pnpm/action-setup@b906affcce14559ad1aafd4ab0e942779e9f58b1 # v4
+        with:
+          version: 9.15.0
+
+      - name: Setup Node.js
+        uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7
+        with:
+          node-version-file: .nvmrc
+          cache: 'pnpm'
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Build all packages
+        run: pnpm build
+
+      - name: Is the embedding credential present?
+        id: credential
+        env:
+          ZHIPU_API_KEY: ${{ secrets.ZHIPU_API_KEY }}
+        run: |
+          if [ -n "$ZHIPU_API_KEY" ]; then
+            echo "present=true" >> "$GITHUB_OUTPUT"
+            echo "ZHIPU_API_KEY is present -- the vector channel can run"
+          else
+            echo "present=false" >> "$GITHUB_OUTPUT"
+            echo "::error::ZHIPU_API_KEY is not configured, so this job has nothing to measure and would publish a lexical figure under a semantic name."
+            exit 1
+          fi
+
+      - name: Fetch the four checkouts at their pinned commits
+        run: |
+          set -euo pipefail
+          mkdir -p .cache/multirepo-qa
+          python3 -c "
+          import json
+          for repo in json.load(open('benchmarks/multirepo-qa-corpus.json'))['repositories']:
+              print(repo['id'], repo['sha'])
+          " > /tmp/multirepo-pins.txt
+          while read -r id sha; do
+            name="${id##*/}"
+            curl -fsSL --max-time 300 "https://codeload.github.com/${id}/tar.gz/${sha}" -o ".cache/multirepo-qa/${name}.tar.gz"
+            sha256sum ".cache/multirepo-qa/${name}.tar.gz" | tee -a "$GITHUB_STEP_SUMMARY"
+            mkdir -p ".cache/multirepo-qa/${name}"
+            tar -xzf ".cache/multirepo-qa/${name}.tar.gz" -C ".cache/multirepo-qa/${name}" --strip-components=1
+            echo "$sha" > ".cache/multirepo-qa/${name}/.complete"
+          done < /tmp/multirepo-pins.txt
+
+      - name: Measure the quoted questions with vectors registered
+        env:
+          ZHIPU_API_KEY: ${{ secrets.ZHIPU_API_KEY }}
+          ZHIPU_EMBEDDING_MODEL: embedding-3
+        run: |
+          set -o pipefail
+          npx tsx scripts/multirepo-qa.ts \
+            --embed \
+            --out benchmarks/multirepo-qa-semantic.json 2>&1 | tee /tmp/multirepo-verbatim-semantic.log
+
+      - name: The artifact has to say which space it used
+        run: |
+          set -e
+          node -e "
+          const a = require('./benchmarks/multirepo-qa-semantic.json');
+          if (!a.space) { console.error('::error::the artifact has no space block, so this run measured the lexical channel'); process.exit(1); }
+          console.log('space', JSON.stringify(a.space));
+          if (a.space.index === 'deterministic' || a.space.query === 'deterministic') {
+            console.error('::error::the space is the hash fallback, so no semantic claim can be made from this run');
+            process.exit(1);
+          }
+          if (a.space.index !== a.space.query) {
+            console.error('::error::the index and the queries were embedded into two different spaces');
+            process.exit(1);
+          }
+          "
+
+      - name: Publish the figures to the run summary
+        if: always()
+        run: |
+          {
+            echo '### Quoted questions, vector channel on'
+            echo ''
+            echo '```'
+            grep -E '^MULTIREPO' /tmp/multirepo-verbatim-semantic.log || echo 'no figures were printed'
+            echo '```'
+          } >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Re-derive every figure from the published columns
+        run: |
+          set -o pipefail
+          npx vitest run tests/unit/scripts/a-cross-repo-answer-can-be-recomputed.test.ts 2>&1 | tee /tmp/multirepo-verbatim-gate.log
+
+      - name: Upload the figures
+        if: always()
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7
+        with:
+          name: multirepo-qa-semantic
+          path: |
+            benchmarks/multirepo-qa-semantic.json
+            /tmp/multirepo-verbatim-semantic.log
+          if-no-files-found: warn
+          retention-days: 90
