@@ -2991,3 +2991,93 @@ the gate from the columns beside it), and the dispatched ladder will populate it
 threshold-calibrated rule looks best. The doc-comment and paraphrase corpora in §30.3 are the counterweight — 0.9794
 against 0.9711 on 219 questions, and a wash on 99 — and neither is large enough to give the CI that CoSQA just got. **The
 classifier's headroom claim is one corpus deep**, which is the honest state of it.
+
+## 32. Depth pays between ten and twenty-five, and not between twenty-five and fifty
+
+**§31.4 closed the top of the range**: a hundred reranked candidates is not distinguishable from fifty in either arm, at
+1.7–1.8× the bill. It also registered where the interesting question had moved — **down** — and dispatched the ladder.
+This section is the ladder: `43364553771`, same 500 questions, same pool, same run, `rerankDepths=10,25,50`, both arms at
+every depth, **six arms in one job so that every comparison below is paired**.
+
+### 32.1 What a depth is: one number that buys two different things
+
+A reranker at depth _k_ reads the top _k_ of the fused list and may do two things to it: **reorder** entries that are
+already there, and **rescue** an answer that fusion put below _k_. The first is bounded by what fusion found; the second is
+the only way a reranker can beat fusion's recall. A ladder separates them, because at the arm's own depth the two arrive
+mixed.
+
+### 32.2 The ladder, with its bill summed from the calls
+
+| depth | arm      | MRR@10 | found@10 | rescued | lost | fusion's own found | prompt tokens | USD (500 q) |
+| ----: | -------- | -----: | -------: | ------: | ---: | -----------------: | ------------: | ----------: |
+|    10 | derived  | 0.5388 |      352 |       0 |    0 |                352 |       296 504 |    0.050933 |
+|    10 | constant | 0.5329 |      337 |       0 |    0 |                337 |       404 972 |    0.071101 |
+|    25 | derived  | 0.5633 |      382 |      43 |   11 |                350 |       661 184 |    0.103543 |
+|    25 | constant | 0.5606 |      377 |      52 |    8 |                333 |       932 983 |    0.146789 |
+|    50 | derived  | 0.5627 |      383 |      59 |   26 |                350 |     1 253 697 |    0.190634 |
+|    50 | constant | 0.5659 |      392 |      79 |   16 |                329 |     1 779 985 |    0.280665 |
+
+**0.844 USD and 3 000 completions for the whole ladder**, 85 minutes of wall clock. "Fusion's own found" is not published
+directly — it is `found − rescued + lost`, which is an identity rather than a measurement, and it is in the table because
+it makes the next paragraph readable.
+
+### 32.3 The reorder-only arm: a reranker that cannot look deeper cannot find anything
+
+At depth 10 the rescued and lost columns are **zero by construction** — there is nothing below rank ten to rescue from — so
+the arm measures reordering and nothing else. It is worth **+0.006 MRR for the derived list and +0.004 for the constant
+one**, and **zero questions found**, against 352 and 337 found by fusion itself.
+
+The distance from there to depth 50 is what looking deeper buys: **+30 found for the derived arm (352 → 382) and +40 for
+the constant arm (337 → 377)**. Both jumps are distinguishable from the reorder-only arm (derived p = 0.0015, constant
+p = 7.7 × 10⁻⁹), and they are the first result in this document that isolates _reading_ from _ordering_.
+
+**And the classifier's advantage is visible exactly where the reranker cannot substitute**: at depth 10 the two arms are
+**+0.0059 MRR apart, 30 questions against 15, p = 0.0357** — because a reranker that may only reorder a list cannot repair
+a list that does not contain the answer. At depth 50 (§31.3) the same contrast is 26 against 26 and p = 1. **The
+substitution has a mechanism, and the mechanism has a dial**: the deeper the reranker may read, the less a fusion weight
+matters. A marginal p over three contrasts on the same 500 questions is not a finding on its own, and it is quoted here
+because it points the same way as the two other depths rather than against them.
+
+### 32.4 Twenty-five is not distinguishable from fifty, and costs 54 %
+
+Within each arm, paired on the same questions:
+
+| comparison | derived                                   | constant                                      |
+| ---------- | ----------------------------------------- | --------------------------------------------- |
+| 25 vs 50   | MRR +0.0005, found **382 vs 383, p = 1**  | MRR −0.0052, found **377 vs 392, p = 0.058**  |
+| 10 vs 50   | MRR −0.0239, found 352 vs 383, p = 0.0015 | MRR −0.0330, found 337 vs 392, p = 7.7 × 10⁻⁹ |
+
+**The arm the product ships — the derived one — cannot tell twenty-five from fifty, at 54 % of the bill** (0.104 against
+0.191 USD per 500 questions). That is the cost floor §31.4 said the ladder was for, and it is a factor worth naming: a
+deployment reranking half a million questions a month would pay **~104 USD instead of ~191** for a difference of one
+question in five hundred.
+
+**The default stays at fifty anyway, and the reason is written down rather than implied.** The constant arm leans the
+other way by fifteen questions at p = 0.058 — the size of loss this test cannot see is exactly the size that is showing.
+Two arms disagreeing about the sign of a small effect is not a licence to move a default toward the cheaper arm; it is the
+definition of an unresolved effect. **Moving it needs a replication run, not an argument**, and the replication is
+dispatched rather than described. What the product may do today is quote the number: _depth 25 is 46 % cheaper and
+indistinguishable on the shipping arm_.
+
+### 32.5 A depth dilutes fusion, and the reranker is what pays for it
+
+Fusion's own found@10 **falls as the list gets deeper**: 352 → 350 → 350 for the derived arm and 337 → 333 → 329 for the
+constant one. A hundred-entry merge lets the weaker channel place more entries in the same top ten, which is the defect
+§20 fixed for questions and §31.4 caught arriving through the depth.
+
+**And the deeper the list, the more the reranker has to repair**: rescues climb 43 → 59 (derived) and 52 → 79 (constant)
+from depth 25 to 50, while losses climb 11 → 26 and 8 → 16. The net is what the paired test sees, and the net is
+indistinguishable — but the _gross_ traffic nearly doubles. **A production system pays for those completions twice**: once
+in money and once in the chance that a rescue is cancelled by a loss.
+
+### 32.6 What this section does not claim
+
+**One run.** Every number above is paired inside a single job, which is the only comparison this document accepts (§31.6),
+and it is also the only replication there is. The 25-vs-50 verdict in particular rests on a single 500-question draw.
+
+**Three contrasts on the same questions.** The depth-10 arm contrast (p = 0.0357) would not survive a Bonferroni
+correction over the three depths, and it is reported as corroboration of §31's mechanism rather than as a standalone
+finding.
+
+**Depth is not a quality dial above twenty-five.** Nothing here says the product gets better with a wider pool; it says
+the product stops getting worse below fifty, and that below twenty-five it starts to.
