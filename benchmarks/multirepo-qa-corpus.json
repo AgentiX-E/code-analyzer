@@ -1,0 +1,43 @@
+{
+  "comment": [
+    "**Four repositories that were released separately, in four languages, pinned by commit.**",
+    "",
+    "A cross-repository question is only a cross-repository question if the repositories are real: a fixture whose",
+    "imports the author already knew how to resolve is one repository written twice. These four are downloaded from",
+    "GitHub at the commit named here and never committed, so a run measures the revision the file names rather than a",
+    "copy that drifted.",
+    "",
+    "**Pinned by commit and not by tag.** A tag would have been chosen because it looks stable; the commit is what was",
+    "in front of the indexer on the day the corpus was built, and the artifact can be re-derived from it exactly.",
+    "",
+    "**The languages are the ones the product claims**, and each brings its own doc-comment convention: Python",
+    "docstrings, JSDoc in JavaScript and TypeScript, Javadoc in Java. Questions are derived from those comments, so the",
+    "corpus tests four conventions rather than four spellings of one."
+  ],
+  "repositories": [
+    {
+      "id": "pallets/flask",
+      "sha": "49943b5a94413a530761350f04e896f76e8d620e",
+      "language": "python",
+      "role": "web framework, docstring-heavy"
+    },
+    {
+      "id": "expressjs/express",
+      "sha": "43fca52d28a422c8be48fd489cbd4f2d6152bab6",
+      "language": "javascript",
+      "role": "web framework, JSDoc"
+    },
+    {
+      "id": "sindresorhus/got",
+      "sha": "6b5aafc1cd538998728be6f45c65b0f80bae01b2",
+      "language": "typescript",
+      "role": "typed HTTP client, JSDoc with tags"
+    },
+    {
+      "id": "google/gson",
+      "sha": "a961b0fe088f8558d00cc1b56e506a3656907a91",
+      "language": "java",
+      "role": "serialization library, Javadoc"
+    }
+  ]
+}

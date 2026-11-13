@@ -1,0 +1,340 @@
+// @code-analyzer — cross-repository question answering, measured on four released repositories in four languages.
+//
+// **Story 10 was written down as "not measured beyond four questions", and the four questions were a skipped test.**
+// The skip said the federated search "returns 0 results for a symbol that is demonstrably in it"; the cause was a
+// `repoFilter` compared to `owner/name` with a repository name, so scoped questions answered nothing at all. The fix is
+// in `search-scope.ts`. This script is the number that the skip was standing in for.
+//
+// **The questions are not written by this project.** Each one is the first sentence of a symbol's own doc comment,
+// taken from the checkout; the expected answer is that symbol. The construction is the one RepoQA uses for
+// repository-level code understanding, and it has the property that matters here: the answer key comes from the code,
+// so the product cannot contribute to its own expected answers.
+//
+// Three conditions, because the interesting quantity is the *difference* between them:
+//
+//   `federated`  the question, all four repositories open, no scope - the product's answer to "where is this?"
+//   `scoped`     the same question, told which repository holds it - what a caller who already knows the repo gets
+//   `ambiguous`  the subset whose symbol name exists in two or more repositories, answered federated: the answer is
+//                only correct if it lands on the repository that holds *this* doc comment
+//
+// **`scoped` minus `federated` is the price of the other three repositories being present**, and it is the number no
+// published benchmark reports, because no published benchmark asks one question of four repositories at once.
+//
+// Usage:
+//   npx tsx scripts/multirepo-qa.ts [--out benchmarks/multirepo-qa.json] [--cache .cache/multirepo-qa]
+
+import { execFileSync } from 'node:child_process';
+import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs';
+import { dirname, join } from 'node:path';
+
+import { InMemoryGraphStore } from '../packages/infra/src/index.js';
+import { CrossRepoIndexer, RepoGroupManager } from '../packages/intelligence/src/index.js';
+import { FederatedSearchEngine } from '../packages/intelligence/src/cross-repo/federated-search.js';
+import {
+  compareArms,
+  decodeRanks,
+  encodeRanks,
+  foundWithin,
+  reciprocalRank,
+  type RankList,
+} from '../packages/intelligence/src/search/paired-stats.js';
+
+const DEPTH = 10;
+const CUT = 10;
+
+interface CorpusRepository {
+  id: string;
+  sha: string;
+  language: string;
+  role: string;
+}
+
+interface Corpus {
+  repositories: CorpusRepository[];
+}
+
+interface Question {
+  key: string;
+  repo: string;
+  symbol: string;
+  filePath: string;
+  label: string;
+  text: string;
+  /** Does the question's own text spell the symbol's name? If so it is a name lookup, not a description lookup. */
+  namesItsAnswer: boolean;
+  /** How many of the four repositories define a symbol with this name. */
+  sameNameElsewhere: number;
+}
+
+function arg(name: string, fallback: string): string {
+  const at = process.argv.indexOf(`--${name}`);
+  return at >= 0 && process.argv[at + 1] ? process.argv[at + 1]! : fallback;
+}
+
+/** `owner/name` → `name`, which is what the tar layout strips to and what a caller types as a filter. */
+function repoName(id: string): string {
+  return id.slice(id.lastIndexOf('/') + 1);
+}
+
+/** Download and unpack one pinned commit, once. */
+function materialise(repo: CorpusRepository, cache: string): string {
+  const dir = join(cache, repoName(repo.id));
+  const marker = join(dir, '.complete');
+  if (existsSync(marker)) return dir;
+
+  mkdirSync(dir, { recursive: true });
+  const tarball = join(cache, `${repoName(repo.id)}.tar.gz`);
+  // **The commit is the pin**: a branch would have made two runs of the same artifact two different corpora.
+  execFileSync('curl', [
+    '-sSL',
+    '--max-time',
+    '300',
+    '-o',
+    tarball,
+    `https://codeload.github.com/${repo.id}/tar.gz/${repo.sha}`,
+  ]);
+  execFileSync('tar', ['-xzf', tarball, '-C', dir, '--strip-components=1']);
+  writeFileSync(marker, repo.sha, 'utf8');
+  return dir;
+}
+
+/**
+ * The doc comment as a question: markers stripped, tags dropped, whitespace collapsed, first sentence kept.
+ *
+ * **Tags are dropped because they are not prose.** `@param {string} name The name` is three tokens of syntax and one
+ * of English, and a question made of it would measure the index's tolerance for punctuation.
+ */
+function toQuestion(doc: string): string | null {
+  const prose = doc
+    .replace(/\/\*\*?|\*\//g, ' ')
+    .replace(/^\s*(\*|\/\/\/?)\s?/gm, ' ')
+    .replace(/@[a-zA-Z]+\s*/g, ' ')
+    .replace(/\s+/g, ' ')
+    .trim();
+  if (prose.length < 20) return null;
+  const sentence = prose.match(/^(.{20,240}?[.!?])(\s|$)/);
+  const text = (sentence ? sentence[1]! : prose.slice(0, 200)).trim();
+  return text.length >= 20 ? text : null;
+}
+
+/** The rank of the intended answer in a result list, or `null` when it is not there. */
+function rankOf(
+  results: ReadonlyArray<{ repo: string; symbol: string; filePath: string }>,
+  question: Question,
+): number | null {
+  for (let index = 0; index < results.length; index++) {
+    const hit = results[index]!;
+    if (hit.repo !== question.repo || hit.symbol !== question.symbol) continue;
+    const a = hit.filePath.replace(/\\/g, '/');
+    const b = question.filePath.replace(/\\/g, '/');
+    // **The file is part of the answer**, because a symbol name that exists in two files of one repository is two
+    // different functions, and returning the wrong one is not finding the answer.
+    if (a === b || a.endsWith(b) || b.endsWith(a)) return index + 1;
+  }
+  return null;
+}
+
+function score(ranks: RankList): { n: number; found: number; r1: number; mrr: number } {
+  const found = ranks.filter((rank) => foundWithin(rank, CUT)).length;
+  const r1 = ranks.filter((rank) => foundWithin(rank, 1)).length;
+  const mrr = ranks.reduce<number>((sum, rank) => sum + reciprocalRank(rank, CUT), 0);
+  return {
+    n: ranks.length,
+    found,
+    r1: Number((r1 / ranks.length).toFixed(4)),
+    mrr: Number((mrr / ranks.length).toFixed(4)),
+  };
+}
+
+async function main(): Promise<void> {
+  const out = arg('out', 'benchmarks/multirepo-qa.json');
+  const cache = arg('cache', '.cache/multirepo-qa');
+  const corpus = JSON.parse(readFileSync('benchmarks/multirepo-qa-corpus.json', 'utf8')) as Corpus;
+
+  mkdirSync(cache, { recursive: true });
+
+  const store = new InMemoryGraphStore();
+  const manager = new RepoGroupManager();
+  manager.createGroup('multirepo-qa', 'multirepo-qa', 'four released repositories');
+
+  const checkedOut: Record<string, string> = {};
+  for (const repo of corpus.repositories) {
+    const [owner, name] = [repo.id.slice(0, repo.id.indexOf('/')), repoName(repo.id)];
+    checkedOut[repo.id] = materialise(repo, cache);
+    manager.addRepo('multirepo-qa', owner!, name, '', checkedOut[repo.id]!);
+  }
+
+  const indexer = new CrossRepoIndexer(store, manager);
+  const indexStarted = Date.now();
+  const index = (await indexer.indexGroup('multirepo-qa', { concurrency: 4 })) as {
+    reposIndexed: number;
+    totalNodes: number;
+    totalEdges: number;
+    crossRepoEdges: number;
+    errors: string[];
+  };
+  const indexMs = Date.now() - indexStarted;
+
+  // **Every symbol a question could be asked about**, in a stable order: the sample is the first of every k, and an
+  // order that depends on insertion order would make two runs two corpora.
+  const nodes = store.getAllNodes();
+  const symbolLabels = new Set(['Function', 'Method', 'Class']);
+  const candidates = nodes
+    .filter(
+      (node) =>
+        symbolLabels.has(node.label) &&
+        typeof node.docstring === 'string' &&
+        node.docstring.length > 30 &&
+        typeof node.projectId === 'string' &&
+        node.projectId !== '',
+    )
+    .sort((a, b) =>
+      `${a.projectId}:${a.qualifiedName}`.localeCompare(`${b.projectId}:${b.qualifiedName}`),
+    );
+
+  const nameToRepos = new Map<string, Set<string>>();
+  for (const node of nodes) {
+    if (!symbolLabels.has(node.label) || !node.projectId) continue;
+    const set = nameToRepos.get(node.name) ?? new Set<string>();
+    set.add(node.projectId);
+    nameToRepos.set(node.name, set);
+  }
+
+  const derived: Question[] = [];
+  for (const node of candidates) {
+    const text = toQuestion(node.docstring!);
+    if (text === null) continue;
+    derived.push({
+      key: `${node.projectId}#${node.qualifiedName}`,
+      repo: node.projectId!,
+      symbol: node.name,
+      filePath: node.filePath ?? '',
+      label: node.label,
+      text,
+      namesItsAnswer: text.toLowerCase().includes(node.name.toLowerCase()),
+      sameNameElsewhere: (nameToRepos.get(node.name) ?? new Set([node.projectId!])).size,
+    });
+  }
+
+  const sample = derived.filter(
+    (_, position) => position % Math.max(1, Math.floor(derived.length / 400)) === 0,
+  );
+
+  const engine = new FederatedSearchEngine(store, manager);
+
+  const federated: Array<number | null> = [];
+  const scoped: Array<number | null> = [];
+  for (const question of sample) {
+    const open = await engine.search(question.text, { maxResults: DEPTH });
+    federated.push(rankOf(open.results, question));
+
+    const narrowed = await engine.search(question.text, {
+      maxResults: DEPTH,
+      repoFilter: [repoName(question.repo)],
+    });
+    scoped.push(rankOf(narrowed.results, question));
+  }
+
+  // **The subset that only a cross-repository search can get wrong**: the name exists in more than one repository, so
+  // the answer is the repository whose doc comment was asked about, and a search that ignores the distinction scores
+  // the wrong function as a hit.
+  const ambiguousIndexes = sample
+    .map((question, index) => (question.sameNameElsewhere > 1 ? index : -1))
+    .filter((index) => index >= 0);
+  const ambiguousFederated = ambiguousIndexes.map((index) => federated[index]!);
+
+  // **The subset whose question does not spell its own answer's name.** A question that contains the identifier is a
+  // lookup and it should be found; a question that describes the symbol without naming it is the one a user asks.
+  const nameFreeIndexes = sample
+    .map((question, index) => (question.namesItsAnswer ? -1 : index))
+    .filter((index) => index >= 0);
+  const nameFreeFederated = nameFreeIndexes.map((index) => federated[index]!);
+  const nameFreeScoped = nameFreeIndexes.map((index) => scoped[index]!);
+
+  const pairedScoped = compareArms(scoped, federated);
+
+  const byRepo: Record<string, { federated: number; scoped: number; n: number }> = {};
+  sample.forEach((question, index) => {
+    const row = (byRepo[question.repo] ??= { federated: 0, scoped: 0, n: 0 });
+    row.n += 1;
+    if (foundWithin(federated[index]!, CUT)) row.federated += 1;
+    if (foundWithin(scoped[index]!, CUT)) row.scoped += 1;
+  });
+
+  const artifact = {
+    comment: [
+      'Cross-repository question answering on four released repositories in four languages.',
+      '',
+      "Every question is the first sentence of a symbol's own doc comment and every expected answer is that symbol, so",
+      'the answer key comes from the code and not from this project. `scoped` minus `federated` is what the presence of',
+      'three other repositories costs.',
+      '',
+      '`perQuestion` holds the rank of the intended answer for each question, 1-based, `-` for not returned. Every',
+      'aggregate above can be recomputed from those columns, and a test does recompute them.',
+    ],
+    measuredAt: new Date().toISOString(),
+    cut: CUT,
+    depth: DEPTH,
+    corpus: corpus.repositories.map(({ id, sha, language, role }) => ({ id, sha, language, role })),
+    index: { ...index, durationMs: indexMs },
+    questions: {
+      derived: derived.length,
+      scored: sample.length,
+      ambiguous: ambiguousIndexes.length,
+      namesItsAnswer: sample.filter((question) => question.namesItsAnswer).length,
+    },
+    conditions: {
+      federated: score(federated),
+      scoped: score(scoped),
+      nameFree: score(nameFreeFederated),
+      nameFreeScoped: score(nameFreeScoped),
+      ambiguousFederated: score(ambiguousFederated),
+    },
+    paired: {
+      'scoped-vs-federated': pairedScoped,
+      'scoped-vs-federated-name-free': compareArms(nameFreeScoped, nameFreeFederated),
+    },
+    byRepo,
+    perQuestion: {
+      keys: sample.map((question) => question.key),
+      federated: encodeRanks(federated),
+      scoped: encodeRanks(scoped),
+      ambiguous: ambiguousIndexes.map((index) => sample[index]!.key),
+    },
+  };
+
+  mkdirSync(dirname(out), { recursive: true });
+  writeFileSync(out, `${JSON.stringify(artifact, null, 2)}\n`, 'utf8');
+
+  const pct = (value: number): string => (value * 100).toFixed(1);
+  console.log(
+    `MULTIREPO repositories=${corpus.repositories.length} nodes=${index.totalNodes} questions=${sample.length}`,
+  );
+  console.log(
+    `MULTIREPO federated found@10=${pct(artifact.conditions.federated.found / sample.length)}% mrr=${artifact.conditions.federated.mrr}`,
+  );
+  console.log(
+    `MULTIREPO scoped    found@10=${pct(artifact.conditions.scoped.found / sample.length)}% mrr=${artifact.conditions.scoped.mrr}`,
+  );
+  console.log(
+    `MULTIREPO namefree  n=${nameFreeIndexes.length} found@10=${pct(nameFreeFederated.filter((rank) => foundWithin(rank, CUT)).length / Math.max(1, nameFreeIndexes.length))}% mrr=${score(nameFreeFederated).mrr}`,
+  );
+  console.log(
+    `MULTIREPO ambiguous n=${ambiguousIndexes.length} found@10=${pct(ambiguousFederated.filter((rank) => foundWithin(rank, CUT)).length / Math.max(1, ambiguousIndexes.length))}%`,
+  );
+  console.log(
+    `MULTIREPO paired onlyScoped=${pairedScoped.onlyA} onlyFederated=${pairedScoped.onlyB} p=${pairedScoped.pValue.toFixed(6)} deltaMrr=${pairedScoped.deltaMrr.toFixed(4)}`,
+  );
+
+  // **The columns and the aggregates are printed together** so that a reader of the log has both, and the gate test
+  // recomputes one from the other.
+  const decoded = decodeRanks(artifact.perQuestion.federated, sample.length);
+  if (decoded.length !== sample.length)
+    throw new Error('federated column did not decode to the question count');
+  store.close();
+}
+
+main().catch((error: unknown) => {
+  console.error(error);
+  process.exit(1);
+});

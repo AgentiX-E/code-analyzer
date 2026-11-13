@@ -3086,3 +3086,84 @@ the product stops getting worse below fifty, and that below twenty-five it start
 ladder's artifact; §31's figures are `43352844317`'s. They differ by seven questions on the same arm at the same depth
 (383 here against 388 there), which is the run-to-run variance §31.6 describes — and it is why every comparison in both
 sections is made inside one run and cited with its id.
+
+## 33. A scoped question answered nothing, and the skip that hid it for two iterations
+
+**Story 10 — "answer my question across several repositories" — was the one claim in the product table with no number
+behind it.** What stood in its place was a test with `it.skip` and a comment naming two possible causes: a registration
+step the test was not performing, or a repo-scoped store view it did not build. **Neither was the cause, and the sentence
+is why nobody looked**: a skip with a plausible explanation reads as a known limitation rather than as an unread defect.
+
+`FederatedSearchEngine.search` compared `repoFilter` entries to `node.projectId` with `Set.has`. The group indexer writes
+project ids as `owner/name`; every unit fixture in the repository writes them as `repo-a`. **So the filter matched on
+fixtures and matched nothing on a real workspace**, and the test that would have caught it was the one that was skipped.
+
+### 33.1 What the two conditions measure, and the size of the defect
+
+`benchmarks/multirepo-qa.json`, four released repositories at pinned commits — flask (Python), express (JavaScript), got
+(TypeScript), gson (Java) — indexed into one workspace: **12 659 nodes, 741 import edges, 20 of them cross-repository,
+904 files, 17.5 s**.
+
+Questions are derived, not written: **the first sentence of a symbol's own doc comment, with the expected answer that
+symbol**. That is RepoQA's construction for repository-level code understanding, and its property is the one that matters
+— the answer key comes from the checkout, so the product cannot contribute to its own expected answers. 938 symbols carry
+a usable doc comment; the artifact scores a deterministic 469 of them (the first of every second, in `project:qualified`
+order).
+
+| condition          | what it asks                                                     |   n | found@10 |    R@1 | MRR@10 |
+| ------------------ | ---------------------------------------------------------------- | --: | -------: | -----: | -----: |
+| `federated`        | the question, all four repositories open, no scope               | 469 |   0.9679 | 0.8699 | 0.9108 |
+| `scoped`           | the same question, told which repository holds the answer        | 469 |   0.9744 | 0.8699 | 0.9122 |
+| `name-free` subset | the question does not spell its own answer's name                | 422 |   0.9692 | 0.8649 | 0.9080 |
+| `ambiguous` subset | the symbol's name exists in two or more of the four repositories |  23 |   0.9565 | 0.8696 | 0.9022 |
+
+**Before the fix the `scoped` column was 0.** Not "low": zero of 469, because the filter selected the empty set and the
+engine answered it faithfully. The paired comparison of `scoped` against `federated` is **3 questions only scoped found
+against 0 only federated found, exact McNemar p = 0.25, ΔMRR +0.0014 with a 95 % interval of [0.0003, 0.0028]** — so the
+honest statement is not that scoping is worth a lot, it is that **the presence of three other repositories costs three
+questions in 469**.
+
+**The two instruments disagree about those three questions and both are right.** The exact test needs six one-sided
+discordant questions to reach p < 0.05 (§31), and three is a coin; the bootstrap interval on MRR excludes zero because
+those three answers were not merely rescued, they were rescued **from far down the list**, and a mean of reciprocals sees
+the size of a move that a count does not. **A count test resolves whether an arm wins more questions; an interval
+resolves how much rank it wins.** Reporting one and not the other is how a three-question effect becomes a mechanism.
+
+### 33.2 What this measures, and what it deliberately does not
+
+**It measures routing, not paraphrase.** The question is the doc comment verbatim, and the doc comment is indexed — so a
+system that finds it has found the text, not understood the question. The `name-free` subset removes the crudest form of
+that (the identifier appearing in the question) and moves the figure by 0.1 points, which is itself the finding: **the
+identifier was never what made these questions easy**.
+
+**The hard condition is paraphrase, and it is not in this artifact.** It needs questions that describe a function without
+reusing its comment, which means a generator — a paid one — and a generator is a thing to measure separately rather than
+fold into a corpus whose answer key is currently free of any model. **That is the next iteration's input, and the reason
+the numbers above are a floor rather than a headline.**
+
+**No competitor number exists for the federated condition**, because no published benchmark asks one question of four
+repositories at once. The comparison this section can support is internal and paired: `federated` against `scoped`, on
+the same questions in the same run — which is the same instrument §31 and §32 use.
+
+### 33.3 Three properties the fix had to have
+
+**A selector is a rule, not a string comparison.** `cross-repo/search-scope.ts` accepts `owner/name`, `name`, and either
+in any case, and refuses a prefix — so `flas` selects nothing rather than something adjacent. The rules are a module
+because they are arithmetic over identifiers and the federated engine will not be their only reader.
+
+**A selector that named no repository is reported.** `unmatchedRepoFilters` distinguishes "your filter is wrong" from
+"the repositories you named hold no match", and it is resolved against the store's own project index rather than against
+the query's hits — resolving against the hits is what made the two indistinguishable. The empty string is not a project
+id, so a repository that was added and never indexed is skipped rather than selected.
+
+**A group id is expanded through the manager that owns the group.** `groupId` was compared to `node.projectId` with a
+`startsWith` that could never fire; it now resolves through `RepoGroupManager.projectsInGroup`, and **without a resolver
+it throws** instead of filtering nothing. A group with no indexed repository answers the empty set — not every
+repository, which is what an unindexed group would otherwise become.
+
+### 33.4 The artifact is the gate
+
+`tests/unit/scripts/a-cross-repo-answer-can-be-recomputed.test.ts` decodes every published rank column and recomputes the
+aggregate printed beside it, the discordant counts of the paired test, and the membership of the two subsets. It also
+holds the corpus to its pins: four repositories, four languages, each a 40-character commit. **An aggregate that does not
+follow from the rows fails the build**, which is the same contract §31.5 imposed on the CoSQA artifact.

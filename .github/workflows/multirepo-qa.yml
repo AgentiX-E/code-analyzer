@@ -1,0 +1,115 @@
+name: Multi-Repo QA
+
+# **Story 10: "answer my question across several repositories", measured instead of asserted.**
+#
+# The claim has three parts and each of them was unproven: **four repositories**, **four languages**, and **one
+# question asked of all of them at once**. The test that was supposed to prove it carried an `it.skip` for two
+# iterations, with a comment naming two possible causes for a federated search that returned nothing - and the cause was
+# neither: `repoFilter` was compared to `node.projectId`, which the group indexer writes as `owner/name`, so a question
+# scoped to a repository answered nothing while the same question unscoped answered fine.
+#
+# This job downloads **four released repositories at pinned commits** - flask (Python), express (JavaScript), got
+# (TypeScript), gson (Java) - indexes them into one workspace, derives a question from every doc comment, and reports
+# three conditions with a paired test between two of them. **No model is called**: the corpus, the questions and the
+# answer key are all in the checkouts, so a run costs nothing and repeats exactly.
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [master]
+    paths:
+      - 'packages/intelligence/src/cross-repo/**'
+      - 'scripts/multirepo-qa.ts'
+      - 'benchmarks/multirepo-qa-corpus.json'
+      - 'tests/unit/scripts/a-cross-repo-answer-can-be-recomputed.test.ts'
+      - '.github/workflows/multirepo-qa.yml'
+
+concurrency:
+  group: multirepo-qa
+  cancel-in-progress: false
+
+permissions:
+  contents: read
+
+jobs:
+  measure:
+    name: Four repositories, four languages, one question
+    runs-on: ubuntu-latest
+    # **Twenty minutes**, stated rather than discovered: four tarballs are ~20 MB and index in under a minute on the
+    # sandbox; the rest is dependency installation.
+    timeout-minutes: 20
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+
+      - name: Setup pnpm
+        uses: pnpm/action-setup@b906affcce14559ad1aafd4ab0e942779e9f58b1 # v4
+        with:
+          version: 9.15.0
+
+      - name: Setup Node.js
+        uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7
+        with:
+          node-version-file: .nvmrc
+          cache: 'pnpm'
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Build all packages
+        run: pnpm build
+
+      # **The commits come from the corpus file, so the job and the artifact cannot disagree about what was measured.**
+      - name: Fetch the four checkouts at their pinned commits
+        run: |
+          set -euo pipefail
+          mkdir -p .cache/multirepo-qa
+          python3 -c "
+          import json
+          for repo in json.load(open('benchmarks/multirepo-qa-corpus.json'))['repositories']:
+              print(repo['id'], repo['sha'])
+          " > /tmp/multirepo-pins.txt
+          cat /tmp/multirepo-pins.txt
+          while read -r id sha; do
+            name="${id##*/}"
+            curl -fsSL --max-time 300 "https://codeload.github.com/${id}/tar.gz/${sha}" -o ".cache/multirepo-qa/${name}.tar.gz"
+            sha256sum ".cache/multirepo-qa/${name}.tar.gz" | tee -a "$GITHUB_STEP_SUMMARY"
+            mkdir -p ".cache/multirepo-qa/${name}"
+            tar -xzf ".cache/multirepo-qa/${name}.tar.gz" -C ".cache/multirepo-qa/${name}" --strip-components=1
+            echo "$sha" > ".cache/multirepo-qa/${name}/.complete"
+          done < /tmp/multirepo-pins.txt
+
+      - name: Measure cross-repository question answering
+        run: |
+          set -o pipefail
+          npx tsx scripts/multirepo-qa.ts --out benchmarks/multirepo-qa.json 2>&1 | tee /tmp/multirepo-qa.log
+
+      - name: Publish the figures to the run summary
+        if: always()
+        run: |
+          {
+            echo '### Cross-repository QA — four released repositories, four languages'
+            echo ''
+            echo '```'
+            grep -E '^MULTIREPO' /tmp/multirepo-qa.log || echo 'no figures were printed'
+            echo '```'
+          } >> "$GITHUB_STEP_SUMMARY"
+
+      # **The artifact is also the acceptance gate**: every aggregate in it is recomputed from the per-question rank
+      # columns it publishes, so a figure that does not follow from the rows fails the build.
+      - name: Re-derive every figure from the published columns
+        run: |
+          set -o pipefail
+          npx vitest run tests/unit/scripts/a-cross-repo-answer-can-be-recomputed.test.ts 2>&1 | tee /tmp/multirepo-gate.log
+
+      - name: Upload the figures
+        if: always()
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7
+        with:
+          name: multirepo-qa
+          path: |
+            benchmarks/multirepo-qa.json
+            /tmp/multirepo-qa.log
+          if-no-files-found: warn
+          retention-days: 90
