@@ -11,6 +11,20 @@ export {
   SELF_EVIDENCE_GUESSING,
 } from './search/fusion-weight.js';
 export type { RankedResult, HybridSearchResult } from './search/hybrid-search.js';
+// **Whether two rank lists differ by more than the questions they were measured on.** Every comparison before this
+// module subtracted two averages, which is a description of the instrument; these are the paired tests.
+export {
+  compareArms,
+  decodeRanks,
+  encodeRanks,
+  foundWithin,
+  mcnemarExact,
+  reciprocalRank,
+  MRR_CUT,
+  BOOTSTRAP_RESAMPLES,
+  BOOTSTRAP_SEED,
+} from './search/paired-stats.js';
+export type { PairedComparison, RankList } from './search/paired-stats.js';
 export { FILE_AGGREGATION, FILE_AGGREGATIONS, rankFiles } from './search/file-ranking.js';
 export type { FileAggregation, PoolEntry, RankedFile } from './search/file-ranking.js';
 export {

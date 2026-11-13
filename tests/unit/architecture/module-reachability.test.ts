@@ -398,13 +398,19 @@ describe('every module a package compiles is reachable from an entry its manifes
       // method on the review engine, and **a window that can only be tested through a provider call is a window nobody
       // tests** - the 21 cases beside it need a file and a diff, not a model.
       //
+      // **171 since iteration 132**, which added `search/paired-stats.ts`: the paired tests every comparison in this
+      // repository needed and none had. `found@10` is a count per question, so its test is exact McNemar; MRR is a mean
+      // of reciprocals, so its test is a seeded bootstrap over questions. **A separate module because it is arithmetic
+      // about rank lists rather than about retrieval**, and because an analysis that lives inside the harness it
+      // analyses is an analysis nobody can rerun on a published artifact.
+      //
       // **170 since iteration 131**, which added `search/fusion-weight.ts` and `search/text-tokens.ts`. The first is
       // the weight the question chooses rather than the engine - two sweeps disagreed by five points in opposite
       // directions and a single constant had to be wrong for one of them - and the second is `tokenize` moved out of
       // `hybrid-search.ts` **so that the classifier and the index agree about what a word is without the two modules
       // importing each other**. A shared tokenizer reached through a cycle is a tokenizer with two definitions waiting
       // to happen.
-      intelligence: 170,
+      intelligence: 171,
       mcp: 39,
       server: 24,
       // **11 since iteration 121**, which added `utils/type-text.ts`: the depth-counted removal of type arguments and
