@@ -375,8 +375,14 @@ async function main(): Promise<void> {
       paraphraseScoped: score(paraphraseScoped),
     },
     paired: {
+      // **The two questions this file exists to answer.** The first is what wording costs; the other two are what the
+      // three neighbouring repositories cost, asked once under each wording - because a scope that helps by three
+      // questions when the question quotes the documentation may help by far more when it does not, and the difference
+      // between those two numbers is the price of a first stage that only works on quoted text.
       'paraphrase-vs-verbatim-federated': compareArms(paraphraseFederated, verbatimFederated),
       'paraphrase-vs-verbatim-scoped': compareArms(paraphraseScoped, verbatimScoped),
+      'paraphrase-scoped-vs-federated': compareArms(paraphraseScoped, paraphraseFederated),
+      'verbatim-scoped-vs-federated': compareArms(verbatimScoped, verbatimFederated),
     },
     perQuestion: {
       keys: accepted.map((row) => row.key),
