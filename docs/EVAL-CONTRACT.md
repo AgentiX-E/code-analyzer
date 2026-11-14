@@ -5121,10 +5121,57 @@ scores every one:
   maintainability remarks - say the share of bucket three falls below half - then §47.1 was a property of the first fifty
   pull requests and the lane was aimed at the wrong corpus rather than built wrong. **That outcome retires the premise,
   not the rules**, and the rules stay in the tree as a product feature with the figure beside them.
+- **Result: falsified.** 0.0148 against a registered 0.02, p = 0.2615, inside the resolution. The premise survived (57 %
+  of the new sample is still a maintainability remark) and the lane is recorded as a direction the corpus does not reward
+  at the size it can see. **§47.7 has the arms, the arithmetic and what the misses say the next iteration should aim at.**
 
 ### 47.6 The one thing this section does not claim
 
 **It does not claim four to five points.** The gap to the published leader is between four and five points of SEM-F1
 (§46.7), and **six rules derived from fifty sentences cannot close a gap whose size was measured on 452 goldens**. The
 claim is narrower and checkable: **82 % of the sampled misses were remarks no prompt was going to produce, and a lane can
-produce them.** Whether the corpus rewards them is R-21's question and this section deliberately does not answer it.
+produce them.** Whether the corpus rewards them was R-21's question; §47.7 is the answer, and it is no.
+
+### 47.7 R-21, run and read: the lane stays off
+
+Run `43620969557`, dispatched 2026-11-15, two arms over the same 100 pull requests (`skip 50`), 724 goldens, the same
+judge and the same emission rule. **The four other switches are identical on both sides** - `advisory` profile, code
+context off, adjudication off, agent off - so `idioms` is the only field that varies, and the artifact says so in
+`configuration.idioms` on each side.
+
+| Arm                     | TP  | FP  | FN  | Precision | Recall | F1         |
+| ----------------------- | --- | --- | --- | --------- | ------ | ---------- |
+| file, `AACR_IDIOMS=off` | 138 | 697 | 586 | 0.1653    | 0.1906 | **0.1770** |
+| file, `AACR_IDIOMS=on`  | 150 | 690 | 574 | 0.1786    | 0.2072 | **0.1918** |
+| pull request, off       | 101 | 535 | 623 | 0.1588    | 0.1395 | 0.1485     |
+| pull request, on        | 103 | 535 | 621 | 0.1614    | 0.1423 | 0.1512     |
+
+**The registered arm rose 1.48 points: 0.0148 against a registered 0.02.** The paired test over (pull request, golden
+index) is `both 96 / withOnly 54 / withoutOnly 42`, p = **0.2615**, not significant at 0.05. And the gain is **inside the
+instrument's resolution** of 0.0194: on this corpus an effect of this size is not distinguishable from the judge's own
+variance.
+
+**So the verdict is `magnitudeMet: false`, `outcome: "falsified"`, and the lane stays off.** The stopping rule in §47.5 was
+written with the registration and it is followed: no threshold tuning, no rule removed, no third dispatch. **A direction
+the corpus does not reward is a result, and the cheapest thing to do with it is write it down.**
+
+Three things in the artifact are worth more than the verdict, because they say _why_ a lane aimed correctly still missed:
+
+1. **It did not add emissions; it replaced them.** Findings went from 1 125 to 1 118 while true positives rose by 12. The
+   16-per-pull-request budget is spent on the highest-ranked findings, so **eleven of the lane's own remarks displaced
+   seven semantic findings** - and the pull-request arm, which is the budgeted one, moved by 0.0027 against the file
+   arm's 0.0148. **A lane that competes for a fixed budget has to beat what it displaces, not merely be true.**
+2. **The premise was not falsified.** The run's own `rejectedGoldens` sample (56 rows drawn by stride from 448) sorts
+   32 / 24: **57 % maintainability or convention, 43 % a defect we did not emit.** That is under §47.1's 82 % and still
+   over half, so the corpus does carry the remarks the lane was built for - the lane simply covers one of them
+   (`loose-equality`, `metadata.service.ts:577`) and six rules cannot cover thirty-two sentences.
+3. **The 43 % is the more interesting number now.** Twenty-four of fifty-six misses are real defects - a missing
+   `return` (`document_service.py:339`), an empty filter that produces `" AND …"` (`infinity_conn.py:605`), a `.at()`
+   that throws under `contains()` (`grpc-server.cpp:2465`), a `stateNode` never initialised (`ReactFiber.js:881`), a
+   `lru_cache` key that now carries `*args` (`logger.py:55`), an index that may be out of range
+   (`ES819TSDBDocValuesProducer.java:1507`). **Those are the engine's own category and its own failure**, and they cost
+   more than any idiom rule can return.
+
+**What is published from this run is the switch, the rule names, and both arms' figures** - not a claim that the lane
+works. `AACR_IDIOMS` stays available because a caller may want the remarks; the default stays `off`, because every figure
+in this document was measured on the other side of it.
