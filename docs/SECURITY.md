@@ -400,10 +400,10 @@ anything - an exclusion that outlives its reason is the failure mode this sectio
 **Two of the eighteen were neither**: `vscode-ci.yml:151` is the project reinstall described above, and
 `Dockerfile`'s `npm install -g node-gyp@10.2.0` has carried its version since it was written.
 
-**The rest of the ledger, walked on 2026-11-14 after those six fixes: 17 open - twelve `PinnedDependenciesID`, four
-settings findings, and one CodeQL.** The 33 CodeQL findings that stood here on 2026-11-12 are closed - see the paragraph
-in §1.6 about the second analysis that was re-asking them - and the one alert in this list arrived later, from a test
-written to close a different one.
+**The rest of the ledger, walked on 2026-11-14: 16 open - twelve `PinnedDependenciesID` and four settings findings.**
+The 33 CodeQL findings that stood here on 2026-11-12 are closed - see the paragraph in §1.6 about the second analysis
+that was re-asking them - and the one CodeQL alert that was open while this section was being rewritten is in §4.1: it
+was closed by the commit that fixed the check, not by a paragraph about it.
 
 ### 4.1 The CodeQL alert this section's own check carried
 
