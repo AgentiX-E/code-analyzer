@@ -6,33 +6,33 @@
     "question and not the corpus, the embedding backend or the engine. Every aggregate can be recomputed from",
     "`perQuestion`, and a test does recompute them."
   ],
-  "measuredAt": "2026-11-14T02:13:07.742Z",
+  "measuredAt": "2026-11-14T05:02:09.425Z",
   "cut": 10,
   "depth": 10,
   "model": "replayed",
   "prompt": "multirepo-paraphrase-v1",
   "index": {
     "groupId": "multirepo-qa",
-    "reposIndexed": 4,
-    "totalNodes": 12659,
-    "totalEdges": 741,
+    "reposIndexed": 6,
+    "totalNodes": 17987,
+    "totalEdges": 772,
     "crossRepoEdges": 20,
     "contracts": 0,
-    "duration": 13431,
+    "duration": 23006,
     "errors": [],
     "edgesByType": {
       "CROSS_REPO_IMPORTS": 20,
-      "IMPORTS": 721
+      "IMPORTS": 752
     },
-    "durationMs": 13432
+    "durationMs": 23014
   },
   "space": {
     "index": "api",
     "query": "api",
     "model": "embedding-3",
     "reason": null,
-    "vectors": 12072,
-    "embedMs": 280919
+    "vectors": 17199,
+    "embedMs": 421330
   },
   "corpus": [
     {
@@ -58,77 +58,558 @@
       "sha": "a961b0fe088f8558d00cc1b56e506a3656907a91",
       "language": "java",
       "role": "serialization library, Javadoc"
+    },
+    {
+      "id": "gin-gonic/gin",
+      "sha": "73726dc606796a025971fe451f0aa6f1b9b847f6",
+      "language": "go",
+      "role": "web framework, godoc on exported identifiers"
+    },
+    {
+      "id": "BurntSushi/ripgrep",
+      "sha": "178cc027e283fd965cb72d0a7395b219eada170c",
+      "language": "rust",
+      "role": "search tool, rustdoc on public items"
     }
   ],
   "questions": {
-    "sampled": 494,
-    "generated": 494,
-    "accepted": 454,
-    "rejected": 40,
+    "sampled": 400,
+    "generated": 400,
+    "accepted": 370,
+    "scored": 370,
+    "rejected": 30,
     "namesItsAnswer": 0
   },
   "conditions": {
     "verbatimFederated": {
-      "n": 454,
-      "found": 451,
-      "r1": 0.8458,
-      "mrr": 0.9061
+      "n": 370,
+      "found": 365,
+      "r1": 0.9027,
+      "mrr": 0.9386
     },
     "verbatimScoped": {
-      "n": 454,
-      "found": 454,
-      "r1": 0.8524,
-      "mrr": 0.9126
+      "n": 370,
+      "found": 369,
+      "r1": 0.9108,
+      "mrr": 0.9453
     },
     "paraphraseFederated": {
-      "n": 454,
-      "found": 360,
-      "r1": 0.533,
-      "mrr": 0.6299
+      "n": 370,
+      "found": 281,
+      "r1": 0.4703,
+      "mrr": 0.5727
     },
     "paraphraseScoped": {
-      "n": 454,
-      "found": 374,
-      "r1": 0.5551,
-      "mrr": 0.656
+      "n": 370,
+      "found": 319,
+      "r1": 0.5703,
+      "mrr": 0.6707
     },
     "semanticParaphrase": {
-      "n": 454,
-      "found": 295,
-      "r1": 0.4736,
-      "mrr": 0.534
+      "n": 370,
+      "found": 213,
+      "r1": 0.4081,
+      "mrr": 0.47
     },
     "semanticParaphraseScoped": {
-      "n": 454,
-      "found": 296,
-      "r1": 0.4802,
-      "mrr": 0.5422
+      "n": 370,
+      "found": 216,
+      "r1": 0.4351,
+      "mrr": 0.4899
     },
     "semanticVerbatim": {
-      "n": 454,
-      "found": 452,
-      "r1": 0.848,
-      "mrr": 0.9105
+      "n": 370,
+      "found": 368,
+      "r1": 0.9054,
+      "mrr": 0.9438
+    }
+  },
+  "byRepository": {
+    "paraphraseFederated": {
+      "BurntSushi/ripgrep": {
+        "n": 65,
+        "found": 49,
+        "r1": 0.4923,
+        "mrr": 0.5781
+      },
+      "expressjs/express": {
+        "n": 56,
+        "found": 36,
+        "r1": 0.25,
+        "mrr": 0.3794
+      },
+      "gin-gonic/gin": {
+        "n": 63,
+        "found": 48,
+        "r1": 0.5397,
+        "mrr": 0.6237
+      },
+      "google/gson": {
+        "n": 66,
+        "found": 52,
+        "r1": 0.5152,
+        "mrr": 0.6121
+      },
+      "pallets/flask": {
+        "n": 59,
+        "found": 51,
+        "r1": 0.4915,
+        "mrr": 0.6202
+      },
+      "sindresorhus/got": {
+        "n": 61,
+        "found": 45,
+        "r1": 0.5082,
+        "mrr": 0.6029
+      }
+    },
+    "paraphraseScoped": {
+      "BurntSushi/ripgrep": {
+        "n": 65,
+        "found": 52,
+        "r1": 0.5077,
+        "mrr": 0.5964
+      },
+      "expressjs/express": {
+        "n": 56,
+        "found": 54,
+        "r1": 0.625,
+        "mrr": 0.7448
+      },
+      "gin-gonic/gin": {
+        "n": 63,
+        "found": 54,
+        "r1": 0.5714,
+        "mrr": 0.6708
+      },
+      "google/gson": {
+        "n": 66,
+        "found": 57,
+        "r1": 0.5606,
+        "mrr": 0.6593
+      },
+      "pallets/flask": {
+        "n": 59,
+        "found": 53,
+        "r1": 0.5424,
+        "mrr": 0.677
+      },
+      "sindresorhus/got": {
+        "n": 61,
+        "found": 49,
+        "r1": 0.623,
+        "mrr": 0.6881
+      }
+    },
+    "verbatimFederated": {
+      "BurntSushi/ripgrep": {
+        "n": 65,
+        "found": 65,
+        "r1": 0.9538,
+        "mrr": 0.9769
+      },
+      "expressjs/express": {
+        "n": 56,
+        "found": 55,
+        "r1": 0.9464,
+        "mrr": 0.9643
+      },
+      "gin-gonic/gin": {
+        "n": 63,
+        "found": 63,
+        "r1": 0.9206,
+        "mrr": 0.9577
+      },
+      "google/gson": {
+        "n": 66,
+        "found": 64,
+        "r1": 0.8182,
+        "mrr": 0.8717
+      },
+      "pallets/flask": {
+        "n": 59,
+        "found": 57,
+        "r1": 0.8136,
+        "mrr": 0.8799
+      },
+      "sindresorhus/got": {
+        "n": 61,
+        "found": 61,
+        "r1": 0.9672,
+        "mrr": 0.9836
+      }
+    },
+    "semanticParaphrase": {
+      "BurntSushi/ripgrep": {
+        "n": 65,
+        "found": 36,
+        "r1": 0.4,
+        "mrr": 0.4615
+      },
+      "expressjs/express": {
+        "n": 56,
+        "found": 25,
+        "r1": 0.3571,
+        "mrr": 0.3884
+      },
+      "gin-gonic/gin": {
+        "n": 63,
+        "found": 37,
+        "r1": 0.4762,
+        "mrr": 0.523
+      },
+      "google/gson": {
+        "n": 66,
+        "found": 46,
+        "r1": 0.5,
+        "mrr": 0.5759
+      },
+      "pallets/flask": {
+        "n": 59,
+        "found": 39,
+        "r1": 0.4068,
+        "mrr": 0.5067
+      },
+      "sindresorhus/got": {
+        "n": 61,
+        "found": 30,
+        "r1": 0.2951,
+        "mrr": 0.3494
+      }
+    },
+    "semanticVerbatim": {
+      "BurntSushi/ripgrep": {
+        "n": 65,
+        "found": 65,
+        "r1": 0.9231,
+        "mrr": 0.9615
+      },
+      "expressjs/express": {
+        "n": 56,
+        "found": 56,
+        "r1": 0.9643,
+        "mrr": 0.9821
+      },
+      "gin-gonic/gin": {
+        "n": 63,
+        "found": 63,
+        "r1": 0.9206,
+        "mrr": 0.9577
+      },
+      "google/gson": {
+        "n": 66,
+        "found": 66,
+        "r1": 0.8182,
+        "mrr": 0.8806
+      },
+      "pallets/flask": {
+        "n": 59,
+        "found": 57,
+        "r1": 0.8475,
+        "mrr": 0.9025
+      },
+      "sindresorhus/got": {
+        "n": 61,
+        "found": 61,
+        "r1": 0.9672,
+        "mrr": 0.9836
+      }
+    }
+  },
+  "byLanguage": {
+    "paraphraseFederated": {
+      "rust": {
+        "n": 65,
+        "found": 49,
+        "r1": 0.4923,
+        "mrr": 0.5781
+      },
+      "javascript": {
+        "n": 56,
+        "found": 36,
+        "r1": 0.25,
+        "mrr": 0.3794
+      },
+      "go": {
+        "n": 63,
+        "found": 48,
+        "r1": 0.5397,
+        "mrr": 0.6237
+      },
+      "java": {
+        "n": 66,
+        "found": 52,
+        "r1": 0.5152,
+        "mrr": 0.6121
+      },
+      "python": {
+        "n": 59,
+        "found": 51,
+        "r1": 0.4915,
+        "mrr": 0.6202
+      },
+      "typescript": {
+        "n": 61,
+        "found": 45,
+        "r1": 0.5082,
+        "mrr": 0.6029
+      }
+    },
+    "paraphraseScoped": {
+      "rust": {
+        "n": 65,
+        "found": 52,
+        "r1": 0.5077,
+        "mrr": 0.5964
+      },
+      "javascript": {
+        "n": 56,
+        "found": 54,
+        "r1": 0.625,
+        "mrr": 0.7448
+      },
+      "go": {
+        "n": 63,
+        "found": 54,
+        "r1": 0.5714,
+        "mrr": 0.6708
+      },
+      "java": {
+        "n": 66,
+        "found": 57,
+        "r1": 0.5606,
+        "mrr": 0.6593
+      },
+      "python": {
+        "n": 59,
+        "found": 53,
+        "r1": 0.5424,
+        "mrr": 0.677
+      },
+      "typescript": {
+        "n": 61,
+        "found": 49,
+        "r1": 0.623,
+        "mrr": 0.6881
+      }
+    },
+    "verbatimFederated": {
+      "rust": {
+        "n": 65,
+        "found": 65,
+        "r1": 0.9538,
+        "mrr": 0.9769
+      },
+      "javascript": {
+        "n": 56,
+        "found": 55,
+        "r1": 0.9464,
+        "mrr": 0.9643
+      },
+      "go": {
+        "n": 63,
+        "found": 63,
+        "r1": 0.9206,
+        "mrr": 0.9577
+      },
+      "java": {
+        "n": 66,
+        "found": 64,
+        "r1": 0.8182,
+        "mrr": 0.8717
+      },
+      "python": {
+        "n": 59,
+        "found": 57,
+        "r1": 0.8136,
+        "mrr": 0.8799
+      },
+      "typescript": {
+        "n": 61,
+        "found": 61,
+        "r1": 0.9672,
+        "mrr": 0.9836
+      }
+    },
+    "semanticParaphrase": {
+      "rust": {
+        "n": 65,
+        "found": 36,
+        "r1": 0.4,
+        "mrr": 0.4615
+      },
+      "javascript": {
+        "n": 56,
+        "found": 25,
+        "r1": 0.3571,
+        "mrr": 0.3884
+      },
+      "go": {
+        "n": 63,
+        "found": 37,
+        "r1": 0.4762,
+        "mrr": 0.523
+      },
+      "java": {
+        "n": 66,
+        "found": 46,
+        "r1": 0.5,
+        "mrr": 0.5759
+      },
+      "python": {
+        "n": 59,
+        "found": 39,
+        "r1": 0.4068,
+        "mrr": 0.5067
+      },
+      "typescript": {
+        "n": 61,
+        "found": 30,
+        "r1": 0.2951,
+        "mrr": 0.3494
+      }
+    },
+    "semanticVerbatim": {
+      "rust": {
+        "n": 65,
+        "found": 65,
+        "r1": 0.9231,
+        "mrr": 0.9615
+      },
+      "javascript": {
+        "n": 56,
+        "found": 56,
+        "r1": 0.9643,
+        "mrr": 0.9821
+      },
+      "go": {
+        "n": 63,
+        "found": 63,
+        "r1": 0.9206,
+        "mrr": 0.9577
+      },
+      "java": {
+        "n": 66,
+        "found": 66,
+        "r1": 0.8182,
+        "mrr": 0.8806
+      },
+      "python": {
+        "n": 59,
+        "found": 57,
+        "r1": 0.8475,
+        "mrr": 0.9025
+      },
+      "typescript": {
+        "n": 61,
+        "found": 61,
+        "r1": 0.9672,
+        "mrr": 0.9836
+      }
     }
   },
   "semanticSweep": {
-    "0.35": {
-      "n": 454,
-      "found": 373,
-      "r1": 0.5639,
-      "mrr": 0.6572,
+    "1": {
+      "n": 370,
+      "found": 282,
+      "r1": 0.4135,
+      "mrr": 0.5192,
       "paired": {
-        "queries": 454,
-        "deltaMrr": 0.02731277533039649,
+        "queries": 370,
+        "deltaMrr": -0.053444873444873454,
         "mrrInterval": [
-          0.0004317879868540596,
-          0.054006712817285515
+          -0.09518125268125269,
+          -0.013104890604890607
         ],
-        "foundA": 373,
-        "foundB": 360,
-        "onlyA": 14,
-        "onlyB": 1,
-        "pValue": 0.0009765625000000009,
+        "foundA": 282,
+        "foundB": 281,
+        "onlyA": 21,
+        "onlyB": 20,
+        "pValue": 1,
+        "distinguishable": false,
+        "cut": 10
+      }
+    },
+    "2": {
+      "n": 370,
+      "found": 176,
+      "r1": 0.4,
+      "mrr": 0.4345,
+      "paired": {
+        "queries": 370,
+        "deltaMrr": -0.1381928356928357,
+        "mrrInterval": [
+          -0.191408193908194,
+          -0.08581188331188332
+        ],
+        "foundA": 176,
+        "foundB": 281,
+        "onlyA": 21,
+        "onlyB": 126,
+        "pValue": 1.9101643539995761e-19,
+        "distinguishable": true,
+        "cut": 10
+      }
+    },
+    "4": {
+      "n": 370,
+      "found": 176,
+      "r1": 0.4,
+      "mrr": 0.4345,
+      "paired": {
+        "queries": 370,
+        "deltaMrr": -0.1381928356928357,
+        "mrrInterval": [
+          -0.19250107250107254,
+          -0.08581295581295578
+        ],
+        "foundA": 176,
+        "foundB": 281,
+        "onlyA": 21,
+        "onlyB": 126,
+        "pValue": 1.9101643539995761e-19,
+        "distinguishable": true,
+        "cut": 10
+      }
+    },
+    "0.1": {
+      "n": 370,
+      "found": 290,
+      "r1": 0.5054,
+      "mrr": 0.6046,
+      "paired": {
+        "queries": 370,
+        "deltaMrr": 0.031986271986271984,
+        "mrrInterval": [
+          0.011951951951951952,
+          0.051604461604461596
+        ],
+        "foundA": 290,
+        "foundB": 281,
+        "onlyA": 9,
+        "onlyB": 0,
+        "pValue": 0.00390625,
+        "distinguishable": true,
+        "cut": 10
+      }
+    },
+    "0.35": {
+      "n": 370,
+      "found": 294,
+      "r1": 0.5,
+      "mrr": 0.6079,
+      "paired": {
+        "queries": 370,
+        "deltaMrr": 0.035218790218790215,
+        "mrrInterval": [
+          0.003915701415701414,
+          0.06448305448305448
+        ],
+        "foundA": 294,
+        "foundB": 281,
+        "onlyA": 15,
+        "onlyB": 2,
+        "pValue": 0.0023498535156249996,
         "distinguishable": true,
         "cut": 10
       }
@@ -136,100 +617,100 @@
   },
   "candidate": {
     "paraphrase": {
-      "n": 454,
-      "found": 372,
-      "r1": 0.5595,
-      "mrr": 0.6522,
+      "n": 370,
+      "found": 295,
+      "r1": 0.5,
+      "mrr": 0.6094,
       "paired": {
-        "queries": 454,
-        "deltaMrr": 0.022353331934829728,
+        "queries": 370,
+        "deltaMrr": 0.03676426426426425,
         "mrrInterval": [
-          -0.007044961890776865,
-          0.04970019579050419
+          0.003502788502788512,
+          0.06950128700128698
         ],
-        "foundA": 372,
-        "foundB": 360,
-        "onlyA": 16,
-        "onlyB": 4,
-        "pValue": 0.011817932128906233,
+        "foundA": 295,
+        "foundB": 281,
+        "onlyA": 17,
+        "onlyB": 3,
+        "pValue": 0.002576828002929684,
         "distinguishable": true,
         "cut": 10
       }
     },
     "verbatim": {
-      "n": 454,
-      "found": 450,
-      "r1": 0.8348,
-      "mrr": 0.898,
+      "n": 370,
+      "found": 369,
+      "r1": 0.8892,
+      "mrr": 0.9322,
       "paired": {
-        "queries": 454,
-        "deltaMrr": -0.008088595203132641,
+        "queries": 370,
+        "deltaMrr": -0.006427498927498928,
         "mrrInterval": [
-          -0.024921334172435493,
-          0.00821358646248514
+          -0.02507614757614758,
+          0.010296010296010292
         ],
-        "foundA": 450,
-        "foundB": 451,
-        "onlyA": 3,
-        "onlyB": 4,
-        "pValue": 1,
+        "foundA": 369,
+        "foundB": 365,
+        "onlyA": 4,
+        "onlyB": 0,
+        "pValue": 0.125,
         "distinguishable": false,
         "cut": 10
       }
     },
     "weight": {
       "min": 0.1,
-      "p50": 0.5263157894736842,
-      "max": 1.0615384615384618,
-      "atFloor": 2,
+      "p50": 0.4805194805194805,
+      "max": 1.2162162162162162,
+      "atFloor": 1,
       "atCeiling": 0
     },
     "evidence": {
-      "lexicalP50": 0.4,
-      "vectorP50": 0.18181818181818182,
-      "vectorAhead": 4
+      "lexicalP50": 0.35,
+      "vectorP50": 0.13999999999999999,
+      "vectorAhead": 5
     }
   },
   "tournament": {
     "rrf": {
       "paraphrase": {
-        "n": 454,
-        "found": 295,
-        "r1": 0.4736,
-        "mrr": 0.534,
+        "n": 370,
+        "found": 213,
+        "r1": 0.4081,
+        "mrr": 0.47,
         "paired": {
-          "queries": 454,
-          "deltaMrr": -0.0958307111390812,
+          "queries": 370,
+          "deltaMrr": -0.10261690261690262,
           "mrrInterval": [
-            -0.13922015942941052,
-            -0.05221225788406404
+            -0.15181145431145432,
+            -0.055225225225225216
           ],
-          "foundA": 295,
-          "foundB": 360,
+          "foundA": 213,
+          "foundB": 281,
           "onlyA": 21,
-          "onlyB": 86,
-          "pValue": 1.6010060804361686e-10,
+          "onlyB": 89,
+          "pValue": 3.7651773363238203e-11,
           "distinguishable": true,
           "cut": 10
         }
       },
       "verbatim": {
-        "n": 454,
-        "found": 452,
-        "r1": 0.848,
-        "mrr": 0.9105,
+        "n": 370,
+        "found": 368,
+        "r1": 0.9054,
+        "mrr": 0.9438,
         "paired": {
-          "queries": 454,
-          "deltaMrr": 0.004405286343612335,
+          "queries": 370,
+          "deltaMrr": 0.005190905190905192,
           "mrrInterval": [
-            -0.0072241451646738,
-            0.016296937277113493
+            -0.009508794508794506,
+            0.019330759330759333
           ],
-          "foundA": 452,
-          "foundB": 451,
-          "onlyA": 2,
+          "foundA": 368,
+          "foundB": 365,
+          "onlyA": 4,
           "onlyB": 1,
-          "pValue": 1,
+          "pValue": 0.375,
           "distinguishable": false,
           "cut": 10
         }
@@ -237,43 +718,43 @@
     },
     "combmnz": {
       "paraphrase": {
-        "n": 454,
-        "found": 378,
-        "r1": 0.5793,
-        "mrr": 0.6708,
+        "n": 370,
+        "found": 296,
+        "r1": 0.5243,
+        "mrr": 0.6261,
         "paired": {
-          "queries": 454,
-          "deltaMrr": 0.04098402209635688,
+          "queries": 370,
+          "deltaMrr": 0.05347704847704844,
           "mrrInterval": [
-            0.01181123697643522,
-            0.0701209705614992
+            0.022546117546117534,
+            0.08534641784641786
           ],
-          "foundA": 378,
-          "foundB": 360,
+          "foundA": 296,
+          "foundB": 281,
           "onlyA": 18,
-          "onlyB": 0,
-          "pValue": 0.000007629394531250002,
+          "onlyB": 3,
+          "pValue": 0.001489639282226564,
           "distinguishable": true,
           "cut": 10
         }
       },
       "verbatim": {
-        "n": 454,
-        "found": 453,
-        "r1": 0.8634,
-        "mrr": 0.9174,
+        "n": 370,
+        "found": 370,
+        "r1": 0.9027,
+        "mrr": 0.941,
         "paired": {
-          "queries": 454,
-          "deltaMrr": 0.011359345500314665,
+          "queries": 370,
+          "deltaMrr": 0.002438867438867438,
           "mrrInterval": [
-            -0.005490874764002518,
-            0.02870778267254038
+            -0.01696911196911197,
+            0.02234234234234234
           ],
-          "foundA": 453,
-          "foundB": 451,
-          "onlyA": 3,
-          "onlyB": 1,
-          "pValue": 0.625,
+          "foundA": 370,
+          "foundB": 365,
+          "onlyA": 5,
+          "onlyB": 0,
+          "pValue": 0.0625,
           "distinguishable": false,
           "cut": 10
         }
@@ -281,43 +762,43 @@
     },
     "combmnz-positive": {
       "paraphrase": {
-        "n": 454,
-        "found": 378,
-        "r1": 0.5793,
-        "mrr": 0.6697,
+        "n": 370,
+        "found": 295,
+        "r1": 0.5216,
+        "mrr": 0.6239,
         "paired": {
-          "queries": 454,
-          "deltaMrr": 0.03989493741696383,
+          "queries": 370,
+          "deltaMrr": 0.05129129129129125,
           "mrrInterval": [
-            0.010321830641213907,
-            0.06837284106006572
+            0.019616044616044617,
+            0.08277027027027024
           ],
-          "foundA": 378,
-          "foundB": 360,
+          "foundA": 295,
+          "foundB": 281,
           "onlyA": 18,
-          "onlyB": 0,
-          "pValue": 0.000007629394531250002,
+          "onlyB": 4,
+          "pValue": 0.004343509674072262,
           "distinguishable": true,
           "cut": 10
         }
       },
       "verbatim": {
-        "n": 454,
-        "found": 453,
-        "r1": 0.8634,
-        "mrr": 0.9174,
+        "n": 370,
+        "found": 370,
+        "r1": 0.9027,
+        "mrr": 0.941,
         "paired": {
-          "queries": 454,
-          "deltaMrr": 0.011359345500314665,
+          "queries": 370,
+          "deltaMrr": 0.00239060489060489,
           "mrrInterval": [
-            -0.005490874764002518,
-            0.02870778267254038
+            -0.017094594594594604,
+            0.02234234234234234
           ],
-          "foundA": 453,
-          "foundB": 451,
-          "onlyA": 3,
-          "onlyB": 1,
-          "pValue": 0.625,
+          "foundA": 370,
+          "foundB": 365,
+          "onlyA": 5,
+          "onlyB": 0,
+          "pValue": 0.0625,
           "distinguishable": false,
           "cut": 10
         }
@@ -325,43 +806,43 @@
     },
     "combmnz-percentile": {
       "paraphrase": {
-        "n": 454,
-        "found": 365,
-        "r1": 0.3899,
-        "mrr": 0.5119,
+        "n": 370,
+        "found": 283,
+        "r1": 0.3405,
+        "mrr": 0.4635,
         "paired": {
-          "queries": 454,
-          "deltaMrr": -0.11794105307321154,
+          "queries": 370,
+          "deltaMrr": -0.10919240669240673,
           "mrrInterval": [
-            -0.15815852038318998,
-            -0.07625340885252783
+            -0.15611218361218346,
+            -0.06272951522951528
           ],
-          "foundA": 365,
-          "foundB": 360,
+          "foundA": 283,
+          "foundB": 281,
           "onlyA": 21,
-          "onlyB": 16,
-          "pValue": 0.5113757815852322,
+          "onlyB": 19,
+          "pValue": 0.8746293123804203,
           "distinguishable": false,
           "cut": 10
         }
       },
       "verbatim": {
-        "n": 454,
-        "found": 443,
-        "r1": 0.7445,
-        "mrr": 0.8262,
+        "n": 370,
+        "found": 365,
+        "r1": 0.7865,
+        "mrr": 0.8598,
         "paired": {
-          "queries": 454,
-          "deltaMrr": -0.07987378504999654,
+          "queries": 370,
+          "deltaMrr": -0.07884062634062634,
           "mrrInterval": [
-            -0.10891895671631352,
-            -0.050188797986154825
+            -0.10876984126984124,
+            -0.04793221793221794
           ],
-          "foundA": 443,
-          "foundB": 451,
-          "onlyA": 3,
-          "onlyB": 11,
-          "pValue": 0.05737304687500002,
+          "foundA": 365,
+          "foundB": 365,
+          "onlyA": 5,
+          "onlyB": 5,
+          "pValue": 1,
           "distinguishable": false,
           "cut": 10
         }
@@ -369,87 +850,87 @@
     },
     "rrf-mnz": {
       "paraphrase": {
-        "n": 454,
-        "found": 356,
-        "r1": 0.4736,
-        "mrr": 0.5615,
+        "n": 370,
+        "found": 279,
+        "r1": 0.4081,
+        "mrr": 0.5021,
         "paired": {
-          "queries": 454,
-          "deltaMrr": -0.06831340465701703,
+          "queries": 370,
+          "deltaMrr": -0.07052874302874301,
           "mrrInterval": [
-            -0.10722414516467366,
-            -0.029400041955108043
+            -0.11530459030459028,
+            -0.027739167739167726
           ],
-          "foundA": 356,
-          "foundB": 360,
+          "foundA": 279,
+          "foundB": 281,
           "onlyA": 21,
-          "onlyB": 25,
-          "pValue": 0.658738077023656,
+          "onlyB": 23,
+          "pValue": 0.8803958212806695,
           "distinguishable": false,
           "cut": 10
         }
       },
       "verbatim": {
-        "n": 454,
-        "found": 440,
-        "r1": 0.8194,
-        "mrr": 0.8757,
+        "n": 370,
+        "found": 361,
+        "r1": 0.873,
+        "mrr": 0.9126,
         "paired": {
-          "queries": 454,
-          "deltaMrr": -0.030374624152157203,
+          "queries": 370,
+          "deltaMrr": -0.025987773487773487,
           "mrrInterval": [
-            -0.053619502132717975,
-            -0.006683973148730852
+            -0.04951951951951952,
+            -0.002219004719004718
           ],
-          "foundA": 440,
-          "foundB": 451,
-          "onlyA": 3,
-          "onlyB": 14,
-          "pValue": 0.012725830078124997,
-          "distinguishable": true,
+          "foundA": 361,
+          "foundB": 365,
+          "onlyA": 5,
+          "onlyB": 9,
+          "pValue": 0.42395019531250017,
+          "distinguishable": false,
           "cut": 10
         }
       }
     },
     "supported": {
       "paraphrase": {
-        "n": 454,
-        "found": 370,
-        "r1": 0.4692,
-        "mrr": 0.5747,
+        "n": 370,
+        "found": 279,
+        "r1": 0.3865,
+        "mrr": 0.5046,
         "paired": {
-          "queries": 454,
-          "deltaMrr": -0.05511415285644365,
+          "queries": 370,
+          "deltaMrr": -0.0680834405834406,
           "mrrInterval": [
-            -0.08899989511222986,
-            -0.020852562757849104
+            -0.10566602316602318,
+            -0.03073037323037323
           ],
-          "foundA": 370,
-          "foundB": 360,
-          "onlyA": 18,
-          "onlyB": 8,
-          "pValue": 0.07551869750022899,
+          "foundA": 279,
+          "foundB": 281,
+          "onlyA": 15,
+          "onlyB": 17,
+          "pValue": 0.8600500659085817,
           "distinguishable": false,
           "cut": 10
         }
       },
       "verbatim": {
-        "n": 454,
-        "found": 451,
-        "r1": 0.8084,
-        "mrr": 0.8744,
+        "n": 370,
+        "found": 370,
+        "r1": 0.8703,
+        "mrr": 0.9158,
         "paired": {
-          "queries": 454,
-          "deltaMrr": -0.03168222501922943,
+          "queries": 370,
+          "deltaMrr": -0.022834620334620335,
           "mrrInterval": [
-            -0.05550485980001402,
-            -0.006510034263338226
+            -0.04501287001287002,
+            0.0003635778635778627
           ],
-          "foundA": 451,
-          "foundB": 451,
-          "onlyA": 3,
-          "onlyB": 3,
-          "pValue": 1,
+          "foundA": 370,
+          "foundB": 365,
+          "onlyA": 5,
+          "onlyB": 0,
+          "pValue": 0.0625,
           "distinguishable": false,
           "cut": 10
         }
@@ -457,43 +938,43 @@
     },
     "qpp": {
       "paraphrase": {
-        "n": 454,
-        "found": 374,
-        "r1": 0.5705,
-        "mrr": 0.6612,
+        "n": 370,
+        "found": 295,
+        "r1": 0.5054,
+        "mrr": 0.6135,
         "paired": {
-          "queries": 454,
-          "deltaMrr": 0.031357072931962805,
+          "queries": 370,
+          "deltaMrr": 0.040822608322608325,
           "mrrInterval": [
-            0.004763652891406194,
-            0.05721715264666806
+            0.008972543972543974,
+            0.07110253110253112
           ],
-          "foundA": 374,
-          "foundB": 360,
-          "onlyA": 15,
-          "onlyB": 1,
-          "pValue": 0.0005187988281250003,
+          "foundA": 295,
+          "foundB": 281,
+          "onlyA": 16,
+          "onlyB": 2,
+          "pValue": 0.0013122558593749987,
           "distinguishable": true,
           "cut": 10
         }
       },
       "verbatim": {
-        "n": 454,
-        "found": 453,
-        "r1": 0.8436,
-        "mrr": 0.9081,
+        "n": 370,
+        "found": 370,
+        "r1": 0.9,
+        "mrr": 0.9393,
         "paired": {
-          "queries": 454,
-          "deltaMrr": 0.002053178099433607,
+          "queries": 370,
+          "deltaMrr": 0.0006563706563706565,
           "mrrInterval": [
-            -0.010918816865953427,
-            0.016005873715124817
+            -0.01427927927927928,
+            0.01529279279279279
           ],
-          "foundA": 453,
-          "foundB": 451,
-          "onlyA": 3,
-          "onlyB": 1,
-          "pValue": 0.625,
+          "foundA": 370,
+          "foundB": 365,
+          "onlyA": 5,
+          "onlyB": 0,
+          "pValue": 0.0625,
           "distinguishable": false,
           "cut": 10
         }
@@ -501,43 +982,43 @@
     },
     "qpp3": {
       "paraphrase": {
-        "n": 454,
-        "found": 375,
-        "r1": 0.5683,
-        "mrr": 0.6604,
+        "n": 370,
+        "found": 294,
+        "r1": 0.5027,
+        "mrr": 0.6092,
         "paired": {
-          "queries": 454,
-          "deltaMrr": 0.030518844836025454,
+          "queries": 370,
+          "deltaMrr": 0.03658837408837409,
           "mrrInterval": [
-            0.004864170337738619,
-            0.0562006153415845
+            0.005604890604890604,
+            0.0653903903903904
           ],
-          "foundA": 375,
-          "foundB": 360,
-          "onlyA": 15,
-          "onlyB": 0,
-          "pValue": 0.00006103515625000003,
+          "foundA": 294,
+          "foundB": 281,
+          "onlyA": 14,
+          "onlyB": 1,
+          "pValue": 0.0009765625000000009,
           "distinguishable": true,
           "cut": 10
         }
       },
       "verbatim": {
-        "n": 454,
-        "found": 453,
-        "r1": 0.8458,
-        "mrr": 0.91,
+        "n": 370,
+        "found": 369,
+        "r1": 0.8946,
+        "mrr": 0.9347,
         "paired": {
-          "queries": 454,
-          "deltaMrr": 0.0039988462345290545,
+          "queries": 370,
+          "deltaMrr": -0.00393071643071643,
           "mrrInterval": [
-            -0.008915460457310675,
-            0.01690004195510804
+            -0.018355855855855856,
+            0.009009009009009009
           ],
-          "foundA": 453,
-          "foundB": 451,
-          "onlyA": 3,
-          "onlyB": 1,
-          "pValue": 0.625,
+          "foundA": 369,
+          "foundB": 365,
+          "onlyA": 4,
+          "onlyB": 0,
+          "pValue": 0.125,
           "distinguishable": false,
           "cut": 10
         }
@@ -546,648 +1027,592 @@
   },
   "paired": {
     "paraphrase-vs-verbatim-federated": {
-      "queries": 454,
-      "deltaMrr": -0.2761992168379833,
+      "queries": 370,
+      "deltaMrr": -0.36595130845130847,
       "mrrInterval": [
-        -0.31448063072512417,
-        -0.23741434165442976
+        -0.40793007293007283,
+        -0.3213824538824539
       ],
-      "foundA": 360,
-      "foundB": 451,
-      "onlyA": 1,
-      "onlyB": 92,
-      "pValue": 1.8983148823238382e-26,
+      "foundA": 281,
+      "foundB": 365,
+      "onlyA": 0,
+      "onlyB": 84,
+      "pValue": 1.0339757656912844e-25,
       "distinguishable": true,
       "cut": 10
     },
     "paraphrase-vs-verbatim-scoped": {
-      "queries": 454,
-      "deltaMrr": -0.2565895741556535,
+      "queries": 370,
+      "deltaMrr": -0.2745913770913772,
       "mrrInterval": [
-        -0.29646003775959734,
-        -0.21943832599118943
+        -0.3142814242814243,
+        -0.23449699699699694
       ],
-      "foundA": 374,
-      "foundB": 454,
+      "foundA": 319,
+      "foundB": 369,
       "onlyA": 0,
-      "onlyB": 80,
-      "pValue": 1.6543612251060553e-24,
+      "onlyB": 50,
+      "pValue": 1.7763568394002489e-15,
       "distinguishable": true,
       "cut": 10
     },
     "paraphrase-scoped-vs-federated": {
-      "queries": 454,
-      "deltaMrr": 0.02612579539892315,
+      "queries": 370,
+      "deltaMrr": 0.0980716430716431,
       "mrrInterval": [
-        0.01672959932871828,
-        0.03736539402838961
+        0.07696053196053199,
+        0.1213888888888889
       ],
-      "foundA": 374,
-      "foundB": 360,
-      "onlyA": 14,
+      "foundA": 319,
+      "foundB": 281,
+      "onlyA": 38,
       "onlyB": 0,
-      "pValue": 0.00012207031250000005,
+      "pValue": 7.275957614183428e-12,
       "distinguishable": true,
       "cut": 10
     },
     "verbatim-scoped-vs-federated": {
-      "queries": 454,
-      "deltaMrr": 0.0065161527165932456,
+      "queries": 370,
+      "deltaMrr": 0.006711711711711712,
       "mrrInterval": [
-        0.0022026431718061676,
-        0.01220631424375918
+        0.0018918918918918919,
+        0.012792792792792792
       ],
-      "foundA": 454,
-      "foundB": 451,
+      "foundA": 369,
+      "foundB": 365,
+      "onlyA": 4,
+      "onlyB": 0,
+      "pValue": 0.125,
+      "distinguishable": false,
+      "cut": 10
+    },
+    "semantic-vs-lexical-paraphrase": {
+      "queries": 370,
+      "deltaMrr": -0.10261690261690262,
+      "mrrInterval": [
+        -0.15181145431145432,
+        -0.055225225225225216
+      ],
+      "foundA": 213,
+      "foundB": 281,
+      "onlyA": 21,
+      "onlyB": 89,
+      "pValue": 3.7651773363238203e-11,
+      "distinguishable": true,
+      "cut": 10
+    },
+    "semantic-vs-lexical-verbatim": {
+      "queries": 370,
+      "deltaMrr": 0.005190905190905192,
+      "mrrInterval": [
+        -0.009508794508794506,
+        0.019330759330759333
+      ],
+      "foundA": 368,
+      "foundB": 365,
+      "onlyA": 4,
+      "onlyB": 1,
+      "pValue": 0.375,
+      "distinguishable": false,
+      "cut": 10
+    },
+    "semantic-scoped-vs-federated-paraphrase": {
+      "queries": 370,
+      "deltaMrr": 0.0199034749034749,
+      "mrrInterval": [
+        0.007722007722007721,
+        0.032895752895752896
+      ],
+      "foundA": 216,
+      "foundB": 213,
       "onlyA": 3,
       "onlyB": 0,
       "pValue": 0.25000000000000006,
       "distinguishable": false,
       "cut": 10
     },
-    "semantic-vs-lexical-paraphrase": {
-      "queries": 454,
-      "deltaMrr": -0.0958307111390812,
+    "candidate-vs-derived-paraphrase": {
+      "queries": 370,
+      "deltaMrr": 0.1393811668811669,
       "mrrInterval": [
-        -0.13922015942941052,
-        -0.05221225788406404
+        0.10933075933075934,
+        0.17042685542685548
       ],
       "foundA": 295,
-      "foundB": 360,
-      "onlyA": 21,
-      "onlyB": 86,
-      "pValue": 1.6010060804361686e-10,
-      "distinguishable": true,
-      "cut": 10
-    },
-    "semantic-vs-lexical-verbatim": {
-      "queries": 454,
-      "deltaMrr": 0.004405286343612335,
-      "mrrInterval": [
-        -0.0072241451646738,
-        0.016296937277113493
-      ],
-      "foundA": 452,
-      "foundB": 451,
-      "onlyA": 2,
-      "onlyB": 1,
-      "pValue": 1,
-      "distinguishable": false,
-      "cut": 10
-    },
-    "semantic-scoped-vs-federated-paraphrase": {
-      "queries": 454,
-      "deltaMrr": 0.008181246066708628,
-      "mrrInterval": [
-        -0.000600482483742394,
-        0.017900846094678693
-      ],
-      "foundA": 296,
-      "foundB": 295,
-      "onlyA": 2,
-      "onlyB": 1,
-      "pValue": 1,
-      "distinguishable": false,
-      "cut": 10
-    },
-    "candidate-vs-derived-paraphrase": {
-      "queries": 454,
-      "deltaMrr": 0.11818404307391092,
-      "mrrInterval": [
-        0.08944916439409831,
-        0.14711995664638838
-      ],
-      "foundA": 372,
-      "foundB": 295,
-      "onlyA": 82,
-      "onlyB": 5,
-      "pValue": 5.077541690652905e-19,
+      "foundB": 213,
+      "onlyA": 86,
+      "onlyB": 4,
+      "pValue": 4.324548710041275e-21,
       "distinguishable": true,
       "cut": 10
     },
     "candidate-vs-lexical-paraphrase": {
-      "queries": 454,
-      "deltaMrr": 0.022353331934829728,
+      "queries": 370,
+      "deltaMrr": 0.03676426426426425,
       "mrrInterval": [
-        -0.007044961890776865,
-        0.04970019579050419
+        0.003502788502788512,
+        0.06950128700128698
       ],
-      "foundA": 372,
-      "foundB": 360,
-      "onlyA": 16,
-      "onlyB": 4,
-      "pValue": 0.011817932128906233,
+      "foundA": 295,
+      "foundB": 281,
+      "onlyA": 17,
+      "onlyB": 3,
+      "pValue": 0.002576828002929684,
       "distinguishable": true,
       "cut": 10
     },
     "candidate-vs-derived-verbatim": {
-      "queries": 454,
-      "deltaMrr": -0.012493881546744981,
+      "queries": 370,
+      "deltaMrr": -0.011618404118404119,
       "mrrInterval": [
-        -0.023954618558142786,
-        -0.0006389413327739315
+        -0.02364114114114114,
+        -0.00035285285285285265
       ],
-      "foundA": 450,
-      "foundB": 452,
-      "onlyA": 1,
-      "onlyB": 3,
-      "pValue": 0.625,
+      "foundA": 369,
+      "foundB": 368,
+      "onlyA": 2,
+      "onlyB": 1,
+      "pValue": 1,
       "distinguishable": false,
       "cut": 10
     }
   },
   "perQuestion": {
     "keys": [
+      "BurntSushi/ripgrep#project:BurntSushi/ripgrep:build.rs:set_git_revision_hash",
+      "BurntSushi/ripgrep#project:BurntSushi/ripgrep:crates/cli/src/decompress.rs:has_command",
+      "BurntSushi/ripgrep#project:BurntSushi/ripgrep:crates/cli/src/lib.rs:is_tty_stdin",
+      "BurntSushi/ripgrep#project:BurntSushi/ripgrep:crates/core/flags/defs.rs:test_context_separator",
+      "BurntSushi/ripgrep#project:BurntSushi/ripgrep:crates/core/flags/doc/man.rs:generate_flag",
+      "BurntSushi/ripgrep#project:BurntSushi/ripgrep:crates/core/flags/hiargs.rs:matcher_rust",
+      "BurntSushi/ripgrep#project:BurntSushi/ripgrep:crates/core/flags/hiargs.rs:walk_builder",
+      "BurntSushi/ripgrep#project:BurntSushi/ripgrep:crates/core/flags/mod.rs:doc_variable",
+      "BurntSushi/ripgrep#project:BurntSushi/ripgrep:crates/core/flags/parse.rs:Parser",
+      "BurntSushi/ripgrep#project:BurntSushi/ripgrep:crates/core/main.rs:eprint_nothing_searched",
+      "BurntSushi/ripgrep#project:BurntSushi/ripgrep:crates/core/messages.rs:messages",
+      "BurntSushi/ripgrep#project:BurntSushi/ripgrep:crates/core/search.rs:search_path",
+      "BurntSushi/ripgrep#project:BurntSushi/ripgrep:crates/globset/src/glob.rs:char_to_escaped_literal",
+      "BurntSushi/ripgrep#project:BurntSushi/ripgrep:crates/globset/src/glob.rs:parse_backslash",
+      "BurntSushi/ripgrep#project:BurntSushi/ripgrep:crates/globset/src/lib.rs:Error",
+      "BurntSushi/ripgrep#project:BurntSushi/ripgrep:crates/globset/src/lib.rs:new",
+      "BurntSushi/ripgrep#project:BurntSushi/ripgrep:crates/ignore/src/dir.rs:add_child",
+      "BurntSushi/ripgrep#project:BurntSushi/ripgrep:crates/ignore/src/dir.rs:git_ignore",
+      "BurntSushi/ripgrep#project:BurntSushi/ripgrep:crates/ignore/src/dir.rs:matched_dir_entry",
+      "BurntSushi/ripgrep#project:BurntSushi/ripgrep:crates/ignore/src/gitignore.rs:allow_unclosed_class",
+      "BurntSushi/ripgrep#project:BurntSushi/ripgrep:crates/ignore/src/gitignore.rs:global",
+      "BurntSushi/ripgrep#project:BurntSushi/ripgrep:crates/ignore/src/gitignore.rs:path",
+      "BurntSushi/ripgrep#project:BurntSushi/ripgrep:crates/ignore/src/incremental.rs:invert",
+      "BurntSushi/ripgrep#project:BurntSushi/ripgrep:crates/ignore/src/incremental.rs:parent_key",
+      "BurntSushi/ripgrep#project:BurntSushi/ripgrep:crates/ignore/src/lib.rs:is_io",
+      "BurntSushi/ripgrep#project:BurntSushi/ripgrep:crates/ignore/src/types.rs:add",
+      "BurntSushi/ripgrep#project:BurntSushi/ripgrep:crates/ignore/src/types.rs:new",
+      "BurntSushi/ripgrep#project:BurntSushi/ripgrep:crates/ignore/src/walk.rs:error",
+      "BurntSushi/ripgrep#project:BurntSushi/ripgrep:crates/ignore/src/walk.rs:is_dir",
+      "BurntSushi/ripgrep#project:BurntSushi/ripgrep:crates/ignore/src/walk.rs:path",
+      "BurntSushi/ripgrep#project:BurntSushi/ripgrep:crates/ignore/src/walk.rs:sort_by_file_path",
+      "BurntSushi/ripgrep#project:BurntSushi/ripgrep:crates/ignore/tests/gitignore_skip_bom.rs:gitignore_skip_bom",
+      "BurntSushi/ripgrep#project:BurntSushi/ripgrep:crates/matcher/src/lib.rs:captures_iter",
+      "BurntSushi/ripgrep#project:BurntSushi/ripgrep:crates/matcher/src/lib.rs:NoError",
+      "BurntSushi/ripgrep#project:BurntSushi/ripgrep:crates/matcher/src/lib.rs:zero",
+      "BurntSushi/ripgrep#project:BurntSushi/ripgrep:crates/pcre2/src/matcher.rs:dotall",
+      "BurntSushi/ripgrep#project:BurntSushi/ripgrep:crates/pcre2/src/matcher.rs:ucp",
+      "BurntSushi/ripgrep#project:BurntSushi/ripgrep:crates/printer/src/counter.rs:total_count",
+      "BurntSushi/ripgrep#project:BurntSushi/ripgrep:crates/printer/src/hyperlink/mod.rs:format",
+      "BurntSushi/ripgrep#project:BurntSushi/ripgrep:crates/printer/src/hyperlink/mod.rs:is_line_dependent",
+      "BurntSushi/ripgrep#project:BurntSushi/ripgrep:crates/printer/src/json.rs:JSONBuilder",
+      "BurntSushi/ripgrep#project:BurntSushi/ripgrep:crates/printer/src/path.rs:color_specs",
+      "BurntSushi/ripgrep#project:BurntSushi/ripgrep:crates/printer/src/standard.rs:config",
+      "BurntSushi/ripgrep#project:BurntSushi/ripgrep:crates/printer/src/standard.rs:new",
+      "BurntSushi/ripgrep#project:BurntSushi/ripgrep:crates/printer/src/standard.rs:replacement",
+      "BurntSushi/ripgrep#project:BurntSushi/ripgrep:crates/printer/src/standard.rs:StandardBuilder",
+      "BurntSushi/ripgrep#project:BurntSushi/ripgrep:crates/printer/src/stats.rs:add_bytes_searched",
+      "BurntSushi/ripgrep#project:BurntSushi/ripgrep:crates/printer/src/summary.rs:exclude_zero",
+      "BurntSushi/ripgrep#project:BurntSushi/ripgrep:crates/printer/src/summary.rs:quiet",
+      "BurntSushi/ripgrep#project:BurntSushi/ripgrep:crates/printer/src/summary.rs:write_spec",
+      "BurntSushi/ripgrep#project:BurntSushi/ripgrep:crates/printer/src/util.rs:Replacer",
+      "BurntSushi/ripgrep#project:BurntSushi/ripgrep:crates/regex/src/config.rs:into_whole_line",
+      "BurntSushi/ripgrep#project:BurntSushi/ripgrep:crates/regex/src/literal.rs:new",
+      "BurntSushi/ripgrep#project:BurntSushi/ripgrep:crates/regex/src/matcher.rs:line_terminator_error",
+      "BurntSushi/ripgrep#project:BurntSushi/ripgrep:crates/regex/src/non_matching.rs:non_matching_bytes",
+      "BurntSushi/ripgrep#project:BurntSushi/ripgrep:crates/searcher/src/line_buffer.rs:line_terminator",
+      "BurntSushi/ripgrep#project:BurntSushi/ripgrep:crates/searcher/src/lines.rs:preceding",
+      "BurntSushi/ripgrep#project:BurntSushi/ripgrep:crates/searcher/src/searcher/glue.rs:binary3",
+      "BurntSushi/ripgrep#project:BurntSushi/ripgrep:crates/searcher/src/searcher/glue.rs:fill",
+      "BurntSushi/ripgrep#project:BurntSushi/ripgrep:crates/searcher/src/searcher/mod.rs:build",
+      "BurntSushi/ripgrep#project:BurntSushi/ripgrep:crates/searcher/src/searcher/mod.rs:quit",
+      "BurntSushi/ripgrep#project:BurntSushi/ripgrep:crates/searcher/src/sink.rs:binary_data",
+      "BurntSushi/ripgrep#project:BurntSushi/ripgrep:crates/searcher/src/testutil.rs:before_context",
+      "BurntSushi/ripgrep#project:BurntSushi/ripgrep:crates/searcher/src/testutil.rs:search_slice",
+      "BurntSushi/ripgrep#project:BurntSushi/ripgrep:tests/util.rs:cross_runner",
       "expressjs/express#project:expressjs/express:examples/view-constructor/github-view.js:GithubView",
+      "expressjs/express#project:expressjs/express:lib/application.js:all",
+      "expressjs/express#project:expressjs/express:lib/application.js:defaultConfiguration",
       "expressjs/express#project:expressjs/express:lib/application.js:disable",
+      "expressjs/express#project:expressjs/express:lib/application.js:disabled",
+      "expressjs/express#project:expressjs/express:lib/application.js:enable",
       "expressjs/express#project:expressjs/express:lib/application.js:enabled",
+      "expressjs/express#project:expressjs/express:lib/application.js:engine",
+      "expressjs/express#project:expressjs/express:lib/application.js:handle",
       "expressjs/express#project:expressjs/express:lib/application.js:init",
+      "expressjs/express#project:expressjs/express:lib/application.js:listen",
+      "expressjs/express#project:expressjs/express:lib/application.js:logerror",
+      "expressjs/express#project:expressjs/express:lib/application.js:render",
+      "expressjs/express#project:expressjs/express:lib/application.js:use",
+      "expressjs/express#project:expressjs/express:lib/express.js:createApplication",
       "expressjs/express#project:expressjs/express:lib/request.js:accepts",
+      "expressjs/express#project:expressjs/express:lib/request.js:acceptsCharsets",
+      "expressjs/express#project:expressjs/express:lib/request.js:acceptsEncodings",
       "expressjs/express#project:expressjs/express:lib/request.js:acceptsLanguages",
+      "expressjs/express#project:expressjs/express:lib/request.js:defineGetter",
+      "expressjs/express#project:expressjs/express:lib/request.js:is",
+      "expressjs/express#project:expressjs/express:lib/response.js:append",
+      "expressjs/express#project:expressjs/express:lib/response.js:attachment",
       "expressjs/express#project:expressjs/express:lib/response.js:clearCookie",
+      "expressjs/express#project:expressjs/express:lib/response.js:download",
       "expressjs/express#project:expressjs/express:lib/response.js:format",
+      "expressjs/express#project:expressjs/express:lib/response.js:get",
+      "expressjs/express#project:expressjs/express:lib/response.js:json",
       "expressjs/express#project:expressjs/express:lib/response.js:jsonp",
+      "expressjs/express#project:expressjs/express:lib/response.js:location",
       "expressjs/express#project:expressjs/express:lib/response.js:redirect",
+      "expressjs/express#project:expressjs/express:lib/response.js:render",
+      "expressjs/express#project:expressjs/express:lib/response.js:send",
       "expressjs/express#project:expressjs/express:lib/response.js:sendFile",
+      "expressjs/express#project:expressjs/express:lib/response.js:sendStatus",
+      "expressjs/express#project:expressjs/express:lib/response.js:status",
       "expressjs/express#project:expressjs/express:lib/response.js:stringify",
+      "expressjs/express#project:expressjs/express:lib/response.js:vary",
+      "expressjs/express#project:expressjs/express:lib/utils.js:acceptParams",
       "expressjs/express#project:expressjs/express:lib/utils.js:compileETag",
+      "expressjs/express#project:expressjs/express:lib/utils.js:compileQueryParser",
+      "expressjs/express#project:expressjs/express:lib/utils.js:compileTrust",
       "expressjs/express#project:expressjs/express:lib/utils.js:createETagGenerator",
+      "expressjs/express#project:expressjs/express:lib/utils.js:normalizeType",
+      "expressjs/express#project:expressjs/express:lib/utils.js:normalizeTypes",
       "expressjs/express#project:expressjs/express:lib/utils.js:parseExtendedQueryString",
+      "expressjs/express#project:expressjs/express:lib/utils.js:setCharset",
+      "expressjs/express#project:expressjs/express:lib/view.js:lookup",
       "expressjs/express#project:expressjs/express:lib/view.js:render",
+      "expressjs/express#project:expressjs/express:lib/view.js:resolve",
+      "expressjs/express#project:expressjs/express:lib/view.js:tryStat",
+      "expressjs/express#project:expressjs/express:test/req.ip.js:getExpectedClientAddress",
+      "expressjs/express#project:expressjs/express:test/support/utils.js:shouldHaveBody",
       "expressjs/express#project:expressjs/express:test/support/utils.js:shouldHaveHeader",
+      "expressjs/express#project:expressjs/express:test/support/utils.js:shouldNotHaveBody",
+      "expressjs/express#project:expressjs/express:test/support/utils.js:shouldNotHaveHeader",
+      "gin-gonic/gin#project:gin-gonic/gin:auth.go:BasicAuth",
+      "gin-gonic/gin#project:gin-gonic/gin:binding/form_mapping_test.go:TestMappingUsingBindUnmarshalerAndTextUnmarshalerWhenOnlyBindUnmarshalerDefined",
+      "gin-gonic/gin#project:gin-gonic/gin:binding/form_mapping.go:trySetCustom",
+      "gin-gonic/gin#project:gin-gonic/gin:binding/validate_test.go:TestValidateNoValidationPointers",
+      "gin-gonic/gin#project:gin-gonic/gin:context_test.go:TestContextAbortWithStatus",
+      "gin-gonic/gin#project:gin-gonic/gin:context_test.go:TestContextNegotiationWithPROTOBUF",
+      "gin-gonic/gin#project:gin-gonic/gin:context_test.go:TestContextRenderHTML2",
+      "gin-gonic/gin#project:gin-gonic/gin:context_test.go:TestContextRenderNoContentAPIJSON",
+      "gin-gonic/gin#project:gin-gonic/gin:context_test.go:TestContextRenderNoContentSecureJSON",
+      "gin-gonic/gin#project:gin-gonic/gin:context_test.go:TestContextRenderString",
+      "gin-gonic/gin#project:gin-gonic/gin:context_test.go:TestContextWithFallbackDoneFromRequestContext",
+      "gin-gonic/gin#project:gin-gonic/gin:context.go:AbortWithError",
+      "gin-gonic/gin#project:gin-gonic/gin:context.go:BindHeader",
+      "gin-gonic/gin#project:gin-gonic/gin:context.go:BindYAML",
+      "gin-gonic/gin#project:gin-gonic/gin:context.go:Data",
+      "gin-gonic/gin#project:gin-gonic/gin:context.go:Done",
+      "gin-gonic/gin#project:gin-gonic/gin:context.go:FormFile",
+      "gin-gonic/gin#project:gin-gonic/gin:context.go:GetFloat32",
+      "gin-gonic/gin#project:gin-gonic/gin:context.go:GetInt16",
+      "gin-gonic/gin#project:gin-gonic/gin:context.go:GetInt8",
+      "gin-gonic/gin#project:gin-gonic/gin:context.go:GetPostFormMap",
+      "gin-gonic/gin#project:gin-gonic/gin:context.go:GetStringMap",
+      "gin-gonic/gin#project:gin-gonic/gin:context.go:GetUint16",
+      "gin-gonic/gin#project:gin-gonic/gin:context.go:GetUint8",
+      "gin-gonic/gin#project:gin-gonic/gin:context.go:hasRequestContext",
+      "gin-gonic/gin#project:gin-gonic/gin:context.go:PostForm",
+      "gin-gonic/gin#project:gin-gonic/gin:context.go:QueryMap",
+      "gin-gonic/gin#project:gin-gonic/gin:context.go:SetAccepted",
+      "gin-gonic/gin#project:gin-gonic/gin:context.go:ShouldBindBodyWithTOML",
+      "gin-gonic/gin#project:gin-gonic/gin:context.go:ShouldBindTOML",
+      "gin-gonic/gin#project:gin-gonic/gin:context.go:Stream",
+      "gin-gonic/gin#project:gin-gonic/gin:errors.go:MarshalJSON",
+      "gin-gonic/gin#project:gin-gonic/gin:gin_integration_test.go:TestRunTLS",
+      "gin-gonic/gin#project:gin-gonic/gin:gin_test.go:TestLiteralColonWithRun",
+      "gin-gonic/gin#project:gin-gonic/gin:gin_test.go:TestUpdateRouteTreesCalledOnce",
+      "gin-gonic/gin#project:gin-gonic/gin:gin.go:isUnsafeTrustedProxies",
+      "gin-gonic/gin#project:gin-gonic/gin:gin.go:NoRoute",
+      "gin-gonic/gin#project:gin-gonic/gin:gin.go:RunQUIC",
+      "gin-gonic/gin#project:gin-gonic/gin:gin.go:SetTrustedProxies",
+      "gin-gonic/gin#project:gin-gonic/gin:ginS/gins_test.go:TestNoMethod",
+      "gin-gonic/gin#project:gin-gonic/gin:ginS/gins.go:HEAD",
+      "gin-gonic/gin#project:gin-gonic/gin:ginS/gins.go:OPTIONS",
+      "gin-gonic/gin#project:gin-gonic/gin:ginS/gins.go:RunFd",
+      "gin-gonic/gin#project:gin-gonic/gin:ginS/gins.go:StaticFS",
+      "gin-gonic/gin#project:gin-gonic/gin:internal/bytesconv/bytesconv_test.go:RandStringBytesMaskImprSrcSB",
+      "gin-gonic/gin#project:gin-gonic/gin:logger.go:ErrorLogger",
+      "gin-gonic/gin#project:gin-gonic/gin:logger.go:LoggerWithConfig",
+      "gin-gonic/gin#project:gin-gonic/gin:mode.go:DisableBindValidation",
+      "gin-gonic/gin#project:gin-gonic/gin:path.go:removeRepeatedChar",
+      "gin-gonic/gin#project:gin-gonic/gin:recovery.go:CustomRecovery",
+      "gin-gonic/gin#project:gin-gonic/gin:recovery.go:secureRequestDump",
+      "gin-gonic/gin#project:gin-gonic/gin:render/html.go:WriteContentType",
+      "gin-gonic/gin#project:gin-gonic/gin:render/reader.go:WriteContentType",
+      "gin-gonic/gin#project:gin-gonic/gin:render/render_test.go:TestRenderJsonpJSONError",
+      "gin-gonic/gin#project:gin-gonic/gin:render/toml.go:WriteContentType",
+      "gin-gonic/gin#project:gin-gonic/gin:response_writer.go:CloseNotify",
+      "gin-gonic/gin#project:gin-gonic/gin:routergroup.go:createStaticHandler",
+      "gin-gonic/gin#project:gin-gonic/gin:routergroup.go:OPTIONS",
+      "gin-gonic/gin#project:gin-gonic/gin:routes_test.go:PerformRequest",
+      "gin-gonic/gin#project:gin-gonic/gin:routes_test.go:TestRouteParamsNotEmpty",
+      "gin-gonic/gin#project:gin-gonic/gin:test_helpers.go:CreateTestContext",
+      "gin-gonic/gin#project:gin-gonic/gin:tree_test.go:TestTreeTrailingSlashRedirect",
+      "gin-gonic/gin#project:gin-gonic/gin:tree.go:getValue",
       "google/gson#project:google/gson:extras/src/main/java/com/google/gson/interceptors/InterceptorFactory.java:InterceptorFactory",
-      "google/gson#project:google/gson:extras/src/main/java/com/google/gson/typeadapters/PostConstructAdapterFactory.java:PostConstructAdapterFactory",
-      "google/gson#project:google/gson:extras/src/main/java/com/google/gson/typeadapters/RuntimeTypeAdapterFactory.java:registerSubtype",
-      "google/gson#project:google/gson:extras/src/main/java/com/google/gson/typeadapters/UtcDateTypeAdapter.java:checkOffset",
-      "google/gson#project:google/gson:extras/src/main/java/com/google/gson/typeadapters/UtcDateTypeAdapter.java:parseInt",
-      "google/gson#project:google/gson:extras/src/test/java/com/google/gson/typeadapters/PostConstructAdapterFactoryTest.java:MultipleSandwiches",
-      "google/gson#project:google/gson:extras/src/test/java/com/google/gson/typeadapters/RuntimeTypeAdapterFactoryTest.java:testRuntimeTypeAdapterRecognizeSubtypes",
-      "google/gson#project:google/gson:gson/src/main/java-templates/com/google/gson/internal/GsonBuildConfig.java:GsonBuildConfig",
-      "google/gson#project:google/gson:gson/src/main/java/com/google/gson/FieldAttributes.java:FieldAttributes",
-      "google/gson#project:google/gson:gson/src/main/java/com/google/gson/FieldAttributes.java:getDeclaredClass",
-      "google/gson#project:google/gson:gson/src/main/java/com/google/gson/FieldAttributes.java:getName",
-      "google/gson#project:google/gson:gson/src/main/java/com/google/gson/FieldNamingPolicy.java:translateName",
-      "google/gson#project:google/gson:gson/src/main/java/com/google/gson/FieldNamingStrategy.java:translateName",
-      "google/gson#project:google/gson:gson/src/main/java/com/google/gson/FormattingStyle.java:getNewline",
-      "google/gson#project:google/gson:gson/src/main/java/com/google/gson/FormattingStyle.java:withNewline",
-      "google/gson#project:google/gson:gson/src/main/java/com/google/gson/Gson.java:FutureTypeAdapter",
-      "google/gson#project:google/gson:gson/src/main/java/com/google/gson/Gson.java:newJsonWriter",
-      "google/gson#project:google/gson:gson/src/main/java/com/google/gson/GsonBuilder.java:addDeserializationExclusionStrategy",
-      "google/gson#project:google/gson:gson/src/main/java/com/google/gson/GsonBuilder.java:checkDateFormatStyle",
-      "google/gson#project:google/gson:gson/src/main/java/com/google/gson/GsonBuilder.java:disableHtmlEscaping",
-      "google/gson#project:google/gson:gson/src/main/java/com/google/gson/GsonBuilder.java:GsonBuilder",
-      "google/gson#project:google/gson:gson/src/main/java/com/google/gson/GsonBuilder.java:registerTypeAdapterFactory",
-      "google/gson#project:google/gson:gson/src/main/java/com/google/gson/GsonBuilder.java:setExclusionStrategies",
-      "google/gson#project:google/gson:gson/src/main/java/com/google/gson/GsonBuilder.java:setFormattingStyle",
-      "google/gson#project:google/gson:gson/src/main/java/com/google/gson/GsonBuilder.java:setNumberToNumberStrategy",
-      "google/gson#project:google/gson:gson/src/main/java/com/google/gson/GsonBuilder.java:setStrictness",
-      "google/gson#project:google/gson:gson/src/main/java/com/google/gson/internal/bind/ArrayTypeAdapter.java:read",
-      "google/gson#project:google/gson:gson/src/main/java/com/google/gson/internal/bind/DefaultDateTypeAdapter.java:create",
-      "google/gson#project:google/gson:gson/src/main/java/com/google/gson/internal/bind/DefaultDateTypeAdapter.java:write",
-      "google/gson#project:google/gson:gson/src/main/java/com/google/gson/internal/bind/EnumTypeAdapter.java:read",
-      "google/gson#project:google/gson:gson/src/main/java/com/google/gson/internal/bind/JdkOptionalTypeAdapters.java:JdkOptionalTypeAdapters",
-      "google/gson#project:google/gson:gson/src/main/java/com/google/gson/internal/bind/JsonAdapterAnnotationTypeAdapterFactory.java:getAnnotation",
-      "google/gson#project:google/gson:gson/src/main/java/com/google/gson/internal/bind/JsonAdapterAnnotationTypeAdapterFactory.java:JsonAdapterAnnotationTypeAdapterFactory",
-      "google/gson#project:google/gson:gson/src/main/java/com/google/gson/internal/bind/JsonTreeReader.java:endObject",
-      "google/gson#project:google/gson:gson/src/main/java/com/google/gson/internal/bind/JsonTreeReader.java:JsonTreeReader",
-      "google/gson#project:google/gson:gson/src/main/java/com/google/gson/internal/bind/JsonTreeWriter.java:get",
-      "google/gson#project:google/gson:gson/src/main/java/com/google/gson/internal/bind/MapTypeAdapterFactory.java:getKeyAdapter",
-      "google/gson#project:google/gson:gson/src/main/java/com/google/gson/internal/bind/ReflectiveTypeAdapterFactory.java:Adapter",
-      "google/gson#project:google/gson:gson/src/main/java/com/google/gson/internal/bind/ReflectiveTypeAdapterFactory.java:createBoundField",
-      "google/gson#project:google/gson:gson/src/main/java/com/google/gson/internal/bind/ReflectiveTypeAdapterFactory.java:getBoundFields",
-      "google/gson#project:google/gson:gson/src/main/java/com/google/gson/internal/bind/ReflectiveTypeAdapterFactory.java:readIntoField",
-      "google/gson#project:google/gson:gson/src/main/java/com/google/gson/internal/bind/SerializationDelegatingTypeAdapter.java:getSerializationDelegate",
-      "google/gson#project:google/gson:gson/src/main/java/com/google/gson/internal/bind/TreeTypeAdapter.java:getSerializationDelegate",
-      "google/gson#project:google/gson:gson/src/main/java/com/google/gson/internal/bind/TreeTypeAdapter.java:newTypeHierarchyFactory",
-      "google/gson#project:google/gson:gson/src/main/java/com/google/gson/internal/bind/TypeAdapterRuntimeTypeWrapper.java:isReflective",
-      "google/gson#project:google/gson:gson/src/main/java/com/google/gson/internal/bind/TypeAdapters.java:newFactory",
-      "google/gson#project:google/gson:gson/src/main/java/com/google/gson/internal/bind/TypeAdapters.java:TypeAdapters",
-      "google/gson#project:google/gson:gson/src/main/java/com/google/gson/internal/bind/util/ISO8601Utils.java:indexOfNonDigit",
-      "google/gson#project:google/gson:gson/src/main/java/com/google/gson/internal/ConstructorConstructor.java:checkInstantiable",
-      "google/gson#project:google/gson:gson/src/main/java/com/google/gson/internal/ConstructorConstructor.java:get",
-      "google/gson#project:google/gson:gson/src/main/java/com/google/gson/internal/ConstructorConstructor.java:newSpecialCollectionConstructor",
-      "google/gson#project:google/gson:gson/src/main/java/com/google/gson/internal/Excluder.java:create",
-      "google/gson#project:google/gson:gson/src/main/java/com/google/gson/internal/GsonTypes.java:arrayOf",
-      "google/gson#project:google/gson:gson/src/main/java/com/google/gson/internal/GsonTypes.java:getArrayComponentType",
-      "google/gson#project:google/gson:gson/src/main/java/com/google/gson/internal/GsonTypes.java:getMapKeyAndValueTypes",
-      "google/gson#project:google/gson:gson/src/main/java/com/google/gson/internal/GsonTypes.java:newParameterizedTypeWithOwner",
-      "google/gson#project:google/gson:gson/src/main/java/com/google/gson/internal/GsonTypes.java:supertypeOf",
-      "google/gson#project:google/gson:gson/src/main/java/com/google/gson/internal/LazilyParsedNumber.java:LazilyParsedNumber",
-      "google/gson#project:google/gson:gson/src/main/java/com/google/gson/internal/LinkedTreeMap.java:find",
-      "google/gson#project:google/gson:gson/src/main/java/com/google/gson/internal/LinkedTreeMap.java:last",
-      "google/gson#project:google/gson:gson/src/main/java/com/google/gson/internal/LinkedTreeMap.java:rebalance",
-      "google/gson#project:google/gson:gson/src/main/java/com/google/gson/internal/LinkedTreeMap.java:rotateRight",
-      "google/gson#project:google/gson:gson/src/main/java/com/google/gson/internal/NonNullElementWrapperList.java:NonNullElementWrapperList",
+      "google/gson#project:google/gson:extras/src/test/java/com/google/gson/interceptors/InterceptorTest.java:InterceptorTest",
+      "google/gson#project:google/gson:gson/src/main/java/com/google/gson/FieldAttributes.java:getDeclaringClass",
+      "google/gson#project:google/gson:gson/src/main/java/com/google/gson/Gson.java:fromJson",
+      "google/gson#project:google/gson:gson/src/main/java/com/google/gson/GsonBuilder.java:createFactories",
+      "google/gson#project:google/gson:gson/src/main/java/com/google/gson/GsonBuilder.java:setFieldNamingStrategy",
+      "google/gson#project:google/gson:gson/src/main/java/com/google/gson/internal/bind/DefaultDateTypeAdapter.java:deserializeToDate",
+      "google/gson#project:google/gson:gson/src/main/java/com/google/gson/internal/bind/JsonAdapterAnnotationTypeAdapterFactory.java:putFactoryAndGetCurrent",
+      "google/gson#project:google/gson:gson/src/main/java/com/google/gson/internal/bind/MapTypeAdapterFactory.java:MapTypeAdapterFactory",
+      "google/gson#project:google/gson:gson/src/main/java/com/google/gson/internal/bind/ReflectiveTypeAdapterFactory.java:RecordAdapter",
+      "google/gson#project:google/gson:gson/src/main/java/com/google/gson/internal/bind/TypeAdapters.java:newFactoryForMultipleTypes",
+      "google/gson#project:google/gson:gson/src/main/java/com/google/gson/internal/ConstructorConstructor.java:newUnsafeAllocator",
+      "google/gson#project:google/gson:gson/src/main/java/com/google/gson/internal/GsonTypes.java:requiresOwnerType",
+      "google/gson#project:google/gson:gson/src/main/java/com/google/gson/internal/LinkedTreeMap.java:findByEntry",
       "google/gson#project:google/gson:gson/src/main/java/com/google/gson/internal/PreJava9DateFormatProvider.java:getUsDateTimeFormat",
-      "google/gson#project:google/gson:gson/src/main/java/com/google/gson/internal/Primitives.java:wrap",
-      "google/gson#project:google/gson:gson/src/main/java/com/google/gson/internal/reflect/ReflectionHelper.java:fieldToString",
-      "google/gson#project:google/gson:gson/src/main/java/com/google/gson/internal/reflect/ReflectionHelper.java:getInaccessibleTroubleshootingSuffix",
       "google/gson#project:google/gson:gson/src/main/java/com/google/gson/internal/reflect/ReflectionHelper.java:makeAccessible",
-      "google/gson#project:google/gson:gson/src/main/java/com/google/gson/internal/reflect/ReflectionHelper.java:ReflectionHelper",
-      "google/gson#project:google/gson:gson/src/main/java/com/google/gson/internal/ReflectionAccessFilterHelper.java:canAccess",
-      "google/gson#project:google/gson:gson/src/main/java/com/google/gson/internal/ReflectionAccessFilterHelper.java:ReflectionAccessFilterHelper",
-      "google/gson#project:google/gson:gson/src/main/java/com/google/gson/internal/sql/SqlTimestampTypeAdapter.java:create",
       "google/gson#project:google/gson:gson/src/main/java/com/google/gson/internal/sql/SqlTimeTypeAdapter.java:SqlTimeTypeAdapter",
-      "google/gson#project:google/gson:gson/src/main/java/com/google/gson/internal/Streams.java:CurrentWrite",
-      "google/gson#project:google/gson:gson/src/main/java/com/google/gson/internal/Streams.java:toString",
-      "google/gson#project:google/gson:gson/src/main/java/com/google/gson/internal/UnsafeAllocator.java:assertInstantiable",
-      "google/gson#project:google/gson:gson/src/main/java/com/google/gson/JsonArray.java:addAll",
       "google/gson#project:google/gson:gson/src/main/java/com/google/gson/JsonArray.java:deepCopy",
-      "google/gson#project:google/gson:gson/src/main/java/com/google/gson/JsonArray.java:getAsBigDecimal",
-      "google/gson#project:google/gson:gson/src/main/java/com/google/gson/JsonArray.java:getAsByte",
-      "google/gson#project:google/gson:gson/src/main/java/com/google/gson/JsonArray.java:getAsFloat",
-      "google/gson#project:google/gson:gson/src/main/java/com/google/gson/JsonArray.java:getAsNumber",
       "google/gson#project:google/gson:gson/src/main/java/com/google/gson/JsonArray.java:hashCode",
-      "google/gson#project:google/gson:gson/src/main/java/com/google/gson/JsonArray.java:JsonArray",
-      "google/gson#project:google/gson:gson/src/main/java/com/google/gson/JsonArray.java:size",
-      "google/gson#project:google/gson:gson/src/main/java/com/google/gson/JsonElement.java:deepCopy",
-      "google/gson#project:google/gson:gson/src/main/java/com/google/gson/JsonElement.java:getAsBoolean",
       "google/gson#project:google/gson:gson/src/main/java/com/google/gson/JsonElement.java:getAsDouble",
-      "google/gson#project:google/gson:gson/src/main/java/com/google/gson/JsonElement.java:getAsJsonArray",
-      "google/gson#project:google/gson:gson/src/main/java/com/google/gson/JsonElement.java:getAsJsonPrimitive",
-      "google/gson#project:google/gson:gson/src/main/java/com/google/gson/JsonElement.java:getAsShort",
-      "google/gson#project:google/gson:gson/src/main/java/com/google/gson/JsonElement.java:isJsonNull",
       "google/gson#project:google/gson:gson/src/main/java/com/google/gson/JsonElement.java:JsonElement",
-      "google/gson#project:google/gson:gson/src/main/java/com/google/gson/JsonNull.java:deepCopy",
-      "google/gson#project:google/gson:gson/src/main/java/com/google/gson/JsonNull.java:JsonNull",
-      "google/gson#project:google/gson:gson/src/main/java/com/google/gson/JsonObject.java:equals",
-      "google/gson#project:google/gson:gson/src/main/java/com/google/gson/JsonObject.java:getAsJsonObject",
-      "google/gson#project:google/gson:gson/src/main/java/com/google/gson/JsonObject.java:hashCode",
-      "google/gson#project:google/gson:gson/src/main/java/com/google/gson/JsonObject.java:keySet",
-      "google/gson#project:google/gson:gson/src/main/java/com/google/gson/JsonParseException.java:JsonParseException",
-      "google/gson#project:google/gson:gson/src/main/java/com/google/gson/JsonParser.java:parseReader",
-      "google/gson#project:google/gson:gson/src/main/java/com/google/gson/JsonPrimitive.java:equals",
-      "google/gson#project:google/gson:gson/src/main/java/com/google/gson/JsonPrimitive.java:getAsBoolean",
-      "google/gson#project:google/gson:gson/src/main/java/com/google/gson/JsonPrimitive.java:getAsDouble",
-      "google/gson#project:google/gson:gson/src/main/java/com/google/gson/JsonPrimitive.java:getAsLong",
-      "google/gson#project:google/gson:gson/src/main/java/com/google/gson/JsonPrimitive.java:getAsString",
-      "google/gson#project:google/gson:gson/src/main/java/com/google/gson/JsonPrimitive.java:isBoolean",
-      "google/gson#project:google/gson:gson/src/main/java/com/google/gson/JsonPrimitive.java:isString",
-      "google/gson#project:google/gson:gson/src/main/java/com/google/gson/JsonStreamParser.java:next",
-      "google/gson#project:google/gson:gson/src/main/java/com/google/gson/LongSerializationPolicy.java:serialize",
-      "google/gson#project:google/gson:gson/src/main/java/com/google/gson/reflect/TypeToken.java:getParameterized",
-      "google/gson#project:google/gson:gson/src/main/java/com/google/gson/reflect/TypeToken.java:getTypeTokenTypeArgument",
-      "google/gson#project:google/gson:gson/src/main/java/com/google/gson/stream/JsonReader.java:beginArray",
-      "google/gson#project:google/gson:gson/src/main/java/com/google/gson/stream/JsonReader.java:consumeNonExecutePrefix",
-      "google/gson#project:google/gson:gson/src/main/java/com/google/gson/stream/JsonReader.java:endObject",
-      "google/gson#project:google/gson:gson/src/main/java/com/google/gson/stream/JsonReader.java:getNestingLimit",
-      "google/gson#project:google/gson:gson/src/main/java/com/google/gson/stream/JsonReader.java:getStrictness",
-      "google/gson#project:google/gson:gson/src/main/java/com/google/gson/stream/JsonReader.java:nextInt",
-      "google/gson#project:google/gson:gson/src/main/java/com/google/gson/stream/JsonReader.java:nextString",
-      "google/gson#project:google/gson:gson/src/main/java/com/google/gson/stream/JsonReader.java:peekNumber",
-      "google/gson#project:google/gson:gson/src/main/java/com/google/gson/stream/JsonReader.java:readEscapeCharacter",
-      "google/gson#project:google/gson:gson/src/main/java/com/google/gson/stream/JsonReader.java:setNestingLimit",
-      "google/gson#project:google/gson:gson/src/main/java/com/google/gson/stream/JsonReader.java:skipTo",
-      "google/gson#project:google/gson:gson/src/main/java/com/google/gson/stream/JsonReader.java:syntaxError",
-      "google/gson#project:google/gson:gson/src/main/java/com/google/gson/stream/JsonWriter.java:alwaysCreatesValidJsonNumber",
-      "google/gson#project:google/gson:gson/src/main/java/com/google/gson/stream/JsonWriter.java:beginObject",
-      "google/gson#project:google/gson:gson/src/main/java/com/google/gson/stream/JsonWriter.java:endArray",
-      "google/gson#project:google/gson:gson/src/main/java/com/google/gson/stream/JsonWriter.java:getFormattingStyle",
-      "google/gson#project:google/gson:gson/src/main/java/com/google/gson/stream/JsonWriter.java:isHtmlSafe",
-      "google/gson#project:google/gson:gson/src/main/java/com/google/gson/stream/JsonWriter.java:peek",
-      "google/gson#project:google/gson:gson/src/main/java/com/google/gson/stream/JsonWriter.java:setHtmlSafe",
-      "google/gson#project:google/gson:gson/src/main/java/com/google/gson/stream/JsonWriter.java:setSerializeNulls",
-      "google/gson#project:google/gson:gson/src/main/java/com/google/gson/stream/MalformedJsonException.java:MalformedJsonException",
-      "google/gson#project:google/gson:gson/src/main/java/com/google/gson/TypeAdapter.java:fromJson",
-      "google/gson#project:google/gson:gson/src/main/java/com/google/gson/TypeAdapter.java:read",
-      "google/gson#project:google/gson:gson/src/main/java/com/google/gson/TypeAdapter.java:TypeAdapter",
-      "google/gson#project:google/gson:gson/src/test/java/com/google/gson/CommentsTest.java:CommentsTest",
-      "google/gson#project:google/gson:gson/src/test/java/com/google/gson/common/MoreAsserts.java:MoreAsserts",
-      "google/gson#project:google/gson:gson/src/test/java/com/google/gson/DefaultMapJsonSerializerTest.java:DefaultMapJsonSerializerTest",
-      "google/gson#project:google/gson:gson/src/test/java/com/google/gson/FieldNamingPolicyTest.java:FieldNamingPolicyTest",
-      "google/gson#project:google/gson:gson/src/test/java/com/google/gson/functional/CircularReferenceTest.java:assertThrowsStackOverflow",
-      "google/gson#project:google/gson:gson/src/test/java/com/google/gson/functional/CircularReferenceTest.java:testSelfReferenceArrayFieldSerialization",
-      "google/gson#project:google/gson:gson/src/test/java/com/google/gson/functional/CollectionTest.java:testCollectionWithoutNoArgsConstructor",
-      "google/gson#project:google/gson:gson/src/test/java/com/google/gson/functional/ConcurrencyTest.java:ConcurrencyTest",
-      "google/gson#project:google/gson:gson/src/test/java/com/google/gson/functional/ConcurrencyTest.java:testSingleThreadDeserialization",
-      "google/gson#project:google/gson:gson/src/test/java/com/google/gson/functional/CustomSerializerTest.java:CustomSerializerTest",
-      "google/gson#project:google/gson:gson/src/test/java/com/google/gson/functional/DefaultTypeAdaptersTest.java:checkReflectiveTypeAdapterFactory",
-      "google/gson#project:google/gson:gson/src/test/java/com/google/gson/functional/DefaultTypeAdaptersTest.java:testClassDeserialization",
-      "google/gson#project:google/gson:gson/src/test/java/com/google/gson/functional/DefaultTypeAdaptersTest.java:testDateSerializationInCollection",
-      "google/gson#project:google/gson:gson/src/test/java/com/google/gson/functional/DefaultTypeAdaptersTest.java:testDateSerializationWithStyle",
-      "google/gson#project:google/gson:gson/src/test/java/com/google/gson/functional/DefaultTypeAdaptersTest.java:testDefaultGregorianCalendarSerialization",
-      "google/gson#project:google/gson:gson/src/test/java/com/google/gson/functional/DelegateTypeAdapterTest.java:testDelegateInvoked",
-      "google/gson#project:google/gson:gson/src/test/java/com/google/gson/functional/EnumTest.java:testEnumSubclass",
-      "google/gson#project:google/gson:gson/src/test/java/com/google/gson/functional/EnumTest.java:testJdkEnum",
+      "google/gson#project:google/gson:gson/src/main/java/com/google/gson/JsonObject.java:getAsJsonArray",
+      "google/gson#project:google/gson:gson/src/main/java/com/google/gson/JsonPrimitive.java:deepCopy",
+      "google/gson#project:google/gson:gson/src/main/java/com/google/gson/JsonPrimitive.java:hashOfDoubleValue",
+      "google/gson#project:google/gson:gson/src/main/java/com/google/gson/stream/JsonReader.java:endArray",
+      "google/gson#project:google/gson:gson/src/main/java/com/google/gson/stream/JsonReader.java:nextName",
+      "google/gson#project:google/gson:gson/src/main/java/com/google/gson/stream/JsonReader.java:setStrictness",
+      "google/gson#project:google/gson:gson/src/main/java/com/google/gson/stream/JsonWriter.java:endObject",
+      "google/gson#project:google/gson:gson/src/main/java/com/google/gson/stream/JsonWriter.java:setIndent",
+      "google/gson#project:google/gson:gson/src/main/java/com/google/gson/TypeAdapter.java:write",
+      "google/gson#project:google/gson:gson/src/test/java/com/google/gson/functional/ArrayTest.java:testArrayElementsAreArrays",
+      "google/gson#project:google/gson:gson/src/test/java/com/google/gson/functional/ConcurrencyTest.java:testSingleThreadSerialization",
+      "google/gson#project:google/gson:gson/src/test/java/com/google/gson/functional/DefaultTypeAdaptersTest.java:testDateStyleOverwritesPattern",
       "google/gson#project:google/gson:gson/src/test/java/com/google/gson/functional/ExclusionStrategyFunctionalTest.java:ExclusionStrategyFunctionalTest",
-      "google/gson#project:google/gson:gson/src/test/java/com/google/gson/functional/ExposeFieldsTest.java:ExposeFieldsTest",
-      "google/gson#project:google/gson:gson/src/test/java/com/google/gson/functional/FormattingStyleTest.java:createInput",
-      "google/gson#project:google/gson:gson/src/test/java/com/google/gson/functional/FormattingStyleTest.java:testFormatCompact",
-      "google/gson#project:google/gson:gson/src/test/java/com/google/gson/functional/FormattingStyleTest.java:testPrettyToCompact",
       "google/gson#project:google/gson:gson/src/test/java/com/google/gson/functional/GsonVersionDiagnosticsTest.java:GsonVersionDiagnosticsTest",
-      "google/gson#project:google/gson:gson/src/test/java/com/google/gson/functional/InternationalizationTest.java:testSupplementaryUnicodeDeserialization",
-      "google/gson#project:google/gson:gson/src/test/java/com/google/gson/functional/Java17RecordTest.java:testDuplicateJsonProperties",
-      "google/gson#project:google/gson:gson/src/test/java/com/google/gson/functional/Java17RecordTest.java:testMultipleNamesDeserializedCorrectly",
       "google/gson#project:google/gson:gson/src/test/java/com/google/gson/functional/Java17RecordTest.java:testPrimitiveAdapterNullValue",
-      "google/gson#project:google/gson:gson/src/test/java/com/google/gson/functional/Java17RecordTest.java:testStaticFieldDeserialization",
-      "google/gson#project:google/gson:gson/src/test/java/com/google/gson/functional/Java17RecordTest.java:testThrowingConstructor",
-      "google/gson#project:google/gson:gson/src/test/java/com/google/gson/functional/JavaUtilTest.java:JavaUtilTest",
-      "google/gson#project:google/gson:gson/src/test/java/com/google/gson/functional/JsonAdapterAnnotationOnClassesTest.java:create",
       "google/gson#project:google/gson:gson/src/test/java/com/google/gson/functional/JsonAdapterAnnotationOnClassesTest.java:testDelegating_SameFactoryClass",
-      "google/gson#project:google/gson:gson/src/test/java/com/google/gson/functional/JsonAdapterAnnotationOnClassesTest.java:testDelegating_SameFactoryInstance_OnClassAndField",
-      "google/gson#project:google/gson:gson/src/test/java/com/google/gson/functional/JsonAdapterAnnotationOnClassesTest.java:testFactoryReturningNull",
-      "google/gson#project:google/gson:gson/src/test/java/com/google/gson/functional/JsonAdapterAnnotationOnClassesTest.java:testJsonSerializer",
-      "google/gson#project:google/gson:gson/src/test/java/com/google/gson/functional/JsonAdapterAnnotationOnClassesTest.java:User",
       "google/gson#project:google/gson:gson/src/test/java/com/google/gson/functional/JsonAdapterAnnotationOnFieldsTest.java:Computer2",
-      "google/gson#project:google/gson:gson/src/test/java/com/google/gson/functional/JsonAdapterAnnotationOnFieldsTest.java:GetAdapterDelegation",
-      "google/gson#project:google/gson:gson/src/test/java/com/google/gson/functional/JsonAdapterAnnotationOnFieldsTest.java:testDelegatingAdapterFactory_Delayed",
-      "google/gson#project:google/gson:gson/src/test/java/com/google/gson/functional/JsonAdapterAnnotationOnFieldsTest.java:testExcludeSerializePrecedence",
-      "google/gson#project:google/gson:gson/src/test/java/com/google/gson/functional/JsonAdapterAnnotationOnFieldsTest.java:testJsonSerializer",
       "google/gson#project:google/gson:gson/src/test/java/com/google/gson/functional/JsonAdapterAnnotationOnFieldsTest.java:testPrimitiveFieldAnnotationTakesPrecedenceOverDefault",
-      "google/gson#project:google/gson:gson/src/test/java/com/google/gson/functional/JsonAdapterSerializerDeserializerTest.java:JsonAdapterSerializerDeserializerTest",
-      "google/gson#project:google/gson:gson/src/test/java/com/google/gson/functional/JsonParserTest.java:testBadFieldTypeForDeserializingCustomTree",
-      "google/gson#project:google/gson:gson/src/test/java/com/google/gson/functional/LeniencyTest.java:LeniencyTest",
       "google/gson#project:google/gson:gson/src/test/java/com/google/gson/functional/MapTest.java:MapWithoutNoArgsConstructor",
-      "google/gson#project:google/gson:gson/src/test/java/com/google/gson/functional/MapTest.java:testMapOfMapSerialization",
-      "google/gson#project:google/gson:gson/src/test/java/com/google/gson/functional/MapTest.java:testMapSerializationWithNullValuesSerialized",
-      "google/gson#project:google/gson:gson/src/test/java/com/google/gson/functional/MapTest.java:testSerializeMaps",
-      "google/gson#project:google/gson:gson/src/test/java/com/google/gson/functional/MoreSpecificTypeSerializationTest.java:testListOfParameterizedSubclassFields",
-      "google/gson#project:google/gson:gson/src/test/java/com/google/gson/functional/NamingPolicyTest.java:testAtSignInSerializedName",
-      "google/gson#project:google/gson:gson/src/test/java/com/google/gson/functional/NullObjectAndFieldTest.java:testAbsentJsonElementsAreSetToNull",
-      "google/gson#project:google/gson:gson/src/test/java/com/google/gson/functional/NumberLimitsTest.java:testJsonReader",
-      "google/gson#project:google/gson:gson/src/test/java/com/google/gson/functional/ObjectTest.java:shouldSkipField",
-      "google/gson#project:google/gson:gson/src/test/java/com/google/gson/functional/ObjectTest.java:testDateAsMapObjectField",
-      "google/gson#project:google/gson:gson/src/test/java/com/google/gson/functional/ObjectTest.java:testNullObjectFieldsDeserialization",
-      "google/gson#project:google/gson:gson/src/test/java/com/google/gson/functional/ObjectTest.java:testStaticFieldDeserialization",
-      "google/gson#project:google/gson:gson/src/test/java/com/google/gson/functional/ParameterizedTypesTest.java:assertCorrectlyDeserialized",
-      "google/gson#project:google/gson:gson/src/test/java/com/google/gson/functional/ParameterizedTypesTest.java:Quantity",
-      "google/gson#project:google/gson:gson/src/test/java/com/google/gson/functional/PrimitiveTest.java:PrimitiveTest",
-      "google/gson#project:google/gson:gson/src/test/java/com/google/gson/functional/PrimitiveTest.java:testBigDecimalNaNDeserializationNotSupported",
-      "google/gson#project:google/gson:gson/src/test/java/com/google/gson/functional/PrimitiveTest.java:testDoubleSerialization",
-      "google/gson#project:google/gson:gson/src/test/java/com/google/gson/functional/PrimitiveTest.java:testLongAsStringSerialization",
-      "google/gson#project:google/gson:gson/src/test/java/com/google/gson/functional/PrintFormattingTest.java:PrintFormattingTest",
-      "google/gson#project:google/gson:gson/src/test/java/com/google/gson/functional/RawSerializationTest.java:testThreeLevelParameterizedObject",
-      "google/gson#project:google/gson:gson/src/test/java/com/google/gson/functional/ReadersWritersTest.java:testToJsonAppendable",
-      "google/gson#project:google/gson:gson/src/test/java/com/google/gson/functional/ReflectionAccessFilterTest.java:testBlockAllCollectionImplementation",
-      "google/gson#project:google/gson:gson/src/test/java/com/google/gson/functional/ReflectionAccessFilterTest.java:testBlockAllPartial",
-      "google/gson#project:google/gson:gson/src/test/java/com/google/gson/functional/ReflectionAccessFilterTest.java:testConstantsToString",
-      "google/gson#project:google/gson:gson/src/test/java/com/google/gson/functional/ReflectionAccessTest.java:testInaccessibleField",
-      "google/gson#project:google/gson:gson/src/test/java/com/google/gson/functional/ReusedTypeVariablesFullyResolveTest.java:ReusedTypeVariablesFullyResolveTest",
-      "google/gson#project:google/gson:gson/src/test/java/com/google/gson/functional/RuntimeTypeAdapterFactoryFunctionalTest.java:read",
-      "google/gson#project:google/gson:gson/src/test/java/com/google/gson/functional/RuntimeTypeAdapterFactoryFunctionalTest.java:testSubclassesAutomaticallySerialized",
-      "google/gson#project:google/gson:gson/src/test/java/com/google/gson/functional/SecurityTest.java:testJsonWithNonExecutableTokenWithConfiguredGsonDeserialization",
-      "google/gson#project:google/gson:gson/src/test/java/com/google/gson/functional/SerializedNameTest.java:testMultipleNamesDeserializedCorrectly",
-      "google/gson#project:google/gson:gson/src/test/java/com/google/gson/functional/StringTest.java:testAssignmentCharDeserialization",
-      "google/gson#project:google/gson:gson/src/test/java/com/google/gson/functional/TreeTypeAdaptersTest.java:TreeTypeAdaptersTest",
-      "google/gson#project:google/gson:gson/src/test/java/com/google/gson/functional/TypeAdapterRuntimeTypeWrapperTest.java:testJsonDeserializer_ReflectiveSerializerDelegate",
-      "google/gson#project:google/gson:gson/src/test/java/com/google/gson/functional/TypeAdapterRuntimeTypeWrapperTest.java:testJsonSerializer",
-      "google/gson#project:google/gson:gson/src/test/java/com/google/gson/functional/TypeVariableTest.java:Blue",
-      "google/gson#project:google/gson:gson/src/test/java/com/google/gson/functional/UncategorizedTest.java:testReturningDerivedClassesDuringDeserialization",
-      "google/gson#project:google/gson:gson/src/test/java/com/google/gson/functional/VersioningTest.java:testIgnoreLaterVersionClassDeserialization",
-      "google/gson#project:google/gson:gson/src/test/java/com/google/gson/GsonBuilderTest.java:assertDefaultGson",
-      "google/gson#project:google/gson:gson/src/test/java/com/google/gson/GsonBuilderTest.java:testModificationAfterCreate",
-      "google/gson#project:google/gson:gson/src/test/java/com/google/gson/GsonBuilderTest.java:testRegisterTypeHierarchyAdapterJsonElements",
-      "google/gson#project:google/gson:gson/src/test/java/com/google/gson/GsonBuilderTest.java:testSetDateFormatNullPattern",
-      "google/gson#project:google/gson:gson/src/test/java/com/google/gson/GsonTest.java:create",
-      "google/gson#project:google/gson:gson/src/test/java/com/google/gson/GsonTest.java:testGetAdapter_FutureAdapterConcurrency",
-      "google/gson#project:google/gson:gson/src/test/java/com/google/gson/GsonTypeAdapterTest.java:GsonTypeAdapterTest",
-      "google/gson#project:google/gson:gson/src/test/java/com/google/gson/InnerClassExclusionStrategyTest.java:InnerClassExclusionStrategyTest",
-      "google/gson#project:google/gson:gson/src/test/java/com/google/gson/integration/OSGiManifestIT.java:shortenVersionNumber",
-      "google/gson#project:google/gson:gson/src/test/java/com/google/gson/integration/OSGiManifestIT.java:testRequireCapability",
-      "google/gson#project:google/gson:gson/src/test/java/com/google/gson/internal/bind/Java17ReflectiveTypeAdapterFactoryTest.java:read",
-      "google/gson#project:google/gson:gson/src/test/java/com/google/gson/internal/bind/JsonTreeReaderTest.java:testNextIntAndLongAcceptAsciiDigitsInString",
-      "google/gson#project:google/gson:gson/src/test/java/com/google/gson/internal/bind/JsonTreeReaderTest.java:testNextLongRejectsNonAsciiDigits",
-      "google/gson#project:google/gson:gson/src/test/java/com/google/gson/internal/bind/JsonTreeWriterTest.java:testStrictBoxedNansAndInfinities",
-      "google/gson#project:google/gson:gson/src/test/java/com/google/gson/internal/bind/RecursiveTypesResolveTest.java:testRecursiveResolveSimple",
-      "google/gson#project:google/gson:gson/src/test/java/com/google/gson/internal/bind/util/ISO8601UtilsTest.java:testDateFormatString",
-      "google/gson#project:google/gson:gson/src/test/java/com/google/gson/internal/ConstructorConstructorTest.java:CustomLinkedHashMap",
-      "google/gson#project:google/gson:gson/src/test/java/com/google/gson/internal/ConstructorConstructorTest.java:CustomSet",
-      "google/gson#project:google/gson:gson/src/test/java/com/google/gson/internal/ConstructorConstructorTest.java:testCustomCollectionCreation",
-      "google/gson#project:google/gson:gson/src/test/java/com/google/gson/internal/ConstructorConstructorTest.java:testMapCreation",
-      "google/gson#project:google/gson:gson/src/test/java/com/google/gson/internal/GsonTypesTest.java:testNewParameterizedTypeWithoutOwner",
-      "google/gson#project:google/gson:gson/src/test/java/com/google/gson/internal/JavaVersionTest.java:testJava6",
-      "google/gson#project:google/gson:gson/src/test/java/com/google/gson/internal/LinkedTreeMapSuiteTest.java:create",
-      "google/gson#project:google/gson:gson/src/test/java/com/google/gson/internal/LinkedTreeMapSuiteTest.java:suite",
-      "google/gson#project:google/gson:gson/src/test/java/com/google/gson/internal/reflect/Java17ReflectionHelperTest.java:testJava17RecordAccessors",
-      "google/gson#project:google/gson:gson/src/test/java/com/google/gson/internal/sql/SqlTypesGsonTest.java:testSqlDateSerialization",
-      "google/gson#project:google/gson:gson/src/test/java/com/google/gson/internal/UnsafeAllocatorInstantiationTest.java:testAbstractClassInstantiation",
-      "google/gson#project:google/gson:gson/src/test/java/com/google/gson/internal/UnsafeAllocatorInstantiationTest.java:UnsafeAllocatorInstantiationTest",
-      "google/gson#project:google/gson:gson/src/test/java/com/google/gson/JavaSerializationTest.java:testMapIsSerializable",
-      "google/gson#project:google/gson:gson/src/test/java/com/google/gson/JsonArrayAsListTest.java:JsonArrayAsListTest",
+      "google/gson#project:google/gson:gson/src/test/java/com/google/gson/functional/MoreSpecificTypeSerializationTest.java:testParameterizedSubclassFields",
+      "google/gson#project:google/gson:gson/src/test/java/com/google/gson/functional/ObjectTest.java:testClassWithObjectFieldSerialization",
+      "google/gson#project:google/gson:gson/src/test/java/com/google/gson/functional/PrimitiveCharacterTest.java:PrimitiveCharacterTest",
+      "google/gson#project:google/gson:gson/src/test/java/com/google/gson/functional/RawSerializationTest.java:testParameterizedObject",
+      "google/gson#project:google/gson:gson/src/test/java/com/google/gson/functional/ReflectionAccessTest.java:assertInaccessibleException",
+      "google/gson#project:google/gson:gson/src/test/java/com/google/gson/functional/SerializedNameTest.java:testFirstNameIsChosenForSerialization",
+      "google/gson#project:google/gson:gson/src/test/java/com/google/gson/functional/TypeHierarchyAdapterTest.java:testRegisterSubTypeFirstAllowed",
+      "google/gson#project:google/gson:gson/src/test/java/com/google/gson/GsonBuilderTest.java:testRegisterTypeAdapterForJsonElements",
+      "google/gson#project:google/gson:gson/src/test/java/com/google/gson/GsonTypeAdapterTest.java:testDeserializerForAbstractClass",
+      "google/gson#project:google/gson:gson/src/test/java/com/google/gson/internal/bind/JsonTreeReaderTest.java:testNestingLimitIgnored",
+      "google/gson#project:google/gson:gson/src/test/java/com/google/gson/internal/ConstructorConstructorTest.java:CustomConcurrentMap",
+      "google/gson#project:google/gson:gson/src/test/java/com/google/gson/internal/JavaVersionTest.java:JavaVersionTest",
+      "google/gson#project:google/gson:gson/src/test/java/com/google/gson/internal/sql/SqlTypesGsonTest.java:testTimestampSerialization",
       "google/gson#project:google/gson:gson/src/test/java/com/google/gson/JsonArrayAsListTest.java:testSort",
-      "google/gson#project:google/gson:gson/src/test/java/com/google/gson/JsonArrayTest.java:JsonArrayTest",
-      "google/gson#project:google/gson:gson/src/test/java/com/google/gson/JsonObjectAsMapSuiteTest.java:create",
-      "google/gson#project:google/gson:gson/src/test/java/com/google/gson/JsonObjectAsMapTest.java:testContainsValue",
-      "google/gson#project:google/gson:gson/src/test/java/com/google/gson/JsonObjectAsMapTest.java:testValues",
       "google/gson#project:google/gson:gson/src/test/java/com/google/gson/JsonObjectTest.java:testAddingNullOrEmptyPropertyName",
-      "google/gson#project:google/gson:gson/src/test/java/com/google/gson/JsonObjectTest.java:testPropertyWithQuotes",
-      "google/gson#project:google/gson:gson/src/test/java/com/google/gson/JsonParserTest.java:testLegacyStrict",
-      "google/gson#project:google/gson:gson/src/test/java/com/google/gson/JsonPrimitiveTest.java:testEqualsAndHashCodeAcrossNumberTypes",
-      "google/gson#project:google/gson:gson/src/test/java/com/google/gson/JsonStreamParserTest.java:testCallingNextBeyondAvailableInput",
       "google/gson#project:google/gson:gson/src/test/java/com/google/gson/metrics/PerformanceTest.java:testByteArrayDeserialization",
-      "google/gson#project:google/gson:gson/src/test/java/com/google/gson/metrics/PerformanceTest.java:testLargeCollectionDeserialization",
-      "google/gson#project:google/gson:gson/src/test/java/com/google/gson/ObjectTypeAdapterParameterizedTest.java:testReadWrite",
-      "google/gson#project:google/gson:gson/src/test/java/com/google/gson/ParameterizedTypeFixtures.java:MyParameterizedTypeInstanceCreator",
-      "google/gson#project:google/gson:gson/src/test/java/com/google/gson/PrimitiveTypeAdapter.java:adaptType",
       "google/gson#project:google/gson:gson/src/test/java/com/google/gson/reflect/TypeTokenTest.java:GenericWithBound",
-      "google/gson#project:google/gson:gson/src/test/java/com/google/gson/reflect/TypeTokenTest.java:testIsAssignableFromWithNestedWildcards",
-      "google/gson#project:google/gson:gson/src/test/java/com/google/gson/reflect/TypeTokenTest.java:testParameterizedFactory",
-      "google/gson#project:google/gson:gson/src/test/java/com/google/gson/reflect/TypeTokenTest.java:testTypeTokenTypeVariable",
-      "google/gson#project:google/gson:gson/src/test/java/com/google/gson/stream/JsonReaderPathTest.java:promoteNameToValueUpdatesPath_unquotedNumber",
       "google/gson#project:google/gson:gson/src/test/java/com/google/gson/stream/JsonReaderTest.java:testDoubles",
-      "google/gson#project:google/gson:gson/src/test/java/com/google/gson/stream/JsonReaderTest.java:testMalformedNumbers",
-      "google/gson#project:google/gson:gson/src/test/java/com/google/gson/stream/JsonReaderTest.java:testNextIntNumberFormatExceptionContainsLocation",
-      "google/gson#project:google/gson:gson/src/test/java/com/google/gson/stream/JsonReaderTest.java:testPeekLargerThanLongMaxValue",
-      "google/gson#project:google/gson:gson/src/test/java/com/google/gson/stream/JsonReaderTest.java:testReaderDoesNotTreatU2028U2029AsNewline",
       "google/gson#project:google/gson:gson/src/test/java/com/google/gson/stream/JsonReaderTest.java:testStringEndingInSlash",
-      "google/gson#project:google/gson:gson/src/test/java/com/google/gson/stream/JsonWriterTest.java:testIndentOverwritesFormattingStyle",
-      "google/gson#project:google/gson:gson/src/test/java/com/google/gson/stream/JsonWriterTest.java:testRepeatedName",
-      "google/gson#project:google/gson:gson/src/test/java/com/google/gson/SubsetTest.java:SubsetTest",
-      "google/gson#project:google/gson:gson/src/test/java/com/google/gson/TypeAdapterTest.java:testToJson_ThrowingIOException",
       "google/gson#project:google/gson:metrics/src/main/java/com/google/gson/metrics/BagOfPrimitivesDeserializationBenchmark.java:BagOfPrimitivesDeserializationBenchmark",
-      "google/gson#project:google/gson:metrics/src/main/java/com/google/gson/metrics/BagOfPrimitivesDeserializationBenchmark.java:timeBagOfPrimitivesStreaming",
-      "google/gson#project:google/gson:metrics/src/main/java/com/google/gson/metrics/CollectionsDeserializationBenchmark.java:timeCollectionsReflectionStreaming",
-      "google/gson#project:google/gson:metrics/src/main/java/com/google/gson/metrics/ParseBenchmark.java:ParseBenchmark",
-      "google/gson#project:google/gson:proto/src/main/java/com/google/gson/protobuf/LegacyProtoTypeAdapterFactory.java:read",
-      "google/gson#project:google/gson:proto/src/main/java/com/google/gson/protobuf/LegacyProtoTypeAdapterFactory.java:write",
-      "google/gson#project:google/gson:proto/src/main/java/com/google/gson/protobuf/LegacyProtoTypeAdapterFactory.java:writeMessageField",
-      "google/gson#project:google/gson:proto/src/main/java/com/google/gson/protobuf/ProtoTypeAdapter.java:addSerializedNameExtension",
-      "google/gson#project:google/gson:proto/src/main/java/com/google/gson/protobuf/ProtoTypeAdapter.java:getCachedMethod",
-      "google/gson#project:google/gson:proto/src/main/java/com/google/gson/protobuf/ProtoTypeAdapter.java:getEnumValue",
-      "google/gson#project:google/gson:proto/src/main/java/com/google/gson/protobuf/ProtoTypeAdapter.java:serialize",
-      "google/gson#project:google/gson:proto/src/main/java/com/google/gson/protobuf/StructTypeAdapter.java:fromStruct",
-      "google/gson#project:google/gson:proto/src/test/java/com/google/gson/protobuf/functional/LegacyProtoTypeAdapterFactoryTest.java:legacyCompat_canOnlyDeserializeStringOneof",
-      "google/gson#project:google/gson:proto/src/test/java/com/google/gson/protobuf/functional/LegacyProtoTypeAdapterFactoryTest.java:legacyCompatToRtaf",
-      "google/gson#project:google/gson:proto/src/test/java/com/google/gson/protobuf/functional/LegacyProtoTypeAdapterFactoryTest.java:rewriteJsonObject",
-      "google/gson#project:google/gson:proto/src/test/java/com/google/gson/protobuf/functional/LegacyProtoTypeAdapterFactoryTest.java:rtafToLegacyCompatWithTargetTypeMessage",
-      "google/gson#project:google/gson:proto/src/test/java/com/google/gson/protobuf/functional/ProtosWithAnnotationsAndJsonNamesTest.java:testProtoWithAnnotationsAndJsonNames_fieldWithCustomSerializedName",
-      "google/gson#project:google/gson:proto/src/test/java/com/google/gson/protobuf/functional/ProtosWithAnnotationsAndJsonNamesTest.java:testProtoWithAnnotationsAndJsonNames_unannotatedField",
-      "google/gson#project:google/gson:proto/src/test/java/com/google/gson/protobuf/functional/ProtosWithComplexAndRepeatedFieldsTest.java:ProtosWithComplexAndRepeatedFieldsTest",
-      "google/gson#project:google/gson:test-graal-native-image/src/test/java/com/google/gson/native_test/ReflectionTest.java:ClassWithoutDefaultConstructor",
-      "google/gson#project:google/gson:test-jpms/src/test/java/com/google/gson/jpms_test/ExportedPackagesTest.java:testAnnotationsPackage",
-      "google/gson#project:google/gson:test-jpms/src/test/java/com/google/gson/jpms_test/ExportedPackagesTest.java:testReflectionInternalField",
-      "google/gson#project:google/gson:test-jpms/src/test/java/com/google/gson/jpms_test/ModuleTest.java:ModuleTest",
-      "google/gson#project:google/gson:test-jpms/src/test/java/com/google/gson/jpms_test/ReflectionInaccessibleTest.java:ReflectionInaccessibleTest",
-      "google/gson#project:google/gson:test-shrinker/src/main/java/com/example/ClassWithJsonAdapterAnnotation.java:ClassWithJsonAdapterAnnotation",
-      "google/gson#project:google/gson:test-shrinker/src/main/java/com/example/ClassWithNoArgsConstructor.java:ClassWithNoArgsConstructor",
-      "google/gson#project:google/gson:test-shrinker/src/main/java/com/example/ClassWithVersionAnnotations.java:ClassWithVersionAnnotations",
-      "google/gson#project:google/gson:test-shrinker/src/main/java/com/example/Main.java:runTests",
-      "google/gson#project:google/gson:test-shrinker/src/main/java/com/example/Main.java:testUnreferencedConstructorNoArgs",
-      "google/gson#project:google/gson:test-shrinker/src/main/java/com/example/NoSerializedNameMain.java:runTestHasArgsConstructor",
-      "google/gson#project:google/gson:test-shrinker/src/main/java/com/example/NoSerializedNameMain.java:TestClassHasArgsConstructor",
-      "google/gson#project:google/gson:test-shrinker/src/main/java/com/example/TestExecutor.java:run",
-      "google/gson#project:google/gson:test-shrinker/src/test/java/com/google/gson/it/ShrinkingIT.java:isTestingProGuard",
-      "google/gson#project:google/gson:test-shrinker/src/test/java/com/google/gson/it/ShrinkingIT.java:test",
-      "google/gson#project:google/gson:test-shrinker/src/test/java/com/google/gson/it/ShrinkingIT.java:testNoSerializedName_NoArgsConstructorNoJdkUnsafe",
-      "pallets/flask#project:pallets/flask:examples/tutorial/flaskr/auth.py:logout",
-      "pallets/flask#project:pallets/flask:examples/tutorial/flaskr/blog.py:delete",
+      "google/gson#project:google/gson:proto/src/main/java/com/google/gson/protobuf/LegacyProtoTypeAdapterFactory.java:readOneofField",
+      "google/gson#project:google/gson:proto/src/main/java/com/google/gson/protobuf/ProtoTypeAdapter.java:ProtoTypeAdapter",
+      "google/gson#project:google/gson:proto/src/test/java/com/google/gson/protobuf/functional/LegacyProtoTypeAdapterFactoryTest.java:rtafToLegacyCompat",
+      "google/gson#project:google/gson:test-jpms/src/test/java/com/google/gson/jpms_test/ExportedPackagesTest.java:ExportedPackagesTest",
+      "google/gson#project:google/gson:test-shrinker/src/main/java/com/example/ClassWithJsonAdapterAnnotation.java:DummyClass",
+      "google/gson#project:google/gson:test-shrinker/src/main/java/com/example/NoSerializedNameMain.java:runTestNoJdkUnsafe",
+      "pallets/flask#project:pallets/flask:examples/tutorial/flaskr/__init__.py:create_app",
+      "pallets/flask#project:pallets/flask:examples/tutorial/flaskr/auth.py:register",
       "pallets/flask#project:pallets/flask:examples/tutorial/flaskr/blog.py:update",
-      "pallets/flask#project:pallets/flask:examples/tutorial/flaskr/db.py:init_app",
-      "pallets/flask#project:pallets/flask:examples/tutorial/tests/test_auth.py:test_register",
-      "pallets/flask#project:pallets/flask:src/flask/app.py:__call__",
-      "pallets/flask#project:pallets/flask:src/flask/app.py:add_ctx",
-      "pallets/flask#project:pallets/flask:src/flask/app.py:create_jinja_environment",
-      "pallets/flask#project:pallets/flask:src/flask/app.py:finalize_request",
-      "pallets/flask#project:pallets/flask:src/flask/app.py:get_send_file_max_age",
-      "pallets/flask#project:pallets/flask:src/flask/app.py:handle_user_exception",
-      "pallets/flask#project:pallets/flask:src/flask/app.py:make_response",
-      "pallets/flask#project:pallets/flask:src/flask/app.py:open_resource",
-      "pallets/flask#project:pallets/flask:src/flask/app.py:raise_routing_exception",
+      "pallets/flask#project:pallets/flask:examples/tutorial/flaskr/db.py:init_db_command",
+      "pallets/flask#project:pallets/flask:src/flask/app.py:app_context",
+      "pallets/flask#project:pallets/flask:src/flask/app.py:full_dispatch_request",
+      "pallets/flask#project:pallets/flask:src/flask/app.py:make_default_options_response",
+      "pallets/flask#project:pallets/flask:src/flask/app.py:preprocess_request",
       "pallets/flask#project:pallets/flask:src/flask/app.py:run",
-      "pallets/flask#project:pallets/flask:src/flask/app.py:test_client",
-      "pallets/flask#project:pallets/flask:src/flask/app.py:url_for",
-      "pallets/flask#project:pallets/flask:src/flask/blueprints.py:open_resource",
-      "pallets/flask#project:pallets/flask:src/flask/cli.py:_called_with_wrong_args",
-      "pallets/flask#project:pallets/flask:src/flask/cli.py:_validate_key",
+      "pallets/flask#project:pallets/flask:src/flask/app.py:update_template_context",
+      "pallets/flask#project:pallets/flask:src/flask/cli.py:__init__",
+      "pallets/flask#project:pallets/flask:src/flask/cli.py:AppGroup",
       "pallets/flask#project:pallets/flask:src/flask/cli.py:FlaskGroup",
       "pallets/flask#project:pallets/flask:src/flask/cli.py:NoAppException",
-      "pallets/flask#project:pallets/flask:src/flask/cli.py:routes_command",
-      "pallets/flask#project:pallets/flask:src/flask/cli.py:SeparatedPathType",
-      "pallets/flask#project:pallets/flask:src/flask/cli.py:with_appcontext",
-      "pallets/flask#project:pallets/flask:src/flask/config.py:ConfigAttribute",
+      "pallets/flask#project:pallets/flask:src/flask/cli.py:ScriptInfo",
       "pallets/flask#project:pallets/flask:src/flask/config.py:from_mapping",
-      "pallets/flask#project:pallets/flask:src/flask/config.py:from_pyfile",
       "pallets/flask#project:pallets/flask:src/flask/ctx.py:_AppCtxGlobals",
-      "pallets/flask#project:pallets/flask:src/flask/ctx.py:AppContext",
-      "pallets/flask#project:pallets/flask:src/flask/ctx.py:from_environ",
-      "pallets/flask#project:pallets/flask:src/flask/ctx.py:pop",
+      "pallets/flask#project:pallets/flask:src/flask/ctx.py:has_request_context",
       "pallets/flask#project:pallets/flask:src/flask/ctx.py:wrapper",
-      "pallets/flask#project:pallets/flask:src/flask/debughelpers.py:DebugFilesKeyError",
       "pallets/flask#project:pallets/flask:src/flask/debughelpers.py:UnexpectedUnicodeError",
-      "pallets/flask#project:pallets/flask:src/flask/helpers.py:_CollectErrors",
-      "pallets/flask#project:pallets/flask:src/flask/helpers.py:get_debug_flag",
-      "pallets/flask#project:pallets/flask:src/flask/helpers.py:get_root_path",
-      "pallets/flask#project:pallets/flask:src/flask/helpers.py:raise_any",
+      "pallets/flask#project:pallets/flask:src/flask/helpers.py:flash",
+      "pallets/flask#project:pallets/flask:src/flask/helpers.py:get_template_attribute",
       "pallets/flask#project:pallets/flask:src/flask/helpers.py:send_from_directory",
-      "pallets/flask#project:pallets/flask:src/flask/json/__init__.py:dumps",
       "pallets/flask#project:pallets/flask:src/flask/json/__init__.py:loads",
-      "pallets/flask#project:pallets/flask:src/flask/json/provider.py:dump",
-      "pallets/flask#project:pallets/flask:src/flask/json/provider.py:load",
-      "pallets/flask#project:pallets/flask:src/flask/json/tag.py:__init__",
-      "pallets/flask#project:pallets/flask:src/flask/json/tag.py:tag",
-      "pallets/flask#project:pallets/flask:src/flask/json/tag.py:TagMarkup",
-      "pallets/flask#project:pallets/flask:src/flask/logging.py:wsgi_errors_stream",
-      "pallets/flask#project:pallets/flask:src/flask/sansio/app.py:add_template_filter",
-      "pallets/flask#project:pallets/flask:src/flask/sansio/app.py:debug",
-      "pallets/flask#project:pallets/flask:src/flask/sansio/app.py:iter_blueprints",
-      "pallets/flask#project:pallets/flask:src/flask/sansio/app.py:make_aborter",
+      "pallets/flask#project:pallets/flask:src/flask/json/tag.py:check",
+      "pallets/flask#project:pallets/flask:src/flask/json/tag.py:TagDict",
+      "pallets/flask#project:pallets/flask:src/flask/json/tag.py:untag",
+      "pallets/flask#project:pallets/flask:src/flask/sansio/app.py:_find_error_handler",
+      "pallets/flask#project:pallets/flask:src/flask/sansio/app.py:auto_find_instance_path",
+      "pallets/flask#project:pallets/flask:src/flask/sansio/app.py:jinja_env",
       "pallets/flask#project:pallets/flask:src/flask/sansio/app.py:redirect",
-      "pallets/flask#project:pallets/flask:src/flask/sansio/app.py:shell_context_processor",
-      "pallets/flask#project:pallets/flask:src/flask/sansio/blueprints.py:__init__",
-      "pallets/flask#project:pallets/flask:src/flask/sansio/blueprints.py:add_app_template_test",
-      "pallets/flask#project:pallets/flask:src/flask/sansio/blueprints.py:app_context_processor",
-      "pallets/flask#project:pallets/flask:src/flask/sansio/blueprints.py:app_url_value_preprocessor",
-      "pallets/flask#project:pallets/flask:src/flask/sansio/blueprints.py:BlueprintSetupState",
+      "pallets/flask#project:pallets/flask:src/flask/sansio/blueprints.py:add_url_rule",
+      "pallets/flask#project:pallets/flask:src/flask/sansio/blueprints.py:before_app_request",
       "pallets/flask#project:pallets/flask:src/flask/sansio/blueprints.py:record_once",
-      "pallets/flask#project:pallets/flask:src/flask/sansio/blueprints.py:register_template_filter",
-      "pallets/flask#project:pallets/flask:src/flask/sansio/blueprints.py:teardown_app_request",
-      "pallets/flask#project:pallets/flask:src/flask/sansio/scaffold.py:_endpoint_from_view_func",
-      "pallets/flask#project:pallets/flask:src/flask/sansio/scaffold.py:add_url_rule",
-      "pallets/flask#project:pallets/flask:src/flask/sansio/scaffold.py:context_processor",
+      "pallets/flask#project:pallets/flask:src/flask/sansio/blueprints.py:register_template_test",
+      "pallets/flask#project:pallets/flask:src/flask/sansio/scaffold.py:_get_exc_class_and_code",
+      "pallets/flask#project:pallets/flask:src/flask/sansio/scaffold.py:decorator",
       "pallets/flask#project:pallets/flask:src/flask/sansio/scaffold.py:has_static_folder",
-      "pallets/flask#project:pallets/flask:src/flask/sansio/scaffold.py:register_error_handler",
-      "pallets/flask#project:pallets/flask:src/flask/sessions.py:_fail",
-      "pallets/flask#project:pallets/flask:src/flask/sessions.py:get_cookie_httponly",
-      "pallets/flask#project:pallets/flask:src/flask/sessions.py:get_cookie_path",
+      "pallets/flask#project:pallets/flask:src/flask/sansio/scaffold.py:url_value_preprocessor",
+      "pallets/flask#project:pallets/flask:src/flask/sessions.py:get_cookie_name",
       "pallets/flask#project:pallets/flask:src/flask/sessions.py:get_expiration_time",
-      "pallets/flask#project:pallets/flask:src/flask/sessions.py:make_null_session",
-      "pallets/flask#project:pallets/flask:src/flask/sessions.py:SecureCookieSessionInterface",
-      "pallets/flask#project:pallets/flask:src/flask/sessions.py:should_set_cookie",
-      "pallets/flask#project:pallets/flask:src/flask/templating.py:DispatchingJinjaLoader",
-      "pallets/flask#project:pallets/flask:src/flask/templating.py:render_template_string",
+      "pallets/flask#project:pallets/flask:src/flask/sessions.py:open_session",
+      "pallets/flask#project:pallets/flask:src/flask/sessions.py:SessionMixin",
+      "pallets/flask#project:pallets/flask:src/flask/templating.py:Environment",
       "pallets/flask#project:pallets/flask:src/flask/testing.py:__init__",
-      "pallets/flask#project:pallets/flask:src/flask/testing.py:session_transaction",
-      "pallets/flask#project:pallets/flask:src/flask/views.py:MethodView",
-      "pallets/flask#project:pallets/flask:src/flask/wrappers.py:blueprint",
-      "pallets/flask#project:pallets/flask:src/flask/wrappers.py:max_content_length",
-      "pallets/flask#project:pallets/flask:src/flask/wrappers.py:max_form_parts",
+      "pallets/flask#project:pallets/flask:src/flask/testing.py:json_dumps",
+      "pallets/flask#project:pallets/flask:src/flask/wrappers.py:_load_form_data",
+      "pallets/flask#project:pallets/flask:src/flask/wrappers.py:max_cookie_size",
       "pallets/flask#project:pallets/flask:tests/conftest.py:_standard_os_environ",
-      "pallets/flask#project:pallets/flask:tests/conftest.py:test_apps",
       "pallets/flask#project:pallets/flask:tests/test_basic.py:run_simple_mock",
-      "pallets/flask#project:pallets/flask:tests/test_basic.py:test_app_freed_on_zero_refcount",
-      "pallets/flask#project:pallets/flask:tests/test_basic.py:test_extended_flashing",
-      "pallets/flask#project:pallets/flask:tests/test_basic.py:test_provide_automatic_options_attr_disable",
-      "pallets/flask#project:pallets/flask:tests/test_basic.py:test_run_defaults",
+      "pallets/flask#project:pallets/flask:tests/test_basic.py:test_build_error_handler_reraise",
+      "pallets/flask#project:pallets/flask:tests/test_basic.py:test_provide_automatic_options_attr_enable",
       "pallets/flask#project:pallets/flask:tests/test_basic.py:test_werkzeug_passthrough_errors",
-      "pallets/flask#project:pallets/flask:tests/test_blueprints.py:test_templates_and_static",
-      "pallets/flask#project:pallets/flask:tests/test_cli.py:test_cli_name",
-      "pallets/flask#project:pallets/flask:tests/test_cli.py:test_prepare_import",
-      "pallets/flask#project:pallets/flask:tests/test_helpers.py:__init__",
-      "pallets/flask#project:pallets/flask:tests/test_helpers.py:TestNoImports",
+      "pallets/flask#project:pallets/flask:tests/test_cli.py:test_locate_app_suppress_raise",
+      "pallets/flask#project:pallets/flask:tests/test_helpers.py:FakePath",
       "pallets/flask#project:pallets/flask:tests/test_json.py:__init__",
-      "pallets/flask#project:pallets/flask:tests/test_json.py:test_jsonify_aware_datetimes",
       "pallets/flask#project:pallets/flask:tests/test_json.py:X",
-      "pallets/flask#project:pallets/flask:tests/test_request.py:test_limit_config",
-      "pallets/flask#project:pallets/flask:tests/test_templating.py:test_templates_auto_reload",
-      "pallets/flask#project:pallets/flask:tests/test_user_error_handler.py:test_handle_class_or_code",
-      "pallets/flask#project:pallets/flask:tests/test_user_error_handler.py:TestGenericHandlers",
-      "pallets/flask#project:pallets/flask:tests/test_views.py:test_view_provide_automatic_options_attr_enable",
+      "pallets/flask#project:pallets/flask:tests/test_session_interface.py:test_open_session_with_endpoint",
+      "pallets/flask#project:pallets/flask:tests/test_user_error_handler.py:test_handle_generic",
+      "sindresorhus/got#project:sindresorhus/got:source/core/errors.ts:AbortError",
       "sindresorhus/got#project:sindresorhus/got:source/core/errors.ts:HTTPError",
+      "sindresorhus/got#project:sindresorhus/got:source/core/errors.ts:MaxRedirectsError",
+      "sindresorhus/got#project:sindresorhus/got:source/core/errors.ts:ReadError",
       "sindresorhus/got#project:sindresorhus/got:source/core/errors.ts:RequestError",
+      "sindresorhus/got#project:sindresorhus/got:source/core/errors.ts:RetryError",
+      "sindresorhus/got#project:sindresorhus/got:source/core/errors.ts:SchemaValidationError",
       "sindresorhus/got#project:sindresorhus/got:source/core/errors.ts:TimeoutError",
+      "sindresorhus/got#project:sindresorhus/got:source/core/errors.ts:UploadError",
+      "sindresorhus/got#project:sindresorhus/got:source/core/index.ts:downloadProgress",
       "sindresorhus/got#project:sindresorhus/got:source/core/index.ts:isAborted",
+      "sindresorhus/got#project:sindresorhus/got:source/core/index.ts:isFromCache",
+      "sindresorhus/got#project:sindresorhus/got:source/core/index.ts:isReadonly",
       "sindresorhus/got#project:sindresorhus/got:source/core/index.ts:timings",
-      "sindresorhus/got#project:sindresorhus/got:source/core/options.ts:allowAbsoluteUrls",
+      "sindresorhus/got#project:sindresorhus/got:source/core/index.ts:uploadProgress",
+      "sindresorhus/got#project:sindresorhus/got:source/core/options.ts:agent",
+      "sindresorhus/got#project:sindresorhus/got:source/core/options.ts:allowGetBody",
+      "sindresorhus/got#project:sindresorhus/got:source/core/options.ts:assertAny",
       "sindresorhus/got#project:sindresorhus/got:source/core/options.ts:assertPlainObject",
+      "sindresorhus/got#project:sindresorhus/got:source/core/options.ts:body",
+      "sindresorhus/got#project:sindresorhus/got:source/core/options.ts:cache",
       "sindresorhus/got#project:sindresorhus/got:source/core/options.ts:cacheOptions",
+      "sindresorhus/got#project:sindresorhus/got:source/core/options.ts:context",
+      "sindresorhus/got#project:sindresorhus/got:source/core/options.ts:cookieJar",
+      "sindresorhus/got#project:sindresorhus/got:source/core/options.ts:createConnection",
+      "sindresorhus/got#project:sindresorhus/got:source/core/options.ts:decompress",
       "sindresorhus/got#project:sindresorhus/got:source/core/options.ts:dnsCache",
+      "sindresorhus/got#project:sindresorhus/got:source/core/options.ts:dnsLookupIpVersion",
+      "sindresorhus/got#project:sindresorhus/got:source/core/options.ts:encoding",
       "sindresorhus/got#project:sindresorhus/got:source/core/options.ts:followRedirect",
-      "sindresorhus/got#project:sindresorhus/got:source/core/options.ts:http2",
+      "sindresorhus/got#project:sindresorhus/got:source/core/options.ts:form",
+      "sindresorhus/got#project:sindresorhus/got:source/core/options.ts:hooks",
+      "sindresorhus/got#project:sindresorhus/got:source/core/options.ts:https",
+      "sindresorhus/got#project:sindresorhus/got:source/core/options.ts:ignoreInvalidCookies",
       "sindresorhus/got#project:sindresorhus/got:source/core/options.ts:isStream",
+      "sindresorhus/got#project:sindresorhus/got:source/core/options.ts:json",
+      "sindresorhus/got#project:sindresorhus/got:source/core/options.ts:localAddress",
       "sindresorhus/got#project:sindresorhus/got:source/core/options.ts:maxRedirects",
+      "sindresorhus/got#project:sindresorhus/got:source/core/options.ts:mergeNextRequestOptions",
+      "sindresorhus/got#project:sindresorhus/got:source/core/options.ts:method",
       "sindresorhus/got#project:sindresorhus/got:source/core/options.ts:methodRewriting",
+      "sindresorhus/got#project:sindresorhus/got:source/core/options.ts:parseJson",
+      "sindresorhus/got#project:sindresorhus/got:source/core/options.ts:request",
       "sindresorhus/got#project:sindresorhus/got:source/core/options.ts:resolveBodyOnly",
+      "sindresorhus/got#project:sindresorhus/got:source/core/options.ts:responseType",
+      "sindresorhus/got#project:sindresorhus/got:source/core/options.ts:retry",
       "sindresorhus/got#project:sindresorhus/got:source/core/options.ts:safeObjectAssign",
-      "sindresorhus/got#project:sindresorhus/got:source/core/options.ts:strictContentLength",
+      "sindresorhus/got#project:sindresorhus/got:source/core/options.ts:searchParams",
+      "sindresorhus/got#project:sindresorhus/got:source/core/options.ts:signal",
+      "sindresorhus/got#project:sindresorhus/got:source/core/options.ts:stringifyJson",
+      "sindresorhus/got#project:sindresorhus/got:source/core/options.ts:stripSensitiveHeaders",
       "sindresorhus/got#project:sindresorhus/got:source/core/options.ts:throwHttpErrors",
+      "sindresorhus/got#project:sindresorhus/got:source/core/options.ts:timeout",
+      "sindresorhus/got#project:sindresorhus/got:source/core/options.ts:wrapAssertionWithContext",
       "sindresorhus/got#project:sindresorhus/got:source/core/response.ts:copyRedirectDecision",
-      "sindresorhus/got#project:sindresorhus/got:test/helpers/once-value.ts:onceValue"
+      "sindresorhus/got#project:sindresorhus/got:source/core/response.ts:ParseError",
+      "sindresorhus/got#project:sindresorhus/got:test/diagnostics-channel.ts:captureAllDiagnostics",
+      "sindresorhus/got#project:sindresorhus/got:test/helpers/closed.ts:closed",
+      "sindresorhus/got#project:sindresorhus/got:test/helpers/error-matching.ts:errorMatching",
+      "sindresorhus/got#project:sindresorhus/got:test/helpers/once-value.ts:onceValue",
+      "sindresorhus/got#project:sindresorhus/got:test/helpers/rejects.ts:rejects"
     ],
-    "verbatim": "1,1,1,1,2,1,1,1,1,1,8,1,1,1,1,1,1,1,2,1,2,2,1,1,1,1,1,1,1,1,1,1,1,2,1,1,1,1,2,1,1,1,1,1,1,2,1,1,1,1,1,1,1,1,3,1,1,1,1,1,1,1,2,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,2,1,1,2,1,1,1,1,1,1,9,6,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,2,2,1,1,4,1,1,1,1,1,1,1,1,1,1,7,1,1,1,1,1,1,1,1,1,1,1,1,1,3,1,2,1,2,1,1,1,1,1,1,1,1,2,1,1,2,1,1,1,1,1,1,1,1,1,1,3,1,1,1,3,1,2,1,1,1,1,1,1,1,2,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,4,2,1,1,1,1,1,1,2,2,3,1,1,1,1,1,1,1,2,3,1,1,1,1,1,1,1,2,1,1,1,1,1,1,3,1,1,2,1,1,1,1,3,1,1,2,2,1,1,1,1,1,1,1,1,1,1,1,1,1,3,8,3,1,1,1,1,1,1,1,2,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,2,1,1,1,1,1,1,1,1,2,1,1,1,1,1,1,1,1,1,1,1,5,1,1,1,1,1,1,1,1,1,1,1,1,1,4,1,1,1,1,1,1,3,1,1,1,1,2,1,1,1,1,1,1,1,2,1,-,4,3,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,2,1,1,-,-,1,1,1,1,1,1,1,2,1,1,3,1,1,7,1,1,1,1,2,1,1,1,2,1,1,1,1,1,1,1,1,1,1,1,3,1,3,1,2,1,1,1,1,1,1,1,3,2,1,1,1,2,2,2,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1",
-    "verbatimScoped": "1,1,1,1,2,1,1,1,1,1,3,1,1,1,1,1,1,1,2,1,2,2,1,1,1,1,1,1,1,1,1,1,1,2,1,1,1,1,2,1,1,1,1,1,1,2,1,1,1,1,1,1,1,1,2,1,1,1,1,1,1,1,2,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,2,1,1,2,1,1,1,1,1,1,9,6,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,2,2,1,1,4,1,1,1,1,1,1,1,1,1,1,7,1,1,1,1,1,1,1,1,1,1,1,1,1,3,1,2,1,2,1,1,1,1,1,1,1,1,2,1,1,2,1,1,1,1,1,1,1,1,1,1,3,1,1,1,3,1,2,1,1,1,1,1,1,1,2,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,4,2,1,1,1,1,1,1,2,2,3,1,1,1,1,1,1,1,2,3,1,1,1,1,1,1,1,2,1,1,1,1,1,1,3,1,1,2,1,1,1,1,3,1,1,2,2,1,1,1,1,1,1,1,1,1,1,1,1,1,3,8,3,1,1,1,1,1,1,1,2,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,2,1,1,1,1,1,1,1,1,2,1,1,1,1,1,1,1,1,1,1,1,5,1,1,1,1,1,1,1,1,1,1,1,1,1,4,1,1,1,1,1,1,3,1,1,1,1,2,1,1,1,1,1,1,1,2,1,6,2,3,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,2,1,1,6,6,1,1,1,1,1,1,1,2,1,1,1,1,1,7,1,1,1,1,2,1,1,1,2,1,1,1,1,1,1,1,1,1,1,1,3,1,1,1,1,1,1,1,1,1,1,1,3,2,1,1,1,2,2,2,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1",
-    "paraphrase": "3,1,1,-,5,1,3,-,8,-,-,1,1,1,1,-,1,1,-,2,6,5,-,1,1,-,1,1,3,3,-,3,-,3,2,1,1,-,2,1,-,1,-,1,-,2,-,-,1,1,1,2,1,3,2,1,1,1,10,2,2,9,-,-,1,1,3,2,3,2,5,1,1,1,1,1,2,1,2,1,1,-,1,1,1,1,1,1,-,1,1,-,-,-,-,1,2,2,1,-,1,-,-,10,1,1,-,1,1,2,1,1,-,1,3,1,2,4,2,1,-,1,-,1,1,10,1,1,1,1,-,-,-,-,-,1,-,-,1,-,1,1,1,3,1,1,2,1,2,4,-,-,4,1,-,1,1,1,1,1,-,2,-,1,1,-,1,2,-,1,1,1,1,1,1,2,1,1,3,1,1,1,-,1,-,1,1,-,1,1,1,4,2,-,1,-,1,1,1,1,-,4,-,1,1,1,1,2,-,6,3,2,-,1,1,-,1,-,2,1,1,1,1,1,1,3,1,1,2,-,1,1,1,-,1,1,2,1,1,1,1,1,1,2,2,1,1,1,2,1,1,1,2,8,2,1,1,-,-,1,1,8,1,2,1,-,6,9,-,3,1,1,-,1,1,2,1,-,4,1,4,1,2,1,1,1,1,3,2,1,4,-,4,1,2,1,3,1,1,1,1,-,-,4,-,1,1,1,1,-,1,1,1,1,1,-,1,2,1,2,-,3,-,-,2,-,3,-,1,1,1,1,6,2,1,2,1,1,1,-,1,-,6,2,1,8,2,-,1,1,1,1,1,-,1,-,1,2,6,1,2,1,1,1,1,1,9,1,1,1,4,-,-,1,1,1,1,1,1,2,-,1,1,-,7,1,4,2,1,-,1,3,2,1,3,-,2,1,2,4,1,2,1,1,4,1,1,-,1,-,7,10,1,1,1,1,2,1,2,-,3,1,1,1,2,2,2,1,1,1,1,1,1,1,2,1,2,-,-,1,1,1,1,1,-,1,1,-,1,1,1,1,1,1",
-    "paraphraseScoped": "1,1,1,3,2,1,1,1,3,6,2,1,1,1,1,2,1,1,-,1,5,4,-,1,1,-,1,1,3,2,-,3,-,3,2,1,1,-,2,1,-,1,5,1,-,2,6,-,1,1,1,2,1,3,2,1,1,1,10,2,2,9,-,-,1,1,2,2,2,2,5,1,1,1,1,1,2,1,2,1,1,-,1,1,1,1,1,1,-,1,1,-,-,-,-,1,2,2,1,-,1,-,-,10,1,1,-,1,1,2,1,1,-,1,3,1,1,4,2,1,-,1,-,1,1,10,1,1,1,1,-,8,-,-,-,1,-,-,1,-,1,1,1,3,1,1,2,1,2,4,-,-,3,1,-,1,1,1,1,1,-,2,-,1,1,-,1,2,-,1,1,1,1,1,1,2,1,1,3,1,1,1,-,1,-,1,1,-,1,1,1,4,2,-,1,-,1,1,1,1,-,4,-,1,1,1,1,2,-,6,3,2,-,1,1,-,1,-,2,1,1,1,1,1,1,3,1,1,2,-,1,1,1,-,1,1,2,1,1,1,1,1,1,2,2,1,1,1,2,1,1,1,2,7,2,1,1,-,-,1,1,8,1,2,1,-,6,5,-,3,1,1,-,1,1,2,1,-,4,1,1,1,2,1,1,1,1,3,2,1,4,-,4,1,2,1,3,1,1,1,1,-,-,4,-,1,1,1,1,-,1,1,1,1,1,-,1,2,1,2,-,3,-,-,2,-,3,-,1,1,1,1,3,2,1,2,1,1,1,7,1,2,3,2,1,6,2,-,1,1,1,1,1,-,1,8,1,2,6,1,1,1,1,1,1,1,1,1,1,1,3,-,-,1,1,1,1,1,1,2,-,1,1,-,5,1,4,2,1,-,1,3,2,1,3,-,1,1,2,4,1,2,1,1,2,1,1,-,1,-,6,5,1,1,1,1,1,1,2,-,3,1,1,1,2,2,2,1,1,1,1,1,1,1,2,1,2,6,-,1,1,1,1,1,8,1,1,6,1,1,1,1,1,1",
-    "semanticParaphrase": "1,1,-,-,1,1,1,1,1,-,-,-,1,1,-,-,5,1,-,2,-,-,-,1,1,-,1,1,-,-,-,1,-,-,-,1,-,-,1,4,-,-,-,1,-,1,-,-,-,6,1,-,6,8,-,1,-,1,10,2,-,1,-,-,1,1,-,1,1,1,1,1,2,1,1,1,1,1,2,1,1,-,-,1,2,1,1,1,-,1,2,-,-,-,-,10,2,1,-,-,1,-,-,-,1,6,-,1,7,4,1,-,-,2,-,1,-,-,1,-,-,2,-,1,1,-,5,1,1,1,-,1,7,-,1,1,-,1,1,-,1,-,1,1,1,-,1,3,-,-,-,-,-,-,-,5,1,1,1,1,-,1,-,1,1,1,-,3,1,-,1,2,3,1,-,1,-,1,1,1,1,1,2,8,-,1,9,-,1,1,1,4,2,1,2,1,-,1,1,1,-,1,-,1,1,-,1,1,-,-,2,-,-,5,1,1,1,-,1,1,2,1,2,1,-,1,10,1,2,-,1,1,1,-,8,1,2,1,1,1,1,1,7,-,2,1,1,1,-,1,-,1,1,3,-,2,1,-,-,-,1,-,1,-,1,-,1,-,-,-,1,1,1,1,2,1,1,1,1,5,1,1,1,1,-,1,2,2,-,1,1,2,1,1,3,1,-,1,1,3,1,-,-,-,-,-,1,3,1,-,1,1,1,1,-,5,-,1,1,1,-,2,-,-,-,-,1,-,1,-,2,1,1,4,1,1,1,1,-,-,3,1,-,2,1,-,-,1,1,1,1,5,1,1,1,-,1,-,-,2,1,3,1,1,1,1,1,2,2,2,-,-,-,5,3,1,1,1,1,6,-,1,1,-,-,-,9,-,2,1,-,9,1,1,-,-,-,1,1,8,-,-,3,1,-,-,2,-,1,-,-,1,1,1,1,1,1,-,3,5,2,1,1,1,2,-,2,1,1,1,1,1,1,1,6,-,-,-,-,-,-,-,4,1,-,-,-,1,1,1,1,1,1,1",
-    "semanticParaphraseScoped": "1,1,-,-,1,1,1,1,1,-,-,-,1,1,-,-,1,1,-,2,-,-,-,1,1,-,1,1,-,-,-,1,-,-,-,1,-,-,1,4,-,-,-,1,-,1,-,-,-,6,1,-,6,9,-,1,-,1,10,2,-,1,-,-,1,1,-,1,1,1,1,1,1,1,1,1,1,1,2,1,1,-,-,1,2,1,1,1,-,1,2,-,-,-,-,10,2,1,-,-,1,-,-,-,1,6,-,1,8,4,1,-,-,3,-,1,1,-,1,-,-,2,-,1,1,-,5,1,1,1,-,1,4,-,1,1,-,1,1,-,1,-,1,1,1,-,1,3,-,-,-,-,-,-,-,6,1,1,1,1,-,1,-,1,1,1,-,3,1,-,1,2,1,1,-,1,-,1,1,1,1,1,2,9,-,1,9,-,1,1,1,4,2,1,2,1,-,1,1,1,-,1,-,1,1,-,1,1,-,-,2,-,-,1,1,1,1,-,1,1,2,1,2,1,-,1,10,1,2,-,1,1,1,-,9,1,2,1,1,1,1,1,8,-,2,1,1,1,-,1,-,1,1,2,-,2,1,-,-,-,1,-,1,-,1,-,1,-,-,-,1,1,1,1,2,1,1,1,1,3,1,1,1,1,-,1,2,2,-,1,1,2,1,1,3,1,-,1,1,3,1,-,-,-,-,-,1,4,1,-,1,1,1,1,-,4,-,1,1,1,-,2,-,-,-,-,1,-,1,-,2,1,1,2,1,1,1,1,-,-,3,1,-,2,1,-,-,1,1,1,1,5,1,1,1,-,1,-,-,3,1,3,1,1,1,1,1,2,2,2,-,-,-,2,1,1,1,2,1,9,-,1,1,-,-,-,-,-,2,1,-,9,1,1,-,-,-,1,1,7,-,-,2,1,4,-,2,-,2,-,-,1,1,1,1,1,1,-,3,5,2,1,1,1,2,-,2,1,1,1,1,1,1,1,5,-,-,-,-,-,-,-,4,2,-,-,-,1,1,1,1,1,1,1",
-    "semanticVerbatim": "1,1,1,1,1,1,1,1,1,1,2,1,1,1,1,1,1,2,2,1,2,2,3,1,1,1,1,1,1,1,1,1,1,2,1,1,2,1,2,1,1,1,1,1,3,2,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,4,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,2,1,1,2,1,1,1,1,1,1,9,7,3,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,2,1,1,1,1,1,1,1,1,1,1,1,1,1,7,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,2,1,2,1,1,1,1,1,1,1,1,2,1,1,1,1,1,1,1,1,1,1,1,1,1,3,1,1,1,3,1,2,1,1,1,1,1,1,1,2,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,4,2,1,1,4,1,1,1,2,2,3,1,1,1,1,1,1,1,2,3,1,1,1,1,1,1,1,2,1,1,1,1,1,1,3,1,1,2,1,1,1,1,1,1,1,2,2,1,1,1,2,1,1,1,1,1,1,1,1,1,3,-,3,1,1,1,1,1,1,1,2,1,1,1,1,1,2,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,2,1,1,1,1,1,1,1,1,2,1,1,1,1,1,1,1,1,1,1,1,5,1,1,1,1,1,1,1,1,1,1,1,1,1,3,1,1,1,1,1,1,3,1,1,1,1,2,1,1,1,1,1,1,1,2,1,2,1,3,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,2,1,1,6,-,1,1,1,1,1,1,1,2,1,1,3,1,2,3,1,1,1,1,2,1,1,1,2,1,1,1,1,1,1,1,1,1,1,1,2,1,1,1,1,1,1,1,1,1,1,1,3,2,1,1,1,2,2,2,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1",
-    "candidate": "1,1,1,-,1,1,1,1,1,-,-,2,1,1,1,-,1,1,-,1,6,5,-,1,1,-,1,1,3,3,-,1,-,3,3,1,2,-,1,2,-,1,-,1,-,1,-,-,1,2,1,2,6,3,2,1,5,1,10,5,4,2,-,-,1,1,3,1,1,1,1,1,1,1,1,1,1,1,2,1,1,-,1,1,2,1,1,1,-,1,1,-,-,-,-,10,2,1,-,-,1,-,-,10,1,2,-,1,3,2,1,2,-,1,3,1,2,4,2,1,-,2,-,1,1,10,3,1,1,1,-,1,6,-,2,1,-,6,1,-,1,2,1,1,1,1,1,1,6,4,-,-,4,5,-,1,1,1,1,1,-,1,-,2,1,-,2,2,-,2,1,2,1,1,1,1,4,1,1,1,1,1,2,1,-,1,5,-,1,1,1,4,2,1,1,1,4,1,1,1,-,1,-,1,1,1,1,1,-,-,2,2,-,1,1,-,1,-,1,1,1,1,1,1,1,1,6,1,2,-,1,1,1,-,1,1,2,1,1,1,1,1,4,5,2,1,1,1,4,1,1,1,1,3,9,2,1,-,-,1,1,-,1,7,1,-,1,9,-,3,1,1,1,1,1,1,1,1,1,2,1,1,1,1,2,1,1,1,2,1,1,3,1,1,2,1,3,1,1,1,1,-,-,6,-,3,1,1,1,-,1,1,1,1,4,-,1,1,1,1,-,2,-,-,-,-,2,-,1,1,1,1,1,2,1,1,1,1,2,-,3,1,6,2,1,8,3,7,1,1,1,3,1,-,1,-,1,2,6,1,1,2,1,1,1,1,1,1,2,1,4,-,-,1,1,1,1,1,1,2,-,1,1,-,7,2,5,2,1,1,1,5,1,1,3,-,4,1,1,4,1,2,1,1,4,1,1,-,1,-,8,1,1,1,1,1,1,2,2,5,2,1,1,1,2,2,2,1,1,1,1,1,1,1,2,3,3,-,-,1,1,1,1,3,-,1,1,1,1,1,1,1,1,1",
-    "candidateVerbatim": "1,1,1,1,1,1,1,1,1,1,2,1,1,1,1,1,1,9,3,1,2,2,-,1,1,1,1,1,1,1,1,1,1,2,1,1,5,1,1,1,1,1,1,1,3,2,1,1,1,1,1,1,1,2,1,1,1,1,1,1,1,1,4,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,2,1,1,2,1,1,1,1,1,1,9,7,5,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,2,1,1,1,1,1,1,1,1,1,1,8,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,2,1,2,1,1,1,1,1,1,1,1,2,1,1,1,1,1,1,1,1,1,1,1,2,1,3,1,1,1,3,1,2,1,1,1,1,1,1,1,2,1,1,1,1,1,3,1,1,1,1,1,1,1,1,1,4,2,1,1,7,1,1,1,2,1,-,1,1,3,1,1,1,3,-,4,1,1,1,1,1,1,1,1,1,1,1,1,1,1,4,1,1,2,2,1,1,1,1,1,1,2,2,1,1,1,5,1,1,1,1,1,1,1,1,1,3,-,2,1,1,1,1,1,1,1,2,1,1,1,1,1,2,1,1,1,1,2,1,1,1,1,8,1,1,1,1,1,1,1,1,1,1,2,1,1,2,1,1,1,1,1,2,1,1,1,1,1,1,1,1,1,1,1,5,1,1,1,1,1,1,1,1,1,1,1,1,1,2,1,1,1,1,1,1,2,1,1,1,1,2,1,1,1,1,1,1,1,2,1,2,2,2,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,2,1,1,4,1,1,1,1,1,1,1,1,2,1,1,3,1,2,3,1,1,1,1,1,1,1,1,2,1,1,1,1,1,1,1,1,1,1,1,2,1,1,1,1,1,1,1,1,1,1,1,2,3,1,1,1,2,2,2,1,1,1,1,1,1,1,1,1,1,1,1,1,1,5,1,1,1,1,1,1,1,1,1,1,1,1",
-    "candidateWeight": "0.474,0.434,0.2,0.481,0.673,0.604,0.356,0.544,0.641,0.371,0.484,0.438,0.394,0.355,0.208,0.304,0.215,0.756,0.507,0.529,0.191,0.216,0.509,0.741,0.269,0.381,0.588,0.525,0.75,0.456,0.297,0.548,0.458,0.552,0.306,0.667,0.667,0.328,0.753,0.413,0.566,0.487,0.556,0.935,0.398,0.761,0.269,0.63,0.265,0.556,0.351,0.374,0.714,0.361,0.281,0.584,0.515,0.774,0.1,0.654,0.733,0.787,0.398,0.2,0.503,0.78,0.388,0.636,1,0.667,0.542,0.402,0.433,0.56,0.953,0.701,0.628,0.84,0.897,0.844,0.566,0.434,0.356,0.958,0.381,0.525,0.664,0.741,0.398,0.747,0.339,0.409,0.106,0.579,0.25,0.77,0.818,0.704,0.826,0.422,0.351,0.294,0.392,0.186,0.679,0.467,0.44,0.387,0.617,0.376,0.527,0.527,0.263,0.429,0.326,0.417,0.411,0.439,0.68,0.111,0.368,0.514,0.636,0.1,0.404,0.509,0.593,0.333,0.817,0.503,0.326,0.549,0.833,1,0.741,0.628,0.229,0.265,0.776,0.2,0.445,0.472,0.529,0.564,0.882,0.385,0.527,0.413,0.54,0.492,0.673,0.714,0.262,0.727,0.149,0.448,0.677,0.429,0.326,0.93,0.459,0.604,0.511,0.316,0.424,0.2,0.408,0.804,0.569,0.583,0.736,0.452,0.245,0.429,0.171,0.634,0.529,0.949,0.857,0.723,0.736,1,0.787,0.406,0.146,0.412,0.516,0.603,0.679,0.6,0.7,0.889,0.632,0.663,0.759,0.625,0.676,0.964,0.341,1,0.45,0.951,0.394,0.618,0.702,0.445,0.6,0.588,0.464,0.814,1,0.405,0.326,0.448,0.878,0.352,0.663,0.288,0.741,0.471,0.429,0.478,0.465,0.669,0.309,0.714,0.582,0.873,0.723,0.342,0.544,0.87,0.842,0.6,0.586,0.453,0.917,0.68,0.723,0.743,0.467,0.793,0.531,0.71,0.613,1,0.634,0.834,0.481,0.625,0.182,0.824,0.542,0.822,0.77,0.75,0.582,0.56,0.6,0.321,0.783,0.882,0.417,0.77,0.595,0.575,0.692,0.593,0.506,0.581,0.381,0.73,0.515,0.636,0.893,0.424,0.717,0.667,0.6,0.398,0.714,0.568,0.64,0.718,0.542,0.552,0.492,0.416,0.552,0.68,0.496,0.736,0.81,0.701,0.314,0.632,0.461,0.518,0.802,0.453,0.471,0.111,0.2,0.619,0.355,0.739,0.487,0.315,0.723,0.439,0.5,0.66,0.838,0.867,0.75,0.485,0.667,0.67,0.72,0.564,0.525,0.694,0.309,0.5,0.835,0.59,0.962,0.356,0.701,0.267,1,0.481,1.062,0.75,0.596,0.218,0.561,0.51,0.5,0.437,0.288,0.491,0.321,0.604,0.622,0.327,0.447,0.478,0.604,0.361,0.707,0.493,0.453,0.339,0.571,0.208,0.536,0.588,0.2,0.573,0.436,0.398,0.395,0.489,0.676,0.475,0.456,0.338,0.579,0.526,0.308,0.644,0.415,0.397,0.229,0.526,0.268,0.391,0.577,0.421,0.143,0.509,0.5,0.257,0.302,0.214,0.343,0.291,0.559,0.565,0.208,0.379,0.328,0.389,0.241,0.244,0.581,0.747,0.718,0.237,0.318,0.243,0.208,0.496,0.339,0.29,0.211,0.612,0.494,0.726,0.435,0.515,0.868,0.683,0.793,0.743,0.505,0.525,0.881,0.778,1.036,0.703,0.569,0.615,0.65,0.451,0.603,0.556,0.5,0.534,0.469,0.882,0.736,0.759,0.25,0.511,0.531,0.375,0.286,0.545,0.2,0.444,0.51,0.317,0.538,0.429,0.315,0.439,0.442,0.667,0.673,0.277,0.418,0.5",
-    "lexicalEvidence": "0.267,0.28,0.422,0.4,0.368,0.32,0.345,0.309,0.229,0.292,0.467,0.35,0.28,0.308,0.338,0.333,0.436,0.633,0.231,0.375,0.286,0.314,0.329,0.494,0.6,0.475,0.517,0.511,0.35,0.418,0.364,0.467,0.218,0.429,0.55,0.3,0.35,0.387,0.489,0.486,0.327,0.4,0.175,0.171,0.308,0.173,0.383,0.491,0.222,0.52,0.5,0.473,0.44,0.491,0.582,0.431,0.4,0.329,0.8,0.76,0.325,0.486,0.308,0.2,0.4,0.364,0.277,0.4,0.34,0.363,0.35,0.345,0.45,0.369,0.277,0.255,0.38,0.291,0.4,0.246,0.329,0.4,0.371,0.267,0.489,0.371,0.387,0.582,0.308,0.309,0.415,0.333,0.42,0.169,0.217,0.582,0.683,0.564,0.64,0.327,0.455,0.182,0.309,0.385,0.417,0.7,0.7,0.455,0.473,0.556,0.467,0.467,0.267,0.533,0.382,0.418,0.446,0.554,0.2,0.4,0.357,0.533,0.317,0.567,0.52,0.52,0.4,0.28,0.369,0.508,0.292,0.457,0.35,0.222,0.4,0.446,0.327,0.3,0.436,0.473,0.477,0.48,0.375,0.2,0.375,0.438,0.343,0.427,0.345,0.54,0.44,0.44,0.414,0.5,0.286,0.433,0.4,0.491,0.382,0.473,0.32,0.364,0.387,0.583,0.5,0.3,0.6,0.314,0.311,0.25,0.329,0.467,0.48,0.259,0.455,0.387,0.277,0.309,0.3,0.511,0.415,0.657,0.42,0.655,0.292,0.314,0.6,0.636,0.417,0.533,0.45,0.513,0.494,0.382,0.327,0.483,0.459,0.343,0.422,0.323,0.45,0.36,0.4,0.613,0.42,0.477,0.367,0.375,0.417,0.38,0.657,0.32,0.382,0.433,0.44,0.457,0.327,0.356,0.4,0.415,0.378,0.333,0.527,0.415,0.343,0.3,0.538,0.4,0.511,0.514,0.309,0.525,0.425,0.271,0.433,0.382,0.55,0.431,0.6,0.556,0.513,0.24,0.483,0.333,0.308,0.4,0.545,0.376,0.288,0.35,0.225,0.253,0.25,0.4,0.413,0.35,0.429,0.364,0.271,0.3,0.333,0.46,0.35,0.345,0.309,0.578,0.34,0.371,0.262,0.354,0.489,0.32,0.28,0.317,0.291,0.371,0.4,0.325,0.3,0.467,0.44,0.413,0.455,0.422,0.35,0.427,0.4,0.292,0.431,0.367,0.491,0.364,0.4,0.429,0.354,0.425,0.444,0.327,0.415,0.382,0.415,0.4,0.343,0.44,0.308,0.333,0.34,0.455,0.673,0.436,0.417,0.733,0.615,0.4,0.283,0.363,0.4,0.323,0.427,0.435,0.54,0.563,0.262,0.35,0.323,0.4,0.354,0.345,0.307,0.45,0.382,0.4,0.2,0.35,0.4,0.345,0.463,0.3,0.383,0.4,0.471,0.5,0.329,0.613,0.32,0.436,0.42,0.333,0.613,0.4,0.486,0.429,0.4,0.415,0.3,0.35,0.417,0.233,0.4,0.545,0.6,0.614,0.257,0.286,0.32,0.4,0.293,0.554,0.462,0.267,0.383,0.4,0.36,0.58,0.533,0.425,0.4,0.443,0.383,0.673,0.3,0.357,0.383,0.385,0.236,0.4,0.533,0.365,0.375,0.443,0.338,0.418,0.347,0.545,0.433,0.4,0.38,0.309,0.277,0.545,0.317,0.32,0.48,0.527,0.415,0.467,0.583,0.293,0.309,0.231,0.277,0.4,0.364,0.236,0.24,0.369,0.323,0.338,0.255,0.4,0.417,0.413,0.414,0.383,0.418,0.46,0.415,0.4,0.217,0.418,0.3,0.46,0.6,0.462,0.617,0.4,0.483,0.35,0.475,0.317,0.367,0.25,0.44,0.36,0.229,0.3,0.455,0.52,0.488,0.3,0.337,0.655,0.514,0.35",
-    "vectorEvidence": "0.1,0.093,0.044,0.167,0.232,0.173,0.091,0.145,0.129,0.077,0.2,0.125,0.08,0.077,0.031,0.067,0.055,0.467,0.092,0.175,0.014,0.029,0.143,0.353,0.125,0.15,0.283,0.244,0.25,0.164,0.073,0.233,0.073,0.214,0.133,0.183,0.217,0.093,0.356,0.171,0.164,0.169,0.075,0.157,0.092,0.12,0.067,0.291,0.022,0.267,0.143,0.145,0.3,0.145,0.127,0.231,0.182,0.243,0.233,0.48,0.225,0.371,0.092,0,0.176,0.273,0.077,0.236,0.34,0.225,0.167,0.109,0.167,0.185,0.262,0.164,0.22,0.236,0.354,0.2,0.165,0.145,0.1,0.253,0.156,0.171,0.24,0.418,0.092,0.218,0.108,0.107,0,0.077,0.017,0.436,0.55,0.382,0.52,0.109,0.127,0.018,0.091,0.031,0.267,0.3,0.28,0.145,0.273,0.178,0.222,0.222,0.033,0.2,0.091,0.145,0.154,0.215,0.12,0,0.1,0.25,0.183,0,0.18,0.24,0.217,0.06,0.292,0.231,0.062,0.229,0.283,0.222,0.283,0.262,0.036,0.043,0.327,0.055,0.185,0.2,0.175,0.091,0.325,0.138,0.157,0.147,0.164,0.24,0.28,0.3,0.071,0.35,0,0.167,0.255,0.182,0.091,0.436,0.12,0.2,0.173,0.15,0.183,0.02,0.215,0.243,0.156,0.125,0.229,0.183,0.08,0.082,0.036,0.227,0.123,0.291,0.25,0.356,0.292,0.657,0.32,0.236,0,0.1,0.286,0.364,0.267,0.3,0.3,0.45,0.294,0.236,0.236,0.283,0.294,0.329,0.111,0.323,0.175,0.34,0.127,0.36,0.28,0.185,0.2,0.2,0.167,0.3,0.657,0.1,0.091,0.167,0.38,0.129,0.2,0.067,0.283,0.169,0.133,0.133,0.218,0.262,0.071,0.2,0.292,0.343,0.356,0.143,0.145,0.45,0.35,0.143,0.233,0.145,0.5,0.277,0.42,0.4,0.213,0.18,0.233,0.222,0.169,0.4,0.327,0.306,0.113,0.2,0,0.2,0.113,0.32,0.307,0.25,0.229,0.182,0.143,0.063,0.25,0.4,0.117,0.255,0.164,0.311,0.22,0.2,0.108,0.185,0.156,0.22,0.12,0.183,0.255,0.129,0.273,0.2,0.16,0.156,0.3,0.213,0.273,0.289,0.167,0.213,0.171,0.092,0.215,0.233,0.218,0.255,0.314,0.286,0.077,0.25,0.178,0.145,0.323,0.145,0.169,0,0.029,0.253,0.077,0.233,0.14,0.109,0.473,0.164,0.183,0.467,0.508,0.34,0.2,0.15,0.25,0.2,0.293,0.224,0.26,0.375,0.046,0.15,0.262,0.215,0.338,0.091,0.2,0.083,0.382,0.167,0.215,0.25,0.218,0.036,0.238,0.129,0.167,0.147,0.1,0.22,0.071,0.35,0.18,0.109,0.16,0.133,0.35,0.113,0.329,0.186,0.154,0.108,0.15,0.033,0.2,0.117,0.04,0.291,0.233,0.214,0.071,0.114,0.2,0.164,0.107,0.154,0.246,0.117,0.083,0.24,0.12,0.2,0.083,0.2,0.071,0.143,0.2,0.255,0,0.157,0.167,0.062,0.036,0.046,0.15,0.071,0.188,0.229,0.031,0.127,0.08,0.182,0.067,0.06,0.2,0.218,0.185,0.091,0.067,0.04,0.06,0.236,0.108,0.1,0.083,0.16,0.127,0.154,0.092,0.182,0.309,0.145,0.18,0.262,0.138,0.154,0.218,0.3,0.433,0.275,0.214,0.217,0.255,0.18,0.231,0.2,0.083,0.2,0.114,0.4,0.429,0.338,0.117,0.18,0.233,0.1,0.1,0.15,0.033,0.083,0.2,0.08,0.1,0.1,0.109,0.2,0.188,0.183,0.211,0.145,0.186,0.15",
-    "rule:rrf": "1,1,-,-,1,1,1,1,1,-,-,-,1,1,-,-,5,1,-,2,-,-,-,1,1,-,1,1,-,-,-,1,-,-,-,1,-,-,1,4,-,-,-,1,-,1,-,-,-,6,1,-,6,8,-,1,-,1,10,2,-,1,-,-,1,1,-,1,1,1,1,1,2,1,1,1,1,1,2,1,1,-,-,1,2,1,1,1,-,1,2,-,-,-,-,10,2,1,-,-,1,-,-,-,1,6,-,1,7,4,1,-,-,2,-,1,-,-,1,-,-,2,-,1,1,-,5,1,1,1,-,1,7,-,1,1,-,1,1,-,1,-,1,1,1,-,1,3,-,-,-,-,-,-,-,5,1,1,1,1,-,1,-,1,1,1,-,3,1,-,1,2,3,1,-,1,-,1,1,1,1,1,2,8,-,1,9,-,1,1,1,4,2,1,2,1,-,1,1,1,-,1,-,1,1,-,1,1,-,-,2,-,-,5,1,1,1,-,1,1,2,1,2,1,-,1,10,1,2,-,1,1,1,-,8,1,2,1,1,1,1,1,7,-,2,1,1,1,-,1,-,1,1,3,-,2,1,-,-,-,1,-,1,-,1,-,1,-,-,-,1,1,1,1,2,1,1,1,1,5,1,1,1,1,-,1,2,2,-,1,1,2,1,1,3,1,-,1,1,3,1,-,-,-,-,-,1,3,1,-,1,1,1,1,-,5,-,1,1,1,-,2,-,-,-,-,1,-,1,-,2,1,1,4,1,1,1,1,-,-,3,1,-,2,1,-,-,1,1,1,1,5,1,1,1,-,1,-,-,2,1,3,1,1,1,1,1,2,2,2,-,-,-,5,3,1,1,1,1,6,-,1,1,-,-,-,9,-,2,1,-,9,1,1,-,-,-,1,1,8,-,-,3,1,-,-,2,-,1,-,-,1,1,1,1,1,1,-,3,5,2,1,1,1,2,-,2,1,1,1,1,1,1,1,6,-,-,-,-,-,-,-,4,1,-,-,-,1,1,1,1,1,1,1",
-    "ruleVerbatim:rrf": "1,1,1,1,1,1,1,1,1,1,2,1,1,1,1,1,1,2,2,1,2,2,3,1,1,1,1,1,1,1,1,1,1,2,1,1,2,1,2,1,1,1,1,1,3,2,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,4,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,2,1,1,2,1,1,1,1,1,1,9,7,3,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,2,1,1,1,1,1,1,1,1,1,1,1,1,1,7,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,2,1,2,1,1,1,1,1,1,1,1,2,1,1,1,1,1,1,1,1,1,1,1,1,1,3,1,1,1,3,1,2,1,1,1,1,1,1,1,2,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,4,2,1,1,4,1,1,1,2,2,3,1,1,1,1,1,1,1,2,3,1,1,1,1,1,1,1,2,1,1,1,1,1,1,3,1,1,2,1,1,1,1,1,1,1,2,2,1,1,1,2,1,1,1,1,1,1,1,1,1,3,-,3,1,1,1,1,1,1,1,2,1,1,1,1,1,2,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,2,1,1,1,1,1,1,1,1,2,1,1,1,1,1,1,1,1,1,1,1,5,1,1,1,1,1,1,1,1,1,1,1,1,1,3,1,1,1,1,1,1,3,1,1,1,1,2,1,1,1,1,1,1,1,2,1,2,1,3,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,2,1,1,6,-,1,1,1,1,1,1,1,2,1,1,3,1,2,3,1,1,1,1,2,1,1,1,2,1,1,1,1,1,1,1,1,1,1,1,2,1,1,1,1,1,1,1,1,1,1,1,3,2,1,1,1,2,2,2,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1",
-    "rule:combmnz": "1,1,1,-,1,1,1,1,1,-,-,1,1,1,1,-,1,1,-,2,6,6,-,1,1,-,1,1,3,3,-,1,-,3,3,1,2,-,1,1,-,1,-,1,-,1,-,-,1,3,1,2,3,3,3,1,5,1,10,3,5,2,-,-,1,1,3,1,1,1,1,1,1,1,1,1,1,1,2,1,1,-,1,1,1,1,1,1,-,1,1,-,-,-,-,5,3,2,6,-,1,-,-,10,1,2,-,1,2,2,1,2,-,1,3,1,2,5,1,1,-,2,-,1,1,10,1,1,1,1,-,1,-,-,1,1,-,1,1,-,1,1,1,1,1,1,1,1,5,4,-,-,4,3,-,1,1,1,1,1,-,1,-,1,1,-,2,3,1,2,1,1,1,1,1,1,4,1,1,2,1,1,2,1,-,1,4,-,1,1,1,4,1,1,1,1,3,1,1,1,-,1,-,1,1,1,1,1,-,10,2,2,-,1,1,1,1,-,1,1,1,1,1,1,1,1,6,1,1,-,1,1,1,-,2,1,2,1,1,1,1,1,2,4,2,1,1,1,4,1,1,1,1,4,8,1,1,-,-,1,1,9,1,3,1,-,1,9,-,4,1,1,3,1,1,1,1,1,1,2,1,1,1,1,2,1,2,2,2,1,1,1,1,1,2,1,3,1,1,1,1,-,-,5,-,3,1,1,1,-,1,1,1,1,1,-,1,1,1,1,-,2,-,-,7,-,1,-,1,2,2,1,1,1,1,1,1,1,2,-,1,1,7,2,1,8,3,2,1,1,1,3,1,1,1,-,1,2,6,2,1,2,1,1,1,1,2,1,2,1,4,-,-,2,1,1,1,1,1,2,-,1,1,-,7,2,5,2,1,1,1,5,1,1,3,-,3,1,1,4,1,2,2,1,4,1,1,-,1,-,8,1,1,1,1,1,1,1,2,5,2,1,1,1,2,3,2,1,1,1,1,1,1,1,2,1,2,-,-,1,1,1,2,2,-,1,1,1,1,1,1,1,1,1",
-    "ruleVerbatim:combmnz": "1,1,1,1,1,1,1,1,1,1,3,1,1,1,1,1,1,3,2,2,1,2,3,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,3,1,1,1,1,1,1,1,1,2,1,1,1,1,1,1,1,1,4,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,2,1,1,1,1,1,1,1,1,1,9,7,1,1,1,1,2,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,8,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,2,1,2,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,2,1,3,1,1,1,3,1,3,1,1,1,1,1,1,1,1,1,2,1,2,1,4,1,1,1,1,1,1,1,1,1,4,1,1,1,4,1,1,1,2,1,10,1,1,1,1,1,1,1,5,3,1,1,1,1,2,1,1,1,1,1,1,1,1,1,3,1,1,1,1,1,1,1,1,1,1,2,2,1,1,1,2,1,1,1,1,1,1,1,2,1,2,-,2,1,1,1,1,1,1,1,2,1,1,1,1,1,2,1,1,1,1,1,1,1,1,1,8,1,1,1,1,1,1,2,1,1,2,1,1,1,1,1,1,1,1,1,1,2,1,1,1,1,1,1,1,1,1,1,5,1,1,1,1,1,1,1,1,1,1,1,1,1,3,1,1,1,1,1,1,1,1,1,1,1,2,1,1,1,1,1,1,1,2,1,2,1,2,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,2,1,1,3,1,1,1,1,1,1,1,2,2,1,1,4,1,1,3,1,1,1,1,1,1,1,1,2,1,1,1,1,1,1,1,1,1,1,1,2,1,1,1,1,1,1,1,1,1,1,1,2,4,1,1,1,2,1,2,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1",
-    "rule:combmnz-positive": "1,1,1,-,1,1,1,1,1,-,-,1,1,1,1,-,1,1,-,2,6,6,-,1,1,-,1,1,3,3,-,1,-,3,3,1,2,-,1,1,-,1,-,1,-,1,-,-,1,3,1,2,3,3,3,1,5,1,10,3,5,2,-,-,1,1,3,1,1,2,1,1,1,1,1,1,1,1,2,1,1,-,1,1,1,1,1,1,-,1,1,-,-,-,-,5,3,2,6,-,1,-,-,10,1,2,-,1,2,3,1,2,-,1,3,1,2,5,1,1,-,2,-,1,1,10,1,1,1,1,-,1,-,-,1,1,-,1,1,-,1,1,1,1,1,1,1,1,5,4,-,-,4,3,-,1,1,1,1,1,-,1,-,1,1,-,2,3,1,2,1,1,1,1,1,1,4,1,1,2,1,1,2,1,-,1,4,-,1,1,1,4,1,1,1,1,4,1,1,1,-,2,-,1,1,1,1,1,-,10,2,2,-,1,1,1,1,-,1,1,1,1,1,1,1,1,6,1,1,-,1,1,1,-,2,1,2,1,1,1,1,1,2,4,2,1,1,1,4,1,1,1,1,5,8,1,1,-,-,1,1,10,1,3,1,-,1,9,-,4,1,1,3,1,1,1,1,1,1,2,1,1,1,1,2,1,2,2,2,1,1,1,1,1,2,1,3,1,1,1,1,-,-,5,-,3,1,1,1,-,1,1,1,1,1,-,1,1,1,1,-,2,-,-,7,-,1,-,1,2,2,1,1,1,1,1,1,1,2,-,1,1,7,2,1,8,3,2,1,1,1,3,1,1,1,-,1,2,6,1,1,2,1,1,1,1,1,1,2,1,5,-,-,2,1,1,1,1,1,2,-,1,1,-,7,2,5,2,1,1,1,5,1,1,3,-,4,1,1,4,1,2,2,1,5,1,1,-,1,-,8,1,1,1,1,1,1,1,2,5,2,1,1,1,2,3,2,1,1,1,1,1,1,1,2,1,2,-,-,1,1,1,2,2,-,1,1,1,1,1,1,1,1,1",
-    "ruleVerbatim:combmnz-positive": "1,1,1,1,1,1,1,1,1,1,3,1,1,1,1,1,1,3,2,2,1,2,3,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,3,1,1,1,1,1,1,1,1,2,1,1,1,1,1,1,1,1,4,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,2,1,1,1,1,1,1,1,1,1,9,7,1,1,1,1,2,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,8,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,2,1,2,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,2,1,3,1,1,1,3,1,3,1,1,1,1,1,1,1,1,1,2,1,2,1,4,1,1,1,1,1,1,1,1,1,4,1,1,1,4,1,1,1,2,1,10,1,1,1,1,1,1,1,5,3,1,1,1,1,2,1,1,1,1,1,1,1,1,1,3,1,1,1,1,1,1,1,1,1,1,2,2,1,1,1,2,1,1,1,1,1,1,1,2,1,2,-,2,1,1,1,1,1,1,1,2,1,1,1,1,1,2,1,1,1,1,1,1,1,1,1,8,1,1,1,1,1,1,2,1,1,2,1,1,1,1,1,1,1,1,1,1,2,1,1,1,1,1,1,1,1,1,1,5,1,1,1,1,1,1,1,1,1,1,1,1,1,3,1,1,1,1,1,1,1,1,1,1,1,2,1,1,1,1,1,1,1,2,1,2,1,2,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,2,1,1,3,1,1,1,1,1,1,1,2,2,1,1,4,1,1,3,1,1,1,1,1,1,1,1,2,1,1,1,1,1,1,1,1,1,1,1,2,1,1,1,1,1,1,1,1,1,1,1,2,4,1,1,1,2,1,2,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1",
-    "rule:combmnz-percentile": "1,1,4,-,1,1,2,1,1,-,-,2,1,1,1,-,5,2,-,2,7,8,-,1,2,-,1,2,5,6,-,1,-,4,4,1,3,-,5,4,-,7,-,1,-,1,-,-,3,9,1,4,7,8,10,1,9,1,-,8,8,1,-,-,1,1,6,2,1,2,1,1,2,2,1,1,1,1,2,1,1,-,6,1,2,2,1,1,-,2,3,-,-,-,-,10,5,7,-,-,1,-,-,-,1,6,-,4,8,4,2,3,-,5,-,1,3,10,1,1,-,4,-,1,1,-,5,4,1,1,-,1,6,-,1,1,-,1,1,-,1,6,1,1,1,5,1,3,9,6,-,-,6,8,-,9,1,2,1,1,-,1,-,5,3,1,2,3,1,8,1,2,10,1,1,1,5,1,1,2,1,1,4,-,-,1,10,-,2,1,2,4,2,1,3,1,9,1,2,1,-,3,-,1,2,1,1,1,-,-,2,10,-,8,1,1,1,-,2,4,3,1,2,1,2,1,-,2,1,-,1,1,1,-,10,1,2,1,1,1,1,1,-,7,2,1,1,1,4,1,1,1,1,3,9,2,1,-,-,9,1,-,1,8,2,-,1,-,-,-,1,1,1,1,3,1,1,1,1,5,1,1,1,1,3,1,2,2,10,1,1,1,1,1,3,1,4,1,1,5,1,-,-,6,-,3,4,10,1,-,1,1,1,2,6,5,10,1,2,1,-,2,-,-,-,-,1,-,1,4,2,1,1,5,1,2,1,1,4,-,3,1,-,3,1,-,8,1,2,4,2,5,1,1,1,-,1,3,8,4,1,3,1,1,1,1,1,2,2,6,6,-,-,6,5,1,2,2,2,7,-,1,1,-,8,3,-,8,2,1,4,8,1,2,10,-,7,3,1,7,3,3,3,2,7,2,2,-,5,-,9,1,1,1,2,1,1,7,3,5,2,1,2,1,2,9,1,1,2,1,1,3,1,3,7,7,10,-,-,1,5,6,4,3,-,7,1,1,1,1,1,4,1,1",
-    "ruleVerbatim:combmnz-percentile": "1,1,1,1,1,1,1,1,1,1,4,1,1,1,1,1,1,-,9,2,1,2,-,1,2,1,1,1,1,1,1,1,1,1,1,1,5,1,1,1,2,3,1,1,3,1,1,1,1,1,1,1,3,10,1,2,1,1,1,1,1,1,5,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,3,1,1,1,1,1,1,1,1,2,10,8,6,1,1,1,2,1,1,1,1,1,1,1,1,1,1,1,1,1,1,3,1,1,1,1,1,1,1,1,2,1,9,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,2,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,5,4,9,1,1,1,6,1,3,1,1,1,1,-,1,5,1,2,2,1,2,1,4,1,-,1,1,1,1,1,1,1,4,1,1,1,-,1,1,3,2,2,-,1,1,7,4,1,1,10,-,3,8,6,2,1,2,7,-,1,1,1,1,3,1,1,4,3,1,1,-,1,1,1,5,1,1,2,2,1,1,1,6,1,1,1,1,1,1,1,2,9,2,-,3,1,1,1,1,1,3,1,1,1,1,1,1,1,9,1,2,1,1,3,1,1,1,2,-,2,1,1,1,1,1,2,1,1,2,3,2,1,4,1,1,5,1,3,1,2,6,1,1,1,1,1,1,1,2,1,2,1,1,1,1,1,2,1,1,1,1,3,2,1,2,1,1,1,7,1,1,1,2,1,1,1,4,1,1,1,1,1,1,1,1,1,1,1,1,2,1,1,2,1,1,1,1,1,1,2,1,1,2,1,1,2,1,1,1,1,1,2,2,1,3,2,1,1,1,1,2,1,1,1,8,1,8,3,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,2,1,1,1,1,1,1,1,1,1,1,2,2,4,1,1,1,2,1,2,1,1,1,2,1,1,1,1,1,1,1,1,1,1,10,1,1,1,4,3,1,1,1,1,3,1,1",
-    "rule:rrf-mnz": "1,1,4,-,1,1,1,1,1,-,-,2,1,1,1,-,5,1,-,2,-,-,-,1,2,-,1,1,6,6,-,1,-,5,4,1,3,-,1,4,-,7,-,1,-,1,-,-,3,9,1,4,7,9,10,1,9,1,-,9,8,2,-,-,1,1,6,1,1,1,1,1,2,1,1,1,1,1,2,1,1,-,6,1,2,1,1,1,-,1,2,-,-,-,-,10,2,1,-,-,1,-,-,-,1,6,-,1,8,7,1,3,-,6,-,1,4,10,2,1,-,2,-,1,1,-,5,1,1,1,-,1,6,-,2,1,-,1,1,-,1,8,1,1,1,5,1,3,9,7,-,-,7,8,-,9,1,1,1,1,-,1,-,5,1,3,2,2,1,8,1,2,10,1,1,1,5,1,1,1,1,1,2,-,-,1,10,-,1,1,1,4,2,1,1,1,9,1,1,1,-,1,-,1,1,2,1,1,-,-,2,-,-,8,1,1,1,-,1,1,2,1,2,1,2,1,-,1,2,-,1,1,1,-,10,1,2,1,1,1,1,1,-,7,2,1,1,1,4,1,1,1,1,3,9,2,1,-,-,-,1,-,1,8,1,-,1,-,-,-,1,1,1,1,1,1,1,1,1,5,1,1,1,1,3,1,2,2,10,1,1,3,1,1,3,1,5,1,1,5,1,-,-,7,-,3,1,-,1,-,1,1,1,1,6,4,-,1,1,1,-,2,-,-,-,-,2,-,1,5,1,1,1,2,1,1,1,1,4,-,3,1,-,2,1,-,8,1,1,1,1,5,1,1,1,-,1,3,-,2,1,3,1,1,1,1,1,3,2,2,9,-,-,6,5,1,2,1,1,9,-,1,1,-,-,3,-,8,1,1,4,9,1,1,10,-,7,1,1,8,3,3,3,1,8,2,2,-,1,-,-,1,1,1,1,1,1,7,2,5,3,1,1,1,2,9,2,1,1,1,1,1,1,1,7,7,10,-,-,1,5,6,4,3,-,8,1,1,1,1,1,4,1,1",
-    "ruleVerbatim:rrf-mnz": "1,1,1,1,1,1,1,1,1,1,2,1,1,1,1,1,1,-,9,1,2,2,-,1,1,1,1,1,1,1,1,1,1,2,1,1,5,1,1,1,1,1,1,1,3,2,1,1,1,1,1,1,1,10,1,1,1,1,1,1,1,1,5,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,2,1,1,1,1,1,1,1,1,1,-,10,6,1,1,1,2,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,-,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,2,1,1,1,1,1,1,1,1,2,1,1,1,1,1,1,1,1,1,1,1,2,1,9,1,1,1,3,1,2,1,1,1,1,-,1,5,1,1,1,1,1,1,3,1,-,1,1,1,1,1,1,1,4,1,1,1,-,1,1,1,2,2,-,1,1,3,1,1,1,4,-,4,9,6,1,1,2,9,-,1,1,1,1,2,1,1,4,1,1,2,-,1,1,1,1,1,1,2,2,1,1,1,6,1,1,1,1,1,1,1,2,-,3,-,2,1,1,1,1,1,1,1,2,1,1,1,1,1,9,1,1,1,1,2,1,1,1,1,-,1,1,1,1,1,1,1,1,1,2,1,1,1,2,1,1,1,1,1,2,1,1,1,1,1,1,1,1,1,1,1,3,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,7,1,1,2,1,1,1,1,2,1,1,1,1,1,1,1,2,1,2,1,2,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,2,1,1,3,1,1,1,1,1,1,1,1,2,1,1,3,1,8,3,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,2,1,1,1,1,1,1,1,1,1,1,1,2,3,1,1,1,2,2,2,1,1,1,1,1,1,1,1,1,1,1,1,1,1,10,1,1,1,1,2,1,1,1,1,1,1,1",
-    "rule:supported": "1,1,3,-,1,1,5,-,1,-,-,1,1,1,1,-,4,1,-,2,10,9,-,1,1,-,1,1,5,5,-,5,-,5,4,1,1,-,6,1,-,3,-,1,-,1,-,-,1,5,1,3,4,6,6,1,5,1,-,6,6,1,-,-,1,1,6,1,1,4,8,1,2,1,1,1,1,1,2,1,1,-,2,1,2,1,1,1,-,1,3,-,-,-,-,4,4,6,5,-,1,-,-,-,1,3,-,3,4,3,1,2,-,1,6,1,3,7,2,1,-,3,-,1,1,-,3,4,1,1,-,1,-,-,2,1,-,1,1,-,1,2,1,1,1,4,1,3,5,7,-,-,7,4,-,4,1,2,1,1,-,1,-,3,5,1,2,2,1,3,1,2,3,1,1,1,5,1,1,1,1,1,-,3,-,1,4,-,1,1,1,4,2,1,1,1,4,1,3,1,-,7,-,1,1,1,1,1,-,-,2,5,-,3,1,1,1,-,4,1,5,1,1,1,1,1,4,1,2,-,1,1,1,-,3,1,2,1,1,1,1,1,5,4,2,1,1,1,4,1,1,1,1,3,4,2,1,-,-,3,1,10,1,3,1,-,1,-,-,8,1,1,1,1,2,1,1,1,1,5,1,1,1,1,1,1,2,2,5,1,1,2,1,1,3,1,5,1,1,3,1,-,-,6,-,3,3,3,1,-,1,1,1,1,4,4,3,1,1,1,-,2,-,-,5,-,2,-,1,3,1,1,1,2,1,4,1,1,2,-,1,1,10,2,1,-,5,1,1,3,1,2,1,1,1,-,1,2,-,4,1,2,1,1,1,1,-,1,2,4,8,-,-,2,1,1,1,1,1,5,-,1,1,-,10,2,8,4,1,1,2,6,1,1,7,-,4,1,1,7,3,3,2,1,8,1,1,-,6,-,9,1,1,1,1,1,1,5,2,5,3,1,1,1,2,6,3,1,1,1,1,1,1,1,4,5,7,-,-,1,3,3,2,2,-,3,1,1,1,1,1,3,1,1",
-    "ruleVerbatim:supported": "1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,4,5,1,2,2,7,1,1,1,1,1,1,1,1,1,1,2,1,1,2,1,1,1,2,1,1,1,3,2,1,1,1,1,1,1,1,4,1,2,1,1,1,1,1,1,5,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,2,1,1,1,1,1,1,1,1,1,-,10,5,1,1,1,2,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,-,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,2,1,1,1,1,1,1,1,1,2,1,1,1,1,1,1,1,1,1,1,1,5,1,6,1,1,1,6,1,2,1,1,1,1,6,1,3,1,1,1,1,1,1,3,1,4,1,1,1,1,1,1,1,4,1,1,1,5,1,1,4,2,2,7,1,1,6,4,1,1,7,5,4,2,3,1,1,2,3,6,1,1,1,1,2,1,1,4,1,1,2,7,1,1,1,1,1,1,2,2,1,1,1,5,1,1,1,1,1,1,1,2,3,3,-,1,1,1,1,1,1,4,1,2,1,1,1,1,1,4,1,1,1,1,2,1,1,1,1,5,1,1,1,1,1,1,1,1,1,2,1,1,1,2,1,1,5,1,1,2,1,5,1,1,1,1,1,1,1,1,1,3,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,4,1,1,2,1,1,1,1,2,1,1,1,1,1,1,1,2,1,2,1,2,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,2,1,1,1,1,1,1,1,1,1,1,1,2,1,1,8,1,6,3,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,2,1,1,1,1,1,1,1,1,1,1,1,2,3,1,1,1,2,2,2,1,1,1,1,1,1,1,1,1,1,1,1,1,1,3,1,1,1,4,2,1,1,1,1,1,1,1",
-    "rule:qpp": "1,1,1,-,1,1,1,1,1,-,-,1,1,1,1,-,1,1,-,1,6,5,-,1,1,-,1,1,3,3,-,1,-,3,3,1,2,-,1,1,-,1,-,1,-,2,-,-,1,2,1,2,6,3,2,1,4,1,10,2,3,2,-,-,1,1,3,1,1,1,1,1,1,1,1,1,2,1,2,1,1,-,1,1,2,1,1,1,-,1,1,-,-,-,-,5,2,1,-,-,1,-,-,10,1,1,-,1,2,2,1,2,-,1,3,1,2,4,2,1,-,2,-,1,1,10,1,1,1,1,-,1,-,-,2,1,-,1,1,-,1,1,1,1,1,1,1,1,6,4,-,-,4,4,-,1,1,1,1,1,-,2,-,2,1,-,2,2,-,2,1,1,1,1,1,2,4,1,1,1,1,1,2,1,-,1,5,-,1,1,1,4,2,1,1,1,3,1,1,1,-,1,-,1,1,1,1,1,-,7,3,2,-,1,1,-,1,-,1,1,1,1,1,1,1,3,6,1,2,-,1,1,1,-,1,1,2,1,1,1,1,1,1,3,2,1,1,1,4,1,1,1,1,5,8,2,1,-,-,1,1,10,1,4,1,-,1,9,-,3,1,1,-,1,1,1,1,1,1,2,1,1,1,1,2,1,1,1,2,1,1,3,1,1,2,1,3,1,1,1,1,-,-,5,-,3,1,1,1,-,1,1,1,1,3,-,1,1,1,1,-,2,-,-,10,-,2,-,1,1,1,1,1,2,1,1,1,1,2,-,3,1,6,2,1,8,3,5,1,1,1,3,1,5,1,-,1,2,6,1,1,2,1,1,1,1,1,1,1,1,4,-,-,1,1,1,1,1,1,2,-,1,1,-,7,2,5,2,1,1,1,5,1,1,3,-,4,1,1,4,1,2,1,1,4,1,1,-,1,-,8,1,1,1,1,1,1,1,2,5,3,1,1,1,2,2,2,1,1,1,1,1,1,1,2,1,2,-,-,1,1,1,1,3,-,1,1,1,1,1,1,1,1,1",
-    "ruleVerbatim:qpp": "1,1,1,1,1,1,1,1,1,1,2,1,1,1,1,1,1,6,2,1,2,2,6,1,1,1,1,1,1,1,1,1,1,2,1,1,2,1,1,1,1,1,1,1,3,2,1,1,1,1,1,1,1,2,1,1,1,1,1,1,1,1,4,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,2,1,1,2,1,1,1,1,1,1,9,7,4,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,8,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,2,1,2,1,1,1,1,1,1,1,1,2,1,1,1,1,1,1,1,1,1,1,1,1,1,3,1,1,1,3,1,2,1,1,1,1,1,1,1,2,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,4,2,1,1,4,1,1,1,2,2,5,1,1,1,1,1,1,2,3,3,1,1,1,1,1,1,1,2,1,1,1,1,1,1,3,1,1,2,2,1,1,1,1,1,1,2,2,1,1,1,2,1,1,1,1,1,1,1,1,1,3,-,2,1,1,1,1,1,1,1,2,1,1,1,1,1,2,1,1,1,1,1,1,1,1,1,2,1,1,1,1,1,1,1,1,1,1,2,1,1,1,1,1,1,1,1,2,1,1,1,1,1,1,1,1,1,1,1,5,1,1,1,1,1,1,1,1,1,1,1,1,1,3,1,1,1,1,1,1,3,1,1,1,1,2,1,1,1,1,1,1,1,2,1,2,2,2,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,2,1,1,4,1,1,1,1,1,1,1,1,2,1,1,4,1,2,3,1,1,1,1,2,1,1,1,2,1,1,1,1,1,1,1,1,1,1,1,2,1,1,1,1,1,1,1,1,1,1,1,3,2,1,1,1,2,2,2,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1",
-    "rule:qpp3": "1,1,1,-,1,1,1,1,1,-,-,1,1,1,1,-,1,1,-,1,6,5,-,1,1,-,1,1,3,3,-,1,-,3,3,1,2,-,1,1,-,1,-,1,-,2,-,-,1,2,1,2,5,3,2,1,3,1,10,2,3,2,-,-,1,1,3,1,1,1,1,1,1,1,1,1,2,1,2,1,1,-,1,1,2,1,1,1,-,1,1,-,-,-,-,5,2,1,3,-,1,-,-,10,1,1,-,1,2,2,1,2,-,1,3,1,2,4,2,1,-,2,-,1,1,10,1,1,1,1,-,1,-,-,2,1,-,1,1,-,1,1,1,1,1,1,1,1,6,4,-,-,4,3,-,1,1,1,1,1,-,2,-,2,1,-,1,2,-,2,1,1,1,1,1,2,4,1,1,1,1,1,2,1,-,1,5,-,1,1,1,4,2,1,1,1,3,1,1,1,-,2,-,1,1,1,1,1,-,7,3,2,-,1,1,-,1,-,1,1,1,1,1,1,1,3,6,1,2,-,1,1,1,-,1,1,2,1,1,1,1,1,1,2,2,1,1,1,4,1,1,1,1,5,8,2,1,-,-,1,1,9,1,3,1,-,1,9,-,3,1,1,-,1,1,1,1,3,1,2,1,1,1,1,2,1,1,1,2,1,1,10,1,1,2,1,3,1,1,1,1,-,-,5,-,3,1,1,1,-,1,1,1,1,3,-,1,1,1,1,-,2,-,-,10,-,3,-,1,1,1,1,2,1,1,1,1,1,2,-,3,1,6,2,1,8,3,8,1,1,1,3,1,6,1,-,1,2,6,1,1,2,1,1,1,1,1,1,1,1,4,-,-,1,1,1,1,1,1,2,-,1,1,-,7,2,4,2,1,1,1,4,1,1,3,-,4,1,1,4,1,2,1,1,4,1,1,-,1,-,8,1,1,1,1,1,1,1,2,10,3,1,1,1,2,2,2,1,1,1,1,1,1,1,2,1,2,-,-,1,1,1,1,3,-,1,1,1,1,1,1,1,1,1",
-    "ruleVerbatim:qpp3": "1,1,1,1,1,1,1,1,1,1,2,1,1,1,1,1,1,6,2,1,2,2,4,1,1,1,1,1,1,1,1,1,1,2,1,1,2,1,1,1,1,1,1,1,3,2,1,1,1,1,1,1,1,2,1,1,1,1,1,1,1,1,4,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,2,1,1,2,1,1,1,1,1,1,9,7,4,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,2,1,1,1,1,1,1,1,1,1,1,8,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,2,1,2,1,1,1,1,1,1,1,1,2,1,1,1,1,1,1,1,1,1,1,1,1,1,3,1,1,1,3,1,2,1,1,1,1,1,1,1,2,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,4,2,1,1,4,1,1,1,2,2,4,1,1,1,1,1,1,2,2,3,1,1,1,1,1,1,1,2,1,1,1,1,1,1,3,1,1,2,1,1,1,1,1,1,1,2,2,1,1,1,2,1,1,1,1,1,1,1,1,1,3,-,2,1,1,1,1,1,1,1,2,1,1,1,1,1,2,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,2,1,1,1,1,1,1,1,1,2,1,1,1,1,1,1,1,1,1,1,1,5,1,1,1,1,1,1,1,1,1,1,1,1,1,3,1,1,1,1,1,1,3,1,1,1,1,2,1,1,1,1,1,1,1,2,1,2,2,2,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,2,1,1,4,1,1,1,1,1,1,1,1,2,1,1,3,1,2,3,1,1,1,1,2,1,1,1,2,1,1,1,1,1,1,1,1,1,1,1,2,1,1,1,1,1,1,1,1,1,1,1,3,2,1,1,1,2,2,2,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1",
+    "verbatim": "1,1,2,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,2,1,1,1,1,1,1,1,1,1,1,1,1,1,2,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,2,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,-,1,2,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,2,1,1,1,1,1,1,3,2,1,2,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,2,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,5,1,2,1,1,-,1,3,1,1,1,1,1,6,1,1,1,3,1,1,1,1,1,-,1,2,1,1,4,1,1,1,1,1,1,1,2,1,1,1,1,1,2,1,1,1,1,4,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,2,2,1,1,1,-,1,1,1,1,1,1,1,1,1,1,1,1,1,1,-,1,1,1,1,1,1,3,1,1,1,4,1,2,1,1,1,1,2,1,1,3,1,1,1,1,1,1,1,2,1,1,2,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,2,1,1,1,1,1,1,1,1,1,2,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1",
+    "verbatimScoped": "1,1,2,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,2,1,1,1,1,1,1,1,1,1,1,1,1,1,2,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,2,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,3,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,2,1,1,1,1,1,1,3,2,1,2,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,2,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,4,1,2,1,1,10,1,3,1,1,1,1,1,6,1,1,1,3,1,1,1,1,1,-,1,2,1,1,4,1,1,1,1,1,1,1,2,1,1,1,1,1,2,1,1,1,1,4,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,2,2,1,1,1,6,1,1,1,1,1,1,1,1,1,1,1,1,1,1,6,1,1,1,1,1,1,1,1,1,1,4,1,2,1,1,1,1,2,1,1,3,1,1,1,1,1,1,1,2,1,1,2,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,2,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1",
+    "paraphrase": "1,1,-,1,1,-,1,1,1,1,-,8,1,10,1,1,-,6,-,-,8,1,-,1,2,1,1,1,1,1,2,-,2,2,1,-,1,2,2,1,1,1,2,1,-,8,2,1,-,1,10,4,1,1,-,-,-,1,-,3,1,-,4,1,1,2,2,-,5,9,2,-,-,1,-,4,6,-,1,1,4,-,6,1,-,3,-,-,4,8,-,1,-,7,-,-,1,3,-,3,2,1,-,1,3,1,1,1,-,-,2,2,4,-,-,-,1,1,1,2,2,2,2,2,1,1,1,1,3,2,1,2,-,-,4,-,6,1,-,1,1,9,1,1,1,1,-,1,1,1,1,1,-,-,1,1,3,-,2,1,-,-,-,1,10,1,1,-,1,2,1,1,1,1,1,1,-,1,-,2,1,1,-,1,1,4,1,7,1,3,-,2,-,1,-,2,1,-,1,1,8,-,10,1,2,1,6,2,2,1,-,1,2,2,1,2,1,1,1,1,1,1,-,1,3,1,1,1,1,-,1,1,9,1,-,-,-,-,1,1,1,1,-,3,1,-,1,2,1,1,1,1,4,2,-,1,1,2,-,-,1,2,2,1,1,5,1,7,1,1,-,1,6,-,1,1,1,4,1,1,-,1,1,3,9,1,3,1,4,2,2,9,1,3,-,-,9,2,1,1,1,2,2,1,1,2,1,1,1,1,2,1,1,1,-,3,2,2,2,1,1,-,-,1,2,-,2,4,-,1,1,1,1,1,2,1,1,-,1,-,-,1,1,1,9,-,1,1,2,-,-,-,1,-,-,1,3,1,-,1,1,-,1,1,2,1,1,1,1,4",
+    "paraphraseScoped": "1,1,-,1,1,-,1,1,1,1,-,8,1,4,1,1,-,6,-,-,7,1,-,1,2,1,1,1,1,1,2,10,2,1,1,-,1,2,2,1,1,1,2,1,10,4,2,1,-,1,5,4,1,1,10,-,-,1,-,3,1,-,4,1,1,1,1,9,1,1,2,2,1,1,3,1,1,4,1,1,2,3,1,1,1,1,7,-,1,1,1,1,7,2,4,6,1,1,2,1,1,1,3,1,1,1,1,1,1,7,1,1,1,2,2,-,1,1,1,2,2,2,2,2,1,1,1,1,3,2,1,2,-,-,4,4,4,1,5,1,1,6,1,1,1,1,-,1,1,1,1,1,-,-,1,1,2,3,2,1,10,-,-,1,2,1,1,4,1,1,1,1,1,1,1,1,-,1,-,1,1,1,8,1,1,2,1,2,1,3,4,1,-,1,-,2,1,4,1,1,7,-,7,1,2,1,4,2,2,1,-,1,2,1,1,2,1,1,1,1,1,1,-,1,3,1,1,1,1,8,1,1,7,1,9,-,-,-,1,1,1,1,-,3,1,10,1,1,1,1,1,1,3,2,-,1,1,2,6,-,1,2,2,1,1,2,1,6,1,1,3,1,3,-,1,1,1,1,1,1,-,1,1,1,9,1,3,1,4,2,2,4,1,3,-,-,3,1,1,1,1,2,2,1,1,2,1,1,1,1,2,1,1,1,-,3,2,2,1,1,1,-,-,1,1,-,1,1,-,1,1,1,1,1,1,1,1,-,1,7,-,1,1,1,6,3,1,1,2,6,-,-,1,3,-,1,1,1,-,1,1,-,1,1,1,1,1,1,1,2",
+    "semanticParaphrase": "1,2,-,1,1,-,-,3,1,1,-,1,1,-,-,4,-,6,-,-,-,-,1,-,-,-,-,1,-,-,2,1,-,1,1,-,1,-,-,1,1,2,1,2,-,1,1,2,-,-,-,-,1,1,1,4,-,1,1,-,1,-,2,1,1,1,-,-,1,1,2,1,1,-,-,-,-,-,4,1,1,-,-,1,-,1,-,-,1,4,1,-,-,1,-,-,-,1,-,-,-,-,-,1,1,1,-,1,-,-,-,-,1,-,-,-,1,2,4,1,-,-,5,-,-,2,-,1,1,2,1,1,-,-,-,-,1,1,-,1,1,2,1,1,1,1,-,1,1,-,1,1,-,-,1,1,1,-,2,1,-,-,-,-,-,1,-,1,1,-,-,1,1,1,1,1,-,-,-,1,2,4,-,1,1,-,-,-,2,-,1,1,-,-,2,1,1,-,1,2,-,-,-,1,6,-,2,1,1,1,1,1,3,-,-,1,1,2,-,1,1,1,1,1,3,1,-,1,1,1,1,1,-,1,1,-,5,2,1,1,1,2,3,-,1,-,1,1,7,-,1,-,1,2,-,2,3,-,-,-,1,1,3,1,1,-,4,-,1,1,-,1,-,-,1,1,1,-,1,1,-,4,1,-,-,-,3,-,1,4,-,-,1,7,-,2,-,1,1,1,1,2,2,1,2,2,1,2,1,1,7,1,1,-,1,1,-,5,-,-,1,-,-,-,-,-,-,1,-,2,-,2,-,-,1,4,8,-,1,-,-,1,-,-,-,-,-,7,4,2,-,-,1,-,-,1,-,-,-,5,1,-,1,1,1,1,6,1,3,-",
+    "semanticParaphraseScoped": "1,2,-,1,1,-,-,3,1,1,-,1,1,-,-,6,-,6,-,-,-,-,1,-,-,-,-,1,-,-,2,1,-,1,1,-,1,-,-,1,1,2,1,2,-,1,1,2,-,-,-,-,1,1,1,4,-,1,1,-,1,-,2,1,1,1,-,-,1,1,2,1,1,-,-,-,-,-,4,1,1,-,-,1,-,1,-,-,1,1,1,-,-,1,-,-,-,1,-,-,1,-,-,1,1,1,-,1,-,-,-,-,1,-,-,-,1,1,1,1,-,-,3,-,-,2,-,1,1,2,1,1,-,-,-,-,1,1,-,1,1,2,1,1,1,1,-,1,1,-,1,1,-,-,1,1,1,-,2,1,-,-,-,-,-,1,-,1,2,-,-,1,1,1,1,1,-,-,-,1,2,5,-,1,1,-,-,-,2,-,1,1,-,-,2,1,1,8,1,2,-,-,-,1,4,-,2,1,1,1,1,1,3,-,-,1,1,2,-,1,1,1,1,1,3,1,-,1,1,1,1,1,-,1,1,-,2,1,1,1,1,2,2,-,1,-,1,1,7,-,1,-,1,2,-,2,1,-,-,-,1,1,3,1,1,-,4,-,1,1,-,1,-,-,1,1,1,-,1,1,-,1,1,-,-,-,3,-,1,3,-,-,1,7,-,2,-,1,1,1,1,2,2,1,2,2,1,1,1,1,5,1,1,-,1,1,-,5,-,-,1,-,-,-,-,-,-,1,-,3,-,1,-,-,1,4,8,-,1,-,-,1,-,-,-,-,-,8,5,1,-,-,1,-,-,1,1,-,-,5,1,-,1,1,1,1,5,1,6,-",
+    "semanticVerbatim": "1,1,2,1,1,1,1,1,1,1,1,1,1,1,1,1,1,2,1,1,1,1,1,1,1,1,1,1,1,1,2,1,2,1,1,1,1,1,1,1,1,1,1,1,2,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,2,1,2,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,2,1,1,1,1,1,1,3,2,1,2,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,2,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,2,1,1,1,1,2,1,1,1,1,5,1,1,1,1,1,7,1,1,1,1,1,1,1,1,1,2,1,2,1,6,4,1,1,1,1,1,1,4,2,1,1,1,1,1,2,1,1,1,1,9,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,2,1,1,1,1,2,1,1,1,1,1,1,1,1,1,1,1,1,1,1,-,1,1,1,1,1,1,4,1,1,1,2,1,1,1,1,1,1,-,1,1,2,1,1,1,1,1,1,1,2,1,1,2,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,2,1,1,1,1,1,2,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1",
+    "candidate": "1,1,-,2,1,-,1,2,1,1,-,1,1,10,1,1,-,6,-,-,9,2,1,1,2,1,2,1,4,2,2,1,2,1,1,-,1,2,4,1,1,2,1,1,-,1,1,1,-,1,10,4,1,1,1,4,-,1,1,3,1,-,1,1,1,1,3,-,1,1,2,2,1,1,-,4,7,-,1,1,1,-,6,1,-,1,-,-,1,4,1,1,-,1,-,-,2,1,-,5,2,2,-,1,1,1,4,1,-,-,2,2,1,-,-,-,1,1,1,1,2,2,2,3,3,1,1,1,1,3,1,1,-,-,7,-,1,1,-,1,1,2,1,1,1,1,-,1,1,6,1,1,-,-,1,1,2,-,2,1,-,-,-,1,-,1,2,1,1,2,1,1,1,1,1,1,-,1,-,1,2,1,-,1,1,9,1,7,2,3,1,1,-,3,2,1,1,-,1,2,9,-,10,1,2,2,1,1,1,1,-,1,2,2,5,1,1,2,4,1,1,1,1,1,3,1,2,1,1,1,1,1,-,1,1,-,-,-,1,1,1,1,3,3,1,-,1,1,4,3,1,1,2,2,-,1,2,3,-,-,1,1,2,1,1,5,4,10,1,1,-,1,6,-,1,1,1,5,1,1,-,1,1,3,10,1,3,3,1,2,2,9,1,4,-,4,-,1,1,1,1,2,2,1,2,2,1,1,1,1,2,1,1,1,-,1,3,2,2,1,1,-,-,1,2,-,2,1,-,1,1,1,2,1,1,2,4,-,1,-,-,1,2,1,9,-,1,6,2,2,-,-,1,-,-,1,3,5,-,1,1,-,1,1,1,1,2,1,1,4",
+    "candidateVerbatim": "1,1,2,1,1,1,1,1,1,1,1,1,1,1,1,1,1,2,1,1,1,1,1,1,1,1,1,1,1,1,2,1,2,1,1,1,1,1,1,1,1,1,1,1,2,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,2,1,2,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,2,1,1,1,1,1,1,2,3,1,1,1,1,1,1,1,1,1,1,1,2,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,2,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,9,1,1,1,1,2,1,1,2,1,5,1,1,1,1,1,7,1,1,1,1,1,1,1,1,1,-,1,2,1,10,5,1,1,1,1,1,1,7,2,2,1,1,2,1,2,1,1,1,1,10,1,1,1,1,1,1,1,2,1,1,1,1,1,1,1,1,1,1,2,1,1,1,1,2,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,3,1,1,1,2,1,1,1,1,1,1,8,1,1,2,1,1,1,1,1,2,1,3,1,1,2,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,2,1,5,1,1,1,1,1,1,1,1,1,1,1,1,1,1,4,1,1,1,1,1,3,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1",
+    "candidateWeight": "0.397,0.392,0.136,0.195,0.355,0.421,0.302,0.377,0.516,0.641,0.146,0.25,0.547,0.481,0.121,0.171,0.478,0.102,0.238,0.192,0.34,0.402,0.38,0.441,0.342,0.116,0.2,0.301,0.417,0.436,0.471,0.789,0.221,0.632,0.482,0.343,0.606,0.38,0.387,0.422,0.628,0.828,0.416,0.64,0.701,0.455,0.569,0.492,0.246,0.356,0.319,0.333,0.708,0.741,0.416,0.64,0.267,0.8,0.8,0.444,0.519,0.314,0.662,0.495,0.549,0.436,0.529,0.284,0.402,0.494,0.478,0.511,0.38,0.241,0.419,0.419,0.422,0.395,0.532,0.627,0.673,0.284,0.158,0.529,0.164,0.56,0.606,0.221,0.341,0.777,0.606,0.522,0.346,0.494,0.312,0.605,0.525,0.392,0.484,0.581,0.318,0.452,0.488,0.742,0.351,0.437,0.494,0.375,0.536,0.536,0.259,0.221,0.551,0.294,0.368,0.44,0.836,0.327,0.215,0.478,0.185,0.172,0.328,0.38,0.542,0.695,0.143,0.901,0.563,0.563,0.481,0.828,0.304,0.368,0.743,0.531,0.573,0.52,0.671,0.518,0.52,0.686,0.576,0.667,0.487,0.765,0.488,0.765,0.453,0.815,0.839,0.455,0.488,0.393,0.565,0.476,0.81,0.236,0.404,0.612,0.302,0.416,0.287,0.192,0.366,0.724,0.588,0.556,0.8,0.273,0.22,0.474,0.758,0.689,0.354,0.747,0.313,0.381,0.287,0.75,0.306,0.363,0.265,0.692,0.756,0.829,0.636,0.613,0.78,0.385,0.556,0.81,0.697,0.471,0.566,0.85,0.792,0.32,0.566,0.381,0.621,0.308,0.354,0.704,0.303,0.674,0.588,0.616,0.695,0.482,0.429,0.526,0.111,0.282,0.478,0.765,0.756,0.519,0.529,0.736,0.409,0.778,0.625,1,0.704,0.614,0.491,0.712,0.568,0.551,0.789,0.728,0.718,1.158,0.57,0.591,0.403,0.494,0.702,0.689,0.583,0.525,0.77,0.482,0.452,0.6,0.1,0.583,0.657,0.714,0.462,0.429,0.875,0.438,0.235,0.379,0.45,0.526,0.368,0.351,0.692,1.039,0.429,0.469,0.254,0.625,0.664,0.607,0.511,0.596,0.273,0.356,0.333,0.459,0.381,0.596,0.481,0.516,0.623,0.19,0.273,0.221,0.425,0.364,0.42,0.333,0.591,0.581,0.474,0.351,0.226,0.354,0.362,0.4,0.568,0.644,0.47,0.573,0.683,0.871,1.036,0.868,1.036,0.5,0.682,0.646,0.5,0.222,0.695,0.518,0.25,0.563,0.497,0.511,0.19,0.506,0.531,0.421,0.341,0.475,0.52,0.356,0.253,0.481,0.413,0.594,0.438,0.321,0.158,0.375,0.5,0.333,0.458,0.31,0.172,0.49,0.619,0.457,0.655,0.168,0.284,0.76,0.5,0.299,0.424,0.294,0.354,0.525,0.257,0.608,0.514,0.186,0.47,1.216,0.377,0.667,0.149,0.568,0.415,0.2,0.319,0.31,0.643,0.453,0.221,0.624,0.361,0.208,0.339,0.281",
+    "lexicalEvidence": "0.231,0.309,0.317,0.778,0.308,0.425,0.236,0.386,0.364,0.229,0.444,0.283,0.329,0.22,0.364,0.455,0.238,0.767,0.236,0.4,0.489,0.345,0.273,0.308,0.309,0.382,0.291,0.418,0.35,0.34,0.233,0.267,0.378,0.267,0.277,0.255,0.273,0.187,0.455,0.4,0.38,0.467,0.444,0.455,0.307,0.317,0.46,0.236,0.215,0.345,0.164,0.25,0.35,0.4,0.292,0.455,0.45,0.283,0.2,0.4,0.341,0.3,0.273,0.293,0.273,0.229,0.277,0.255,0.24,0.345,0.238,0.4,0.273,0.433,0.467,0.26,0.4,0.257,0.378,0.486,0.4,0.255,0.382,0.347,0.343,0.271,0.273,0.246,0.364,0.547,0.273,0.333,0.383,0.213,0.308,0.262,0.371,0.431,0.467,0.354,0.5,0.338,0.318,0.308,0.32,0.273,0.213,0.35,0.215,0.215,0.262,0.385,0.444,0.233,0.267,0.2,0.231,0.436,0.436,0.473,0.4,0.345,0.387,0.446,0.35,0.354,0.3,0.262,0.35,0.35,0.5,0.467,0.333,0.382,0.369,0.35,0.418,0.431,0.231,0.327,0.367,0.314,0.5,0.35,0.4,0.422,0.38,0.46,0.382,0.4,0.467,0.186,0.257,0.3,0.333,0.3,0.3,0.292,0.733,0.293,0.38,0.292,0.338,0.383,0.36,0.24,0.323,0.236,0.325,0.28,0.371,0.425,0.4,0.4,0.4,0.382,0.483,0.3,0.338,0.35,0.415,0.385,0.3,0.34,0.633,0.3,0.28,0.308,0.556,0.427,0.175,0.213,0.491,0.415,0.446,0.283,0.55,0.44,0.329,0.489,0.382,0.167,0.4,0.4,0.556,0.38,0.375,0.431,0.387,0.582,0.183,0.425,0.4,0.4,0.333,0.233,0.36,0.4,0.277,0.415,0.333,0.4,0.483,0.323,0.677,0.52,0.343,0.455,0.214,0.3,0.267,0.418,0.273,0.267,0.224,0.317,0.429,0.309,0.42,0.418,0.4,0.371,0.345,0.422,0.524,0.367,0.88,0.35,0.388,0.3,0.491,0.388,0.35,0.217,0.375,0.433,0.45,0.425,0.382,0.455,0.364,0.293,0.4,0.385,0.54,0.217,0.491,0.417,0.271,0.4,0.317,0.345,0.35,0.32,0.323,0.292,0.4,0.364,0.329,0.514,0.343,0.523,0.45,0.225,0.443,0.4,0.683,0.38,0.477,0.567,0.338,0.4,0.42,0.45,0.32,0.4,0.327,0.291,0.236,0.308,0.455,0.425,0.417,0.5,0.317,0.385,0.217,0.4,0.533,0.492,0.617,0.491,0.6,0.4,0.309,0.586,0.483,0.583,0.277,0.289,0.291,0.345,0.486,0.246,0.369,0.333,0.306,0.329,0.382,0.35,0.217,0.4,0.218,0.433,0.24,0.46,0.4,0.262,0.433,0.338,0.382,0.2,0.25,0.323,0.431,0.277,0.4,0.338,0.578,0.46,0.32,0.218,0.453,0.156,0.176,0.3,0.42,0.32,0.36,0.354,0.564,0.313,0.417,0.569,0.5,0.4,0.347,0.35,0.333,0.35",
+    "vectorEvidence": "0.062,0.091,0,0.111,0.077,0.15,0.036,0.114,0.164,0.129,0.022,0.033,0.157,0.08,0,0.036,0.088,0.033,0.018,0.036,0.133,0.109,0.073,0.108,0.073,0,0.018,0.091,0.117,0.12,0.083,0.2,0.044,0.15,0.108,0.055,0.145,0.04,0.145,0.14,0.22,0.378,0.156,0.273,0.2,0.117,0.24,0.091,0.015,0.091,0.018,0.05,0.233,0.283,0.092,0.273,0.083,0.217,0.15,0.15,0.153,0.06,0.164,0.12,0.127,0.071,0.123,0.036,0.067,0.145,0.088,0.18,0.073,0.067,0.167,0.08,0.14,0.071,0.178,0.286,0.253,0.036,0.018,0.16,0.014,0.129,0.145,0.015,0.091,0.413,0.145,0.15,0.1,0.08,0.062,0.138,0.171,0.138,0.2,0.185,0.125,0.125,0.129,0.215,0.08,0.091,0.08,0.1,0.092,0.092,0.031,0.046,0.222,0.033,0.067,0.06,0.185,0.109,0.055,0.2,0.033,0.018,0.093,0.138,0.167,0.231,0,0.231,0.175,0.175,0.214,0.378,0.067,0.109,0.262,0.163,0.218,0.2,0.138,0.145,0.167,0.2,0.267,0.217,0.169,0.311,0.16,0.34,0.145,0.317,0.383,0.057,0.1,0.088,0.167,0.117,0.233,0.031,0.267,0.16,0.08,0.092,0.062,0.033,0.1,0.16,0.169,0.109,0.25,0.04,0.043,0.175,0.291,0.26,0.109,0.273,0.117,0.083,0.062,0.25,0.092,0.108,0.043,0.22,0.467,0.24,0.16,0.169,0.422,0.133,0.075,0.163,0.327,0.169,0.231,0.233,0.425,0.107,0.165,0.156,0.218,0.017,0.109,0.267,0.133,0.24,0.2,0.246,0.253,0.255,0.05,0.2,0,0.077,0.133,0.167,0.26,0.183,0.123,0.292,0.107,0.3,0.283,0.323,0.462,0.3,0.143,0.309,0.1,0.143,0.2,0.291,0.182,0.317,0.106,0.167,0.143,0.127,0.28,0.273,0.213,0.171,0.255,0.178,0.21,0.2,0.72,0.183,0.238,0.2,0.2,0.138,0.3,0.067,0.05,0.133,0.175,0.2,0.109,0.127,0.236,0.307,0.143,0.154,0.1,0.117,0.309,0.233,0.114,0.218,0.05,0.091,0.083,0.12,0.092,0.154,0.167,0.164,0.186,0.057,0.057,0.077,0.163,0.05,0.157,0.1,0.383,0.2,0.2,0.167,0.038,0.109,0.12,0.15,0.16,0.24,0.127,0.145,0.145,0.262,0.473,0.363,0.433,0.225,0.2,0.231,0.083,0.05,0.356,0.231,0.117,0.255,0.273,0.18,0.018,0.271,0.233,0.217,0.062,0.111,0.127,0.091,0.086,0.092,0.123,0.178,0.106,0.071,0.018,0.1,0.083,0.1,0.073,0.1,0,0.2,0.229,0.092,0.267,0.015,0.073,0.14,0.1,0.062,0.154,0.046,0.109,0.154,0.111,0.26,0.14,0,0.187,0.2,0.035,0.183,0.02,0.16,0.12,0.031,0.145,0.063,0.25,0.231,0.071,0.231,0.093,0.033,0.08,0.063",
+    "rule:rrf": "1,2,-,1,1,-,-,3,1,1,-,1,1,-,-,4,-,6,-,-,-,-,1,-,-,-,-,1,-,-,2,1,-,1,1,-,1,-,-,1,1,2,1,2,-,1,1,2,-,-,-,-,1,1,1,4,-,1,1,-,1,-,2,1,1,1,-,-,1,1,2,1,1,-,-,-,-,-,4,1,1,-,-,1,-,1,-,-,1,4,1,-,-,1,-,-,-,1,-,-,-,-,-,1,1,1,-,1,-,-,-,-,1,-,-,-,1,2,4,1,-,-,5,-,-,2,-,1,1,2,1,1,-,-,-,-,1,1,-,1,1,2,1,1,1,1,-,1,1,-,1,1,-,-,1,1,1,-,2,1,-,-,-,-,-,1,-,1,1,-,-,1,1,1,1,1,-,-,-,1,2,4,-,1,1,-,-,-,2,-,1,1,-,-,2,1,1,-,1,2,-,-,-,1,6,-,2,1,1,1,1,1,3,-,-,1,1,2,-,1,1,1,1,1,3,1,-,1,1,1,1,1,-,1,1,-,5,2,1,1,1,2,3,-,1,-,1,1,7,-,1,-,1,2,-,2,3,-,-,-,1,1,3,1,1,-,4,-,1,1,-,1,-,-,1,1,1,-,1,1,-,4,1,-,-,-,3,-,1,4,-,-,1,7,-,2,-,1,1,1,1,2,2,1,2,2,1,2,1,1,7,1,1,-,1,1,-,5,-,-,1,-,-,-,-,-,-,1,-,2,-,2,-,-,1,4,8,-,1,-,-,1,-,-,-,-,-,7,4,2,-,-,1,-,-,1,-,-,-,5,1,-,1,1,1,1,6,1,3,-",
+    "ruleVerbatim:rrf": "1,1,2,1,1,1,1,1,1,1,1,1,1,1,1,1,1,2,1,1,1,1,1,1,1,1,1,1,1,1,2,1,2,1,1,1,1,1,1,1,1,1,1,1,2,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,2,1,2,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,2,1,1,1,1,1,1,3,2,1,2,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,2,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,2,1,1,1,1,2,1,1,1,1,5,1,1,1,1,1,7,1,1,1,1,1,1,1,1,1,2,1,2,1,6,4,1,1,1,1,1,1,4,2,1,1,1,1,1,2,1,1,1,1,9,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,2,1,1,1,1,2,1,1,1,1,1,1,1,1,1,1,1,1,1,1,-,1,1,1,1,1,1,4,1,1,1,2,1,1,1,1,1,1,-,1,1,2,1,1,1,1,1,1,1,2,1,1,2,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,2,1,1,1,1,1,2,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1",
+    "rule:combmnz": "1,2,-,1,1,-,1,1,1,1,-,1,1,10,1,1,-,6,-,-,9,1,1,1,2,1,1,1,1,1,2,1,2,1,1,-,1,2,4,1,1,2,1,1,-,1,1,1,-,1,10,4,1,1,5,8,-,1,1,4,1,-,2,1,1,1,3,-,1,1,2,1,1,1,-,4,8,-,1,1,1,-,6,1,-,1,-,-,1,4,2,2,-,1,-,-,2,1,-,3,3,2,-,1,1,1,1,1,-,-,2,2,1,-,-,-,1,1,1,1,2,2,2,3,3,2,1,1,1,2,1,1,-,-,6,-,1,1,-,1,1,2,1,1,1,1,-,1,1,4,1,1,-,-,1,1,2,-,2,1,-,-,-,1,-,1,2,1,1,2,1,1,1,1,1,1,-,1,-,1,1,2,-,1,1,8,1,7,2,3,1,1,-,2,1,1,1,-,1,1,9,-,10,1,2,1,2,1,1,1,-,1,2,2,2,1,1,1,4,1,1,1,1,1,3,1,1,1,1,1,1,1,-,1,1,-,-,1,1,1,1,2,1,3,1,-,1,1,3,2,1,1,2,2,-,1,1,3,-,-,1,1,3,1,1,5,4,10,1,1,-,1,6,-,1,1,1,5,1,1,-,2,1,3,-,1,3,3,1,2,2,10,1,4,-,2,10,1,1,1,1,2,2,1,2,2,1,1,1,1,2,1,1,1,-,1,2,2,3,1,1,-,-,1,2,-,3,1,-,1,1,1,1,2,1,1,4,-,1,-,-,1,2,1,9,-,1,5,2,2,-,-,1,-,-,1,3,3,-,1,1,-,1,1,1,1,1,1,1,4",
+    "ruleVerbatim:combmnz": "1,1,3,1,1,1,1,1,1,1,1,1,1,1,1,1,1,2,1,2,1,1,2,1,1,1,1,1,1,1,1,1,2,1,1,1,1,1,1,1,1,2,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,2,1,4,1,2,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,2,1,1,1,1,1,1,1,3,1,1,1,1,1,1,1,1,1,1,1,3,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,2,1,1,1,2,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,3,1,1,1,1,2,1,1,1,1,5,1,1,1,1,1,7,2,1,1,1,1,1,1,1,1,1,1,1,1,10,4,1,1,1,1,1,1,4,2,1,1,1,3,1,1,1,1,1,1,10,1,2,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,2,1,1,1,1,2,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,3,1,1,1,1,1,2,1,1,1,1,7,1,1,2,1,1,1,1,1,2,1,4,1,1,2,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,2,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1",
+    "rule:combmnz-positive": "1,1,-,2,1,-,1,1,1,1,-,1,1,10,1,1,-,6,-,-,10,2,1,1,2,1,1,1,1,1,3,1,2,1,1,-,1,2,4,1,1,2,1,1,-,1,1,1,-,1,10,4,1,1,2,6,-,1,1,4,1,-,2,1,1,1,3,-,1,1,2,1,1,1,-,4,9,-,1,1,1,-,6,1,-,1,-,-,1,4,2,2,-,1,-,-,2,1,-,3,3,2,-,1,1,1,1,1,-,-,2,2,1,-,-,-,1,1,1,1,2,2,2,3,3,2,1,1,1,2,1,1,-,-,7,-,1,1,-,1,1,2,1,1,1,1,-,1,1,4,1,1,-,-,1,1,2,-,2,1,-,-,-,1,-,1,2,1,1,2,1,1,1,1,1,1,-,1,-,1,1,2,-,1,1,8,1,7,2,3,1,1,-,2,1,1,1,-,1,1,9,-,10,1,3,1,2,1,1,1,-,1,2,2,5,1,1,1,4,1,1,1,1,1,3,1,1,1,1,1,1,1,-,1,1,-,-,1,1,1,1,2,1,3,1,-,1,1,3,2,1,1,2,2,-,1,1,3,-,-,1,1,2,1,1,5,4,10,1,1,-,1,7,-,1,1,1,5,1,1,-,2,1,3,-,1,3,3,1,2,2,10,1,4,-,2,-,1,1,1,1,2,2,1,2,2,1,1,1,1,2,1,1,1,-,1,2,2,3,1,1,-,-,1,2,-,3,1,-,1,1,1,1,2,1,1,4,-,1,-,-,1,2,1,10,-,1,5,2,2,-,-,1,-,-,1,3,3,-,1,1,-,1,1,1,1,1,1,1,4",
+    "ruleVerbatim:combmnz-positive": "1,1,3,1,1,1,1,1,1,1,1,1,1,1,1,1,1,2,1,2,1,1,2,1,1,1,1,1,1,1,1,1,2,1,1,1,1,1,1,1,1,2,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,2,1,4,1,2,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,2,1,1,1,1,1,1,1,3,1,1,1,1,1,1,1,1,1,1,1,3,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,2,1,1,1,2,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,3,1,1,1,1,2,1,1,1,1,5,1,1,1,1,1,7,2,1,1,1,1,1,1,1,1,1,1,1,1,10,4,1,1,1,1,1,1,4,2,1,1,1,3,1,1,1,1,1,1,10,1,2,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,2,1,1,1,1,2,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,3,1,1,1,1,1,2,1,1,1,1,8,1,1,2,1,1,1,1,1,2,1,4,1,1,2,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,2,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1",
+    "rule:combmnz-percentile": "1,7,-,6,1,-,4,3,1,1,-,3,1,-,1,6,-,10,-,-,-,-,1,3,10,3,3,3,6,3,4,1,4,1,1,-,1,4,-,1,1,4,4,2,-,1,1,4,-,3,-,9,2,1,3,5,-,1,1,-,1,-,3,1,1,1,6,-,1,1,2,1,2,4,-,-,-,-,4,6,1,-,7,1,-,1,-,-,2,2,1,4,-,1,-,-,4,1,-,6,4,2,-,1,1,1,9,1,-,-,3,5,1,-,-,-,1,4,5,1,6,7,8,3,4,2,3,1,1,2,1,1,-,-,8,-,1,1,-,1,1,2,1,1,1,1,-,1,1,8,1,1,-,-,1,1,1,-,6,1,-,-,-,1,-,1,10,1,2,4,5,2,2,1,1,1,-,3,-,2,5,7,-,1,2,-,5,9,2,6,1,1,-,8,1,1,1,-,1,2,-,-,-,1,7,8,2,1,1,1,1,1,3,4,6,1,1,2,5,1,1,2,1,1,3,1,8,1,2,1,1,1,-,1,2,-,2,1,1,1,1,2,1,4,2,-,1,1,10,8,1,4,1,2,-,4,3,8,-,-,1,1,4,1,5,6,6,-,1,1,-,1,8,-,2,1,1,-,1,3,-,8,1,7,-,9,2,5,2,4,3,-,1,6,-,2,-,1,1,1,1,2,2,1,2,1,2,2,3,3,8,4,1,7,1,3,10,5,5,3,1,-,-,2,5,-,5,4,-,3,6,2,2,6,1,4,8,-,2,-,-,1,3,7,-,-,2,8,6,2,-,-,1,-,-,1,5,8,-,5,6,-,1,1,2,1,6,1,6,7",
+    "ruleVerbatim:combmnz-percentile": "1,2,3,1,1,-,1,1,1,1,1,1,1,2,5,1,1,8,1,2,2,1,2,1,1,7,1,1,1,1,1,5,2,1,1,5,1,1,1,1,1,2,1,1,1,1,1,1,1,1,1,4,2,1,1,1,2,1,1,1,1,2,1,1,1,1,1,1,1,1,1,1,1,1,1,2,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,2,1,4,1,2,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,2,1,1,1,1,1,1,1,1,1,1,1,4,1,1,1,1,1,1,1,1,1,1,1,4,1,1,1,1,1,1,1,1,1,1,1,1,2,1,1,1,2,1,2,2,2,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,-,1,1,1,1,5,2,1,1,2,6,1,1,1,1,1,8,2,1,1,3,1,1,1,1,1,1,1,1,1,-,10,1,1,2,1,1,1,-,2,3,1,1,3,9,1,1,1,4,1,10,1,2,1,1,2,1,1,4,3,1,1,1,1,1,1,1,1,1,3,1,1,1,3,1,1,1,1,2,1,10,1,1,1,1,1,1,1,2,1,1,1,1,1,1,1,10,2,1,1,1,4,1,1,1,2,1,-,1,2,2,1,1,1,1,1,2,3,4,1,1,2,1,1,1,1,1,1,1,1,1,1,1,2,1,1,1,1,1,1,1,1,1,1,1,1,10,1,1,1,2,1,1,1,1,1,1,1,1,4,2,8,3,1,1,1,2,10,1,1,1,1,3,1,1,1,3,1,1,1,1,1,1,1,1,1",
+    "rule:rrf-mnz": "1,1,-,7,1,-,4,3,1,1,-,1,1,-,1,6,-,-,-,-,-,-,1,3,10,3,3,1,7,3,2,1,4,1,1,-,1,4,-,1,1,2,1,1,-,1,1,2,-,3,-,10,1,1,1,4,-,1,1,-,1,-,2,1,1,1,6,-,1,1,2,2,1,4,-,-,-,-,4,1,1,-,-,1,-,1,-,-,1,4,1,4,-,1,-,-,4,1,-,7,4,2,-,1,1,1,9,1,-,-,3,5,1,-,-,-,1,4,5,1,6,7,10,3,4,1,3,1,1,3,1,1,-,-,9,-,1,1,-,1,1,2,1,1,1,1,-,1,1,8,1,1,-,-,1,1,2,-,2,1,-,-,-,1,-,1,10,1,1,4,6,1,1,1,1,1,-,3,-,1,5,7,-,1,1,-,6,-,2,7,1,1,-,8,2,1,1,-,1,2,-,-,-,1,7,8,1,1,1,1,1,1,3,4,6,1,1,2,5,1,1,1,1,1,3,1,8,1,1,1,1,1,-,1,1,-,3,2,1,1,1,2,3,5,1,-,1,1,10,9,1,5,2,2,-,1,3,8,-,-,1,1,2,1,8,9,6,-,1,1,-,1,-,-,1,1,1,-,1,3,-,8,1,8,-,9,3,5,1,4,3,-,1,7,-,2,-,1,1,1,1,2,2,1,2,2,1,3,1,1,8,1,1,7,1,1,10,5,6,3,1,-,-,3,6,-,6,1,-,3,6,2,2,6,1,4,8,-,1,-,-,1,3,10,-,-,2,8,6,2,-,-,1,-,-,1,6,8,-,5,6,-,1,1,1,1,6,1,6,9",
+    "ruleVerbatim:rrf-mnz": "1,1,3,1,1,-,1,1,1,1,1,1,1,1,6,1,1,9,1,1,1,1,2,1,1,9,1,1,1,1,2,1,2,1,1,5,1,1,1,1,1,2,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,2,1,2,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,2,1,1,1,1,1,1,2,3,1,1,1,1,1,1,1,1,1,1,1,2,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,2,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,-,1,1,1,1,2,1,1,2,1,7,1,1,1,1,1,-,2,1,1,1,1,1,1,1,1,2,1,1,1,-,-,1,1,1,1,1,1,-,2,2,1,1,2,9,1,1,1,4,1,-,1,1,1,1,1,1,1,2,1,1,1,1,1,1,1,1,1,1,2,1,1,1,1,2,1,1,1,1,1,10,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,4,1,1,1,1,1,1,1,1,1,1,-,1,1,2,1,1,1,1,1,1,1,3,1,1,2,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,10,1,1,1,2,1,1,1,1,1,1,1,1,1,1,8,2,1,1,1,1,-,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1",
+    "rule:supported": "1,5,-,2,1,-,2,3,1,1,-,-,1,-,1,2,-,10,-,-,-,4,1,1,5,1,1,3,2,3,4,1,3,1,1,-,1,3,5,1,1,2,5,1,-,1,1,4,-,2,-,7,1,1,-,-,-,1,1,6,1,-,7,1,1,1,3,-,1,1,3,2,-,1,-,9,10,-,2,1,1,-,10,1,-,1,-,-,7,3,-,3,-,-,-,-,2,1,-,6,4,2,-,1,1,1,4,1,-,-,3,4,1,-,-,-,1,1,4,1,4,4,5,3,3,1,1,1,1,3,1,1,-,-,7,-,1,1,-,1,1,-,1,1,1,1,-,1,1,5,1,1,-,-,1,1,2,-,5,1,-,-,-,1,-,1,5,1,2,3,2,1,1,1,1,1,-,2,-,1,2,3,-,1,1,9,2,-,2,5,1,1,-,5,1,1,1,-,1,2,-,-,-,1,5,3,-,1,1,1,-,1,3,3,2,1,1,2,5,1,1,1,1,1,3,1,4,1,1,1,1,1,-,1,1,-,4,2,1,1,1,2,2,5,1,-,1,1,5,4,1,1,1,2,-,4,2,5,-,-,1,1,3,1,2,8,4,9,1,1,-,1,-,-,1,1,1,10,1,2,-,3,1,5,-,5,1,2,1,3,3,-,1,5,-,2,-,1,1,1,1,2,2,1,2,3,1,2,1,1,4,1,1,5,-,6,7,4,4,2,1,-,-,2,4,-,5,8,-,2,3,2,2,5,3,2,4,-,1,-,-,1,3,3,-,-,2,4,4,2,-,-,1,-,-,1,5,3,-,3,4,-,1,1,5,1,4,1,2,7",
+    "ruleVerbatim:supported": "1,1,3,1,1,5,1,1,1,1,1,1,1,1,3,1,1,3,1,1,1,1,2,1,1,4,1,1,1,1,2,1,1,1,1,2,1,1,1,1,1,2,1,1,1,1,1,1,1,1,1,3,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,2,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,2,1,1,1,1,1,1,2,3,1,1,1,1,1,1,1,1,1,1,1,4,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,2,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,4,1,1,1,1,4,1,1,1,1,6,1,1,1,1,1,10,2,1,1,1,1,1,1,1,1,2,1,1,1,5,8,1,1,1,1,1,1,5,2,2,1,1,2,4,1,1,1,3,1,7,1,1,1,1,1,1,1,2,1,1,1,1,1,1,1,1,1,1,2,1,1,1,1,2,1,1,1,1,1,4,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,6,1,1,1,1,4,1,1,1,1,1,5,1,1,2,1,1,1,1,1,1,1,3,1,1,2,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,3,1,1,1,2,1,1,1,1,1,1,1,1,4,1,6,2,1,1,1,1,6,1,1,1,1,3,1,1,1,1,1,1,1,1,1,1,1,1,1",
+    "rule:qpp": "1,1,-,2,1,-,1,2,1,1,-,1,1,10,1,1,-,6,-,-,9,2,1,1,2,1,2,1,4,1,2,1,2,1,1,-,1,2,4,1,1,1,1,1,-,1,1,1,-,1,10,4,1,1,1,5,-,1,2,3,1,-,1,1,1,1,3,-,1,1,2,2,1,1,-,4,7,-,1,1,1,-,6,1,-,2,-,-,1,4,1,1,-,1,-,-,2,1,-,4,2,2,-,1,1,1,4,1,-,-,2,2,1,-,-,-,1,1,1,1,2,2,2,3,3,1,1,1,1,3,1,2,-,-,6,-,1,1,-,1,1,2,1,1,1,1,-,1,1,4,1,1,-,-,1,1,2,-,2,1,-,-,-,1,-,1,2,1,1,2,1,1,1,1,1,1,-,1,-,1,2,1,-,1,1,6,1,7,1,3,1,1,-,3,6,2,1,-,1,2,9,-,10,1,2,1,1,1,1,1,-,1,2,2,2,2,1,1,4,1,1,1,1,1,3,1,1,1,1,1,1,1,9,1,1,-,-,-,1,1,1,1,3,3,1,-,1,1,4,1,1,1,2,2,-,1,2,3,-,-,1,2,2,1,1,5,4,9,1,1,-,1,6,-,1,1,1,5,1,1,-,1,1,3,10,1,3,3,1,2,2,9,1,4,-,-,-,1,1,1,1,2,2,1,1,2,1,1,1,1,2,1,1,1,-,1,2,2,2,1,1,-,-,1,2,-,2,1,-,1,1,1,2,2,1,1,4,-,1,-,-,1,2,1,9,-,1,5,2,2,-,-,1,-,-,1,3,3,-,1,1,-,1,1,1,1,2,1,1,4",
+    "ruleVerbatim:qpp": "1,1,2,1,1,1,1,1,1,1,1,1,1,1,1,1,1,4,1,1,1,1,1,1,1,2,1,1,1,1,2,1,2,1,1,1,1,1,1,1,1,1,1,1,2,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,2,1,2,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,2,1,1,1,1,1,1,3,2,1,2,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,2,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,6,1,1,2,1,2,1,1,2,1,5,1,1,1,1,1,7,1,1,1,1,1,1,1,1,1,6,1,1,1,8,4,1,1,1,1,1,1,4,2,1,1,1,1,1,2,1,1,1,1,10,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,2,1,1,1,1,2,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,3,1,1,1,2,1,2,1,1,1,1,8,1,1,2,1,1,1,1,1,1,1,2,1,1,2,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,4,1,1,1,1,1,3,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1",
+    "rule:qpp3": "1,1,-,2,1,-,1,2,1,1,-,1,1,10,1,1,-,6,-,-,9,2,1,1,2,1,2,1,4,1,3,1,2,1,1,-,1,2,4,1,1,1,1,1,-,1,1,1,-,1,10,4,1,1,1,-,-,1,5,3,1,-,1,1,1,1,3,-,1,1,2,2,1,1,-,4,6,-,1,1,1,-,6,1,-,2,-,-,1,4,6,1,-,1,-,-,2,1,-,4,2,2,-,1,1,1,3,1,-,-,2,2,1,-,-,-,1,1,1,1,2,2,2,3,3,1,1,1,2,3,1,2,-,-,6,-,1,1,-,1,1,2,1,1,1,1,-,1,1,3,1,1,-,-,1,1,2,-,2,1,-,-,-,1,10,1,2,1,1,2,1,1,1,1,1,1,-,1,-,1,2,1,-,1,1,6,1,7,1,3,1,1,-,3,7,2,1,-,1,2,9,-,10,1,2,1,1,1,1,1,-,1,2,2,2,2,1,1,4,1,1,1,1,1,3,1,1,1,1,1,1,1,9,1,1,-,-,-,1,1,1,1,-,3,1,-,1,1,4,1,1,1,2,2,-,1,2,3,-,-,1,2,2,1,1,5,4,9,1,1,-,1,6,-,1,1,1,5,1,1,-,1,1,3,10,1,3,3,1,2,2,9,1,4,-,-,-,1,1,1,1,2,2,1,1,2,1,1,1,1,2,1,1,1,-,1,2,2,2,1,1,-,-,1,2,-,2,1,-,1,1,1,1,1,1,2,4,-,1,-,-,1,2,1,9,-,1,5,2,2,-,-,1,-,-,1,3,3,-,1,1,-,1,1,1,1,2,1,1,4",
+    "ruleVerbatim:qpp3": "1,1,2,1,1,1,1,1,1,1,1,1,1,1,1,1,1,3,1,1,1,1,1,1,1,2,1,1,1,1,2,1,2,1,1,1,1,1,1,1,1,1,1,1,2,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,5,1,2,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,2,1,1,1,1,1,1,3,2,1,2,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,2,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,6,1,1,2,1,2,1,1,2,1,5,1,1,1,1,1,7,1,1,1,1,1,1,1,1,1,-,1,1,1,9,4,1,1,1,1,1,1,4,2,1,1,1,1,1,2,1,1,1,1,10,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,2,1,1,1,1,2,1,1,1,1,1,1,1,1,1,1,1,1,1,1,5,1,1,1,1,1,1,3,1,1,1,2,1,2,1,1,1,1,8,1,1,2,1,1,1,1,1,1,1,2,1,1,2,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,2,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,4,1,1,1,1,1,3,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1",
     "sweep": {
-      "0.35": "1,1,1,-,1,1,1,1,1,-,-,1,1,1,1,-,1,1,-,1,6,5,-,1,1,-,1,1,3,3,-,1,-,3,3,1,2,-,1,1,-,1,-,1,-,2,-,-,1,2,1,2,6,3,2,1,4,1,10,2,3,2,-,-,1,1,3,1,1,1,1,1,1,1,1,1,2,1,2,1,1,-,1,1,2,1,1,1,-,1,1,-,-,-,-,5,2,1,4,-,1,-,-,10,1,1,-,1,2,2,1,2,-,1,3,1,2,4,2,1,-,2,-,1,1,10,1,1,1,1,-,1,-,-,2,1,-,1,1,-,1,1,1,1,1,1,1,1,6,4,-,-,4,5,-,1,1,1,1,1,-,2,-,2,1,-,2,2,-,2,1,2,1,1,1,1,4,1,1,1,1,1,2,1,-,1,5,-,1,1,1,4,2,1,1,2,3,1,1,1,-,2,-,1,1,1,1,1,-,7,3,2,-,1,1,-,1,-,1,1,1,1,1,1,1,2,6,1,2,-,1,1,1,-,1,1,2,1,1,1,1,1,2,4,2,1,1,1,4,1,1,1,1,5,8,2,1,-,-,1,1,9,1,4,1,-,1,9,-,3,1,1,6,1,1,1,1,1,1,2,1,1,1,1,2,1,1,1,2,1,1,9,1,1,2,1,3,1,1,1,1,-,-,5,-,3,1,1,1,-,1,1,1,1,3,-,1,1,1,1,-,2,-,-,-,-,2,-,1,1,1,1,1,1,1,1,1,1,2,-,3,1,6,2,1,8,3,-,1,1,1,3,1,-,1,-,1,2,6,1,1,2,1,1,1,1,1,1,2,1,4,-,-,1,1,1,1,1,1,2,-,1,1,-,7,2,5,2,1,1,1,5,1,1,3,-,4,1,1,4,1,2,1,1,4,1,1,-,1,-,8,1,1,1,1,1,1,1,2,8,3,1,1,1,2,2,2,1,1,1,1,1,1,1,2,1,2,-,-,1,1,1,1,3,-,1,1,1,1,1,1,1,1,1"
+      "1": "1,1,-,3,1,-,4,3,1,1,-,1,1,-,1,4,-,-,-,-,-,8,1,1,9,3,2,1,5,3,2,1,3,1,1,-,1,3,10,1,1,2,1,1,-,1,1,2,-,2,-,10,1,1,1,4,-,1,1,10,1,-,2,1,1,1,6,-,1,1,2,2,1,1,-,-,-,-,4,1,1,-,-,1,-,1,-,-,1,4,1,4,-,1,-,-,2,1,-,7,4,2,-,1,1,1,8,1,-,-,3,5,1,-,-,-,1,2,4,1,4,7,5,3,4,1,3,1,1,3,1,1,-,-,9,-,1,1,-,1,1,2,1,1,1,1,-,1,1,8,1,1,-,-,1,1,2,-,2,1,-,-,-,1,-,1,7,1,1,4,4,1,1,1,1,1,-,2,-,1,5,4,-,1,1,-,3,-,2,5,1,1,-,8,2,1,1,-,1,2,-,-,-,1,6,4,1,1,1,1,1,1,3,3,5,1,1,2,5,1,1,1,1,1,3,1,5,1,1,1,1,1,-,1,1,-,5,2,1,1,1,2,3,5,1,-,1,1,7,5,1,2,2,2,-,1,3,8,-,-,1,1,2,1,2,9,4,-,1,1,-,1,-,-,1,1,1,-,1,3,-,4,1,8,-,9,3,5,1,4,3,-,1,7,-,2,-,1,1,1,1,2,2,1,2,2,1,2,1,1,7,1,1,7,1,1,8,5,4,3,1,-,-,2,5,-,5,1,-,2,6,2,2,6,1,4,8,-,1,-,-,1,3,4,-,-,2,7,4,2,-,-,1,-,-,1,6,8,-,5,5,-,1,1,1,1,6,1,3,9",
+      "2": "1,2,-,-,1,-,-,-,1,1,-,1,1,-,-,-,-,-,-,-,-,-,1,-,-,-,-,1,-,-,2,1,-,1,1,-,1,-,-,1,1,3,1,2,-,1,1,2,-,-,-,-,1,1,1,4,-,1,1,-,1,-,2,1,1,1,-,-,1,1,2,1,1,-,-,-,-,-,-,1,1,-,-,1,-,1,-,-,1,3,1,-,-,1,-,-,-,1,-,-,-,-,-,1,1,1,-,1,-,-,-,-,1,-,-,-,1,-,-,1,-,-,-,-,-,2,-,1,1,2,1,1,-,-,-,-,1,1,-,1,1,2,1,1,1,1,-,1,1,-,1,1,-,-,1,1,2,-,2,1,-,-,-,-,-,1,-,1,1,-,-,1,1,1,1,1,-,-,-,1,-,-,-,1,1,-,-,-,2,-,1,1,-,-,2,1,1,-,1,-,-,-,-,1,-,-,1,1,1,1,1,1,-,-,-,1,1,-,-,1,1,1,1,1,3,1,-,1,1,1,1,1,-,1,1,-,6,2,1,1,1,2,3,-,1,-,1,1,-,-,1,-,1,2,-,1,-,-,-,-,1,1,2,1,-,-,-,-,1,1,-,-,-,-,1,1,1,-,1,-,-,-,1,-,-,-,1,-,1,-,-,-,1,-,-,2,-,1,1,1,1,2,2,1,2,1,1,-,1,1,-,1,1,-,1,1,-,-,-,-,1,-,-,-,-,-,-,1,-,-,-,-,-,-,1,-,-,-,1,-,-,1,-,-,-,-,-,-,-,2,-,-,1,-,-,1,-,-,-,-,-,-,1,1,1,1,-,-,-,-",
+      "4": "1,2,-,-,1,-,-,-,1,1,-,1,1,-,-,-,-,-,-,-,-,-,1,-,-,-,-,1,-,-,2,1,-,1,1,-,1,-,-,1,1,3,1,2,-,1,1,2,-,-,-,-,1,1,1,4,-,1,1,-,1,-,2,1,1,1,-,-,1,1,2,1,1,-,-,-,-,-,-,1,1,-,-,1,-,1,-,-,1,2,1,-,-,1,-,-,-,1,-,-,-,-,-,1,1,1,-,1,-,-,-,-,1,-,-,-,1,-,-,1,-,-,-,-,-,2,-,1,1,2,1,1,-,-,-,-,1,1,-,1,1,2,1,1,1,1,-,1,1,-,1,1,-,-,1,1,1,-,2,1,-,-,-,-,-,1,-,1,1,-,-,1,1,1,1,1,-,-,-,1,-,-,-,1,1,-,-,-,2,-,1,1,-,-,1,1,1,-,1,-,-,-,-,1,-,-,2,1,1,1,1,1,-,-,-,1,1,-,-,1,1,1,1,1,3,1,-,1,1,1,1,1,-,1,1,-,6,2,1,1,1,2,3,-,1,-,1,1,-,-,1,-,1,2,-,2,-,-,-,-,1,1,3,1,-,-,-,-,1,1,-,-,-,-,1,1,1,-,1,-,-,-,1,-,-,-,1,-,1,-,-,-,1,-,-,2,-,1,1,1,1,2,2,1,2,1,1,-,1,1,-,1,1,-,1,1,-,-,-,-,1,-,-,-,-,-,-,1,-,-,-,-,-,-,1,-,-,-,1,-,-,1,-,-,-,-,-,-,-,2,-,-,1,-,-,1,-,-,-,-,-,-,1,1,1,1,-,-,-,-",
+      "0.1": "1,1,-,1,1,-,1,1,1,1,-,2,1,10,1,1,-,6,-,-,8,1,-,1,2,1,1,1,1,1,2,5,2,1,1,-,1,2,4,1,1,1,1,1,-,2,2,1,-,1,10,4,1,1,5,-,-,1,-,3,1,-,1,1,1,1,3,-,1,2,2,6,9,1,-,4,6,-,1,1,1,-,6,1,-,2,-,-,1,4,-,1,-,1,-,-,2,1,-,3,2,1,-,1,1,1,2,1,-,-,2,2,1,-,-,-,1,1,1,1,2,2,2,3,3,1,1,1,3,2,1,2,-,-,4,-,1,1,-,1,1,4,1,1,1,1,-,1,1,2,1,1,-,-,1,1,2,-,2,1,-,-,-,1,10,1,1,6,1,2,1,1,1,1,1,1,-,1,-,1,2,1,-,1,1,4,1,7,1,3,-,1,-,2,-,2,1,-,1,2,9,-,10,1,2,1,1,1,1,1,-,1,2,2,1,2,1,1,1,1,1,1,10,1,3,1,1,1,1,6,1,1,9,1,5,-,-,-,1,1,1,1,-,3,1,-,1,1,2,1,1,1,2,2,-,1,1,2,-,-,1,2,2,1,1,5,1,7,1,1,-,1,6,-,1,1,1,5,1,1,-,1,1,3,9,1,3,1,1,2,2,9,1,4,-,-,9,1,1,1,1,2,2,1,1,2,1,1,1,1,2,1,1,1,-,1,2,2,2,1,1,-,-,1,2,-,2,1,-,1,1,1,1,1,1,1,3,-,1,-,-,1,1,1,9,-,1,3,2,9,-,-,1,-,-,1,3,3,-,1,1,-,1,1,1,1,2,1,1,4",
+      "0.35": "1,1,-,2,1,-,1,2,1,1,-,1,1,10,1,1,-,6,-,-,9,2,1,1,2,1,2,1,4,1,2,1,2,1,1,-,1,2,4,1,1,1,1,1,-,1,1,1,-,1,10,4,1,1,1,9,-,1,3,3,1,-,1,1,1,1,3,-,1,1,2,2,1,1,-,4,6,-,1,1,1,-,6,1,-,2,-,-,1,4,3,1,-,1,-,-,2,1,-,4,2,2,-,1,1,1,4,1,-,-,2,2,1,-,-,-,1,1,1,1,2,2,2,3,3,1,1,1,2,3,1,2,-,-,6,-,1,1,-,1,1,2,1,1,1,1,-,1,1,4,1,1,-,-,1,1,2,-,2,1,-,-,-,1,-,1,2,1,1,2,1,1,1,1,1,1,-,1,-,1,2,1,-,1,1,6,1,7,2,3,1,1,-,3,8,2,1,-,1,2,9,-,10,1,2,1,1,1,1,1,-,1,2,2,5,1,1,2,4,1,1,1,1,1,3,1,1,1,1,1,1,1,9,1,1,-,-,-,1,1,1,1,-,3,1,-,1,1,4,1,1,1,2,2,-,1,2,3,-,-,1,2,2,1,1,5,4,9,1,1,-,1,6,-,1,1,1,5,1,1,-,1,1,3,10,1,3,3,1,2,2,9,1,4,-,-,-,1,1,1,1,2,2,1,1,2,1,1,1,1,2,1,1,1,-,1,2,2,2,1,1,-,-,1,2,-,2,1,-,1,1,1,1,1,1,2,4,-,1,-,-,1,2,1,9,-,1,5,2,2,-,-,1,-,-,1,3,3,-,1,1,-,1,1,1,1,2,1,1,4"
     }
   },
   "rejected": [
     {
+      "key": "BurntSushi/ripgrep#project:BurntSushi/ripgrep:crates/cli/src/process.rs:stderr",
+      "reasons": [
+        "copies six words from the documentation"
+      ]
+    },
+    {
+      "key": "BurntSushi/ripgrep#project:BurntSushi/ripgrep:crates/ignore/src/overrides.rs:empty",
+      "reasons": [
+        "copies six words from the documentation"
+      ]
+    },
+    {
+      "key": "BurntSushi/ripgrep#project:BurntSushi/ripgrep:crates/regex/src/literal.rs:enforce_literal_len",
+      "reasons": [
+        "copies six words from the documentation"
+      ]
+    },
+    {
       "key": "expressjs/express#project:expressjs/express:lib/application.js:param",
+      "reasons": [
+        "spells the symbol name"
+      ]
+    },
+    {
+      "key": "expressjs/express#project:expressjs/express:lib/application.js:route",
       "reasons": [
         "spells the symbol name"
       ]
@@ -1205,127 +1630,62 @@
       ]
     },
     {
+      "key": "expressjs/express#project:expressjs/express:lib/response.js:cookie",
+      "reasons": [
+        "spells the symbol name"
+      ]
+    },
+    {
+      "key": "expressjs/express#project:expressjs/express:lib/response.js:links",
+      "reasons": [
+        "spells the symbol name",
+        "copies six words from the documentation"
+      ]
+    },
+    {
       "key": "expressjs/express#project:expressjs/express:lib/view.js:View",
       "reasons": [
         "spells the symbol name"
       ]
     },
     {
-      "key": "google/gson#project:google/gson:gson/src/main/java/com/google/gson/Gson.java:Gson",
+      "key": "gin-gonic/gin#project:gin-gonic/gin:binding/binding_test.go:TestBindingYAMLStringMap",
       "reasons": [
         "copies six words from the documentation"
       ]
     },
     {
-      "key": "google/gson#project:google/gson:gson/src/main/java/com/google/gson/GsonBuilder.java:enableComplexMapKeySerialization",
-      "reasons": [
-        "copies six words from the documentation"
-      ]
-    },
-    {
-      "key": "google/gson#project:google/gson:gson/src/main/java/com/google/gson/internal/bind/JsonElementTypeAdapter.java:read",
+      "key": "gin-gonic/gin#project:gin-gonic/gin:context.go:JSON",
       "reasons": [
         "spells the symbol name"
       ]
     },
     {
-      "key": "google/gson#project:google/gson:gson/src/main/java/com/google/gson/internal/bind/ObjectTypeAdapter.java:ObjectTypeAdapter",
+      "key": "gin-gonic/gin#project:gin-gonic/gin:debug.go:IsDebugging",
       "reasons": [
         "copies six words from the documentation"
       ]
     },
     {
-      "key": "google/gson#project:google/gson:gson/src/main/java/com/google/gson/internal/JavaVersion.java:isJava9OrLater",
+      "key": "gin-gonic/gin#project:gin-gonic/gin:gin_integration_test.go:TestListener",
       "reasons": [
         "copies six words from the documentation"
       ]
     },
     {
-      "key": "google/gson#project:google/gson:gson/src/main/java/com/google/gson/internal/JsonReaderInternalAccess.java:JsonReaderInternalAccess",
+      "key": "gin-gonic/gin#project:gin-gonic/gin:utils.go:isASCII",
       "reasons": [
         "copies six words from the documentation"
       ]
     },
     {
-      "key": "google/gson#project:google/gson:gson/src/main/java/com/google/gson/internal/Primitives.java:isWrapperType",
+      "key": "google/gson#project:google/gson:gson/src/main/java/com/google/gson/reflect/TypeToken.java:getArray",
       "reasons": [
         "copies six words from the documentation"
       ]
     },
     {
-      "key": "google/gson#project:google/gson:gson/src/main/java/com/google/gson/JsonObject.java:asMap",
-      "reasons": [
-        "copies six words from the documentation"
-      ]
-    },
-    {
-      "key": "google/gson#project:google/gson:gson/src/main/java/com/google/gson/JsonSerializer.java:serialize",
-      "reasons": [
-        "copies six words from the documentation"
-      ]
-    },
-    {
-      "key": "google/gson#project:google/gson:gson/src/main/java/com/google/gson/reflect/TypeToken.java:typeEquals",
-      "reasons": [
-        "copies six words from the documentation"
-      ]
-    },
-    {
-      "key": "google/gson#project:google/gson:gson/src/main/java/com/google/gson/stream/JsonReader.java:JsonReader",
-      "reasons": [
-        "copies six words from the documentation"
-      ]
-    },
-    {
-      "key": "google/gson#project:google/gson:gson/src/main/java/com/google/gson/stream/JsonReader.java:nextNonWhitespace",
-      "reasons": [
-        "spells the symbol name"
-      ]
-    },
-    {
-      "key": "google/gson#project:google/gson:gson/src/main/java/com/google/gson/stream/JsonWriter.java:JsonWriter",
-      "reasons": [
-        "copies six words from the documentation"
-      ]
-    },
-    {
-      "key": "google/gson#project:google/gson:gson/src/test/java/com/google/gson/functional/ArrayTest.java:ArrayTest",
-      "reasons": [
-        "copies six words from the documentation"
-      ]
-    },
-    {
-      "key": "google/gson#project:google/gson:gson/src/test/java/com/google/gson/functional/InstanceCreatorTest.java:testInstanceCreatorForCollectionType",
-      "reasons": [
-        "copies six words from the documentation"
-      ]
-    },
-    {
-      "key": "google/gson#project:google/gson:gson/src/test/java/com/google/gson/functional/MapAsArrayTypeAdapterTest.java:testSerializeComplexMapWithTypeAdapter",
-      "reasons": [
-        "copies six words from the documentation"
-      ]
-    },
-    {
-      "key": "google/gson#project:google/gson:gson/src/test/java/com/google/gson/functional/MoreSpecificTypeSerializationTest.java:testWildcardListOfParameterizedSubclassFields",
-      "reasons": [
-        "copies six words from the documentation"
-      ]
-    },
-    {
-      "key": "google/gson#project:google/gson:gson/src/test/java/com/google/gson/internal/bind/DefaultDateTypeAdapterTest.java:testGsonDateFormat",
-      "reasons": [
-        "copies six words from the documentation"
-      ]
-    },
-    {
-      "key": "pallets/flask#project:pallets/flask:examples/tutorial/flaskr/auth.py:load_logged_in_user",
-      "reasons": [
-        "copies six words from the documentation"
-      ]
-    },
-    {
-      "key": "pallets/flask#project:pallets/flask:examples/tutorial/tests/conftest.py:app",
+      "key": "pallets/flask#project:pallets/flask:examples/tutorial/tests/test_factory.py:test_config",
       "reasons": [
         "spells the symbol name"
       ]
@@ -1337,74 +1697,43 @@
       ]
     },
     {
-      "key": "pallets/flask#project:pallets/flask:src/flask/cli.py:command",
+      "key": "pallets/flask#project:pallets/flask:src/flask/config.py:__init__",
+      "reasons": [
+        "copies six words from the documentation"
+      ]
+    },
+    {
+      "key": "pallets/flask#project:pallets/flask:src/flask/ctx.py:copy_current_request_context",
+      "reasons": [
+        "copies six words from the documentation"
+      ]
+    },
+    {
+      "key": "pallets/flask#project:pallets/flask:src/flask/json/provider.py:JSONProvider",
+      "reasons": [
+        "copies six words from the documentation"
+      ]
+    },
+    {
+      "key": "pallets/flask#project:pallets/flask:src/flask/sansio/app.py:trap_http_exception",
+      "reasons": [
+        "copies six words from the documentation"
+      ]
+    },
+    {
+      "key": "pallets/flask#project:pallets/flask:src/flask/sansio/scaffold.py:query",
       "reasons": [
         "spells the symbol name"
-      ]
-    },
-    {
-      "key": "pallets/flask#project:pallets/flask:src/flask/cli.py:list_commands",
-      "reasons": [
-        "copies six words from the documentation"
-      ]
-    },
-    {
-      "key": "pallets/flask#project:pallets/flask:src/flask/ctx.py:has_request",
-      "reasons": [
-        "copies six words from the documentation"
-      ]
-    },
-    {
-      "key": "pallets/flask#project:pallets/flask:src/flask/json/tag.py:JSONTag",
-      "reasons": [
-        "copies six words from the documentation"
-      ]
-    },
-    {
-      "key": "pallets/flask#project:pallets/flask:src/flask/json/tag.py:untag",
-      "reasons": [
-        "copies six words from the documentation"
-      ]
-    },
-    {
-      "key": "pallets/flask#project:pallets/flask:src/flask/sansio/app.py:App",
-      "reasons": [
-        "spells the symbol name"
-      ]
-    },
-    {
-      "key": "pallets/flask#project:pallets/flask:src/flask/sansio/scaffold.py:errorhandler",
-      "reasons": [
-        "copies six words from the documentation"
-      ]
-    },
-    {
-      "key": "pallets/flask#project:pallets/flask:src/flask/sansio/scaffold.py:post",
-      "reasons": [
-        "spells the symbol name"
-      ]
-    },
-    {
-      "key": "pallets/flask#project:pallets/flask:src/flask/sansio/scaffold.py:teardown_request",
-      "reasons": [
-        "copies six words from the documentation"
-      ]
-    },
-    {
-      "key": "pallets/flask#project:pallets/flask:src/flask/sessions.py:permanent",
-      "reasons": [
-        "spells the symbol name",
-        "copies six words from the documentation"
-      ]
-    },
-    {
-      "key": "pallets/flask#project:pallets/flask:src/flask/testing.py:FlaskCliRunner",
-      "reasons": [
-        "copies six words from the documentation"
       ]
     },
     {
       "key": "pallets/flask#project:pallets/flask:tests/test_cli.py:expect_order",
+      "reasons": [
+        "copies six words from the documentation"
+      ]
+    },
+    {
+      "key": "sindresorhus/got#project:sindresorhus/got:source/core/errors.ts:CacheError",
       "reasons": [
         "copies six words from the documentation"
       ]
@@ -1416,7 +1745,19 @@
       ]
     },
     {
+      "key": "sindresorhus/got#project:sindresorhus/got:source/core/timed-out.ts:isArmableTimerDelay",
+      "reasons": [
+        "copies six words from the documentation"
+      ]
+    },
+    {
       "key": "sindresorhus/got#project:sindresorhus/got:source/core/utils/is-unix-socket-url.ts:getUnixSocketPath",
+      "reasons": [
+        "copies six words from the documentation"
+      ]
+    },
+    {
+      "key": "sindresorhus/got#project:sindresorhus/got:test/abort.ts:startRetriedRequest",
       "reasons": [
         "copies six words from the documentation"
       ]
