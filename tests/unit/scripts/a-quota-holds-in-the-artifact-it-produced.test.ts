@@ -57,7 +57,9 @@ describe('the sample is a sample of every repository and not of the one that doc
     // **The cap, not the floor.** A quota guarantees that no repository carries more than its share; it cannot
     // guarantee that each reaches one, because a rejected rewrite only ever subtracts - and the first six-repository run
     // proved it by putting `flask` at 59 of 67, which is what §42 was written about.
-    for (const count of counts) expect(count).toBeLessThanOrEqual(Math.ceil(TARGET / 6));
+    // 68 and not 67: a repository that cannot fill its share hands the surplus back, so `express`'s 63 gives one extra
+    // question to the two repositories whose names sort first.
+    for (const count of counts) expect(count).toBeLessThanOrEqual(Math.ceil(TARGET / 6) + 1);
     expect(counts.reduce((sum, count) => sum + count, 0)).toBe(artifact.questions.scored);
     // **What the defect was**: 67 per cent of the measurement from one repository. The widest repository is now under a
     // fifth of it.

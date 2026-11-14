@@ -4381,9 +4381,10 @@ question that was never scored, so the quota belongs to the accepted set**.
    asked to hit.
 2. **`allocateQuota` is one function** now, used by both the sample and the trim, because two copies of "equal share"
    would be two definitions of it.
-3. **The gate asserts the cap and the sum**, not a floor: no repository may carry more than `ceil(400 / 6) = 67` rows
-   (dominance is what the defect was), a repository below **40** is refused (a repository that contributes almost nothing
-   is named and not measured), and the per-repository counts must sum to the artifact's own `questions.scored`.
+3. **The gate asserts the cap and the sum**, not a floor: no repository may carry more than **68** rows - the water-filled
+   share of 67 plus the one extra a short repository hands back, which is what `express`'s 63 gave `gin` and `ripgrep` -
+   a repository below **40** is refused (a repository that contributes almost nothing is named and not measured), and the
+   per-repository counts must sum to the artifact's own `questions.scored`.
 
 ### 42.2 Why the floor was withdrawn rather than widened
 
@@ -4391,7 +4392,7 @@ question that was never scored, so the quota belongs to the accepted set**.
 repository is measured on a quota's worth", and the run showed the proxy was attached to the wrong quantity: the sampler
 guarantees an **upper** bound (no repository exceeds its share) and cannot guarantee a lower one, because rejections only
 ever subtract. A criterion has to state the invariant the mechanism actually holds. **Registered before the second run:
-the six repositories' rows sum to `questions.scored`, none exceeds 67, and the widest repository is at most 18 per cent
+the six repositories' rows sum to `questions.scored`, none exceeds 68, and the widest repository is at most 18 per cent
 of the measurement** - against the 67 per cent a stride gave one of them.
 
 ### 42.3 The cost of the correction

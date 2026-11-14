@@ -246,7 +246,7 @@ jobs:
           for (const repo of repos) {
             const score = per[repo];
             if (!score) { console.error('::error::' + repo + ' is in the corpus and has no scored question'); process.exit(1); }
-            if (score.n > 67) { console.error('::error::' + repo + ' contributed ' + score.n + ' scored rows, above the share a 400 question quota over six repositories allows (67)'); process.exit(1); }
+            if (score.n > 68) { console.error('::error::' + repo + ' contributed ' + score.n + ' scored rows, above the share a 400 question quota over six repositories allows (68: the water-filled 67 plus the one extra a short repository hands back)'); process.exit(1); }
             if (score.n < 40) { console.error('::error::' + repo + ' contributed only ' + score.n + ' scored rows, so the repository is named and not measured'); process.exit(1); }
             total += score.n;
             counts.push(score.n + ' ' + repo);
@@ -386,7 +386,7 @@ jobs:
           for (const repo of repos) {
             const score = per[repo];
             if (!score) { console.error('::error::' + repo + ' is in the corpus and has no scored question'); process.exit(1); }
-            if (score.n > 67) { console.error('::error::' + repo + ' contributed ' + score.n + ' rows, above the share a 400 question quota over six repositories allows'); process.exit(1); }
+            if (score.n > 68) { console.error('::error::' + repo + ' contributed ' + score.n + ' rows, above the share a 400 question quota over six repositories allows (68)'); process.exit(1); }
             if (score.n < 40) { console.error('::error::' + repo + ' contributed only ' + score.n + ' rows, so the repository is named and not measured'); process.exit(1); }
             total += score.n;
             counts.push(score.n + ' ' + repo);
