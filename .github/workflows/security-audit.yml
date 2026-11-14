@@ -12,9 +12,13 @@ on:
   schedule:
     - cron: '0 8 * * 1' # Every Monday at 08:00 UTC
 
-# **`security-events: write` is not granted here**, because only the `codeql` job uploads alerts and that job carries the
-# permission itself. The workflow-level grant that used to sit beside this line gave the same authority to `secret-scan`,
-# `dependency-audit`, `supply-chain` and `redos-assay`, none of which has anything to upload.
+# **`security-events: write` is granted nowhere in this file.** CodeQL analysis used to live here as a second `init`
+# call beside the one in `codeql.yml`, and **it was the copy that won**: both uploaded under the same category
+# (`/language:javascript-typescript`), so each run replaced the other's results, and the one without
+# `.github/codeql/codeql-config.yml` was the one that produced the alerts. Every shape the triage file excludes - fixture
+# defects, test-built source text, harnesses that read a corpus - came back on the next push, which is exactly what a
+# triage file is supposed to answer once. The analysis now runs in one place. What is left here measures advisories,
+# secrets, licences and ReDoS; `redos-assay` reads the alert list and carries `security-events: read` on the job.
 permissions:
   contents: read
 
@@ -89,34 +93,6 @@ jobs:
           # would have thrown away.**
           pnpm audit --json > audit.json || true
           node scripts/audit-gate.mjs audit.json
-
-  codeql:
-    name: CodeQL Analysis
-    runs-on: ubuntu-latest
-    permissions:
-      actions: read
-      contents: read
-      security-events: write
-    strategy:
-      fail-fast: false
-      matrix:
-        language: ['javascript-typescript']
-    steps:
-      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
-
-      - name: Initialize CodeQL
-        uses: github/codeql-action/init@9418214df1f2c4b8128c770156c409013b07d6b9 # v3
-        with:
-          languages: ${{ matrix.language }}
-          queries: security-extended,security-and-quality
-
-      - name: Autobuild
-        uses: github/codeql-action/autobuild@9418214df1f2c4b8128c770156c409013b07d6b9 # v3
-
-      - name: Perform CodeQL Analysis
-        uses: github/codeql-action/analyze@9418214df1f2c4b8128c770156c409013b07d6b9 # v3
-        with:
-          category: '/language:${{ matrix.language }}'
 
   supply-chain:
     name: Supply Chain Integrity

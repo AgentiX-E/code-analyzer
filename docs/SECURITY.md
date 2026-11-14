@@ -225,6 +225,13 @@ Four things about it matter more than its output.
 quadratic, 73 linear, 3 unlocated** - and the three are findings whose pattern this iteration deleted, so the next
 CodeQL analysis closes them rather than moving them.
 
+**That sentence needs one analysis to be true.** Two workflows ran `github/codeql-action/init` - `codeql.yml` with the
+triage file and `security-audit.yml` without it - under the same category, so each upload replaced the other's results.
+On 2026-11-14 the triaged copy uploaded **0 results** and the untriaged one **33**, and the 33 are what the Security tab
+was showing: fixture defects, `${i}` in test-built source text, harnesses that read a corpus. Answers already written
+down in `.github/codeql/codeql-config.yml` were being re-asked on every push. The analysis now runs once, in
+`codeql.yml`, and `tests/unit/scripts/codeql-triage-is-scoped-and-named.test.ts` holds the count at one `init` call.
+
 **Five rules, and every correction in this iteration is one of them.**
 
 | rule                                                              | what it looked like                                         | what it is now                                                 | sites |

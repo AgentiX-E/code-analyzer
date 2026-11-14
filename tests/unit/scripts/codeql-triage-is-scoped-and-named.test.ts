@@ -7,6 +7,10 @@
 //
 //   - **The workflow stops passing it.** Nothing else in the repository names the file, so a lost `config-file:` line
 //     silently returns 44 alerts and the file becomes decoration.
+//   - **A second workflow starts a second analysis.** Two `init` calls under one `category` replace each other's
+//     results, and the copy that does not read this file is the one whose alerts survive - which is how the quality
+//     findings listed under `TRIAGED` came back after they had already been answered. One call, asserted here, and
+//     each of those findings re-checked against the exclusions below.
 //   - **A path stops matching.** A renamed directory turns an exclusion into a no-op, and the alert comes back with the
 //     same justification still sitting in the YAML.
 //   - **An exclusion loses its path.** `- exclude: {id: …}` with no `paths` is a **global** exclusion - the query is off
@@ -16,13 +20,40 @@
 // The parse is line-based on purpose: the file is written in one shape, and a parser here would be a second
 // implementation of YAML that agrees with GitHub's only by luck. The shape is asserted instead.
 
-import { readFileSync, existsSync } from 'node:fs';
+import { readFileSync, existsSync, readdirSync } from 'node:fs';
 import { join } from 'node:path';
 
 import { describe, expect, it } from 'vitest';
 
 const CONFIG = '.github/codeql/codeql-config.yml';
 const WORKFLOW = '.github/workflows/codeql.yml';
+
+// **The findings the triage file was written against, named one by one.** A directory glob is both why this file exists
+// and how it can quietly stop covering something, so the pairing that matters is asserted at file granularity:
+// `js/call-to-non-callable` fires twice inside one fixture directory and `js/template-syntax-in-string-literal` four
+// times across two test files, and a glob that covers `export-chain/` but not the file inside it would go unnoticed.
+const TRIAGED: ReadonlyArray<{ readonly id: string; readonly path: string }> = [
+  {
+    id: 'js/unused-local-variable',
+    path: 'packages/analyzer/src/__tests__/fixtures/integration-project/src/index.ts',
+  },
+  {
+    id: 'js/call-to-non-callable',
+    path: 'packages/analyzer/src/__tests__/fixtures/export-chain/quiet-consumer.ts',
+  },
+  {
+    id: 'js/call-to-non-callable',
+    path: 'packages/analyzer/src/__tests__/fixtures/export-chain/cycle-consumer.ts',
+  },
+  {
+    id: 'js/template-syntax-in-string-literal',
+    path: 'packages/mcp/src/__tests__/reports-tools.test.ts',
+  },
+  {
+    id: 'js/template-syntax-in-string-literal',
+    path: 'packages/mcp/src/__tests__/pdg-tools.test.ts',
+  },
+];
 
 interface Exclusion {
   readonly id: string;
@@ -104,6 +135,38 @@ describe('the CodeQL triage file is applied, and every claim in it still lands s
           `${block.id}: ${pattern} matches nothing`,
         ).toBe(true);
       }
+    }
+  });
+
+  it('runs in exactly one workflow, since two analyses under one category overwrite each other', () => {
+    const dir = '.github/workflows';
+    // **The count is the assertion, not the file name.** A second `init` is invisible in review - it is four lines in a
+    // workflow that already exists - and its only symptom is alerts reappearing that nobody changed.
+    const initialised = readdirSync(dir)
+      .filter((name) => name.endsWith('.yml') || name.endsWith('.yaml'))
+      .filter((name) =>
+        readFileSync(join(dir, name), 'utf8').includes('github/codeql-action/init@'),
+      );
+
+    expect(initialised).toEqual(['codeql.yml']);
+  });
+
+  it('still answers every quality finding that was triaged, on the file it was triaged on', () => {
+    const blocks = exclusions();
+    const covered = (id: string, path: string): boolean =>
+      blocks.some(
+        (block) =>
+          block.id === id &&
+          block.paths.some((pattern) =>
+            // The two shapes this file is allowed to contain: a directory glob, and one exact file.
+            pattern.endsWith('/**')
+              ? path.startsWith(`${pattern.slice(0, -3)}/`)
+              : path === pattern,
+          ),
+      );
+
+    for (const finding of TRIAGED) {
+      expect(covered(finding.id, finding.path), `${finding.id} on ${finding.path}`).toBe(true);
     }
   });
 });

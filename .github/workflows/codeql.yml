@@ -1,5 +1,11 @@
 # CodeQL Analysis Configuration
 # Scans for security vulnerabilities in TypeScript/JavaScript code.
+#
+# **This is the repository's only CodeQL analysis, and the only `init` call in any workflow.** A second one used to run
+# in `security-audit.yml` under the same category (`/language:javascript-typescript`), so the two replaced each other's
+# results on every push; the copy without the triage file is the one that ended up on the Security tab, which is why
+# shapes the triage file had already answered came back the next day. `tests/unit/scripts/codeql-triage-is-scoped-and-named.test.ts`
+# holds the count at one.
 
 name: 'CodeQL'
 
