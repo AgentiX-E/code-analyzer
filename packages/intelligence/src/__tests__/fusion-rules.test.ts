@@ -114,6 +114,57 @@ describe('combmnz rewards agreement and needs no weight', () => {
   });
 });
 
+describe('agreement about an answer nobody wanted is not a vote for it', () => {
+  // `zeta` is last in both lists - a document both channels returned and neither recommended - and the two CombMNZ
+  // variants disagree about what that means. **§40.5 measured the plain one at 378 of 454 rewritten questions and 0.0199
+  // *less* MRR than the shipped rule on CoSQA**, and this is the mechanism's own explanation of that loss.
+  const bothLast = fuseByRule('combmnz', lexical, vector);
+  const positive = fuseByRule('combmnz-positive', lexical, vector);
+
+  it('scores a document both lists rank last below zero under the plain count', () => {
+    const hit = bothLast.find((entry) => entry.node.id === F.id)!;
+    // Two below-average z-scores, multiplied by two: **a large negative number, which sorts it to the bottom of a list
+    // it is already at the bottom of** - harmless here, and not harmless when the document is one the other channel had
+    // ranked well.
+    expect(hit.combinedScore).toBeLessThan(0);
+  });
+
+  it('scores it at exactly zero when only positive evidence counts', () => {
+    const hit = positive.find((entry) => entry.node.id === F.id)!;
+    // **Zero, not a negative number**: a channel that says "not this one" contributes nothing rather than contributing
+    // against, so agreement between two channels about a bad answer buys nothing.
+    expect(hit.combinedScore).toBe(0);
+  });
+
+  it('leaves the documents at least one channel recommends where they were', () => {
+    // The repair must not disturb what the plain count got right: `alpha` is the lexical list's first answer and
+    // `epsilon` the vector list's, and both stay above the document nothing recommends.
+    const ids = positive.map((entry) => entry.node.id);
+    expect(ids.indexOf(F.id)).toBeGreaterThan(ids.indexOf(A.id));
+    expect(ids.indexOf(F.id)).toBeGreaterThan(ids.indexOf(E.id));
+  });
+});
+
+describe('reciprocal ranks times the channel count, which changes one thing at a time', () => {
+  it('doubles a document both channels named and leaves a single-channel document alone', () => {
+    // **The measurement that separates CombMNZ's two halves**: same rank arithmetic as the shipped rule, plus the count.
+    // A candidate that changed both the arithmetic and the count would have a figure and no explanation.
+    const fused = fuseByRule('rrf-mnz', lexical, vector, { k: 60 });
+    const beta = fused.find((entry) => entry.node.id === B.id)!;
+    const alone = fused.find((entry) => entry.node.id === E.id)!;
+    expect(beta.combinedScore).toBeCloseTo((1 / 62 + 1 / 62) * 2, 12);
+    expect(alone.combinedScore).toBeCloseTo(1 / 61, 12);
+    // **And the top is decided by two ten-thousandths**: `alpha` at lexical rank 1 and vector rank 3 scores
+    // `(1/61 + 1/63) × 2`, `beta` at rank 2 in both scores `(1/62 + 1/62) × 2`, and the difference is 0.000017 - **which is
+    // what a count multiplier does to a reciprocal rank: it flattens the head**, so the order inside the agreed set is
+    // nearly a coin toss. That flattening is a property to report rather than to assert away: it is the mechanism's own
+    // cost, and the corpus is where it gets weighed.
+    const alpha = fused.find((entry) => entry.node.id === A.id)!;
+    expect(alpha.combinedScore).toBeGreaterThan(beta.combinedScore);
+    expect(alpha.combinedScore - beta.combinedScore).toBeLessThan(0.0001);
+  });
+});
+
 describe('the supported rule lets the semantic channel add without letting it reorder', () => {
   it('ignores a vector-only document below its own list’s mean', () => {
     // `zeta` is last in the vector list, at 0.4 against a mean of 0.7275 - the list is not standing behind it. Under

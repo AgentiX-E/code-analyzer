@@ -32,7 +32,15 @@ import type { HybridSearchResult, RankedResult } from './hybrid-search.js';
  * one corpus and forgotten by the other: **a rule with a figure on one corpus and no figure on the second is a rule
  * nobody has falsified.**
  */
-export const FUSION_RULE_NAMES = ['rrf', 'combmnz', 'supported', 'qpp', 'qpp3'] as const;
+export const FUSION_RULE_NAMES = [
+  'rrf',
+  'combmnz',
+  'combmnz-positive',
+  'rrf-mnz',
+  'supported',
+  'qpp',
+  'qpp3',
+] as const;
 export type FusionRuleName = (typeof FUSION_RULE_NAMES)[number];
 
 /** The reciprocal-rank constant the engine ships, used by every rule that reads a rank. */
@@ -206,6 +214,44 @@ export function fuseByRule(
         const fromVector = zVec.get(id) ?? 0;
         const channels = (lexRanks.has(id) ? 1 : 0) + (vecRanks.has(id) ? 1 : 0);
         add(id, (fromLexical + fromVector) * channels);
+      }
+      break;
+    }
+
+    case 'combmnz-positive': {
+      // **The same count multiplier, with the negative half of agreement removed.**
+      //
+      // §40.5 measured CombMNZ at 378 of 454 rewritten questions - eleven better than a constant tuned with the answer
+      // key in hand, with no parameter at all - and at **0.0199 less MRR on CoSQA than the shipped rule**, an interval
+      // that excludes zero. The mechanism's own unit test shows where that can come from: a document both channels rank
+      // *low* is multiplied by two as well, so agreement about an answer nobody wanted is rewarded exactly as much as
+      // agreement about the answer. **A z-score below its channel's mean is that channel saying "not this one"**, and a
+      // count that treats it as support is a count that reads every opinion as a vote for.
+      const zLex = zScores(lexical);
+      const zVec = zScores(vector);
+      for (const [id] of nodes) {
+        const fromLexical = Math.max(0, zLex.get(id) ?? 0);
+        const fromVector = Math.max(0, zVec.get(id) ?? 0);
+        const channels = (lexRanks.has(id) ? 1 : 0) + (vecRanks.has(id) ? 1 : 0);
+        add(id, (fromLexical + fromVector) * channels);
+      }
+      break;
+    }
+
+    case 'rrf-mnz': {
+      // **Neither a weight nor a z-score: reciprocal ranks times the number of channels that named the document.**
+      //
+      // Reciprocal ranks are the stable part of the engine's fusion - they cannot be pulled by one channel's scale, which
+      // is what the z-scores in `combmnz` can. The document both lists named is then rewarded by the count, which is the
+      // one thing §40.5 established as worth having. **Two mechanisms measured, one variable changed**, which is the
+      // only way to say which half of CombMNZ produced its gain.
+      for (const [id, rank] of lexRanks) add(id, 1 / (k + rank));
+      for (const [id, rank] of vecRanks) add(id, 1 / (k + rank));
+      for (const [id, hit] of nodes) {
+        const channels = (lexRanks.has(id) ? 1 : 0) + (vecRanks.has(id) ? 1 : 0);
+        // **Multiplied rather than added a second time**, so the count scales the agreement instead of contributing a
+        // constant per document - a constant would be a weight, and a weight is the thing this rule does not have.
+        hit.combinedScore *= channels;
       }
       break;
     }

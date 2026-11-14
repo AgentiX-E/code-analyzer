@@ -4054,3 +4054,91 @@ issued, and no second retrieval happens**, so the whole tournament costs one dis
 anyway. The dispatches also carry §39.11's outstanding control: `attribution-control.yml` runs the **pre-repair engine**
 (`ebb4e6c5`, the parent of `4abde273`) on the same corpus, same runner, same secrets, so the doc-comment repair's effect
 is measured rather than inferred from two runs a month apart.
+
+### 40.5 The run: the parameter-free mechanism wins four columns and loses the fifth by two hundredths
+
+One dispatch of `multirepo-semantic.yml` and one of `code-qa-benchmark.yml` at `3586aee5`, same corpus, same 12 072
+vectors, same 454 rewritten and 454 quoted questions, and the same 500 CoSQA questions as §39.11.
+
+**Rewritten questions, four repositories (454):**
+
+| mechanism                  | found@10 |        R@1 |     MRR@10 | paired against lexical only  | paired against the shipped rule |
+| -------------------------- | -------: | ---------: | ---------: | ---------------------------- | ------------------------------- |
+| lexical list alone         |      360 |     0.5330 |     0.6299 | —                            | —                               |
+| `rrf` (shipped, derived 4) |      295 |     0.4736 |     0.5340 | 21 against 86, `p < 1e-4`    | —                               |
+| constant 0.35 (tuned)      |      373 |     0.5639 |     0.6572 | 14 against 1, `p = 0.001`    | —                               |
+| **`combmnz`**              |  **378** | **0.5793** | **0.6708** | **18 against 0, `p < 1e-4`** | **86 against 3, `p < 1e-4`**    |
+| `qpp3`                     |      375 |     0.5683 |     0.6604 | 15 against 0, `p = 1e-4`     | —                               |
+| `qpp`                      |      374 |     0.5705 |     0.6608 | 15 against 1, `p = 5e-4`     | —                               |
+| `supported`                |      370 |     0.4692 |     0.5747 | 18 against 8, `p = 0.076`    | —                               |
+
+**Quoted questions, same index, same run (454):**
+
+| mechanism          | found@10 |        R@1 |          MRR@10 |
+| ------------------ | -------: | ---------: | --------------: |
+| lexical list alone |      451 |     0.8458 |          0.9061 |
+| `rrf` (shipped)    |      452 |     0.8480 |          0.9105 |
+| **`combmnz`**      |  **453** | **0.8656** |      **0.9185** |
+| `qpp` / `qpp3`     |      453 |     0.8458 | 0.9093 / 0.9102 |
+| `supported`        |      451 |     0.8084 |          0.8744 |
+
+**CoSQA, 500 questions, test-split:**
+
+| mechanism                |  found@10 |             R@1 |          MRR@10 | paired ΔMRR against derived       |
+| ------------------------ | --------: | --------------: | --------------: | --------------------------------- |
+| lexical list alone       |       332 |          0.3560 |          0.4549 | —                                 |
+| `rrf` at weight 1        |       429 |          0.5460 |          0.6443 | —                                 |
+| derived weight (shipped) |       449 |          0.5620 |      **0.6735** | —                                 |
+| **`combmnz`**            |   **452** |          0.5280 |          0.6535 | **−0.0199, `[−0.0391, −0.0022]`** |
+| `supported`              |       440 |          0.5380 |          0.6488 | —                                 |
+| `qpp3` / `qpp`           | 416 / 414 | 0.5420 / 0.5380 | 0.6359 / 0.6321 | —                                 |
+
+**Three of the four registered criteria are met with room, and the fourth is not a criterion at all - it is a metric the
+registration forgot to name.** Criterion 1: 0.8326 against the lexical list's 0.7930 and the tuned constant's 0.8216, with
+`p < 1e-4`. Criterion 2: 453 of 454, above the 451 bar. Criterion 3: 452 against 447. **Criterion 4 trivially: CombMNZ has
+no constant.** And on CoSQA it costs **0.0199 of MRR@10 with an interval that excludes zero** - a regression on a figure
+§39.11 published as a product number.
+
+**The mechanism is therefore not adopted**, by the rule this project applies to every regression, and the product keeps
+`rrf` at the derived weight. §40.3's criteria stand as written; what they were missing is registered as §40.6 rather than
+retrofitted into §40.3.
+
+**What the tournament nevertheless established, and it is more than a table:**
+
+1. **The weight was never the problem, the scalar was.** `combmnz` has no weight and beats the constant that was tuned on
+   these 454 questions with the answer key in hand: **378 against 373, MRR 0.6708 against 0.6572, five questions and 0.0137
+   MRR, `p = 0.0625` on the paired test** - a real gap that does not reach significance at 454 questions, and a gap that
+   the shipped rule loses to by **86 questions**.
+2. **Suppression is not the repair.** `supported` - the candidate that addressed the diagnosis directly, by refusing the
+   vector channel's below-average entries - reaches 370 found@10 and **0.5747 MRR, the second worst of the six**. The loss
+   was never "a wrong document displaced a right one"; it was that a global scalar cannot weigh two lists per document.
+3. **Query-performance prediction works and is not enough.** `qpp` and `qpp3` land within three questions of `combmnz` on
+   the paraphrase condition (374 / 375), so a statistic read off the two lists' own heads **does recover most of what the
+   spelling signal lost** - and on CoSQA they collapse to 414 and 416, well under the derived arm's 449. **Predicting a
+   scalar is still predicting a scalar.**
+4. **The two statistics disagree exactly where they were predicted to.** `qpp` reads one answer and `qpp3` three; they
+   differ by one question on the paraphrase condition and by two on CoSQA, which is the fixture-level disagreement
+   `fusion-rules.test.ts` holds, measured on a corpus.
+
+### 40.6 The repair that has to beat a fifth column, registered before its run
+
+CombMNZ's loss has a mechanism of its own, and the unit test that documents it is the specification: **a document both
+channels rank low is multiplied by two as well**, so agreement about an answer nobody wanted is rewarded exactly as much
+as agreement about the answer. Two candidates, both parameter-free, one variable changed each:
+
+| mechanism          | what changes                                             | the claim it tests                                 |
+| ------------------ | -------------------------------------------------------- | -------------------------------------------------- |
+| `combmnz-positive` | `max(0, z)` - a channel saying "not this one" votes zero | the MRR loss is the negative half of the count     |
+| `rrf-mnz`          | reciprocal ranks × channel count, no z-scores            | the gain is the count, not the score normalisation |
+
+Registered acceptance, written before the run, on one dispatch of each workflow at the commit that adds them. **A
+mechanism is adopted only if all six hold**, the first four as §40.3 wrote them and two new ones that close the omission:
+
+5. **CoSQA `MRR@10` ≥ 0.6735** - the shipped derived arm's figure on the same corpus. **The metric the first tournament
+   was not asked about**, and the bar the winner of §40.5 missed by 0.0199.
+6. **Paraphrase `MRR@10` ≥ 0.6572 and quoted `MRR@10` ≥ 0.9105** - the best figure either condition has recorded, so a
+   mechanism that buys recall by flattening the head (`rrf-mnz`'s own unit test measures a two-ten-thousandths gap between
+   the top two) has to buy it without paying here.
+
+**If none clears all six, the product keeps `rrf` and §40 records a third retirement** - and `fusionRule` stays a
+published parameter, so the four mechanisms stay measurable on every future corpus instead of being re-implemented.
