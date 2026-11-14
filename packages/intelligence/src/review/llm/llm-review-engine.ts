@@ -12,7 +12,12 @@ import {
 } from './prompts.js';
 import { collectDiffFacts, diffHeaderPaths, rankFindings } from '../actionability.js';
 import { codeContextForSections, type CodeContextLimits } from './code-context.js';
-import { ClaimAdjudicator, type AdjudicationReport } from '../adjudication/adjudicator.js';
+import {
+  ClaimAdjudicator,
+  oneLine,
+  type AdjudicationReport,
+  type RefusedClaim,
+} from '../adjudication/adjudicator.js';
 import { applyNarrationVeto, type NarrationVetoReport } from '../adjudication/narration.js';
 import { addedLinesOf } from '../adjudication/patch-lines.js';
 
@@ -327,8 +332,20 @@ export class LLMReviewEngine {
    * a claim and costs nothing, `claims` buys one model call per survivor. **A single count would hide which half
    * produced a figure**, and the next iteration would have to buy the run again to find out.
    */
-  lastAdjudication: { narration: NarrationVetoReport; claims: AdjudicationReport | null } | null =
-    null;
+  lastAdjudication: {
+    narration: NarrationVetoReport;
+    claims: AdjudicationReport | null;
+    /**
+     * **Every comment the pass threw away, with the sentence that threw it away.**
+     *
+     * The counters say *"494 refuted"* and a counter cannot be read: **the reason a reader refused a comment is the only
+     * evidence that distinguishes a device that is too strict from a reader that is looking at the wrong line**, and
+     * without it the next iteration is a guess with a price. Recorded here rather than written to a log because the
+     * artifact is what survives the runner, and truncated to one line because **an artifact that carries a thousand
+     * paragraphs is an artifact nobody opens.**
+     */
+    refused: RefusedClaim[];
+  } | null = null;
 
   /**
    * **Check every merged finding's claim before it can be filed.**
@@ -376,7 +393,31 @@ export class LLMReviewEngine {
       { path: diff.filePath },
     );
 
-    this.lastAdjudication = { narration: veto.report, claims: outcome.report };
+    // **What was refused, by whom, in the reader's own words.** Both halves are recorded, because the free half is
+    // allowed to refuse comments too and **a report that only audited the half that costs money would audit the half
+    // that is already deterministic** - the price of a mistake is the same whichever half made it.
+    this.lastAdjudication = {
+      narration: veto.report,
+      claims: outcome.report,
+      refused: [
+        ...veto.refused.map((entry) => ({
+          path: diff.filePath,
+          startLine: entry.finding.startLine,
+          endLine: entry.finding.endLine,
+          title: oneLine(entry.finding.title, 120),
+          why: `narration:${entry.rule}`,
+          reason: 'the sentence restates the change and states no consequence',
+        })),
+        ...outcome.dropped.map((entry) => ({
+          path: diff.filePath,
+          startLine: entry.finding.startLine,
+          endLine: entry.finding.endLine,
+          title: oneLine(entry.finding.title, 120),
+          why: entry.why,
+          reason: oneLine(entry.reason),
+        })),
+      ],
+    };
 
     // **The survivors are placed back at the coordinates they came from.** Position is not enough - a refutation in the
     // middle shifts every later index - so the candidate's own index travels with it, and the lane a finding is

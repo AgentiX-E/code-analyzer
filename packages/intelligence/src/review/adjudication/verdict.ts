@@ -71,7 +71,7 @@ function unfence(raw: string): string {
  * makes the refusal deliberate** - and it is the difference between a parser that refuses a malformed answer and one
  * that refuses it for a reason nobody chose.
  */
-function text(value: unknown): string {
+export function text(value: unknown): string {
   if (typeof value === 'string') return value;
   if (typeof value === 'number' && Number.isFinite(value)) return String(value);
   return '';

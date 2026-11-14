@@ -20,23 +20,32 @@
 /** `@@ -oldStart,oldCount +newStart,newCount @@` - the counts are optional in the format and git omits `,1`. */
 const HUNK_HEADER = /^@@\s+-(\d+)(?:,(\d+))?\s+\+(\d+)(?:,(\d+))?\s+@@/;
 
+/** One added line, with the number the file gives it and the text the patch gives it. */
+export interface NumberedAddedLine {
+  /** The new-side file line number. */
+  line: number;
+  /** The line's content, without the patch's leading `+`. */
+  text: string;
+}
+
 /**
- * **The new-side line numbers a patch adds, or `null` when the text is not a patch.**
+ * **The added lines with their numbers and their text, or `null` when the text is not a patch.**
  *
- * The walk is the format's own: a `+` line is added and advances the new side, a ` ` line is context and advances it, a
- * `-` line advances the old side only, and everything else - the header, the `\ No newline at end of file` marker, a
- * blank separator between file sections - advances neither.
+ * This is the single walk over the format; `addedLinesOf` is the set of what it returns. **Two walks would be two chances
+ * to disagree about which line is which**, and the disagreement would be invisible: a set that said `{675}` and a
+ * rendered block that printed `674| ...` would both look right in a report and would point the reader at the wrong line.
  *
- * **`+++` and `---` are skipped explicitly rather than by accident.** They begin with `+` and `-` and they are file
- * headers, so a walk that only looks at the first character counts them as an added line and an old-side line, and
- * **every line number in the file then shifts by the number of file headers before it** - which is off by one for one
- * file, two for two, and invisible in a report that only prints totals.
+ * **The text is kept because the second reader has to be able to quote it.** A reader asked to cite the code that decides
+ * a question cannot cite a number, and **a reader shown a patch with `+` prefixes and no numbers cannot say which of the
+ * comments's lines it is looking at** - which is the instrument defect §45 records a falsified registration against.
  */
-export function addedLinesOf(patchText: string | undefined | null): Set<number> | null {
+export function numberedAddedLines(
+  patchText: string | undefined | null,
+): NumberedAddedLine[] | null {
   const text = String(patchText ?? '');
   if (!text.includes('@@')) return null;
 
-  const added = new Set<number>();
+  const numbered: NumberedAddedLine[] = [];
   let newLine = 0;
   let insideHunk = false;
   /**
@@ -74,7 +83,7 @@ export function addedLinesOf(patchText: string | undefined | null): Set<number> 
 
     if (raw.startsWith('+')) {
       contentLines += 1;
-      added.add(newLine);
+      numbered.push({ line: newLine, text: raw.slice(1) });
       newLine += 1;
       continue;
     }
@@ -93,7 +102,25 @@ export function addedLinesOf(patchText: string | undefined | null): Set<number> 
   // nothing distinguishes them from a walk that lost the content.
   if (contentLines === 0) return null;
 
-  // **A patch whose hunks added nothing is a deletion, and a set is the right answer for it**: nothing may be filed,
-  // because a comment on a deleted line is a comment on code that no longer exists.
-  return added;
+  return numbered;
+}
+
+/**
+ * **The new-side line numbers a patch adds, or `null` when the text is not a patch.**
+ *
+ * The walk is the format's own: a `+` line is added and advances the new side, a ` ` line is context and advances it, a
+ * `-` line advances the old side only, and everything else - the header, the `\ No newline at end of file` marker, a
+ * blank separator between file sections - advances neither.
+ *
+ * **`+++` and `---` are skipped explicitly rather than by accident.** They begin with `+` and `-` and they are file
+ * headers, so a walk that only looks at the first character counts them as an added line and an old-side line, and
+ * **every line number in the file then shifts by the number of file headers before it** - which is off by one for one
+ * file, two for two, and invisible in a report that only prints totals.
+ *
+ * **A patch whose hunks added nothing is a deletion, and an empty set is the right answer for it**: nothing may be filed,
+ * because a comment on a deleted line is a comment on code that no longer exists.
+ */
+export function addedLinesOf(patchText: string | undefined | null): Set<number> | null {
+  const numbered = numberedAddedLines(patchText);
+  return numbered === null ? null : new Set(numbered.map((entry) => entry.line));
 }

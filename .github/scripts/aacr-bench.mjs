@@ -1463,6 +1463,24 @@ async function main() {
    * every published figure was measured under, so an arm that cannot be switched off cannot be measured against them.
    */
   const ADJUDICATE = String(process.env['AACR_ADJUDICATE'] ?? 'off').toLowerCase() === 'on';
+  /**
+   * **How many refusals the artifact carries, and why it is not all of them.**
+   *
+   * A corpus of fifty pull requests refuses about five hundred comments, and five hundred rows in one field would make
+   * the artifact a log file that nobody diffs. **Sixty is enough to read the distribution by hand**, which is the only
+   * use this field has: the question it answers - *is the reader too strict, or is it looking at a line it cannot see?* -
+   * is answered by sixty sentences and not by six hundred, and `refusedTotal` beside it keeps the sample honest about
+   * what fraction of the population it is.
+   */
+  const ADJUDICATION_REFUSAL_SAMPLES = 60;
+  /**
+   * **Every refusal, in the order the corpus produced them, and the sample is taken from it at the end.**
+   *
+   * Taking the first sixty as they arrive would be **the first sixty of the first six pull requests**, which is a sample
+   * of six repositories reported as a sample of fifty - and a distribution read off it would be a distribution of the
+   * alphabet. The stride below spreads the same sixty across the whole run, and the field says how it was drawn.
+   */
+  const refusalsSeen = [];
   const engine = new LLMReviewEngine(new DeepSeekProvider({ ledger, ceilingUsd: MAX_USD }), {
     dedupThreshold: DEDUP_THRESHOLD,
     languageChecklist: CHECKLIST,
@@ -1549,6 +1567,15 @@ async function main() {
     adjudication: ADJUDICATE
       ? {
           enabled: true,
+          /**
+           * **Which contract the reader was asked under, because "adjudicate: on" is not a device.**
+           *
+           * §44's run and §45's run both wrote `adjudicate: true` and they are not the same experiment: the first showed
+           * the reader a whole patch with no line numbers and never said which line the comment was on, the second shows
+           * the numbered lines around that line and names it. **An artifact that cannot say which prompt produced it is an
+           * artifact that cannot be compared with the next one**, and the cost of finding that out is one run.
+           */
+          contract: 'numbered-window-v1',
           candidates: 0,
           upheld: 0,
           repaired: 0,
@@ -1557,6 +1584,16 @@ async function main() {
           unchecked: 0,
           unreadable: 0,
           narrationRefused: {},
+          /**
+           * **Every comment the pass removed, with the reader's own sentence for removing it.**
+           *
+           * The counts above say *"494 refuted"*, and a count answers no question anyone asks next: **whether the reader
+           * was too strict or was looking at a line it could not see is a fact about the reasons, not about the
+           * totals**, and without them the next iteration is a guess bought at the price of a corpus run. Bounded,
+           * because an artifact is a thing people open.
+           */
+          refused: [],
+          refusedTotal: 0,
         }
       : { enabled: false },
   };
@@ -2406,6 +2443,8 @@ async function main() {
           for (const [rule, count] of Object.entries(claims.narration.refusedByRule)) {
             totals.narrationRefused[rule] = (totals.narrationRefused[rule] ?? 0) + count;
           }
+          totals.refusedTotal += claims.refused.length;
+          refusalsSeen.push(...claims.refused);
         }
         // **And what the engine's own parse and filter did with this file's findings.**
         //
@@ -3236,6 +3275,18 @@ async function main() {
       },
     };
   })();
+
+  // **The refusals, sampled evenly rather than taken from the front** - see `ADJUDICATION_REFUSAL_SAMPLES`.
+  if (engineCounters.adjudication.enabled) {
+    const stride = Math.max(1, Math.ceil(refusalsSeen.length / ADJUDICATION_REFUSAL_SAMPLES));
+    engineCounters.adjudication.refused = refusalsSeen.filter((_, at) => at % stride === 0);
+    engineCounters.adjudication.refusedSampled = {
+      drawn: engineCounters.adjudication.refused.length,
+      from: refusalsSeen.length,
+      stride,
+      how: 'every nth refusal in corpus order, so the sample is not the first repository',
+    };
+  }
 
   write({
     ...base,

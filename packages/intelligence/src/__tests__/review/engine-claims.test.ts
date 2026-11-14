@@ -283,4 +283,47 @@ describe('LLMReviewEngine with the claim check', () => {
       unanchored: 0,
     });
   });
+
+  it('records every comment it removed, with the sentence that removed it', async () => {
+    // **The counter is not the diagnosis.** §44 bought a corpus run that said *"494 refuted"* and could not say whether
+    // the reader was too strict or was looking at a line it had never been shown. **The reason is the only field that
+    // answers that**, and it has to survive the engine, which is where the last three instrument defects lived.
+    const provider = new LaneProvider(
+      [NARRATION, CLAIM, SECOND_CLAIM],
+      [
+        '{"verdict":"refuted","reason":"the guard at\\nline 14 returns before this"}',
+        '{"verdict":"upheld","line":13,"reason":"holds"}',
+      ],
+    );
+    const engine = new LLMReviewEngine(provider, {
+      lanes: ['security'],
+      adjudicate: true,
+      adjudicateConcurrency: 1,
+    });
+    await engine.reviewDiff(diff(), PATCH);
+
+    const refused = engine.lastAdjudication?.refused ?? [];
+    expect(refused).toHaveLength(2);
+    const [restatement, refutation] = refused;
+    expect(restatement).toMatchObject({ why: 'narration:api-change', startLine: 11 });
+    expect(refutation).toMatchObject({ why: 'refuted', startLine: 12, path: diff().filePath });
+    // **One line, because a reason carrying a fenced block turns one artifact row into ten** - and the newline the
+    // scripted reader wrote is the smallest version of that.
+    expect(refutation!.reason).toBe('the guard at line 14 returns before this');
+    expect(refutation!.reason).not.toContain('\n');
+    expect(refutation!.title).toBe(CLAIM.title);
+  });
+
+  it('tells the second reader which line the comment is on', async () => {
+    // **The §45 device, asserted where it is wired rather than where it is written.** The prompt test proves the sentence
+    // exists; this proves the engine hands the prompt what it needs to produce it, which is the patch itself.
+    const provider = new LaneProvider([CLAIM], ['{"verdict":"upheld","reason":"holds"}']);
+    const engine = new LLMReviewEngine(provider, { lanes: ['security'], adjudicate: true });
+    await engine.reviewDiff(diff(), PATCH);
+
+    const prompt = provider.adjudicationPrompts[0] ?? '';
+    expect(prompt).toContain('The comment is filed on line 12.');
+    // The patch's own content indentation survives the `+` strip, because the reader is being shown the code.
+    expect(prompt).toContain('12 |     return DimensionGeometry::isHorizontal;');
+  });
 });

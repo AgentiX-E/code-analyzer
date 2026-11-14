@@ -223,4 +223,70 @@ describe('the comparison between two arms of an ablation', () => {
     // fixture it is about.
     expect(rows?.['onlyWithout']).toEqual([all.at(-1)]);
   });
+
+  // **An object-valued configuration field is one variable, not two.**
+  //
+  // The run of 2026-11-19 refused a sound pair with `differ: ["adjudicate", "agentOptions"]`, and the two `agentOptions`
+  // serialised to the same string: the guard compared references. **The keys are written in opposite order below on
+  // purpose**, because insertion order is what a bare `JSON.stringify` compares and the value is what was meant.
+  it('compares option objects by their entries rather than by their reference', () => {
+    const withArm = arm({
+      arm: ARMS.with,
+      reviewed: all,
+      found: [0, 1, 2, 3],
+      truePositives: 4,
+      falsePositives: 16,
+    });
+    const withoutArm = arm({
+      arm: ARMS.without,
+      reviewed: all,
+      found: [0, 1],
+      truePositives: 2,
+      falsePositives: 18,
+    });
+    (withArm['configuration'] as Record<string, unknown>)['agentOptions'] = {
+      lanes: ['defect', 'security'],
+      perFile: 3,
+    };
+    (withoutArm['configuration'] as Record<string, unknown>)['agentOptions'] = {
+      perFile: 3,
+      lanes: ['defect', 'security'],
+    };
+
+    const { status, artifact } = compare(withArm, withoutArm);
+
+    expect(status).toBe(0);
+    expect(artifact['variedField']).toBe('emissionProfile');
+  });
+
+  it('still refuses a pair whose option objects actually differ', () => {
+    // **The repair must not become a way to hide a confound**, or the guard is worse than the bug it replaced.
+    const withArm = arm({
+      arm: ARMS.with,
+      reviewed: all,
+      found: [0],
+      truePositives: 2,
+      falsePositives: 18,
+    });
+    const withoutArm = arm({
+      arm: ARMS.without,
+      reviewed: all,
+      found: [0],
+      truePositives: 2,
+      falsePositives: 18,
+    });
+    (withArm['configuration'] as Record<string, unknown>)['agentOptions'] = { perFile: 3 };
+    (withoutArm['configuration'] as Record<string, unknown>)['agentOptions'] = { perFile: 8 };
+
+    const { status, artifact } = compare(withArm, withoutArm);
+
+    expect(status).toBe(1);
+    expect(artifact['refusedBecause']).toBe('the two artifacts are not the same experiment');
+    const confounds = (artifact['detail'] as { confounds: Array<Record<string, unknown>> })
+      .confounds;
+    const configuration = confounds.find((confound) => confound['field'] === 'configuration');
+    // Both arms also differ in the profile here; what matters is that the differing object is *in* the list, so a pair
+    // varying two things is refused for the second one as well.
+    expect(configuration?.['differ']).toContain('agentOptions');
+  });
 });

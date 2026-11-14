@@ -103,14 +103,17 @@ export const REGISTRATIONS = Object.freeze({
    * registration rather than this one.**
    */
   adjudicate: {
-    section: '§44 (R-19)',
+    section: '§45 (R-20)',
     claim:
-      'checking each finding against the code before filing it raises the file arm F1 by at least 0.04 and does not lower recall by more than 0.01',
+      'showing the second reader the numbered added lines and naming the line the comment is filed on raises the file arm F1 by at least 0.04 and does not lower recall by more than 0.01',
     arm: 'file',
     registeredGain: 0.04,
     mechanism: 'precision rises and recall does not fall by more than a golden is worth',
     mechanismRule: 'recall-holds',
-    confirmation: [{ skip: 0, max: 50 }],
+    // **The discovery slice, and the confirmation debt is named rather than left implicit.** §44's run read
+    // `skip 0 max 50` and falsified R-19 there; the device changed, so the same fifty rows are bought again as R-20's
+    // discovery - **the same rows, a different reader** - and the hundred after them remain owed as the confirmation.
+    confirmation: [{ skip: 50, max: 100 }],
   },
   emissionProfile: {
     section: '§19 (R-17)',
@@ -271,12 +274,47 @@ function armOf(artifact, arm) {
 }
 
 /**
+ * **One string per value, and the same string for two values that are the same value.**
+ *
+ * `JSON.stringify` alone is not that: two objects carrying the same entries in a different insertion order are the same
+ * configuration and two different strings, so **sorting the keys is the part that makes the comparison about the value
+ * rather than about the route the value took to get there.**
+ */
+function canonicalJson(value) {
+  if (value === null || value === undefined) return 'null';
+  if (typeof value !== 'object') return JSON.stringify(value) ?? 'null';
+  if (Array.isArray(value)) return `[${value.map((item) => canonicalJson(item)).join(',')}]`;
+  return `{${Object.keys(value)
+    .sort()
+    .map((key) => `${JSON.stringify(key)}:${canonicalJson(value[key])}`)
+    .join(',')}}`;
+}
+
+/**
+ * **Are these two configuration values the same value?**
+ *
+ * This was `a !== b` until iteration 120, and `!==` is identity, not equality. `agentOptions` is an object, both arms of
+ * §44 wrote the same one, and the paired job refused the run with *the two artifacts are not the same experiment* and
+ * `differ: ["adjudicate", "agentOptions"]` - **while the two objects serialised to the same string**. The guard that
+ * exists to catch an unregistered second variable instead caught a second reference, and the price of that mistake is a
+ * whole paid corpus run discarded on a false refusal. A guard that refuses sound comparisons is not a safe guard; it is
+ * a guard that will be deleted by whoever it blocks next.
+ */
+function sameConfigurationValue(a, b) {
+  if (a === b) return true;
+  if (a === null || b === null) return false;
+  if (typeof a !== 'object' || typeof b !== 'object') return false;
+  return canonicalJson(a) === canonicalJson(b);
+}
+
+/**
  * **Which single configuration field the two arms differ in, or the reason they do not differ in exactly one.**
  *
  * **Read from the artifacts rather than passed in**, because a variable this job is told about and a variable the runs
  * actually varied are two different facts, and only the second one is the experiment. `undefined` and `null` are the
  * same absence here: **a field that one run omits and the other writes as `null` is not a varied device**, it is a
- * serialisation difference, and treating it as the variable would compare nothing at all.
+ * serialisation difference, and treating it as the variable would compare nothing at all. **And two objects that hold
+ * the same entries are the same device**, for the same reason one level up - see `sameConfigurationValue`.
  */
 export function variedField(on, off) {
   const keys = new Set([
@@ -286,7 +324,7 @@ export function variedField(on, off) {
   const differ = [...keys].filter((key) => {
     const a = on.configuration?.[key] ?? null;
     const b = off.configuration?.[key] ?? null;
-    return a !== b;
+    return !sameConfigurationValue(a, b);
   });
   return {
     field: differ.length === 1 ? differ[0] : null,
@@ -958,6 +996,60 @@ function selfTest() {
   assert(
     sameFlag.some((c) => c.field === 'configuration'),
     'two runs of the same arm are refused, because their null result would look like a finding',
+  );
+
+  // **Two arms that wrote the same object twice are one variable, not two.**
+  //
+  // The refusal below was the real one of 2026-11-19, quoted from the artefact rather than invented: `differ` was
+  // `["adjudicate", "agentOptions"]` and the two `agentOptions` serialised identically. The keys are written in opposite
+  // order here on purpose, because **the insertion order is the thing `JSON.stringify` was comparing and the value is the
+  // thing that was meant**.
+  const objectArms = variedField(
+    {
+      ...qualifies,
+      configuration: {
+        ...qualifies.configuration,
+        adjudicate: 'on',
+        agentOptions: { lanes: ['defect', 'security'], perFile: 3 },
+      },
+    },
+    {
+      ...qualifies,
+      configuration: {
+        ...qualifies.configuration,
+        adjudicate: 'off',
+        agentOptions: { perFile: 3, lanes: ['defect', 'security'] },
+      },
+    },
+  );
+  assert(
+    objectArms.field === 'adjudicate',
+    'two arms whose shared options serialise identically differ in one field, not in two',
+  );
+  assert(
+    objectArms.differ.length === 1,
+    'and the second reference is not reported as a second variable',
+  );
+  // **And a genuinely different object is still refused**, because the repair must not become a way to hide a confound.
+  const reallyDifferent = variedField(
+    {
+      ...qualifies,
+      configuration: {
+        ...qualifies.configuration,
+        agentOptions: { lanes: ['defect', 'security'], perFile: 3 },
+      },
+    },
+    {
+      ...qualifies,
+      configuration: {
+        ...qualifies.configuration,
+        agentOptions: { lanes: ['defect'], perFile: 3 },
+      },
+    },
+  );
+  assert(
+    reallyDifferent.differ.includes('agentOptions'),
+    'an object whose entries actually differ is still a varied field',
   );
 
   // **Two arms that read the same number of pull requests and not the same ones.**

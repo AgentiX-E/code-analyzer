@@ -11,7 +11,7 @@
 
 import { describe, it, expect } from 'vitest';
 
-import { ClaimAdjudicator } from '../../review/adjudication/adjudicator.js';
+import { ClaimAdjudicator, oneLine } from '../../review/adjudication/adjudicator.js';
 
 import type { LLMFinding } from '../../review/llm/prompts.js';
 import type {
@@ -282,7 +282,10 @@ describe('ClaimAdjudicator', () => {
     expect(prompt).toContain('src/reader.ts');
     expect(prompt).toContain('the guard is missing');
     expect(prompt).toContain('read() returns before the check');
-    expect(prompt).toContain('+return early;');
+    // **The added line arrives numbered, with the number the file gives it** - §45's device, and the reason the reader
+    // can answer about a line instead of about a file.
+    expect(prompt).toContain('1 | return early;');
+    expect(prompt).toContain('The comment is filed on line');
     expect(prompt).toContain('const read = () => 1;');
     // **And the answer shape**, because a call that does not state the schema produces prose.
     expect(prompt).toContain('"verdict":"upheld"|"refuted"|"repaired"');
@@ -353,5 +356,28 @@ describe('clipCode', () => {
     expect(clipped.startsWith('a'.repeat(20))).toBe(true);
     expect(clipped.endsWith('b'.repeat(20))).toBe(true);
     expect(clipped).toContain('80 characters not shown');
+  });
+});
+
+describe('oneLine', () => {
+  // **The artifact stores these**, and an artifact is diffed: a reason carrying a fenced block turns one row into ten,
+  // and a reason cut mid-word without a mark is a reason the next reader will quote as if it ended there.
+  it('collapses the whitespace a model writes', () => {
+    expect(oneLine('the guard at\n  line 14   returns first')).toBe(
+      'the guard at line 14 returns first',
+    );
+  });
+
+  it('marks a truncation instead of ending mid-word', () => {
+    const long = 'a'.repeat(300);
+    const cut = oneLine(long, 20);
+    expect(cut).toHaveLength(20);
+    expect(cut.endsWith('…')).toBe(true);
+  });
+
+  it('says nothing rather than "[object Object]" for a value that is not a sentence', () => {
+    expect(oneLine(undefined)).toBe('');
+    expect(oneLine(null)).toBe('');
+    expect(oneLine(42)).toBe('42');
   });
 });

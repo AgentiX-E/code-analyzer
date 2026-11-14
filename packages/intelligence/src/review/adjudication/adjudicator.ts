@@ -24,7 +24,13 @@
 // false positive *and* a false negative repaired in a single move.
 
 import { buildAdjudicationPrompt, type AdjudicationRequest } from './prompt.js';
-import { readAdjudication, applyVerdict, resolveAnchor, type AppliedVerdict } from './verdict.js';
+import {
+  applyVerdict,
+  readAdjudication,
+  resolveAnchor,
+  text,
+  type AppliedVerdict,
+} from './verdict.js';
 
 import type { LLMFinding } from '../llm/prompts.js';
 import type { LLMProvider, CompletionOptions } from '../llm/provider.js';
@@ -41,6 +47,41 @@ export interface AdjudicationCandidate {
   addedLines: ReadonlySet<number> | null;
   /** The block the hunks sit in, when the review was given one. */
   fileContext?: string;
+}
+
+/**
+ * **One comment the pass threw away, with the sentence that threw it away.**
+ *
+ * `why` is a code rather than a sentence - `refuted`, `unanchored`, `narration:<rule>` - because the artifact tabulates
+ * codes and **a table is what a next iteration can act on**. `reason` is the reader's own words, on one line, because
+ * the question *"is this device too strict, or is it looking at the wrong line?"* is answered by reading fifty of them
+ * and by nothing else the run records.
+ */
+export interface RefusedClaim {
+  /** The file the comment was about. */
+  path: string;
+  /** The first line it was filed on. */
+  startLine: number;
+  /** The last line it was filed on. */
+  endLine: number;
+  /** The comment's title, which is the sentence the gate and the reader both see first. */
+  title: string;
+  /** Which stage refused it and, for the free half, which rule. */
+  why: string;
+  /** The reader's own sentence, whitespace collapsed and truncated to one line. */
+  reason: string;
+}
+
+/**
+ * **A sentence made safe to store in an artifact.**
+ *
+ * Newlines collapse because a reason carrying a fenced code block turns one row of a table into ten, and truncation is
+ * explicit rather than silent: **a stored reason that ends mid-word without saying so is a reason a reader will
+ * misquote.**
+ */
+export function oneLine(value: unknown, max = 240): string {
+  const flat = text(value).replace(/\s+/g, ' ').trim();
+  return flat.length <= max ? flat : `${flat.slice(0, max - 1)}…`;
 }
 
 /** What a whole pass did, in counts a report can print without re-reading anything. */

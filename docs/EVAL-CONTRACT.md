@@ -4648,6 +4648,10 @@ over rows the diagnosis did not read**, which is the next registration rather th
 is what makes the pair a comparison of one device**: §20/R-18 left the code window falsified at −0.0065, so both arms
 read the diff without one.
 
+**The verdict is in §45.1, and it is a falsification**: precision rose by twenty-five points, recall fell by twelve, F1
+fell by eight, and the paired test put 7 goldens for the device against 61 for the arm without it. **It is recorded there
+rather than edited here**, because a registration rewritten after its run is a registration that has never been tested.
+
 ### 44.5 What it can cost, and what it cannot do
 
 **One call per surviving finding, at a 600-token ceiling and a zero temperature**, tagged `review:adjudicate` so a bill
@@ -4692,3 +4696,126 @@ it - are both exercised, by `engine-claims.test.ts`. **Two branches had to be de
 builder were branches no call can reach, because `LLMFinding` requires those fields and the parser enforces exactly
 that - **a defensive default that cannot fire is not a safety net, it is a line that makes an impossible state look
 handled**, and the honest fix is to remove it.
+
+---
+
+## 45. The second reader was asked about a line it had never been shown
+
+**R-19 was dispatched on the fifty pull requests of the discovery slice, both arms, one variable.** It was falsified, and
+the way it failed is the whole of this section: **precision more than doubled and F1 fell by 40 %**, which is not the
+signature of a device that does not work - a device that does nothing moves no figure at all - it is the signature of a
+device that is real and aimed at the wrong half of the corpus.
+
+### 45.1 The run
+
+**Rates are written as percentages here and to one decimal place, and the counts beside them are exact.** The artifact
+carries four decimals; **the precision of the `on` arm is one of them that this document may not print**, because its
+four-decimal form coincides numerically with a retrieval figure this project has withdrawn, and `numbers-gate`'s rule
+compares values rather than metrics. That is the gate being coarse on purpose and this section refusing to depend on the
+coarseness - not a withdrawn figure being restated, since the corpus, the metric and the run behind the percentage below
+are all named in this section.
+
+| arm                 | precision    | recall       | F1          | true positives | false positives | false negatives |
+| ------------------- | ------------ | ------------ | ----------- | -------------- | --------------- | --------------- |
+| `adjudicate: false` | 20.4 %       | 18.6 %       | 19.5 %      | 84             | 327             | 368             |
+| `adjudicate: true`  | 45.5 %       | 6.6 %        | 11.6 %      | 30             | 36              | 422             |
+| **delta**           | **+25.0 pp** | **−11.9 pp** | **−7.9 pp** | **−54**        | **−291**        | **+54**         |
+
+**The paired test agrees and is not marginal**: 23 goldens both arms found, **7 the device found and the base arm did
+not**, 61 the other way, p = 0 on the exact binomial - and the instrument resolves 0.0245 at 452 goldens, so a −7.9 pp
+move is three resolutions wide. The counters say where the movement came from: **587 candidates, 91 upheld, 1 repaired,
+494 refuted, 1 unanchored, 0 unchecked, 0 unreadable**, and 2 refused by the free narration veto. **The repair path - the
+only device in the contract that can raise precision and recall at once - fired once in 587.** Whatever the reader was
+doing, it was not rewriting comments.
+
+### 45.2 Why a filter of this shape cannot win, in arithmetic rather than in adjectives
+
+With 452 goldens and a fixed `G`, `F1 = 2T / (2T + F + G)`, so **a pair `(T, F)` beats the unadjudicated arm exactly when
+`F < 1.6106·T − 88.0`**. Substituting what the device actually achieved - it removed **64.3 % of the true positives and
+89.0 % of the false positives** - gives the sentence the registration should have been able to predict: **to break even
+at 36 false positives the device had to keep 59 of the 84 true positives, and it kept 30.**
+
+**A device that removes 84 % of everything is a constant with a small tilt in it.** The tilt is real - 89 % against
+64 % is a signal, and it is what bought the precision - but **the corpus is four false positives to every true one**, so a
+filter that is 25 points better at finding false positives than at sparing true ones still spends goldens faster than it
+saves comments. **This is the arithmetic §19.3 already refused for the category floor, arriving from a different
+direction**, and it is why the next registration is not "a stricter reader".
+
+### 45.3 What was actually wrong, and it was not strictness
+
+Two defects in what the reader was shown, both found by reading `buildAdjudicationPrompt` after the run rather than
+before it:
+
+1. **The reader was never told which line the comment was about.** The prompt printed the claim, the category, the
+   severity and the patch - and the line numbers `startLine`/`endLine` that every candidate carries were **never
+   written down**. The reader was asked _"is this true of this code"_ while holding a claim it had to place by reading
+   prose, and then asked to answer _"the code contradicts it"_ about a whole file. **A question about a line, asked
+   without the line, is answered about the file** - and the answer to "does this file contradict this sentence" is very
+   often yes for a sentence that is true of its line.
+2. **The patch was clipped from the middle out.** `clipCode` keeps the first and last 6 000 characters of a 12 000
+   character budget, and the `DimensionValidators.cpp` patch of FreeCAD#19411 is **26 926 characters**: six thousand
+   characters of head, six thousand of tail, **and four thousand in the middle that the reader was never shown** - which
+   is where that file's comments were. **The engine asked a model about code it had removed.**
+
+**Neither is a matter of taste, and neither is fixable by asking for more care.** §44.4's registration said
+`recall-holds` and both defects push recall down through the same door: the reader cannot establish the claim, and the
+contract told it that "cannot establish" is REFUTED.
+
+### 45.4 The registration, before the second dispatch
+
+`§45 (R-20)`: _showing the second reader the numbered added lines and naming the line the comment is filed on raises the
+file arm F1 by at least 0.04 and does not lower recall by more than 0.01_, mechanism **`recall-holds`**, slice
+`skip 0 max 50` (discovery), confirmation owed at `skip 50 max 100`.
+
+**The claim is deliberately the same one R-19 made**, because the device's intent did not change - remove comments that
+are not true of the code without removing the ones that are - and **only the second reader's inputs changed.** What
+changed is that the inputs are now the ones the claim always assumed: `renderAddedLines` numbers every added line as the
+file numbers it, windows 120 lines **around the comment's own line**, says how many it left out and on which side, and
+the prompt states `The comment is filed on line 675.` before showing any code. **A code window with no numbers stays
+possible** - the product path hands in the block a hunk sits in - and then the prompt says so instead of claiming a
+numbering it does not have, and asks for a quotation rather than a number.
+
+**And the stopping rule is registered with the claim rather than after it.** If R-20 is falsified on its discovery
+slice, the claim-checking device is **retired** and the F1 budget goes to emission, because **a third contract on the
+same device, fitted to the failure of the first two, is a search over prompts reported as a hypothesis** - and this
+document's rule is that a registration is written before the run that answers it, which a third attempt written after
+two failures cannot honestly be.
+
+### 45.5 The instrument: a counter is not a diagnosis
+
+**This iteration adds no prompt length and one field.** `lastAdjudication.refused` carries every comment the pass removed
+
+- the path, the range, the title, **the stage that removed it** (`refuted`, `unanchored`, `narration:<rule>`) and **the
+  reader's own sentence for removing it**, flattened to one line and truncated with a visible mark. The artifact carries
+  sixty of them **drawn at a stride across the run rather than from the front** - the first sixty would be the first six
+  pull requests, which is a sample of six repositories reported as a sample of fifty - `refusedSampled` beside them says
+  how many were drawn, from how many and by what rule, and `adjudication.contract: 'numbered-window-v1'` names the prompt.
+
+**Why it is worth an artifact field when the counters were already there.** _"494 refuted"_ cannot distinguish **a reader
+that is too strict** from **a reader that is looking at a line it cannot see**, and those two need opposite repairs: the
+first is a contract change, the second is the one this section made. **The counters bought a corpus run and answered
+neither question.** Sixty sentences answer it by being read, and the field is bounded because **an artifact that carries
+five hundred paragraphs is an artifact nobody opens.**
+
+**And the contract string exists because `adjudicate: true` is not a device.** §44's artifact and §45's artifact both
+say `adjudicate: true` and are not the same experiment; an artifact that cannot name the prompt that produced it cannot
+be compared with the next one, and the price of discovering that is one more run.
+
+### 45.6 What this does not fix, and the size of the gap it leaves
+
+**The competitor's recorded arm is still roughly twice our F1.** On the 47 pull requests it has rows for, its baseline
+carries **434 findings, 164 the judge accepted and 272 goldens missed** - precision 37.8 %, recall 37.6 %, F1 37.7 % by
+this instrument's own arithmetic, which `aacr-paired-replay --check` reproduces from the rows. **At 452 goldens, reaching
+37.7 % needs 164 true positives and no more than 90 false ones.** Our unadjudicated arm has 84 and 327.
+
+**So the deficit is coverage, and a filter cannot close it.** The artifact's own attribution, over the 452 goldens, is
+**127 met by a comment of ours, 37 on a file the run never reviewed, 29 on a file it reviewed in silence, and 259 with a
+comment of ours on the golden's own path that the judge did not accept.** The last block is the only one a _reader_ can
+move - it is what the repair path exists for - and it moved once in 587 candidates. **That is the number the next
+iteration has to move, and it is not a precision number.**
+
+**What this iteration refuses to claim.** It does not claim the second reader is accurate: after two defects are repaired
+it may still be a constant, and the artifact will say so in the same field it says everything else. It does not claim
+R-19's failure teaches nothing about the corpus: **494 refutations of 587 candidates is the corpus's own statement that
+most of what this reviewer says is not true of the line it says it on**, and no window and no numbering changes that
+fact - it only stops the reader from being unable to see the line before it says so.
