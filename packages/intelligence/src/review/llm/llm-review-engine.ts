@@ -451,7 +451,22 @@ export class LLMReviewEngine {
   static readonly DEFAULT_DEDUP_THRESHOLD = 0.6;
 
   /** **What the last deduplication did**, so a caller can tell a quiet reviewer from a collapsing one. */
-  lastDeduplication: { before: number; after: number; dropped: number } | null = null;
+  /**
+   * **What the merge did, split by the rule that did it, because "1186 absorbed" is not a diagnosis.**
+   *
+   * Two findings are one finding here for one of three reasons, and they are not the same reason: **overlapping ranges**
+   * (the same defect has one location), **overlapping ranges whose sentences also share most of their vocabulary**
+   * (unambiguously the same), or **the same vocabulary within a few lines** (two lanes wording one construct
+   * differently). **The first of those three is the only one with no textual evidence in it at all**, so a merge report
+   * that says only `dropped: 1186` cannot distinguish a merge that removed restatements from a merge that removed a
+   * second defect filed on a range that happened to overlap the first.
+   */
+  lastDeduplication: {
+    before: number;
+    after: number;
+    dropped: number;
+    mergedBy: { rangeAndWords: number; rangeOnly: number; wordsNearby: number };
+  } | null = null;
 
   /**
    * **What the last review spent**, accumulated at the point each lane returns.
@@ -564,6 +579,7 @@ export class LLMReviewEngine {
     all.sort((x, y) => rank[y.finding.severity] - rank[x.finding.severity]);
 
     const survivors: Array<Entry & { absorbed: number }> = [];
+    const mergedBy = { rangeAndWords: 0, rangeOnly: 0, wordsNearby: 0 };
     /**
      * **How many findings each survivor absorbed**, because **agreement between lanes is free evidence and this
      * function was discarding it.**
@@ -583,9 +599,9 @@ export class LLMReviewEngine {
           entry.finding.startLine <= k.finding.endLine &&
           entry.finding.endLine >= k.finding.startLine,
       );
-      const duplicateAt =
+      const nearLocation =
         sameLocation !== -1
-          ? sameLocation
+          ? -1
           : survivors.findIndex(
               (k) =>
                 // **Or the same shape of sentence, close enough to be the same construct**, because **two lanes do not
@@ -603,9 +619,20 @@ export class LLMReviewEngine {
                 Math.abs(k.finding.startLine - entry.finding.startLine) <= sameConstructLines &&
                 shares(k.words, entry.words) >= this.options.dedupThreshold,
             );
+      const duplicateAt = sameLocation !== -1 ? sameLocation : nearLocation;
       const survivor = duplicateAt === -1 ? undefined : survivors[duplicateAt];
-      if (survivor === undefined) survivors.push({ ...entry, absorbed: 1 });
-      else survivor.absorbed += 1;
+      if (survivor === undefined) {
+        survivors.push({ ...entry, absorbed: 1 });
+        continue;
+      }
+      survivor.absorbed += 1;
+      // **Which rule absorbed it**, and the distinction the report needs: a merge under the range rule alone has no
+      // textual evidence, so it is the one that can remove a second defect.
+      if (sameLocation !== -1) {
+        if (shares(survivor.words, entry.words) >= this.options.dedupThreshold)
+          mergedBy.rangeAndWords += 1;
+        else mergedBy.rangeOnly += 1;
+      } else mergedBy.wordsNearby += 1;
     }
 
     for (const survivor of survivors) {
@@ -620,6 +647,7 @@ export class LLMReviewEngine {
       before: all.length,
       after: survivors.length,
       dropped: all.length - survivors.length,
+      mergedBy,
     };
     return results;
   }

@@ -2546,8 +2546,19 @@ async function main() {
             acc.before += dd.before;
             acc.after += dd.after;
             acc.dropped += dd.dropped;
+            // **Which rule did the merging**, because the three are not the same evidence: `rangeOnly` is a merge with
+            // no textual agreement behind it at all, and a report that says only `dropped: 1186` cannot tell a
+            // restatement removed from a second defect removed.
+            for (const rule of ['rangeAndWords', 'rangeOnly', 'wordsNearby']) {
+              acc.mergedBy[rule] = (acc.mergedBy[rule] ?? 0) + dd.mergedBy[rule];
+            }
           } else {
-            engineCounters.dedup = { before: dd.before, after: dd.after, dropped: dd.dropped };
+            engineCounters.dedup = {
+              before: dd.before,
+              after: dd.after,
+              dropped: dd.dropped,
+              mergedBy: { ...dd.mergedBy },
+            };
           }
         }
         const counts = engine.lastCounts;

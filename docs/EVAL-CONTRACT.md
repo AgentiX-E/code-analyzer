@@ -4952,3 +4952,77 @@ about our next iteration rather than about that one:
 arithmetic underneath all of it was not the corpus's. **The next iteration therefore does not register a device.** It buys
 one arm and the answer key: the sixty rejected goldens and their notes. **A registration written before that key is read
 would be a third guess**, and the two failures are enough to have earned the right to read first.
+
+### 46.7 Where the field actually is, and why "beat every competitor" is a bar with a number on it
+
+**The figures below were read from secondary surveys of the papers and not from the papers themselves**, which is a
+weaker standard than this document holds its own numbers to and is why they are context rather than evidence. Where a
+figure is quoted it is quoted to the precision the survey reported, with the survey named, and **none of them is used in
+any arithmetic this repository publishes.**
+
+| source                                   | configuration             | precision | recall | F1   |
+| ---------------------------------------- | ------------------------- | --------- | ------ | ---- |
+| CR-Bench (arXiv 2603.11078), 5 642 tasks | single pass, best model   | 38 %      | 52 %   | 44 % |
+|                                          | multi-pass with filtering | 62 %      | 41 %   | 49 % |
+|                                          | multi-agent consensus     | 71 %      | 35 %   | 47 % |
+|                                          | human reviewers           | 85 %      | 78 %   | 81 % |
+
+Four things in that table matter more than the figures:
+
+1. **Every automated configuration is dominated by the human row**, and the automated ones are all on the same
+   precision-recall curve. _"Multi-pass with filtering"_ moves precision up twenty-four points and recall down eleven;
+   consensus moves precision up thirty-three and recall down seventeen. **Nothing in the table raises both.**
+2. **The three automated rows differ by five F1 points, which is smaller than the difference between any two corpora.**
+   A tool that wins its own benchmark by five points has measured the corpus.
+3. **The device that moved single-pass furthest is aggregation over repeated samples**, not a better single prompt.
+4. **SWR-Bench** (1 000 pull requests, 500 carrying real issues and 500 clean, so false alarms are countable) reports a
+   best single configuration at **19.4 % F1** and a best overall of **23.8 %** from aggregating several reviews, and
+   reports that **multi-review aggregation raised F1 by about 40 % and recall by over 118 % at ten passes**. Its own
+   conclusion is that current tools cannot yet separate functional defects from stylistic preferences - which is the same
+   sentence §46.2 arrived at from the other side.
+
+**c-CRAB measures something this document cannot: execution.** A review is handed to a coding agent and scored by tests
+derived from human reviews, so no judge decides the pass; **the union of four tools passes 41.5 % of 234 tests**, and no
+individual tool passes more than a third. **That is the number to quote when someone asks how good code review agents
+are**, because it is the only one in the family that does not run through a model's opinion.
+
+**And one finding is about us specifically.** CRJudgeBench reports that trustworthy comments are **63.8 %** of its test
+set while every general model predicts "trustworthy" for at least **85.5 %** of instances - a verifier that says yes to
+almost everything, and which must therefore be **tested on its own rather than inferred from the tool it guards**. §44 and
+§45 tested a verifier the other way: as a change to end-to-end F1. **The retirement in §46.3 is not evidence that
+verification does not work; it is evidence that a verifier asking a different question from the judge cannot be scored by
+the judge's F1 at all.**
+
+**So the bar, stated as a number rather than as an adjective.** On this corpus the published leader is a system at
+**25.1 % SEM-F1**; ours is **21.1 %** under the corpus's arithmetic and the same under the old one, and the difference
+between those two framings has already been shown to be worth nothing in F1 (§46.4). **The gap to the leader is between
+four and five points, and it is not spread out**: 259 of 452 goldens have a comment of ours on their own path that was not
+accepted. **Closing it is a wording-and-targeting problem on a known set of 259 sentences**, and the run in flight buys
+those sentences.
+
+### 46.8 And the instrument the same run's counters asked for: which rule merged the finding
+
+**`dedup: {before: 1784, after: 598, dropped: 1186}` is in every artifact this project has published and it has never
+been read, because it cannot be.** Two thirds of everything the five lanes said is removed before anything is scored, and
+that total is compatible with two opposite readings: **a merge that removed restatements** - the function's purpose, free,
+correct - and **a merge that removed a second defect because its range happened to overlap the first's**, which is a
+recall defect, is free to fix, and is invisible in the total.
+
+There are three merge rules and **only one of them never looks at a word**:
+
+1. **Overlapping ranges**, on the reasoning that the same defect has one location. A lane that marks a twelve-line block
+   for one problem has just made every other finding inside that block a duplicate of it - **and `sameConstructLines` and
+   `dedupThreshold` do not apply to this rule**, because it is decided before either is consulted.
+2. **Overlapping ranges whose sentences also share most of their vocabulary.** Same count, different evidence.
+3. **The same vocabulary within a few lines**, which is the rule the previous iteration added after a vocabulary-only
+   merge left a whole pull request with 6.6 comments.
+
+`lastDeduplication.mergedBy` now counts the three separately and the artifact accumulates them, and the tests hold the
+property that makes the split worth having: **the three must sum to `dropped`**, and each must be reachable in a single
+review - because a rule that stopped firing would leave the totals adding up and the report silent.
+
+**This is a hypothesis-shaped instrument and it is registered as an instrument, not as a device.** The 1 186 is large
+enough that a recall defect hiding inside it would be worth several points of F1, and small enough that the next run can
+price the question without a second dispatch. **It is written down here rather than acted on now** because acting on it
+would be a fourth registration aimed at a number nobody has read the composition of - and §46.6 already said what the
+next iteration does: it buys the answer key and reads it first.
