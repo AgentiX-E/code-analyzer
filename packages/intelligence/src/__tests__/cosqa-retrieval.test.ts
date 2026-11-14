@@ -32,6 +32,7 @@ import { mapWithConcurrency, recordArtifact } from '@code-analyzer/shared';
 import { describe, expect, it } from 'vitest';
 
 import { DeepSeekProvider } from '../review/llm/provider.js';
+import { FUSION_RULE_NAMES, fuseByRule, qppVectorWeight } from '../search/fusion-rules.js';
 import {
   channelEvidence,
   deriveVectorWeight,
@@ -40,7 +41,6 @@ import {
   EVIDENCE_DEPTH,
   FUSION_WEIGHT_BOUNDS,
 } from '../search/fusion-weight.js';
-import { FUSION_RULE_NAMES, fuseByRule, qppVectorWeight } from '../search/fusion-rules.js';
 import { HybridSearchEngine } from '../search/hybrid-search.js';
 import { compareArms, decodeRanks, encodeRanks } from '../search/paired-stats.js';
 import { rerankCandidates } from '../search/rerank.js';

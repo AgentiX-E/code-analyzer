@@ -5,8 +5,8 @@
 import { EDGE_DEFINES } from '@code-analyzer/shared';
 
 import { resolveRepoScope, type RepoScope } from './search-scope.js';
-import { deriveVectorWeight } from '../search/fusion-weight.js';
 import { fuseByRule, type FusionRuleName } from '../search/fusion-rules.js';
+import { deriveVectorWeight } from '../search/fusion-weight.js';
 import { HybridSearchEngine } from '../search/hybrid-search.js';
 import { MinHashSimilarity } from '../similarity/minhash.js';
 
