@@ -6,6 +6,7 @@ import { EDGE_DEFINES } from '@code-analyzer/shared';
 
 import { resolveRepoScope, type RepoScope } from './search-scope.js';
 import { deriveVectorWeight } from '../search/fusion-weight.js';
+import { fuseByRule, type FusionRuleName } from '../search/fusion-rules.js';
 import { HybridSearchEngine } from '../search/hybrid-search.js';
 import { MinHashSimilarity } from '../similarity/minhash.js';
 
@@ -37,6 +38,18 @@ export interface FederatedSearchOptions {
    * records the weight it asked for.
    */
   vectorWeight?: number;
+  /**
+   * **Which fusion rule orders the two lists, when the caller is measuring instead of using.**
+   *
+   * The engine shipped reciprocal-rank fusion at one weight and nothing else, so **the mechanism itself was never a
+   * variable**: §39 measured five weights of one rule and retired the two rules it tried, and the alternative thirty
+   * years of retrieval research offers - normalised score summation, support gating, query-performance prediction - were
+   * never on the same corpus. `EVAL-CONTRACT.md` §40 registers them as candidates.
+   *
+   * **Omitted means the product's fusion, unchanged**: a caller who does not name a rule gets the order every published
+   * figure was measured under, and a candidate has to be *selected* before it can become the default.
+   */
+  fusionRule?: FusionRuleName;
 }
 
 export interface FederatedSearchResult {
@@ -251,13 +264,34 @@ export class FederatedSearchEngine {
     query: string,
     options: FederatedSearchOptions = {},
   ): Promise<FederatedSearchResult> {
+    const channels = await this.channels(query, options);
+    return this.fuse(query, channels, options);
+  }
+
+  /**
+   * **The half of `search()` that happens after the retrieval, exposed so a measurement can fuse lists it already paid
+   * for.**
+   *
+   * `search()` is `channels()` then this, and nothing else - so a harness that calls the two halves in sequence runs
+   * **the product's arithmetic on the product's lists**, while one that called `search()` once per candidate rule would
+   * embed the same question five times. Both properties matter: a second implementation would let an artifact report an
+   * order the product cannot produce, and re-embedding 454 questions per rule would price a free experiment as a paid
+   * one.
+   *
+   * **The scope is resolved here rather than in `search()`** because the fused list is what the scope applies to, and a
+   * caller that resolved it twice could disagree with itself between the retrieval and the answer.
+   */
+  fuse(
+    query: string,
+    channels: { lexical: RankedResult[]; vector: RankedResult[] },
+    options: FederatedSearchOptions = {},
+  ): FederatedSearchResult {
     // **Selectors are resolved against the candidates, not compared to a string.** `repoFilter` used to be a
     // `Set.has` on `node.projectId`, which is `owner/name` on any real workspace and `name` in every unit fixture - so
     // the filter matched on fixtures and matched nothing on the four released repositories it was measured on.
     const scope = this.resolveScope(options);
     const maxResults = options.maxResults ?? 50;
-
-    const { lexical, vector } = await this.channels(query, options);
+    const { lexical, vector } = channels;
 
     // **The weight is derived here rather than one layer down, because this is where both lists exist.** The engine
     // below used to derive it from lists the caller could not see, so a measurement could compare weights but could not
@@ -265,7 +299,17 @@ export class FederatedSearchEngine {
     // other side has nothing to say either (§38.1). Same function, same inputs, one layer closer to the caller.
     const vectorWeight = options.vectorWeight ?? deriveVectorWeight(lexical, vector, query);
 
-    const ranked = this.retrieval().fuseResults(lexical, vector, 60, maxResults, vectorWeight);
+    // **The rule is a parameter of the measurement, and the product's rule is the default.** A candidate that has not
+    // beaten the shipped one on both corpora cannot become the order an answer arrives in, so the branch is a selection
+    // rather than a replacement: `fuseResults` still produces every figure the product publishes.
+    const ranked =
+      options.fusionRule === undefined || options.fusionRule === 'rrf'
+        ? this.retrieval().fuseResults(lexical, vector, 60, maxResults, vectorWeight)
+        : fuseByRule(options.fusionRule, lexical, vector, {
+            k: 60,
+            vectorWeight: options.vectorWeight,
+            limit: maxResults,
+          });
 
     const repoBreakdown: Record<string, number> = {};
     // **`ranked[0]` exists whenever the map below does**, so the divisor is the best score in a non-empty list and the
@@ -298,16 +342,6 @@ export class FederatedSearchEngine {
     };
   }
 
-  /**
-   * The repositories this question is allowed to answer from, or `null` when it may answer from all of them.
-   *
-   * `groupId` and `repoFilter` compose: a group is expanded through the resolver it was registered with, and an
-   * explicit filter narrows what is left.
-   *
-   * **Selectors are resolved against the store's projects, not against the query's hits.** Resolving against the hits
-   * conflates "this repository exists and holds no match" with "this repository does not exist", which is the
-   * difference the caller needs in order to know whether to fix the filter or the question.
-   */
   private resolveScope(options: FederatedSearchOptions): RepoScope | null {
     const filter = options.repoFilter;
     const groupId = options.groupId;

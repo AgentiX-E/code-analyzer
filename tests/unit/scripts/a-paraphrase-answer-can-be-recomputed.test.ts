@@ -54,10 +54,13 @@ interface ParaphraseArtifact {
   };
   conditions: Record<string, Condition>;
   paired: Record<string, Pair>;
-  perQuestion: Record<
-    'keys' | 'verbatim' | 'verbatimScoped' | 'paraphrase' | 'paraphraseScoped',
-    string[] | string
-  >;
+  perQuestion: Record<string, string[] | string>;
+  /**
+   * **The tournament, when the run measured one**, keyed by mechanism. Optional because the artifact this file ships
+   * beside may predate the columns - and the workflow demands them of the artifact *that run* writes, so the tolerance
+   * cannot become the rule.
+   */
+  tournament?: Record<string, { paraphrase: Condition; verbatim: Condition }> | null;
   rejected: Array<{ key: string; reasons: string[] }>;
 }
 
@@ -336,5 +339,37 @@ describe('the semantic artifact re-derives to its own sweep', () => {
         `question ${at} does not carry its own ratio: ${weight} against ${expected}`,
       ).toBeLessThanOrEqual(0.025 * Math.max(1, expected));
     }
+  });
+});
+describe('the tournament re-derives to its own columns, on both conditions', () => {
+  const semantic = read<ParaphraseArtifact>('multirepo-qa-paraphrase-semantic.json');
+  const tournament = semantic.tournament ?? null;
+
+  it('recomputes every mechanism’s two conditions from the two columns it published', () => {
+    if (tournament === null) return;
+    for (const [rule, rows] of Object.entries(tournament)) {
+      // **Both conditions, because a mechanism that lifts the rewritten questions and costs the quoted ones has moved
+      // the defect rather than fixed it** - the same criterion §39 applied to the two candidates it retired.
+      expect(
+        recompute(semantic.perQuestion[`rule:${rule}`] as string, keys.length),
+        `mechanism ${rule} disagrees with its own paraphrase column`,
+      ).toEqual(rows.paraphrase);
+      expect(
+        recompute(semantic.perQuestion[`ruleVerbatim:${rule}`] as string, keys.length),
+        `mechanism ${rule} disagrees with its own verbatim column`,
+      ).toEqual(rows.verbatim);
+    }
+  });
+
+  it('publishes a column for every mechanism it scores, and scores every mechanism it publishes', () => {
+    if (tournament === null) return;
+    const scored = Object.keys(tournament).sort();
+    const columnsPublished = Object.keys(semantic.perQuestion)
+      .filter((key) => key.startsWith('rule:'))
+      .map((key) => key.slice('rule:'.length))
+      .sort();
+    // **A figure with no column is a figure nobody can check, and a column with no figure is a column nobody scored** -
+    // the pair is what makes the table above reproducible from the file alone.
+    expect(columnsPublished).toEqual(scored);
   });
 });

@@ -41,6 +41,10 @@ import {
   evidenceRatioWeight,
 } from '../packages/intelligence/src/search/fusion-weight.js';
 import {
+  FUSION_RULE_NAMES,
+  type FusionRuleName,
+} from '../packages/intelligence/src/search/fusion-rules.js';
+import {
   DeepSeekProvider,
   LLMRateLimitError,
 } from '../packages/intelligence/src/review/llm/provider.js';
@@ -398,6 +402,27 @@ async function main(): Promise<void> {
    * are what decide whether the comparison is worth adopting (§39). Both conditions are measured, because a rule that
    * lifts the rewritten questions and costs the quoted ones has moved the defect rather than fixed it.
    */
+  /**
+   * **Which fusion mechanisms to measure, on the two lists this run already paid for.**
+   *
+   * §39 measured five weights of one rule and retired the two rules it tried for deriving them; the mechanisms - normalised
+   * score summation, support gating, query-performance prediction - were never on this corpus. **Every column here costs
+   * one fusion over fifty entries and no model call**, because the lists come from `channels()` once per question and are
+   * fused by `fuse()`, which is the second half of the product's own `search()` (§40).
+   */
+  const rules = arg('rules', '')
+    .split(',')
+    .map((value) => value.trim())
+    .filter((value): value is FusionRuleName =>
+      (FUSION_RULE_NAMES as readonly string[]).includes(value),
+    );
+  const ruleParaphrase = new Map<FusionRuleName, Array<number | null>>(
+    rules.map((rule) => [rule, [] as Array<number | null>]),
+  );
+  const ruleVerbatim = new Map<FusionRuleName, Array<number | null>>(
+    rules.map((rule) => [rule, [] as Array<number | null>]),
+  );
+
   const candidateParaphrase: Array<number | null> = [];
   const candidateVerbatim: Array<number | null> = [];
   const candidateWeights: number[] = [];
@@ -486,6 +511,33 @@ async function main(): Promise<void> {
         vectorWeight: candidateWeight,
       });
       candidateVerbatim.push(rankOf(candidateOnQuoted.results, question));
+
+      if (rules.length > 0) {
+        // **The quoted condition is fetched once and fused many times**, because the retrieval is the paid half and the
+        // fusion is arithmetic. A loop that called `search()` per rule would embed the same question five times and
+        // would make a free experiment cost a paid one.
+        const quoted = await semanticEngine.channels(row.verbatim, { maxResults: DEPTH });
+        for (const rule of rules) {
+          ruleParaphrase.get(rule)!.push(
+            rankOf(
+              semanticEngine.fuse(row.paraphrase, channels, {
+                maxResults: DEPTH,
+                fusionRule: rule,
+              }).results,
+              asked,
+            ),
+          );
+          ruleVerbatim
+            .get(rule)!
+            .push(
+              rankOf(
+                semanticEngine.fuse(row.verbatim, quoted, { maxResults: DEPTH, fusionRule: rule })
+                  .results,
+                question,
+              ),
+            );
+        }
+      }
     }
   }
 
@@ -595,6 +647,35 @@ async function main(): Promise<void> {
                 .length,
             },
           },
+    /**
+     * **The tournament, on both conditions of the same run.**
+     *
+     * Each row is one mechanism, scored on the two lists this run already had, with the paired verdict against **the
+     * lexical list alone** - because the figure a mechanism has to beat is not the shipped rule's, it is not fusing:
+     * §39 measured the shipped rule at 0.6498 against the lexical list's 0.7930 on these questions.
+     *
+     * **`null` when no vectors were registered**, for the same reason every other semantic block is: a mechanism that
+     * fuses one list is a constant multiplying every candidate, so a score for it would be a lexical figure wearing a
+     * fusion's name.
+     */
+    tournament:
+      semanticEngine === null || rules.length === 0
+        ? null
+        : Object.fromEntries(
+            rules.map((rule) => [
+              rule,
+              {
+                paraphrase: {
+                  ...score(ruleParaphrase.get(rule)!),
+                  paired: compareArms(ruleParaphrase.get(rule)!, paraphraseFederated),
+                },
+                verbatim: {
+                  ...score(ruleVerbatim.get(rule)!),
+                  paired: compareArms(ruleVerbatim.get(rule)!, verbatimFederated),
+                },
+              },
+            ]),
+          ),
     paired: {
       // **The two questions this file exists to answer.** The first is what wording costs; the other two are what the
       // three neighbouring repositories cost, asked once under each wording - because a scope that helps by three
@@ -649,6 +730,16 @@ async function main(): Promise<void> {
             candidateWeight: shareOf(candidateWeights),
             lexicalEvidence: shareOf(lexicalEvidence),
             vectorEvidence: shareOf(vectorEvidence),
+            // **One column per mechanism, under both conditions**, so the table above can be re-derived from the
+            // artifact - which is what lets the next sweep of these same vectors be analysed without the key.
+            ...(rules.length === 0
+              ? {}
+              : Object.fromEntries(
+                  rules.flatMap((rule) => [
+                    [`rule:${rule}`, encodeRanks(ruleParaphrase.get(rule)!)],
+                    [`ruleVerbatim:${rule}`, encodeRanks(ruleVerbatim.get(rule)!)],
+                  ]),
+                )),
           }),
       // **One column per swept weight.** The sweep published four aggregates and no columns, so a reader could compare
       // the totals and could not ask which questions moved between them - and a weight that helps fourteen and hurts one
@@ -717,6 +808,19 @@ async function main(): Promise<void> {
       console.log(
         `PARAPHRASE-CANDIDATE-PAIRED pair=${name} deltaMrr=${pair.deltaMrr.toFixed(4)} ` +
           `onlyA=${pair.onlyA} onlyB=${pair.onlyB} p=${pair.pValue.toFixed(4)}`,
+      );
+    }
+  }
+
+  if (artifact.tournament !== null) {
+    // **One line per mechanism and one per condition**, on the same three columns the sweep prints, so the comparison a
+    // reader makes between mechanisms is a comparison between rows rather than between documents.
+    for (const [rule, rows] of Object.entries(artifact.tournament)) {
+      console.log(
+        `PARAPHRASE-RULE rule=${rule} paraphrase found@10=${rate(rows.paraphrase)} mrr=${rows.paraphrase.mrr} ` +
+          `verbatim found@10=${rate(rows.verbatim)} mrr=${rows.verbatim.mrr} ` +
+          `vsLexicalParaphrase onlyRule=${rows.paraphrase.paired.onlyA} onlyLexical=${rows.paraphrase.paired.onlyB} p=${rows.paraphrase.paired.pValue.toFixed(4)} ` +
+          `vsLexicalVerbatim onlyRule=${rows.verbatim.paired.onlyA} onlyLexical=${rows.verbatim.paired.onlyB} p=${rows.verbatim.paired.pValue.toFixed(4)}`,
       );
     }
   }

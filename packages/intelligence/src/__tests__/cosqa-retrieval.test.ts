@@ -40,6 +40,7 @@ import {
   EVIDENCE_DEPTH,
   FUSION_WEIGHT_BOUNDS,
 } from '../search/fusion-weight.js';
+import { FUSION_RULE_NAMES, fuseByRule, qppVectorWeight } from '../search/fusion-rules.js';
 import { HybridSearchEngine } from '../search/hybrid-search.js';
 import { compareArms, decodeRanks, encodeRanks } from '../search/paired-stats.js';
 import { rerankCandidates } from '../search/rerank.js';
@@ -504,6 +505,22 @@ describe.skipIf(!DATASET_DIR || !HAS_VECTORS)(
          * **The evidence columns are published rather than summarised**, because a rule is a claim about a distribution
          * and a reader who cannot see the distribution can only take the claim on trust.
          */
+        /**
+         * **One rank column per fusion mechanism, not per weight of one mechanism.**
+         *
+         * §39 measured five weights of reciprocal-rank fusion and retired the two rules it tried for deciding them; the
+         * mechanisms thirty years of retrieval research offers - normalised score summation, support gating,
+         * query-performance prediction - were never on this corpus at all. **A rule with a figure here and no figure on
+         * the four-repository corpus is a rule nobody has falsified**, so the same set is measured there (§40).
+         *
+         * Every column is a function of `lexicalHits` and `vectorHits` - the lists this question already produced for
+         * the arms above - so the tournament costs no embedding, no completion and no second retrieval.
+         */
+        const ruleRanks = new Map<string, Array<number | null>>(
+          FUSION_RULE_NAMES.map((rule) => [rule, [] as Array<number | null>]),
+        );
+        /** **The weights `qpp` derived**, because a rule that only a corpus could score should still say what it chose. */
+        const qppWeights: number[] = [];
         const candidateWeights: number[] = [];
         const candidateRanks: Array<number | null> = [];
         const lexicalEvidence: number[] = [];
@@ -656,6 +673,23 @@ describe.skipIf(!DATASET_DIR || !HAS_VECTORS)(
           );
           candidateWeights.push(candidateWeight);
           candidateRanks.push(rankOf(fuseAt(DEPTH, candidateWeight), index));
+
+          // **The mechanism columns, on the same two prefixes** - so a difference between a column here and the weight
+          // columns above is a difference between mechanisms and not between depths.
+          const lexicalAtDepth = lexicalHits
+            .slice(0, DEPTH)
+            .map((hit) => ({ node: hit.node, score: hit.score }));
+          const vectorAtDepth = vectorHits
+            .slice(0, DEPTH)
+            .map((hit) => ({ node: hit.node, score: hit.score }));
+          for (const rule of FUSION_RULE_NAMES) {
+            ruleRanks
+              .get(rule)!
+              .push(
+                rankOf(fuseByRule(rule, lexicalAtDepth, vectorAtDepth, { limit: DEPTH }), index),
+              );
+          }
+          qppWeights.push(qppVectorWeight(lexicalAtDepth, vectorAtDepth));
 
           for (const depth of RERANK_DEPTHS) {
             derivedByDepth.get(depth)!.push(rankOf(fuseAt(depth, derivedWeight), index));
@@ -897,6 +931,30 @@ describe.skipIf(!DATASET_DIR || !HAS_VECTORS)(
                 .length,
             },
           },
+          /**
+           * **The tournament: one row per mechanism, each scored on the two lists this run already had.**
+           *
+           * The paired test is against the **lexical list alone**, because that is the figure the mechanism has to
+           * beat: a fusion that loses to not fusing is a fusion that should be turned off, and §39 measured exactly that
+           * for the shipped rule on the four-repository corpus.
+           */
+          tournament: Object.fromEntries(
+            FUSION_RULE_NAMES.map((rule) => [
+              rule,
+              {
+                ...score(ruleRanks.get(rule)!),
+                paired: compareArms(ruleRanks.get(rule)!, lexicalRanks),
+              },
+            ]),
+          ),
+          /** **What the query-performance rule chose**, at the depth it reads. */
+          qppWeight: {
+            min: percentile(qppWeights, 0),
+            p50: percentile(qppWeights, 0.5),
+            max: percentile(qppWeights, 1),
+            atFloor: qppWeights.filter((weight) => weight <= FUSION_WEIGHT_BOUNDS.min).length,
+            atCeiling: qppWeights.filter((weight) => weight >= FUSION_WEIGHT_BOUNDS.max).length,
+          },
           // **Where the ceiling is, channel by channel.** `neither` is the number of questions no widening of these two
           // lists can help, and it is the honest denominator for "a better first stage" - every other question has its
           // answer somewhere in the pool and is a ranking problem rather than a recall one.
@@ -1013,6 +1071,12 @@ describe.skipIf(!DATASET_DIR || !HAS_VECTORS)(
             selfEvidence: evidences.map((value) => Math.round(value * 1_000) / 1_000).join(','),
             candidate: encodeRanks(candidateRanks),
             candidateWeight: encodeRanks(candidateWeights),
+            // **One column per mechanism**, so the aggregate table above can be re-derived from the artifact without the
+            // corpus, the key or the model - the same rule every other column in this file follows.
+            ...Object.fromEntries(
+              FUSION_RULE_NAMES.map((rule) => [`rule:${rule}`, encodeRanks(ruleRanks.get(rule)!)]),
+            ),
+            qppWeight: qppWeights.map((value) => Math.round(value * 1_000) / 1_000).join(','),
             // **The two numbers the candidate is made of**, at the same three decimals a rank is written at, so a
             // reader can recompute `candidateWeight` from this artifact without the corpus, the key or the model.
             lexicalEvidence: lexicalEvidence
@@ -1113,6 +1177,19 @@ describe.skipIf(!DATASET_DIR || !HAS_VECTORS)(
             `evidence p10 ${percentile(evidences, 0.1)} p50 ${percentile(evidences, 0.5)} p90 ${percentile(evidences, 0.9)}`,
         );
 
+        // **The tournament, one line per mechanism**, each carrying the paired verdict against the lexical list alone -
+        // because the figure a mechanism has to beat is not the shipped rule's, it is not fusing at all.
+        for (const rule of FUSION_RULE_NAMES) {
+          const column = ruleRanks.get(rule)!;
+          const summary = score(column);
+          const versus = compareArms(column, lexicalRanks);
+          // eslint-disable-next-line no-console
+          console.log(
+            `COSQA-RULE rule=${rule} found@10 ${summary.foundAt10} R@1 ${summary.recallAt1} MRR ${summary.mrrAt10} ` +
+              `deltaMrrVsLexical ${versus.deltaMrr.toFixed(4)} onlyRule ${versus.onlyA} onlyLexical ${versus.onlyB} p ${versus.pValue.toFixed(4)}`,
+          );
+        }
+
         // **The two-sided candidate, on one line**, with the two distributions it is a function of: a reader decides
         // between the rules from this line and the one above it, which is why they print the same columns.
         // eslint-disable-next-line no-console
@@ -1195,6 +1272,13 @@ describe.skipIf(!DATASET_DIR || !HAS_VECTORS)(
           ['fused', artifact.perQuestion.fused, fusedRanksByDepth.get(DEPTH)!],
           ['derived', artifact.perQuestion.derived, derivedRanks],
           ['candidate', artifact.perQuestion.candidate, candidateRanks],
+          // **The mechanism columns are checked against the columns that produced them**, not against a fresh fusion:
+          // an aggregate that disagreed with its own column would be a table a reader could not recompute.
+          ...FUSION_RULE_NAMES.map((rule): [string, string, Array<number | null>] => [
+            `rule:${rule}`,
+            (artifact.perQuestion as Record<string, string>)[`rule:${rule}`]!,
+            ruleRanks.get(rule)!,
+          ]),
         ];
         for (const [name, encoded, source] of columns) {
           const decoded = decodeRanks(encoded, rows.length);

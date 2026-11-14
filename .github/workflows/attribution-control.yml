@@ -1,0 +1,134 @@
+name: Attribution Control
+
+# **One figure, measured twice, with the only difference being the repair.**
+#
+# §39.11 moved CoSQA from 321 to 434 in the top ten on one dispatch and refused to claim that the doc-comment repair caused
+# it: a repair to how comments reach the index changes the lexical fields *and* the embedded text together, and both
+# channels moved. **A measurement that moved for a reason nobody isolated is a number, not a finding.**
+#
+# This workflow runs the same corpus on the engine as it was **before** the repair (`4abde273^`, pinned by SHA) and
+# publishes that artifact beside the current one. Both are produced by the same test file, on the same runner image, with
+# the same secrets and the same dataset - so the difference between them is the commit and nothing else. That is the
+# control the causal claim needs, and it costs one dispatch.
+
+on:
+  workflow_dispatch:
+    inputs:
+      ref:
+        # **The parent of `4abde273`, which is the repair commit itself.** Pinned rather than "the commit before master",
+        # because a control that followed the branch would re-measure a different engine next month and the comparison
+        # would silently become meaningless.
+        description: 'The commit to measure (default: the parent of the doc-comment repair)'
+        required: false
+        default: 'ebb4e6c5f071c890bf9c6a296c6787934d9c0a18'
+        type: string
+      pool:
+        description: 'Which collection to retrieve from: test-split (500 answers) or all (the published pool)'
+        required: false
+        default: 'test-split'
+        type: choice
+        options:
+          - test-split
+          - all
+      depth:
+        description: 'How many results each channel contributes before fusion'
+        required: false
+        default: '50'
+        type: string
+
+concurrency:
+  group: attribution-control
+  cancel-in-progress: false
+
+permissions:
+  contents: read
+
+jobs:
+  before-the-repair:
+    name: Score the pre-repair engine on the same corpus
+    runs-on: ubuntu-latest
+    timeout-minutes: 180
+
+    steps:
+      - name: Checkout the commit under control
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          ref: ${{ inputs.ref }}
+
+      - name: Say which commit this is
+        run: |
+          set -euo pipefail
+          echo "measuring $(git rev-parse HEAD)"
+          git log -1 --format='%H%n%an%n%s' | tee -a "$GITHUB_STEP_SUMMARY"
+
+      - name: Setup pnpm
+        uses: pnpm/action-setup@b906affcce14559ad1aafd4ab0e942779e9f58b1 # v4
+        with:
+          version: 9.15.0
+
+      - name: Setup Node.js
+        uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7
+        with:
+          node-version-file: .nvmrc
+          cache: 'pnpm'
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Build all packages
+        run: pnpm build
+
+      - name: Fetch the CoSQA retrieval split
+        run: |
+          set -euo pipefail
+          mkdir -p benchmarks/corpora/cosqa
+          url=""
+          for branch in main master; do
+            candidate="https://raw.githubusercontent.com/Jun-jie-Huang/CoCLR/${branch}/data/search/cosqa-retrieval-test-500.json"
+            if curl -fsSL "$candidate" -o benchmarks/corpora/cosqa/cosqa-retrieval-test-500.json; then
+              url="$candidate"
+              break
+            fi
+          done
+          if [ -z "$url" ]; then
+            echo "::error::CoSQA could not be downloaded; the control cannot be measured without it"
+            exit 1
+          fi
+          echo "fetched $url"
+          sha256sum benchmarks/corpora/cosqa/cosqa-retrieval-test-500.json | tee -a "$GITHUB_STEP_SUMMARY"
+
+      - name: Are the credentials present?
+        env:
+          ZHIPU_API_KEY: ${{ secrets.ZHIPU_API_KEY }}
+          DEEPSEEK_API_KEY: ${{ secrets.DEEPSEEK_API_KEY }}
+        run: |
+          # **A control without the semantic half is not a control.** The claim under test is that *both* channels moved,
+          # so a run with a missing key would measure half the effect and look like evidence.
+          test -n "$ZHIPU_API_KEY" || { echo "::error::ZHIPU_API_KEY is absent, so the vector channel cannot run and the control would measure half the claim"; exit 1; }
+          test -n "$DEEPSEEK_API_KEY" || { echo "::error::DEEPSEEK_API_KEY is absent, so the reranked arm would not exist"; exit 1; }
+
+      - name: Measure the pre-repair engine
+        env:
+          COSQA_DIR: benchmarks/corpora/cosqa
+          COSQA_POOL: ${{ inputs.pool }}
+          COSQA_DEPTH: ${{ inputs.depth }}
+          # **This run publishes figures**, so the artifact can be compared with the current one rather than read out of
+          # a log. Recording is opt-in everywhere else for the same reason: a local run must not replace a committed
+          # measurement.
+          BENCHMARK_WRITE: '1'
+          ZHIPU_API_KEY: ${{ secrets.ZHIPU_API_KEY }}
+          ZHIPU_EMBEDDING_MODEL: embedding-3
+          DEEPSEEK_API_KEY: ${{ secrets.DEEPSEEK_API_KEY }}
+        run: |
+          set -o pipefail
+          npx vitest run --config vitest.config.ts packages/intelligence/src/__tests__/cosqa-retrieval.test.ts 2>&1 | tee /tmp/cosqa-control.log
+          grep -oE 'COSQA-[A-Z-]+ .*' /tmp/cosqa-control.log | tee -a "$GITHUB_STEP_SUMMARY"
+
+      - name: Upload the control artifact
+        if: always()
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7
+        with:
+          name: cosqa-attribution-control
+          path: benchmarks/cosqa-retrieval.json
+          if-no-files-found: warn
+          retention-days: 90

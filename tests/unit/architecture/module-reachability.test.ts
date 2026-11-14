@@ -414,7 +414,12 @@ describe('every module a package compiles is reachable from an entry its manifes
       // is the whole defect: `repoFilter: ['flask']` answered 0 of 469 questions inside the repository that held the
       // answer, while the same questions unscoped answered 454. The rules of what a selector *means* are a module
       // because they are arithmetic over identifiers, and the federated engine is not the only reader they will have.
-      intelligence: 172,
+      // **173 since iteration 138**, which added `search/fusion-rules.ts`. §39 measured five weights of one fusion rule
+      // and retired both candidates for choosing among them; the mechanism itself was never a variable, so the four
+      // mechanisms the retrieval literature carries are a module rather than a branch inside `fuseResults` - **a
+      // candidate that a corpus has not scored cannot become the product's order**, and a candidate behind an `if` in
+      // the engine is a candidate the product already runs.
+      intelligence: 173,
       mcp: 39,
       server: 24,
       // **11 since iteration 121**, which added `utils/type-text.ts`: the depth-counted removal of type arguments and

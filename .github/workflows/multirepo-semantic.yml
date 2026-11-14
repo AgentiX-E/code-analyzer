@@ -40,6 +40,15 @@ on:
         type: choice
         options: ['replay', 'generate']
         default: replay
+      rules:
+        # **Which fusion mechanisms to measure, and the reason the sweep of one mechanism was not enough.** §39 swept
+        # five weights of reciprocal-rank fusion and retired two rules for choosing among them; the mechanisms the
+        # retrieval literature has offered for thirty years - CombMNZ, support gating, query-performance prediction -
+        # were never on this corpus. **Empty measures none and keeps a run free**; the default measures all five, which
+        # costs one fusion per question over lists the run already has.
+        description: 'Fusion mechanisms to score, e.g. rrf,combmnz,supported,qpp,qpp3 (empty measures none)'
+        type: string
+        default: 'rrf,combmnz,supported,qpp,qpp3'
       weights:
         # **The fusion weights to sweep, because the weight is what the twenty-two-point cost was attributed to.**
         # `deriveVectorWeight` reads the question, a rewritten question shares no words with its answer, and the derived
@@ -140,10 +149,14 @@ jobs:
           WEIGHTS='${{ inputs.weights }}'
           WEIGHT_FLAGS=""
           if [ -n "$WEIGHTS" ]; then WEIGHT_FLAGS="--weights $WEIGHTS"; fi
+          RULES='${{ inputs.rules }}'
+          RULE_FLAGS=""
+          if [ -n "$RULES" ]; then RULE_FLAGS="--rules $RULES"; fi
           npx tsx scripts/multirepo-paraphrase.ts \
             --mode '${{ inputs.mode }}' \
             --embed \
             $WEIGHT_FLAGS \
+            $RULE_FLAGS \
             --out benchmarks/multirepo-qa-paraphrase-semantic.json 2>&1 | tee /tmp/multirepo-semantic.log
 
       - name: The artifact has to say which space it used
@@ -202,6 +215,15 @@ jobs:
             }
           }
           if (!a.candidate) { console.error('::error::the run did not measure the two-sided candidate rule'); process.exit(1); }
+          // **The tournament has to be present in full**, because a mechanism with a figure on one corpus and no figure
+          // on the other is a mechanism nobody has falsified - and the five names are the registered set rather than
+          // whatever the run happened to be asked for.
+          const rules = ['rrf', 'combmnz', 'supported', 'qpp', 'qpp3'];
+          for (const rule of rules) {
+            if (!a.tournament || !a.tournament[rule]) { console.error('::error::the run did not score mechanism ' + rule); process.exit(1); }
+            if (typeof a.perQuestion['rule:' + rule] !== 'string') { console.error('::error::mechanism ' + rule + ' has a figure and no column'); process.exit(1); }
+            if (typeof a.perQuestion['ruleVerbatim:' + rule] !== 'string') { console.error('::error::mechanism ' + rule + ' was scored on the rewritten condition only, so nothing says whether it cost the quoted one'); process.exit(1); }
+          }
           if (typeof a.perQuestion?.candidateWeight !== 'string') { console.error('::error::the candidate has a figure and no column'); process.exit(1); }
           console.log('weights', weights.join(' '), 'columns', Object.keys(columns).length);
           "
