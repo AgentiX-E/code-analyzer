@@ -4219,3 +4219,58 @@ on the same run as the candidates, which is the higher of its two measurements a
 fails, the mechanisms chapter closes for this corpus and the next iteration spends its dispatches on languages rather
 than on fusion** - four mechanisms, three retirements, and a measured statement about which half of each one carries the
 result is a finished line of enquiry, not an unfinished one.
+
+### 40.9 The third candidate failed on three criteria, and the mechanism chapter closes with a measured trade
+
+`de3e078e` measured the percentile candidate on the same corpora. **It is the worst of the eight on the condition it was
+built for**, and the failure is the most informative of the three.
+
+| mechanism (454 rewritten)          |                rewritten found@10 | rewritten MRR@10 | quoted found@10 | quoted MRR@10 | CoSQA found@10 | CoSQA MRR@10 |
+| ---------------------------------- | --------------------------------: | ---------------: | --------------: | ------------: | -------------: | -----------: |
+| `rrf` (shipped)                    |                               295 |           0.5340 |             452 |        0.9105 |            431 |       0.6369 |
+| `combmnz`                          |                           **378** |       **0.6708** |         **453** |    **0.9174** |            440 |       0.6480 |
+| `combmnz-positive`                 |                           **378** |           0.6697 |             453 |        0.9174 |            445 |       0.6525 |
+| **`combmnz-percentile`**           |                           **365** |       **0.5119** |         **443** |    **0.8262** |            430 |       0.6375 |
+| derived weight (the product's arm) | 446 found@10 on CoSQA, MRR 0.6680 |                  |                 |               |                |              |
+
+**Three criteria failed and one of them was the hypothesis itself.**
+
+1. **Rewritten questions: 365 against the lexical list's 360 and the tuned constant's 373**, with **MRR 0.5119 - lower than
+   the lexical list's own 0.6299.** A fusion that ranks worse than not fusing is the defect §39 started from, arrived at
+   by a different road.
+2. **Quoted questions: 443 against 451** - a rule that removes score magnitude loses the condition where the head is
+   real.
+3. **CoSQA MRR 0.6375 against the bar of 0.6780.**
+
+**The hypothesis was that a percentile avoids the z-score's head compression. It does, and the compression was
+load-bearing.** A percentile cannot tell a document that nearly matched its channel's first answer from one that barely
+made the list: **it throws away the only number that says how much better the head is**, and a Borda count then ties
+across the head - the module's own tie-break test measures two documents tying at `(1 + 1/3) × 2` on a four-document list,
+and the same flattening on a fifty-deep list is what the corpus reports. **Score magnitude is not noise to be normalised
+away; it is half the evidence.**
+
+**So the mechanisms chapter closes, exactly as §40.8 said it would if this failed**, and it closes with a trade rather than
+a winner:
+
+| what the product could have              | rewritten found@10 | rewritten MRR@10 | CoSQA found@10 |           CoSQA MRR@10 |
+| ---------------------------------------- | -----------------: | ---------------: | -------------: | ---------------------: |
+| shipped `rrf` at the derived weight      |            **295** |           0.5340 |    **446–451** |      **0.6680–0.6780** |
+| `combmnz`, if the CoSQA bar were dropped |          378 (+83) |  0.6708 (+0.137) |        440–452 | 0.6480–0.6555 (−0.020) |
+
+**Eighty-three questions on the corpus where the product is worst, against two hundredths of MRR on the corpus where it is
+strongest** - and the bar that refused it was registered before the run, so the refusal is a decision and not a result.
+The honest sentence this project can now write is: **a parameter-free fusion exists that is dramatically better at
+answering a question phrased in a developer's own words, and adopting it would move a regression from one corpus to
+another rather than removing one.** That is recorded in `iteration-138-report.md` as the first item an owner should
+decide, because it is a product trade rather than a measurement.
+
+**What is left behind for the next iteration, in the order §40.8 fixed:**
+
+1. **Languages.** `go` and `rust` enter the multi-repository corpus (their doc-comment handling is repaired and tested),
+   and `sampleQuestions` gains a per-repository quota: at 332 of 494 questions from one repository, "four repositories"
+   has been one repository with three guests.
+2. **The eight-commit bisect** that attributes the hundred and twelve CoSQA questions between 27 October and 12 November.
+3. **A mechanism that keeps score magnitude and agreement without a weight** - the one shape none of the eight has: a
+   CombMNZ whose count multiplies a _rank-weighted_ score rather than a z-score or a percentile. **Registered as a
+   hypothesis, not as a candidate**: it needs its own two corpora and its own six criteria, and it is worth doing only
+   after the corpus has four languages rather than four repositories.
