@@ -380,8 +380,10 @@ name that never existed. It asks for `@kodus/cli` now.
 `checks/raw/shell_download_validate.go` decides npm pinning with `isNpmUnpinnedDownload`, which returns _pinned_ only
 for `npm ci` or a git URL carrying a 40-character sha - `pkg@1.2.3` falls through to `return true`. Pip is the same
 shape: `isUnpinnedPipInstall` accepts `--require-hashes`, a wheel, or an editable install from a pinned source, and
-counts `pkg==1.2.3` as an unhandled argument. **No rewrite of `npm install -g foo@1.2.3` changes that verdict**, which
-is why these ten are dismissed as false positives with this paragraph as the reason rather than chased.
+counts `pkg==1.2.3` as an unhandled argument. **No rewrite of `npm install -g foo@1.2.3` changes that verdict**, so
+these ten stay open **with this paragraph as their triage record**: a dismissal is a judgement about the scanner rather
+than about the repository, and the token that maintains this repository does not carry the alert-dismissal scope. What
+holds the line is the stricter rule below.
 
 **Group 3: shapes the scanner cannot express.** One vendor ships `curl | bash https://cubic.dev/install` and has no npm
 package and no revisioned URL - a hash of the script would be a hash of whatever is deployed next. One `npm install`
