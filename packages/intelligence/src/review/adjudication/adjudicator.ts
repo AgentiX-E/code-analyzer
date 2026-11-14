@@ -84,6 +84,29 @@ export function oneLine(value: unknown, max = 240): string {
   return flat.length <= max ? flat : `${flat.slice(0, max - 1)}…`;
 }
 
+/**
+ * **Retired, and the code is kept as an ablation reference rather than deleted.**
+ *
+ * Two registrations were written before two runs and both were falsified. R-19 (§44) asked whether checking a finding
+ * against the code before filing it raises F1 - precision rose by twenty-five points, recall fell by twelve, F1 fell by
+ * eight. R-20 (§45) repaired the instrument - the reader had never been told which line the comment was on, and the
+ * patch it was shown was clipped from the middle out - and the second run was worse: 24 true positives against 90.
+ *
+ * §45.4 registered the stopping rule with the claim, which is the only reason this comment is short: *a third contract
+ * on the same device, fitted to the failure of the first two, is a search over prompts reported as a hypothesis*.
+ *
+ * **And the diagnosis is that the device was measuring the wrong property rather than measuring it badly.** The corpus's
+ * judge asks *"do these two sentences describe the same concern"*; this reader asked *"is this sentence true of this
+ * code"*. The two questions disagree on the sentences the corpus is mostly made of - a request for a test, an objection
+ * to a coupling - which are neither true nor false and are exactly what a human reviewer wrote. 523 of 618 candidates
+ * were refuted for that reason, twelve of fifty-nine sampled refusals had been accepted by the judge, and the reasons
+ * on those twelve divide cleanly into *"the claim is factually wrong"* (which is what the device was for) and *"this is
+ * a preference"* (which is what the metric rewards). **No prompt fixes a property that the thing being measured does not
+ * have.**
+ *
+ * `adjudicate` therefore defaults to `false` and `EVAL-CONTRACT.md` §46 records the retirement.
+ */
+
 /** What a whole pass did, in counts a report can print without re-reading anything. */
 export interface AdjudicationReport {
   /** Candidates handed to the pass. */

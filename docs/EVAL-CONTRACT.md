@@ -4781,6 +4781,8 @@ same device, fitted to the failure of the first two, is a search over prompts re
 document's rule is that a registration is written before the run that answers it, which a third attempt written after
 two failures cannot honestly be.
 
+**The rule fired: §46 records the falsification, the retirement, and the measurement defect that outranks both.**
+
 ### 45.5 The instrument: a counter is not a diagnosis
 
 **This iteration adds no prompt length and one field.** `lastAdjudication.refused` carries every comment the pass removed
@@ -4819,3 +4821,134 @@ it may still be a constant, and the artifact will say so in the same field it sa
 R-19's failure teaches nothing about the corpus: **494 refutations of 587 candidates is the corpus's own statement that
 most of what this reviewer says is not true of the line it says it on**, and no window and no numbering changes that
 fact - it only stops the reader from being unable to see the line before it says so.
+
+---
+
+## 46. The second reader was retired, and every figure under it was computed with a deprecated protocol
+
+**R-20 was dispatched on the fifty pull requests of the discovery slice and falsified harder than R-19.** The repair
+§45.3 diagnosed was real, it was made, and the device came back worse: **24 true positives against 90**. The stopping
+rule §45.4 registered _with_ the claim therefore fires, and this section pays it.
+
+### 46.1 The run
+
+| arm                 | precision    | recall       | F1           | true positives | false positives | false negatives | comments |
+| ------------------- | ------------ | ------------ | ------------ | -------------- | --------------- | --------------- | -------- |
+| `adjudicate: false` | 21.4 %       | 19.9 %       | 20.6 %       | 90             | 331             | 362             | 421      |
+| `adjudicate: true`  | 32.4 %       | 5.3 %        | 9.1 %        | 24             | 50              | 428             | 92       |
+| **delta**           | **+11.0 pp** | **−14.6 pp** | **−11.5 pp** | **−66**        | **−281**        | **+66**         | **−329** |
+
+Paired on pull request and golden: **18 both, 6 the device alone, 72 the base arm alone**, p = 0 at the exact binomial.
+The counters: **618 candidates, 90 upheld, 2 repaired, 523 refuted, 3 unanchored, 1 unchecked, 1 unreadable**, and 2
+refused by the free narration veto. **The numbered window and the named line changed the number from 91 upheld of 587 to
+90 upheld of 618** - that is, from 15.5 % to 14.6 % - which is the size of the effect that repairing the instrument had.
+
+### 46.2 The reader and the judge were answering different questions
+
+**The refusal sample this iteration added answers it, and the answer is not "too strict".** Of the 59 refusals drawn at a
+stride from 528, **12 had been accepted by the judge and 26 had not** (21 could not be paired to a comment of the base
+arm, because the two arms did not file the same set). The twelve divide into two groups that no count could separate:
+
+- **The claim was factually wrong, and the reader was right to say so.** `getTopoShape`'s real overload is
+  `(const App::DocumentObject*, ShapeOption, const char*)`, so the argument order was correct and our comment said it was
+  not. `KindJSImportDeclaration` is an alias of `KindImportDeclaration` in the TypeScript AST this encoder mirrors, so the
+  merged case cannot panic. **These refutations are exactly what the device was built to produce**, and they are cheap:
+  they cost one call and they buy precision.
+- **The sentence was not a claim at all.** _"The comment is a test-coverage preference that names no input or state where
+  the code at line 88 behaves incorrectly."_ _"The comment is a design preference about coupling and names no input or
+  state whose outcome changes."_ Both are correct readings of our comments, and **both are refutations of sentences the
+  corpus counts as findings**: the corpus's reference comments include _"this needs a test"_ and _"this widens the
+  class's responsibility"_, because human reviewers write those and the corpus recorded them.
+
+**So the two questions are orthogonal, and the numbers say so.** The judge asks _do these two sentences describe the same
+concern_; the reader asked _is this sentence true of this code_. A preference has no truth value, so the reader refutes
+every preference, and preferences are what the corpus is mostly made of - `test` converts at 6.7 % and `architecture` at
+21.8 % against `bug` at 36.2 %, and 523 of 618 candidates were refuted. **A device that removes 84 % of everything is a
+constant with a small tilt**, which is §45.2's arithmetic arriving a second time and, this iteration, with a reason
+attached: the tilt is real and it is aimed at a property the metric does not measure.
+
+### 46.3 The stopping rule, paid
+
+`§45.4` said: _if R-20 is falsified on its discovery slice, the claim-checking device is retired and the F1 budget goes
+to emission._ It is retired:
+
+1. **`adjudicate` defaults to `false`** and the code stays in the tree as an ablation reference, with the retirement
+   recorded in the module's own header rather than in a commit message.
+2. **The default dispatch buys one arm.** A third contract on the same device, fitted to two failures, is a search over
+   prompts reported as a hypothesis - so no third contract is written, and **a dispatch that would re-price the device
+   has to ask for it** (`pair: on`), which is the shape a decision with a price should have.
+3. **The confirmation R-19 and R-20 owed is not owed any more**, because a device retired on its discovery slice has
+   nothing left to confirm. Saying so is cheaper than a run that pays to confirm a retirement.
+
+### 46.4 The arithmetic under every figure was the one the corpus deprecated
+
+**This is the finding that outranks the device, and it was found by reading the corpus's own documentation rather than by
+running anything.** `Alibaba-Aone/aacr-bench/docs/metrics.md` defines a file-level semantic metric and records the
+per-comment protocol this harness implements as **deprecated**, available only behind `--use-deprecated-score`. Three
+rules differ, and they are not cosmetic:
+
+1. **Grouping is by normalised path and the judge is shown every reference comment of that file in one numbered call.**
+   Diff side and line number are context, not filters.
+2. **One generated comment may cover several reference comments.** A defect three reviewers restated scores three.
+3. **Precision is a greedy walk in generation order**: a comment counts only if it covers at least one reference comment
+   that nothing before it covered (`hit_new_gt`). **A restatement costs exactly what a wrong comment costs.**
+
+This repository computed a maximum bipartite matching over pairwise verdicts, which is rule-nothing: one comment, one
+concern. **A hand-annotated corpus restates**, so the old arithmetic understated coverage, and - because a restatement
+was scored as a false positive - did not err in one consistent direction. The correction is `lib/file-semantic.mjs`, and
+**it costs no model call**: the verdicts are the ones the run already paid for, and only the arithmetic changed.
+
+| arm, whole emission | precision | recall | F1     | goldens covered |
+| ------------------- | --------- | ------ | ------ | --------------- |
+| maximum matching    | 18.6 %    | 24.6 % | 21.1 % | 111 of 452      |
+| file-level semantic | 16.4 %    | 29.6 % | 21.1 % | 134 of 452      |
+
+**The F1 is unchanged and the redistribution is the finding.** Recall gains five points because one comment can cover a
+defect that four people wrote down; precision loses two because the walk charges every restatement. **A metric change
+that leaves the headline where it was and moves the quantity underneath it is the kind of change that can be trusted**,
+and the reason to make it is not the number: it is that a figure the corpus cannot reproduce is a figure that means
+nothing when it is compared with a competitor's published one.
+
+**What is still not equal, and is written into the artifact rather than left for a reader.** Our judge reads one pair at
+a time; theirs is shown one file's list. The block applies their arithmetic to our verdicts, so it removes one difference
+and names the other in `scoring.fileSemantic.judge`. **A figure from it is comparable in one direction and is not an
+official score**, and the same block computes the competitor's arm over the same arithmetic in the same run, because a
+comparison in which the two sides are scored differently is not a comparison.
+
+**And the field is not a goalpost move, for a reason that is checkable in this run's own artifact**: `legacyOur` and
+`counterfactual` sit beside the new figure, so a reader can see exactly what the change of arithmetic did, to whom, and in
+which direction. A goalpost move hides the old number.
+
+**The top-level `precision`, `recall` and `f1` stay on the old arithmetic for exactly one more run**, and the reason is
+that R-19 and R-20 were registered against them: a claim whose figure is recomputed after the claim was falsified is a
+claim nobody can re-check. **The run after the diagnosis moves the headline to the corpus's arithmetic and leaves the old
+one beside it**, which is the order these two changes have to happen in for either of them to mean anything.
+
+### 46.5 The instrument this iteration adds, and why the last one was not enough
+
+`rejectedGoldens` carries sixty of the goldens that fell in `findingOnPathRejected` - **the corpus's own sentence beside
+the nearest comment of ours on that path**, with both line numbers and the distance between them, sampled at a stride
+across the run.
+
+**A bucket count cannot distinguish the two repairs it implies.** _"We spoke on that file about something else"_ is
+compatible with **looking for different things** and with **saying the same thing in words the judge would not call the
+same defect**, and those are opposite instructions. The corpus's note is the answer key, it was already fetched, and
+keeping it costs nothing but an artifact field.
+
+### 46.6 The bar, stated from outside this repository for once
+
+**Every figure above is ours, on our slice, with our judge. Here is what the field reports on the whole corpus**, from
+[OpenCodeReview (arXiv 2608.09290)](https://arxiv-vanity.com/papers/2608.09290): best SEM-F1 **25.10 %**, achieved by a
+system with a _deterministic rule set_ and an _independent reflection module_; Claude Code on the same corpus reaches
+**28.90 % recall at 7.23 % precision** by emitting **5 980 comments for 435 matches**. Two facts follow, and both are
+about our next iteration rather than about that one:
+
+1. **Volume buys recall at roughly four comments per match.** The recall leader is not the precision leader and it is
+   not close.
+2. **The system at the top of the table is a rule engine with a reflection pass**, not a better prompt. Its precision
+   comes from sentences that a tool can check; ours comes from architecture prose that a judge must be persuaded of.
+
+**Against that, our own history is sobering in a useful way.** Two devices were registered and falsified, and the
+arithmetic underneath all of it was not the corpus's. **The next iteration therefore does not register a device.** It buys
+one arm and the answer key: the sixty rejected goldens and their notes. **A registration written before that key is read
+would be a third guess**, and the two failures are enough to have earned the right to read first.

@@ -57,11 +57,28 @@ describe('the emission rule, per reviewer', () => {
 
   it('writes the shipped rule into keep and the lane rule into laneGateKeep', () => {
     const row = perPullRequestRow();
-    expect(row).toContain('keep: shippedRuleKeep(ranked, profileKept)');
+    expect(row).toContain('keep: shippedKeepFlags');
     expect(row).toContain('laneGateKeep: laneRuleKeep(ranked, profileKept)');
     // **And the inline expression cannot come back**, because a rule that is written twice is a rule that will one day be
     // edited once: the row's `keep` must not mention the gate's own condition.
     expect(row).not.toContain('keep: ranked.map');
+  });
+
+  it('computes the shipped rule once, and before both rows that read it', () => {
+    // **This test exists because the rule acquired a second reader**, and a second call to `shippedRuleKeep` would be a
+    // second rule: the corpus's arithmetic (EVAL-CONTRACT §46) scores the same findings the headline figures are computed
+    // over, and two calls would let the two figures be about two operating points while both looked right. One
+    // declaration, one row and one pull-request record, in that order - and a third use fails here rather than silently
+    // becoming a third rule.
+    const declared = [...SOURCE.matchAll(/shippedRuleKeep\(ranked, profileKept\)/g)];
+    expect(declared).toHaveLength(1);
+    const declarationAt = SOURCE.indexOf(
+      'const shippedKeepFlags = shippedRuleKeep(ranked, profileKept)',
+    );
+    expect(declarationAt).toBeGreaterThan(-1);
+    const uses = [...SOURCE.matchAll(/keep: shippedKeepFlags/g)];
+    expect(uses).toHaveLength(2);
+    for (const use of uses) expect(use.index).toBeGreaterThan(declarationAt);
   });
 
   it('scores both rules over the same findings in the artifact', () => {

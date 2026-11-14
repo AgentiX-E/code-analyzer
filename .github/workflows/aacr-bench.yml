@@ -34,6 +34,23 @@ on:
         # and still not the one anybody selected**.
         options: ['replay', 'record', 'off']
         default: replay
+      pair:
+        # **Whether this dispatch buys two arms or one, and it is a budget question with a measurement behind it.**
+        #
+        # A pair exists to price a device, and a device is priced once per registration. §45's registration carried its
+        # own stopping rule - *if R-20 is falsified on its discovery slice, the claim-checking device is retired* - and
+        # R-20 was falsified: 24 true positives against 90, paired 6 for and 72 against. **A third dispatch of a retired
+        # device would buy a comparison nobody registered**, so the default is one arm and the arithmetic follows it
+        # (`compare` is skipped, not failed, because a job that reports a difference between an arm and nothing is the
+        # one failure no gate in that job can see).
+        #
+        # **`on` is still reachable**, because the retired device's code stays in the tree as an ablation reference and
+        # a future hypothesis may want to re-price it against a corpus that changed. Re-arming it is a decision with a
+        # price, which is what a dispatch input is for.
+        description: 'Buy both arms (a registered device under test) or one arm (a diagnostic run)'
+        type: choice
+        options: ['off', 'on']
+        default: off
       prompt_order:
         # **Where the diff sits in a lane's prompt, exposed because it is now a measured variable rather than a
         # preference.** `boilerplate-first` puts the shared target-and-diff block last, which is what raised prefix
@@ -203,7 +220,7 @@ jobs:
       # the only difference between them is whether a finding's claim is checked before it is filed. **A matrix that
       # varied both would answer neither**, which is the refusal `aacr-ablation-compare.mjs` already encodes.
       matrix:
-        include: '${{ fromJSON((inputs.agent || ''off'') == ''on'' && ''[{"profile":"advisory","code_context":"on","adjudicate":"off"}]'' || ''[{"profile":"advisory","code_context":"off","adjudicate":"off"},{"profile":"advisory","code_context":"off","adjudicate":"on"}]'') }}'
+        include: '${{ fromJSON((inputs.agent || ''off'') == ''on'' && ''[{"profile":"advisory","code_context":"on","adjudicate":"off"}]'' || ((inputs.pair || ''off'') == ''on'' && ''[{"profile":"advisory","code_context":"off","adjudicate":"off"},{"profile":"advisory","code_context":"off","adjudicate":"on"}]'' || ''[{"profile":"advisory","code_context":"off","adjudicate":"off"}]'')) }}'
 
     steps:
       - name: Checkout
@@ -414,7 +431,7 @@ jobs:
     # reports a comparison is not the job that should discover there is nothing to compare**: a dispatch whose whole
     # purpose is one arm should end green with its figure, and a run of this job over one row would compute a
     # difference between an arm and nothing.
-    if: (inputs.agent || 'off') != 'on'
+    if: (inputs.agent || 'off') != 'on' && (inputs.pair || 'off') == 'on'
     timeout-minutes: 10
     steps:
       - name: Checkout

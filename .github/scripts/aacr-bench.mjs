@@ -28,6 +28,7 @@ import {
   dominantRejectionShape,
   largestBucket,
   mergeAttributions,
+  normalisePath,
 } from './lib/golden-attribution.mjs';
 import { requestedPullRequests, skippedPullRequests, spendCeilingUsd } from './lib/run-config.mjs';
 import { DEFAULT_ATTEMPTS, backoffMs, retryAfterMs } from './lib/retry-after.mjs';
@@ -38,6 +39,7 @@ import {
   describeComparison,
 } from './lib/competitor-comparison.mjs';
 import { goldenDiscordance, pairedCorpus } from './lib/paired-corpus.mjs';
+import { scoreCorpusFileSemantic, scoreFileSemantic } from './lib/file-semantic.mjs';
 import { describeUnread, readTheWholeCorpus, unreadCorpus } from './lib/unread-corpus.mjs';
 import {
   DEFAULT_BASELINE_PATH,
@@ -703,6 +705,52 @@ async function dryRun() {
     1,
     'the shape table re-reads the rejected goldens and adds up to them',
   );
+
+  // **The corpus's arithmetic, checked against numbers written down before it ran.**
+  //
+  // **First that it agrees with the protocol this job shipped wherever the two can agree.** The fixture above has no
+  // comment covering two reference comments, so the file-level metric and the maximum matching must produce the same
+  // figure - 3 of 4 goldens, 3 of 6 comments, precision 0.5, recall 0.75, F1 0.6. **A new arithmetic that disagreed
+  // here would be a new arithmetic with a bug**, and the agreement is what makes the difference below attributable to
+  // one-to-many coverage rather than to a re-implementation.
+  const agreeing = scoreFileSemantic({
+    findings: ranked.map(() => ({ path: 'a.ts' })),
+    goldens: [
+      { path: 'a.ts', note: goldens[0] },
+      { path: 'a.ts', note: goldens[1] },
+      { path: 'a.ts', note: goldens[2] },
+      { path: 'a.ts', note: goldens[3] },
+    ],
+    matches: matrix.matches,
+  });
+  assert.equal(
+    agreeing.precision,
+    0.5,
+    'the corpus arithmetic agrees on precision where nothing is covered twice',
+  );
+  assert.equal(agreeing.recall, 0.75, 'and on recall');
+  assert.equal(
+    agreeing.coveredGoldens,
+    maximumMatchingCount(matrix.matches, goldens.length),
+    'and on which goldens',
+  );
+  // **Then where they cannot agree, and by exactly the amount the protocol says.** One comment covering three
+  // reference comments is one true positive under the old arithmetic and three covered goldens under this one: recall
+  // 1 against 1/3, precision 1/2 because the second comment buys nothing it did not already have.
+  const covering = scoreFileSemantic({
+    findings: [{ path: 'a.ts' }, { path: 'a.ts' }],
+    goldens: [{ path: 'a.ts' }, { path: 'a.ts' }, { path: 'a.ts' }],
+    matches: [[0, 1, 2], [0]],
+  });
+  assert.equal(
+    covering.coveredGoldens,
+    3,
+    'one comment may cover every reference comment of its file',
+  );
+  assert.equal(covering.hitNewGt, 1, 'and counts once towards precision');
+  assert.equal(covering.duplicateHits, 1, 'while the restatement beside it counts for nothing');
+  assert.equal(covering.precision, 0.5, 'so precision is one of two');
+  assert.equal(covering.recall, 1, 'and recall is three of three');
 
   // **And the comparison, exercised in both of its answers**, because the defect it fixes was invisible precisely
   // because nothing in this file ever asked what the field says when the competitor arm is absent.
@@ -1721,6 +1769,32 @@ async function main() {
   const attributed = [];
   const competitorPerPr = [];
   const competitorDetail = [];
+  /**
+   * **Both reviewers' comments and both reviewers' reference comments, kept for the corpus's own arithmetic.**
+   *
+   * The headline figures of this job are a maximum matching over (finding, golden) pairs, which is the protocol
+   * `Alibaba-Aone/aacr-bench` records as **deprecated** in its own `docs/metrics.md` - the one behind
+   * `--use-deprecated-score`. Their metric groups by file and lets **one comment cover several reference comments**,
+   * so a defect three reviewers restated scores three and not one. **A run that reports one protocol while the corpus
+   * defines another is reporting a figure nobody can compare**, and the difference is a third of recall on this slice.
+   *
+   * **Nothing is re-judged to compute it.** The verdicts below are the ones this run already paid for; what changes is
+   * the arithmetic applied to them. So the score costs no model call, the two figures are printed side by side, and
+   * the residual difference - their judge reads one file's list at a time, ours reads one pair - is named in the
+   * result rather than left for a reader to discover.
+   */
+  const fileSemanticPulls = { our: [], competitor: [] };
+  /**
+   * **The goldens we were in the right file for and did not say the same thing about**, as sentences.
+   *
+   * `findingOnPathRejected` is 259 of 452 goldens on this slice and it is **the largest block a reviewer can move** -
+   * and a count of it answers no question the next iteration can act on, because *"we spoke on that file about
+   * something else"* is compatible with two opposite repairs: **look for different things**, or **say the same thing
+   * differently**. The corpus's own note beside our nearest comment is the answer key, it was already fetched, and it
+   * cost nothing to keep. Bounded and sampled at a stride, for the same reason `refused` is: an artifact nobody opens
+   * is an artifact that changed nothing.
+   */
+  const rejectedGoldens = [];
   // **The second arm's accumulators, kept separate so neither can consume the other's matches.**
   let tpWhole = 0;
   let fpWhole = 0;
@@ -2231,6 +2305,15 @@ async function main() {
             key: competitorKey,
             matches: competitorMatrix.matches,
             goldens: issueTexts.length,
+            keep: keepFlags,
+          });
+          // **The same coordinates we keep for ourselves**, because a comparison scored by two arithmetics is the defect
+          // this field exists to remove: their rows carry `matches` and a path per comment, and the goldens are the same
+          // list we already hold with their paths attached.
+          fileSemanticPulls.competitor.push({
+            findings: competitorRanked.map((entry) => ({ path: entry.path, text: '' })),
+            goldens,
+            matches: competitorMatrix.matches,
             keep: keepFlags,
           });
           // **The same rows the artifact publishes, kept once and used twice** - published here, and written to the
@@ -2764,6 +2847,10 @@ async function main() {
     // already paid for, the diff sections are already in hand, and **the only thing this needs is the coordinates the
     // corpus already carries.** The five buckets are disjoint and their sum is asserted inside `attributeGoldens`, so a
     // refactor that loses a row fails here rather than producing a table that reads plausibly and adds up wrong.
+    // **The registered operating point, computed once and used by both the headline and the corpus's arithmetic.** A
+    // second call to `shippedRuleKeep` would be a second rule, and two figures about two rules is how a run reports a
+    // comparison between itself and itself.
+    const shippedKeepFlags = shippedRuleKeep(ranked, profileKept);
     const attribution = attributeGoldens({
       goldens,
       reviewedPaths: sections.map((section) => section.path),
@@ -2771,6 +2858,53 @@ async function main() {
       matches: ourMatrix.matches,
     });
     attributed.push({ pr: competitorKey, ...attribution });
+
+    // **Both arms, in the shape the corpus's arithmetic reads**, so the figure beside the headline is about the same
+    // comments rather than about a second review nobody ran.
+    fileSemanticPulls.our.push({
+      findings: ranked.map((entry) => ({ path: entry.path, text: String(entry.finding.title) })),
+      goldens,
+      matches: ourMatrix.matches,
+      keep: shippedKeepFlags,
+    });
+
+    // **And the goldens we were in the right file for and did not say the same thing about.** The nearest comment on the
+    // golden's own path is chosen by line distance, because "we stood on the line and said something else" is a wording
+    // defect and "we discussed the other end of the file" is a targeting one - and **the two have different repairs**.
+    const covered = new Set(ourMatrix.matches.flat());
+    // **Keyed by the same normalisation the attribution uses**, because a diff path and an annotation path are the same
+    // file written by two tools - and a lookup that missed would silently report that we never spoke on a file we did.
+    const byPath = new Map();
+    ranked.forEach((entry, at) => {
+      const key = normalisePath(entry.path);
+      if (!byPath.has(key)) byPath.set(key, []);
+      byPath.get(key).push({ entry, at });
+    });
+    goldens.forEach((golden, index) => {
+      if (covered.has(index)) return;
+      const onPath = byPath.get(normalisePath(golden.path));
+      if (onPath === undefined || onPath.length === 0) return;
+      const here = golden.startLine ?? 0;
+      const nearest = onPath.reduce(
+        (best, candidate) => {
+          const distance = Math.abs((candidate.entry.finding.startLine ?? 0) - here);
+          return distance < best.distance ? { ...candidate, distance } : best;
+        },
+        { ...onPath[0], distance: Number.POSITIVE_INFINITY },
+      );
+      rejectedGoldens.push({
+        pr: competitorKey,
+        path: golden.path,
+        startLine: golden.startLine,
+        // **The corpus's own sentence and ours**, because a bucket count cannot distinguish "we looked for the wrong
+        // thing" from "we said the right thing in words the judge would not call the same defect".
+        note: String(golden.note).slice(0, 260),
+        ours: String(nearest.entry.finding.title).slice(0, 200),
+        oursStartLine: nearest.entry.finding.startLine ?? null,
+        distance: Number.isFinite(nearest.distance) ? nearest.distance : null,
+        accepted: nearest.at !== undefined && ourMatrix.matches[nearest.at].length > 0,
+      });
+    });
     ranked.forEach((entry, at) => {
       rankedDetail.push({
         pr: pr.githubPrUrl ?? null,
@@ -2815,7 +2949,7 @@ async function main() {
       // not be read) and because **the gate's second conjunct asks for a suggestion or a quotation of an added line, which
       // is a lane's shape rather than a reader's**: on `43176459822` it dropped 48 findings that had found a golden and
       // took the arm from F1 0.2092 to 0.0523.
-      keep: shippedRuleKeep(ranked, profileKept),
+      keep: shippedKeepFlags,
       // **And the same rule kept, for the arm it was calibrated on, even when it is not the one that ships.** §23.7
       // scoped the actionability gate to the lanes because it was taking three quarters of the reading arm's score, and
       // **a scoping that also deleted the comparison would make the cost of the gate invisible in every future run** -
@@ -2968,6 +3102,41 @@ async function main() {
   // **And what the lanes' rule would have done to the same findings**, so §23.7's scoping is re-measured every run rather
   // than argued once. Under the lanes' rule `keep` and `laneGateKeep` are the same vector and this is the same point.
   const laneGate = asPoint(countsOver(perPr, laneGateEmission));
+
+  /**
+   * **The corpus's arithmetic, applied to the verdicts this run already bought.**
+   *
+   * The `keep` filter is applied *before* the walk, because the operating point is a statement about which comments the
+   * reviewer files: scoring every comment and then reporting a subset would let a comment the rule never files cover a
+   * golden, which is a recall for a reviewer nobody ran.
+   */
+  const fileSemanticOf = (pulls) =>
+    scoreCorpusFileSemantic({
+      pulls: pulls.map((pull) => {
+        const kept = pull.findings
+          .map((_, index) => index)
+          .filter((index) => pull.keep[index] === true);
+        return {
+          findings: kept.map((index) => pull.findings[index]),
+          goldens: pull.goldens,
+          matches: kept.map((index) => pull.matches[index]),
+        };
+      }),
+    });
+  const fileSemanticOur = fileSemanticOf(fileSemanticPulls.our);
+  // **The competitor's arm, only when it ran**, because a figure of zero for an arm that was switched off is a
+  // comparison with a competitor who said nothing - and that is the same defect as a missing row counted as a zero.
+  const fileSemanticCompetitor =
+    fileSemanticPulls.competitor.length === 0 ? null : fileSemanticOf(fileSemanticPulls.competitor);
+
+  // **Sixty of the rejected goldens, at a stride, with the corpus's sentence beside ours.** The first sixty would be the
+  // first six pull requests and a distribution read off them would be a distribution of the alphabet.
+  const GOLDEN_DIAGNOSIS_SAMPLES = 60;
+  const goldenDiagnosisStride = Math.max(
+    1,
+    Math.ceil(rejectedGoldens.length / GOLDEN_DIAGNOSIS_SAMPLES),
+  );
+  const goldenDiagnosis = rejectedGoldens.filter((_, at) => at % goldenDiagnosisStride === 0);
 
   /**
    * **The measurement's own error, as an interval rather than as a footnote.**
@@ -3300,6 +3469,37 @@ async function main() {
     scoring: {
       protocol:
         'one judge verdict per (finding, golden) pair, then a maximum bipartite matching per pull request; the same protocol for both reviewers in the same job',
+      /**
+       * **The corpus's own arithmetic, beside the one this job shipped, over the same verdicts.**
+       *
+       * `Alibaba-Aone/aacr-bench/docs/metrics.md` records the pairwise protocol above as deprecated and defines the
+       * file-level semantic one instead: comments grouped by normalised path, **one comment may cover several reference
+       * comments**, and precision counts only a comment that covered something nothing before it had (`hit_new_gt`).
+       * The two arithmetics differ on this slice by a third of recall, so **every figure this project published under
+       * the first one understated coverage** - and the correction costs no model call, because the verdicts are the same
+       * verdicts.
+       *
+       * **What is not equal, and is written here rather than left to be discovered.** Our judge reads one pair at a
+       * time; theirs is shown one file's numbered list. This block applies their *arithmetic* to our *verdicts*, so it
+       * removes one difference and not the other, and `judge` says which half is ours. A figure from it is comparable
+       * with the corpus's in one direction and is not an official score.
+       */
+      fileSemantic: {
+        protocol: fileSemanticOur.protocol,
+        judge: fileSemanticOur.judge,
+        note: 'the corpus arithmetic over this run’s pairwise verdicts; not an official score, because the judge still sees one pair rather than one file’s list',
+        operatingPoint: 'the same findings the headline figures are computed over',
+        our: fileSemanticOur,
+        competitor: fileSemanticCompetitor,
+        // **The distance between the two arithmetics on this very run**, which is the only honest way to say how much of
+        // a previously published figure was the protocol rather than the reviewer.
+        legacyOur: { precision: gated.precision, recall: gated.recall, f1: gated.f1 },
+        counterfactual: {
+          recallLostToTheOldArithmetic: fileSemanticOur.recall - gated.recall,
+          precisionLostToTheOldArithmetic: fileSemanticOur.precision - gated.precision,
+          f1LostToTheOldArithmetic: fileSemanticOur.f1 - gated.f1,
+        },
+      },
       emissionRule: AGENT
         ? 'the reading arm files only what it can locate: the quoted code must appear in the file at the reviewed commit, or in the diff when the file could not be read (§23.7; the actionability gate is a lane instrument and is reported beside it as emissionRules.laneGate)'
         : 'actionability gate: the range covers an added line AND (the suggestion names an action OR the finding quotes added code), AND the category profile floor',
@@ -3681,6 +3881,23 @@ async function main() {
     // findings were wrong and what made them different from the right ones, and **a figure without the rows it was
     // computed from cannot answer it** - so the rows travel, and the curve above can be recomputed from them without
     // another run.
+    /**
+     * **The goldens we were on the right file for and did not say the same thing about**, as sentences.
+     *
+     * `findingOnPathRejected` is the largest block a reader can move on this corpus and a count of it implies no repair:
+     * **we looked for the wrong thing** and **we said the right thing in words the judge would not call the same
+     * defect** are opposite instructions, and the bucket cannot tell them apart. The corpus's note beside the nearest
+     * comment of ours can, and both were already in memory.
+     */
+    rejectedGoldens: {
+      protocol: 'the corpus note beside the nearest comment of ours on the same path',
+      sampled: {
+        drawn: goldenDiagnosis.length,
+        from: rejectedGoldens.length,
+        stride: goldenDiagnosisStride,
+      },
+      rows: goldenDiagnosis,
+    },
     rankedFindings: rankedDetail,
     // **And the reading after the loop**, so **what the run spent is derivable** and **a draw taken on an empty
     // account is labelled rather than reported as a reviewer's result.**

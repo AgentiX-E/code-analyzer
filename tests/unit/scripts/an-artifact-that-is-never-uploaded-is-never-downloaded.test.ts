@@ -183,6 +183,21 @@ describe('the artifact names of the benchmark workflow', () => {
   });
 });
 
+describe('the comparison runs only when there is a pair to compare', () => {
+  it('gates the paired job on the input that buys the second arm', () => {
+    // **The job that reports a comparison is not the job that should discover there is nothing to compare.** A
+    // single-row matrix has no counterpart, and `compare` reading its `if` from the same input that chose the matrix is
+    // the only arrangement in which the two cannot disagree: a job-level `if` cannot see `matrix`, which is why the
+    // rows are computed inside the matrix expression and the gate is computed from the input beside it.
+    const gate = /\n  compare:\n(?:.*\n)*?    if: (.+)\n/.exec(WORKFLOW);
+    expect(gate, 'the comparison job no longer declares a condition').not.toBeNull();
+    expect(gate![1]).toContain("(inputs.pair || 'off') == 'on'");
+    // **And the pairing is checked against the same input the matrix reads**, so an input renamed in one place and not
+    // the other fails here rather than leaving a dispatch that pays for two arms and compares none.
+    expect(WORKFLOW).toContain("(inputs.pair || ''off'') == ''on''");
+  });
+});
+
 describe('the matrix is one experiment', () => {
   it('runs a pair by default and one row when the reviewer reads the code for itself', () => {
     // **Every arm is paid for**, so the count is a budget and not a style. A third entry is a dispatch that costs half
@@ -192,11 +207,16 @@ describe('the matrix is one experiment', () => {
     // file it needs, so `code_context` is not a variable it consults: two rows would buy the same measurement twice and
     // write two artifacts whose difference is a switch neither of them read. The assertion is the shape of that
     // decision - one pair, one single, and nothing else.
+    // **Two single-row alternatives now, and the reason is the retired device rather than a tidy-up.** §45's
+    // registration carried its own stopping rule and R-20 falsified it, so the default dispatch buys one arm; a pair is
+    // still declared behind `pair: on`, because the code stays in the tree as an ablation reference and re-pricing it is
+    // a decision with a price. **The assertion is a budget**: every alternative is a run somebody pays for, so the shape
+    // is enumerated rather than bounded - an alternative that appeared by accident would be a dispatch nobody chose.
     expect(
       alternatives()
         .map((matrix) => matrix.length)
         .sort(),
-    ).toEqual([1, 2]);
+    ).toEqual([1, 1, 2]);
   });
 
   it('varies exactly one key, so that a difference between the arms is the device', () => {
