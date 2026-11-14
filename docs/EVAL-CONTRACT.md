@@ -4142,3 +4142,39 @@ mechanism is adopted only if all six hold**, the first four as §40.3 wrote them
 
 **If none clears all six, the product keeps `rrf` and §40 records a third retirement** - and `fusionRule` stays a
 published parameter, so the four mechanisms stay measurable on every future corpus instead of being re-implemented.
+
+### 40.7 The control ran, and the doc-comment repair is worth two questions rather than a hundred and twelve
+
+§39.11 published a table with 321 → 434 in it and wrote the caveat honestly: _"every channel moved, which is what makes
+the attribution plausible rather than proven"_, with the pre-repair control recorded as owed. `attribution-control.yml`
+paid it - the same corpus, the same runner image, the same secrets, the same test file, on `ebb4e6c5`, the **parent of the
+doc-comment repair**:
+
+| CoSQA, 500 questions, test-split | published 2026-10-27 | pre-repair `ebb4e6c5` | post-repair (this iteration) |
+| -------------------------------- | -------------------: | --------------------: | ---------------------------: |
+| lexical, found@10                |                  206 |                   332 |                      **332** |
+| fused at weight 1, found@10      |                  321 |                   433 |                      **434** |
+| derived weight, found@10         |                  338 |                   445 |                      **447** |
+| after the reranker, found@10     |                  384 |                   475 |                      **475** |
+| after the reranker, MRR@10       |               0.5653 |                0.7718 |                   **0.7762** |
+
+**The control falsifies the attribution and the falsification is the useful part.** The pre-repair engine already answers
+445 of 500 in its top ten; the repair adds **two**, and **nothing** after the reranker. The +112 in §39.11's table belongs
+to the three weeks between 27 October and 12 November - a stale artifact being compared with a fresh run, which is the
+defect `recordArtifact`'s provenance block exists to prevent and which it cannot prevent once the reader quotes two dates
+as one measurement.
+
+Three consequences, all of them recorded rather than argued:
+
+1. **§39.11's causal sentence is withdrawn.** The doc-comment repair is worth **+1 merged and +2 derived questions** on
+   CoSQA, and 0.0000 MRR after reranking. It remains a real defect with a real fix (`a-doc-comment-is-the-block-not-its-last-line.test.ts`
+   holds it), and it is not the explanation for a hundred questions.
+2. **The corpus was stale by three weeks and nothing said so.** `measuredAt` was in the artifact and nothing read it.
+   `tests/unit/scripts/a-measurement-states-its-date.test.ts` is now the reader: **every committed artifact that publishes
+   per-question columns or per-condition aggregates is a measurement**, and a measurement has to carry a parseable date
+   and name the space it was taken in. The gate is weak about content on purpose - it judges no figure - and strict about
+   provenance, because the defect was a reader quoting two dates as one measurement.
+3. **The three-week movement is now a bisect rather than a mystery.** The commits between `dbc03b6c` (27 October) and
+   `5590f021` (12 November) are eight, and the control harness makes each one a dispatch. **Registered, not run**: a
+   bisect over eight commits, each measuring the same 500 questions, would say which repair bought the hundred and twelve
+   - and until it runs, the honest sentence is that the product improved by that much and nobody has isolated why.

@@ -350,14 +350,19 @@ describe('the tournament re-derives to its own columns, on both conditions', () 
     for (const [rule, rows] of Object.entries(tournament)) {
       // **Both conditions, because a mechanism that lifts the rewritten questions and costs the quoted ones has moved
       // the defect rather than fixed it** - the same criterion §39 applied to the two candidates it retired.
+      //
+      // The paired verdict is stripped first: it is a statement *about* the column rather than a fifth figure the column
+      // can produce, and comparing the two objects whole would fail on a difference that is not a discrepancy.
+      const { paired: _p, ...paraphrase } = rows.paraphrase as Condition & { paired?: unknown };
+      const { paired: _v, ...verbatimRow } = rows.verbatim as Condition & { paired?: unknown };
       expect(
         recompute(semantic.perQuestion[`rule:${rule}`] as string, keys.length),
         `mechanism ${rule} disagrees with its own paraphrase column`,
-      ).toEqual(rows.paraphrase);
+      ).toEqual(paraphrase);
       expect(
         recompute(semantic.perQuestion[`ruleVerbatim:${rule}`] as string, keys.length),
         `mechanism ${rule} disagrees with its own verbatim column`,
-      ).toEqual(rows.verbatim);
+      ).toEqual(verbatimRow);
     }
   });
 
