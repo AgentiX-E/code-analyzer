@@ -246,9 +246,6 @@ importers:
       '@code-analyzer/intelligence':
         specifier: workspace:*
         version: link:../intelligence
-      '@code-analyzer/mcp':
-        specifier: workspace:*
-        version: link:../mcp
       '@code-analyzer/shared':
         specifier: workspace:*
         version: link:../shared
