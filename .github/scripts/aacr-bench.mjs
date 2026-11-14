@@ -1105,8 +1105,68 @@ async function dryRun() {
   // rather than a second matching.
   const shippedPoint = AGENT ? full : kept;
 
+  // **The defect subset's arithmetic, and the idiom lane's wiring, proved here rather than after a paid run.**
+  //
+  // Two devices shipped together: `scoring.defectSubset` is the one figure that compares with a defect detector, and
+  // `AACR_IDIOMS` is the lane that tries to answer the rest of the corpus. **Both are read from code the dry run does
+  // not otherwise execute**, so a broken import or a definition that drifted would first be discovered by a run that had
+  // already spent its budget on fifty pull requests.
+  const { scoreDefectSubset } = await import('./lib/defect-subset.mjs');
+  // **Hand-computed: 178 `bug` findings carried 51 goldens and 10 `security` carried 3, so 188 emitted, 54 carried,
+  // and 54/188 is 0.2872.** The architecture row is in the input and must not reach the denominator.
+  const defectShape = scoreDefectSubset({
+    rows: [
+      { category: 'bug', emitted: 178, truePositives: 51 },
+      { category: 'security', emitted: 10, truePositives: 3 },
+      { category: 'architecture', emitted: 95, truePositives: 17 },
+    ],
+    wholeEmissionPrecision: 0.2141,
+  });
+  assert.equal(defectShape.emitted, 188, 'the defect subset counts two categories, not the mixture');
+  assert.equal(defectShape.precision, 0.2872, 'and its precision is what those two carried');
+  assert.equal(
+    defectShape.wholeEmissionPrecision,
+    0.2141,
+    'while the headline travels beside it rather than being recomputed from the subset',
+  );
+  assert.equal(
+    scoreDefectSubset({ rows: [] }).precision,
+    null,
+    'a subset that emitted nothing is unknown rather than zero everywhere',
+  );
+
+  const { detectIdioms, IDIOM_RULES } =
+    await import('../../packages/intelligence/dist/review/idiom-rules.js');
+  // **The lane's own wiring, on a patch built the way the harness builds one.** Every rule names the golden it came
+  // from, so a rule list that came back empty is a module that failed to load rather than a corpus with nothing to say.
+  assert.equal(IDIOM_RULES.length, 6, 'six rules, each derived from a golden');
+  const idiomPatch = [
+    '@@ -10,2 +10,4 @@ export function read(value) {',
+    '  const before = value;',
+    '+//   this.cache.clear();',
+    '+if (value == 0) {',
+  ].join('\n');
+  const { numberedAddedLines } =
+    await import('../../packages/intelligence/dist/review/adjudication/patch-lines.js');
+  const idiomLines = numberedAddedLines(idiomPatch) ?? [];
+  const idiomFindings = detectIdioms({
+    path: 'src/subject.ts',
+    addedLines: new Map(idiomLines.map((line) => [line.line, line.text])),
+    patch: idiomPatch,
+  });
+  assert.deepEqual(
+    idiomFindings.map((finding) => `${finding.id}@${String(finding.startLine)}`),
+    ['commented-out-code@11', 'loose-equality@12'],
+    'the lane reads the patch\'s new-side numbers: the context line is 10, so the two added lines are 11 and 12',
+  );
+  assert.equal(
+    detectIdioms({ path: 'src/subject.ts', addedLines: new Map(), patch: idiomPatch }).length,
+    0,
+    'and says nothing when no line was added, which is what a context-only window is',
+  );
+
   console.log(
-    `AACR-BENCH dry run ok · full F1 ${full.f1} · shipped F1 ${shippedPoint.f1} · gate F1 ${kept.f1} · curve ${curve.map((p) => p.truePositives).join(',')} · checklist ${checklistOn.length} chars on / ${checklistOff.length} off`,
+    `AACR-BENCH dry run ok · full F1 ${full.f1} · shipped F1 ${shippedPoint.f1} · gate F1 ${kept.f1} · curve ${curve.map((p) => p.truePositives).join(',')} · defect P ${defectShape.precision} · idioms ${idiomFindings.length} · checklist ${checklistOn.length} chars on / ${checklistOff.length} off`,
   );
 }
 
@@ -1469,6 +1529,14 @@ async function main() {
     await import('../../packages/intelligence/dist/review/category-prior.js');
   const { DeepSeekProvider } =
     await import('../../packages/intelligence/dist/review/llm/provider.js');
+  // **The rule names come from the module, not from a list repeated here.** A run that recorded a hand-written list of
+  // rules would keep reporting a rule after it had been deleted, and **the artifact is the place a reader checks which
+  // rules produced the figure.**
+  const { IDIOM_RULES } = await import('../../packages/intelligence/dist/review/idiom-rules.js');
+  const IDIOM_RULE_NAMES = IDIOM_RULES.map((rule) => rule.id);
+  // **And the defect subset's arithmetic, from the module a test can reach**, so the figure in the artifact and the
+  // figure in the test come from one implementation rather than from two that agree today.
+  const { scoreDefectSubset } = await import('./lib/defect-subset.mjs');
   // **The ledger, and the ceiling that stops a runaway job.** The balance reading below says what the *account* spent
   // between two moments; **this says which lane spent it, and refuses the next call once the job has spent what it was
   // allowed.** The default is a bound the observed job fits inside: a 14-pull-request run with both arms moved the
@@ -1512,6 +1580,19 @@ async function main() {
    */
   const ADJUDICATE = String(process.env['AACR_ADJUDICATE'] ?? 'off').toLowerCase() === 'on';
   /**
+   * **Whether the deterministic idiom lane runs beside the five model lanes.**
+   *
+   * The measurement it comes from is in `rejectedGoldens`: of fifty sampled goldens the file arm missed, **forty-one
+   * describe a remark the lanes never attempt** - `const auto&` on a variable that is only read, a `2.0` that should be
+   * `2.0f`, a commented-out `Fill(0.0)`, an `async` with nothing to await. **The two reviewers are not disagreeing
+   * about the same question; they are answering different ones**, which is why two prompt contracts and a stated
+   * line-number window did not move the figure.
+   *
+   * **Off is the configuration every published figure was measured under**, so an arm cannot be compared with them
+   * unless it can be turned off - and the artifact records which side of the switch produced its numbers.
+   */
+  const IDIOMS = String(process.env['AACR_IDIOMS'] ?? 'off').toLowerCase() === 'on';
+  /**
    * **How many refusals the artifact carries, and why it is not all of them.**
    *
    * A corpus of fifty pull requests refuses about five hundred comments, and five hundred rows in one field would make
@@ -1534,9 +1615,10 @@ async function main() {
     languageChecklist: CHECKLIST,
     promptOrder: PROMPT_ORDER,
     adjudicate: ADJUDICATE,
+    idioms: IDIOMS,
   });
   console.log(
-    `AACR-BENCH dedup threshold ${DEDUP_THRESHOLD} · prompt order ${PROMPT_ORDER} · adjudicate ${ADJUDICATE}`,
+    `AACR-BENCH dedup threshold ${DEDUP_THRESHOLD} · prompt order ${PROMPT_ORDER} · adjudicate ${ADJUDICATE} · idioms ${IDIOMS}`,
   );
 
   /**
@@ -3456,6 +3538,31 @@ async function main() {
     };
   })();
 
+  /**
+   * **The one figure that is comparable with a defect detector, and the one that is not, said in the file.**
+   *
+   * Fifty sampled `rejectedGoldens` sorted into three buckets: **five were the same concern in other words, four aimed at
+   * the same function with a different focus, and forty-one described something else entirely** - a `const auto&`, a
+   * `2.0f`, a commented-out line. This corpus measures *what a human reviewer said*, and roughly three fifths of what
+   * they said is a maintainability remark; **an engine that only reports defects is answering a different question, and
+   * its F1 against this answer key is a measurement of the question's overlap rather than of the engine.**
+   *
+   * **So the precision of the defect categories is published beside the headline**, computed from `byCategory` rather
+   * than from a second walk: `bug` and `security` are what a defect detector claims, and their precision is the figure
+   * that compares with a defect detector's.
+   *
+   * **Recall is withheld, and the reason is the corpus rather than the arithmetic.** The goldens carry no type label,
+   * so there is no subset of *goldens* that a defect-only reviewer could be scored against - a "defect recall" computed
+   * by dividing the defect categories' true positives by all 452 goldens would be a number about the mixture, which is
+   * the number the headline already reports.
+   */
+  const defectSubset = scoreDefectSubset({
+    rows: byCategory.rows,
+    // **The headline beside it**, because the two numbers are only interesting as a pair: one is what a defect detector
+    // claims on its own ground, the other is what the mixture costs it.
+    wholeEmissionPrecision: gated.precision,
+  });
+
   // **The refusals, sampled evenly rather than taken from the front** - see `ADJUDICATION_REFUSAL_SAMPLES`.
   if (engineCounters.adjudication.enabled) {
     const stride = Math.max(1, Math.ceil(refusalsSeen.length / ADJUDICATION_REFUSAL_SAMPLES));
@@ -3478,6 +3585,7 @@ async function main() {
     // emission rule's, not the whole list's - and **the whole list's are kept beside them**, because **a rule that is
     // reported without the list it was applied to cannot be checked.**
     scoring: {
+      defectSubset,
       protocol:
         'one judge verdict per (finding, golden) pair, then a maximum bipartite matching per pull request; the same protocol for both reviewers in the same job',
       /**
@@ -3592,6 +3700,15 @@ async function main() {
       // whose artifact does not name the side of the switch it came from is a figure a second run can disagree with
       // without either being wrong - the defect every other field in this block was added to prevent, one device later.
       adjudicate: ADJUDICATE,
+      // **Whether the deterministic lane ran**, and which rules it read rather than "some heuristics": a figure from a
+      // run with this on and one with it off are two reviewers, and **the rules are named so the next reader can retire
+      // one on evidence** - each carries the golden it was derived from.
+      idioms: {
+        enabled: IDIOMS,
+        lane: 'idioms',
+        rules: IDIOM_RULE_NAMES,
+        why: '41 of 50 sampled missed goldens are remarks the five lanes never attempt, and each is decidable from the syntax of one construct',
+      },
       // **The cap that §23.7 measured to bind**: 25 of one run's 225 drafts were refused a slot rather than found
       // wanting. **A figure from a capped run and a figure from an uncapped one are two reviewers**, so the number is a
       // coordinate of the figure beside `agent` rather than a detail of the harness.

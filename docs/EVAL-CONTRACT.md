@@ -5026,3 +5026,105 @@ enough that a recall defect hiding inside it would be worth several points of F1
 price the question without a second dispatch. **It is written down here rather than acted on now** because acting on it
 would be a fourth registration aimed at a number nobody has read the composition of - and §46.6 already said what the
 next iteration does: it buys the answer key and reads it first.
+
+## §47 The fifty sentences, and the two answers they got
+
+### 47.1 What the sample said, read one at a time
+
+Fifty of the 259 `findingOnPathRejected` goldens were drawn by stride from run `43606988733` and read against our nearest
+comment on the same path. They sort into three buckets, and **the bucket boundaries are the finding**:
+
+| Bucket                         | Count  | Share    | Example                                                                                                                |
+| ------------------------------ | ------ | -------- | ---------------------------------------------------------------------------------------------------------------------- |
+| Same concern, different words  | 5      | 10 %     | golden "hardcoded product ID list" / ours "hardcoded IDs couple core to device constants"                              |
+| Same function, different focus | 4      | 8 %      | golden "JNI exception check missing" / ours "AttachCurrentThread failure ignored"                                      |
+| **A different thing entirely** | **41** | **82 %** | golden "use `const auto&`, delete the commented code, `2.0f` not `2.0`" / ours "uninitialised angle, dangling pointer" |
+
+**About ten of the fifty goldens report a defect; about twenty-nine report a maintainability or convention remark.** The
+engine emits semantic defects and nothing else.
+
+**This is the third explanation for a result that had two.** §45.3 found an instrument defect - the reader was never told
+which line the comment sat on - and fixed it; §45.4 and §46.1 falsified the device it fed. **Both of those were about how
+our comments were checked, and neither could have moved this number**, because the reviewer and the corpus were not
+disagreeing about a defect. **A prompt cannot make a reviewer say `const auto&`**; the sentence is decidable from one
+construct, and a model asked to find defects looks past it.
+
+### 47.2 B as the baseline: what the headline can and cannot be
+
+**The headline stays the corpus's arithmetic on the full emission, and the paired test stays the primary significance
+claim.** Neither changes, because a comparison that moves its own metric after seeing the result is not a comparison.
+
+**What is published beside it** is `scoring.defectSubset`: the precision of the `bug` and `security` categories, which is
+the subset a defect detector claims and therefore the subset whose precision can be set against a defect detector's.
+
+- **Precision only, and the recall is withheld with a reason in the artifact.** The goldens carry no type label, so there
+  is no subset of _goldens_ a defect-only reviewer could be scored against. Dividing the defect categories' true positives
+  by all 452 goldens produces the headline recall under another name - **a field that looks like a new measurement and is
+  an old one is worse than no field.**
+- **`null` rather than `0` when the subset emitted nothing**, because a zero would say the reviewer was wrong everywhere
+  rather than that it said nothing there.
+- **The mixture is stated as a corpus property, not as an excuse.** §47.1's 82 % is a fact about what human reviewers of
+  these fifty pull requests wrote. **It does not lower the bar; it explains which bar the headline is.**
+
+### 47.3 A as a switch: the lane, and why it is off
+
+`packages/intelligence/src/review/idiom-rules.ts` carries six rules, **each derived from a golden and each naming it in
+the module header**, so a rule that stops matching the corpus can be retired on evidence rather than on taste.
+
+| Rule                                | Golden                   | Category        | Why it is a comment a reviewer makes                                                              |
+| ----------------------------------- | ------------------------ | --------------- | ------------------------------------------------------------------------------------------------- |
+| `commented-out-code`                | `FemVTKTools.cpp:1434`   | maintainability | the two repairs - delete it, or restore it - are the author's decision, and no compiler checks it |
+| `float-literal-in-float-arithmetic` | `SoDatumLabel.cpp:84`    | maintainability | the declared type says float; `2.0 * x` widens the product back to double                         |
+| `redundant-async`                   | `index.ts:460`           | maintainability | the signature promises work the body does not do                                                  |
+| `loose-equality`                    | `ExtrudeGeometry.js:406` | bug             | coercion makes a mistyped operand a silent pass                                                   |
+| `article-agreement-in-comment`      | `lv_observer.h:610`      | style           | a typo a reader sees in the line being added                                                      |
+| `macro-name-case`                   | `usb_ids.h:63`           | style           | the new constant reads like a variable at the call site                                           |
+
+**Off by default, and the reason is the same one every switch in this repository has**: every figure published so far was
+measured without this lane, so an arm that cannot be switched off cannot be compared with them. `AACR_IDIOMS=on` turns it
+on, `configuration.idioms` records the side of the switch **and the rule names**, and the rules are read from the module
+rather than repeated in the artifact.
+
+### 47.4 What the lane refuses to do
+
+**Precision is the constraint.** A remark that is true but unwanted costs exactly what a wrong one costs, and the corpus
+scores every one:
+
+1. **Only added lines.** A review comment on a line the pull request did not touch is a comment a reviewer could not have
+   made, and the coordinates come out of the patch text rather than out of `diff.ranges` - the same reading §45.3 fixed.
+2. **Two per rule per file.** A file with twelve commented-out statements is one refactor; the twelve comments a reader
+   would have to dismiss are not twelve findings.
+3. **Silence when the evidence is missing**: an `async` whose block is not closed inside the patch, a `2.0 *` with no
+   `float` declaration beside it, text that is not a patch at all. **An unclosed block is the truncation case**, and a
+   finding there would be a claim about code the lane never saw.
+4. **`== null` is not reported.** It is the single expression that covers both `null` and `undefined`, which is why it is
+   idiomatic; a rule that fired on it would be arguing with the language.
+5. **`a user`, `a union`, `an hour`, `an owner` are not reported.** The article rule reads sounds rather than letters,
+   which is the only reason the two tables it needs are in the module.
+
+### 47.5 Registration R-21
+
+**Registered 2026-11-15, before the run.** One arm, one switch, one corpus slice:
+
+- **Hypothesis.** With `AACR_IDIOMS=on`, corpus F1 rises by at least **2.0 points** against the same rows with it off.
+  The instrument's resolution at 452 goldens is **1.94 points**, so 2.0 is the smallest effect this corpus can see and a
+  smaller one is not a result.
+- **Slice.** `skip_pull_requests: 50`, `max_pull_requests: 100` - the rows the discovery sample did not read. **A lane
+  whose six rules were chosen by reading fifty goldens from the first fifty pull requests must be priced on the rest.**
+- **Secondary.** The count of idiom findings that are true positives, per rule, from `byCategory` plus the lane's own
+  `id`. **A lane that raises F1 with zero of its own remarks accepted is raising F1 by changing the mixture, not by
+  answering the corpus**, and that is worth knowing before it is called a fix.
+- **Stopping rule.** If F1 does not rise by 2.0 points, **the lane stays off and is recorded as a direction the corpus
+  does not reward** - no threshold tuning, no rule-dropping, no third dispatch. §46.3 already spent two registrations on a
+  device that was searched after it failed; **the rule that prevents a third is written with the registration.**
+- **What would falsify the premise rather than the lane.** If the run's own `rejectedGoldens` sample stops showing
+  maintainability remarks - say the share of bucket three falls below half - then §47.1 was a property of the first fifty
+  pull requests and the lane was aimed at the wrong corpus rather than built wrong. **That outcome retires the premise,
+  not the rules**, and the rules stay in the tree as a product feature with the figure beside them.
+
+### 47.6 The one thing this section does not claim
+
+**It does not claim four to five points.** The gap to the published leader is between four and five points of SEM-F1
+(§46.7), and **six rules derived from fifty sentences cannot close a gap whose size was measured on 452 goldens**. The
+claim is narrower and checkable: **82 % of the sampled misses were remarks no prompt was going to produce, and a lane can
+produce them.** Whether the corpus rewards them is R-21's question and this section deliberately does not answer it.

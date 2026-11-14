@@ -477,6 +477,10 @@ export type {
   ProfileOutcome,
 } from './review/category-prior.js';
 
+// Idiom rules — the remarks a reviewer makes that are not about a defect, each derived from a golden
+export { detectIdioms, IDIOM_RULES } from './review/idiom-rules.js';
+export type { IdiomInput } from './review/idiom-rules.js';
+
 // Comment Positioner
 export { CommentPositioner } from './review/comment-positioner.js';
 export type { PositionedComment, PositionResult } from './review/comment-positioner.js';

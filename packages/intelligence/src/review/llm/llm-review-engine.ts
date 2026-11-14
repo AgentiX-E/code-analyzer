@@ -11,6 +11,7 @@ import {
   type LLMFinding,
 } from './prompts.js';
 import { collectDiffFacts, diffHeaderPaths, rankFindings } from '../actionability.js';
+import { detectIdioms } from '../idiom-rules.js';
 import { codeContextForSections, type CodeContextLimits } from './code-context.js';
 import {
   ClaimAdjudicator,
@@ -19,7 +20,7 @@ import {
   type RefusedClaim,
 } from '../adjudication/adjudicator.js';
 import { applyNarrationVeto, type NarrationVetoReport } from '../adjudication/narration.js';
-import { addedLinesOf } from '../adjudication/patch-lines.js';
+import { addedLinesOf, numberedAddedLines } from '../adjudication/patch-lines.js';
 
 import type { LLMProvider, CompletionOptions } from './provider.js';
 import type { ReviewComment, ReviewCategory, Severity, GitDiff } from '@code-analyzer/shared';
@@ -112,6 +113,20 @@ export interface LLMReviewOptions {
    * engine option rather than a harness flag because a device a user cannot turn on is a device only the benchmark has.
    */
   codeContext?: boolean;
+  /**
+   * **Whether the deterministic idiom lane runs beside the five model lanes. Defaults to `false`.**
+   *
+   * The five lanes are asked for defects, and a model asked for defects describes defects: on fifty pull requests of
+   * `Alibaba-Aone/aacr-bench`, **forty-one of fifty goldens the file arm missed are remarks the lanes never attempt** -
+   * `const auto&` on a loop variable that is only read, a `2.0` that should be `2.0f`, a commented-out `Fill(0.0)`, an
+   * `async` with nothing to await. Each is decidable from the syntax of one construct, so each is decided here rather
+   * than argued with a prompt, and **`idiom-rules.ts` names the golden behind every rule.**
+   *
+   * **Why it is off by default.** It changes what the product says, so a figure measured with it on belongs to a
+   * different product than one measured with it off - and every figure this repository has published was measured
+   * with it off. `AACR_IDIOMS` in the benchmark is how it is turned on for a run that says so.
+   */
+  idioms?: boolean;
 }
 
 /** Result of an LLM review for a single diff. */
@@ -128,6 +143,14 @@ export interface LLMReviewResult {
   error?: string;
   /** Execution time in milliseconds. */
   durationMs: number;
+  /**
+   * **What produced these findings when the producer was not a model call.**
+   *
+   * Absent means a lane. `'idioms'` means the deterministic lane, and **the distinction has to travel with the result**:
+   * a lane table that counted the idiom lane as a sixth model lane would report a call that was never made, and a
+   * reader comparing two runs would see the same lane names and different products.
+   */
+  source?: 'idioms';
   /** Optional token usage tracking. */
   tokenUsage?: {
     promptTokens: number;
@@ -253,6 +276,10 @@ const DEFAULT_OPTIONS: Required<LLMReviewOptions> = {
   promptOrder: 'boilerplate-first',
   laneWaves: 1,
   codeContext: false,
+  // **Off, and off is the honest default rather than a conservatism.** The lane is a measurement: it is turned on by
+  // `AACR_IDIOMS=on` for a run that reports it, and a default that was on would make every figure this repository has
+  // already published describe a product that no longer exists.
+  idioms: false,
 };
 
 /**
@@ -320,9 +347,49 @@ export class LLMReviewEngine {
     const lanes = this.options.lanes;
 
     const results = await this.runLanes(ctx, lanes);
+    // **The deterministic lane joins the list before the merge, not after it.** A remark that both a lane and this
+    // pass made is one remark, and a merge that ran first would file it twice - which costs a reader's attention and,
+    // on the corpus, a false positive.
+    if (this.options.idioms) {
+      const idiomFindings = this.reviewIdioms(diff, fileContext);
+      if (idiomFindings.length > 0) {
+        results.push({
+          filePath: diff.filePath,
+          lane: 'maintainability',
+          findings: idiomFindings,
+          success: true,
+          durationMs: 0,
+          source: 'idioms',
+        });
+      }
+    }
     const merged = this.deduplicateAcrossLanes(results);
     if (!this.options.adjudicate) return merged;
     return this.checkClaims(merged, diff, fileContext);
+  }
+
+  /**
+   * **The remarks the deterministic lane has to make about one diff, with no model call.**
+   *
+   * **The patch is the only input, and the added lines are read out of it** rather than out of `diff.ranges`: the
+   * benchmark builds its diffs from patch text, where `ranges` counts the patch's own lines, and **a rule that fired on
+   * a context line would file a comment on code the pull request did not touch** - a remark a reviewer could not have
+   * made and a coordinate the comment positioner cannot place.
+   *
+   * Public because the benchmark turns it on and a product caller may want it without a model provider at all: **a
+   * deterministic lane is exactly the part of the review that works when the API does not.**
+   */
+  reviewIdioms(diff: GitDiff, fileContext?: string): LLMFinding[] {
+    const patch = fileContext ?? this.buildDiffContent(diff);
+    const numbered = numberedAddedLines(patch);
+    // **`null` means the text is not a patch**, so no line constraint exists and the lane says nothing: a remark
+    // without a coordinate is a remark the positioner drops after it has been paid for.
+    if (numbered === null || numbered.length === 0) return [];
+    return detectIdioms({
+      path: diff.filePath,
+      addedLines: new Map(numbered.map((line) => [line.line, line.text])),
+      patch,
+    });
   }
 
   /**

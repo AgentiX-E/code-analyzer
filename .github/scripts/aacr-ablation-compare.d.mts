@@ -10,6 +10,8 @@ export interface Registration {
   section: string;
   claim: string;
   registeredGain: number;
+  /** Which reviewer the claim is about: `file` for the five lanes, `pull-request` for the reading arm. */
+  arm: string;
   /** The mechanism as the registration states it, for the reader. */
   mechanism: string;
   /** The entry of `MECHANISMS` that decides whether that sentence held. */
@@ -22,7 +24,7 @@ export interface Registration {
  * **The mechanisms a registration may name**, so that the verdict field is computed from the sentence it is filed
  * under rather than from a rule the comparison script happens to prefer.
  */
-export type MechanismRule = 'recall-holds' | 'recall-trades-below-precision';
+export type MechanismRule = 'recall-holds' | 'recall-rises' | 'recall-trades-below-precision';
 
 export declare const MECHANISMS: Readonly<
   Record<
@@ -31,8 +33,16 @@ export declare const MECHANISMS: Readonly<
   >
 >;
 
+/**
+ * **Every device the comparison can price, named by the configuration key it varies.**
+ *
+ * `adjudicate` was added when §45 registered the claim check and this declaration was not, which nothing noticed because
+ * no test read that key - **a declaration that omits a registration is a registration the type checker cannot see**, and
+ * the omission surfaced only when `idioms` arrived and a test read it. The union is enumerated rather than widened to
+ * `Record<string, Registration>`, so a key added to the script and not to this line still fails.
+ */
 export declare const REGISTRATIONS: Readonly<
-  Record<'languageChecklist' | 'emissionProfile', Registration>
+  Record<'adjudicate' | 'idioms' | 'languageChecklist' | 'emissionProfile', Registration>
 >;
 
 /** Minutes of whole job per pull request, from the run whose configuration the next run repeats. */

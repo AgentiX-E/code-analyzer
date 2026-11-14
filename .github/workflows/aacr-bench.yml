@@ -99,6 +99,21 @@ on:
         type: choice
         options: ['off', 'on']
         default: 'off'
+      idioms:
+        # **Whether the deterministic idiom lane runs beside the five model lanes, and it is the arm the sample bought.**
+        #
+        # Fifty missed goldens were read one at a time: **five were the same concern in other words, four aimed at the
+        # same function with a different focus, and forty-one described something else entirely** - a `const auto&` on a
+        # variable that is only read, a `2.0` that should be `2.0f`, a commented-out `Fill(0.0)`, an `async` with
+        # nothing to await. Those are not findings a model asked for defects produces, and **two prompt contracts and a
+        # stated line-number window could not produce them either**.
+        #
+        # **`off` is the default**, because every figure this repository has published was measured without this lane:
+        # an arm that cannot be switched off cannot be compared with them.
+        description: 'Idiom lane: five model lanes (off), plus the deterministic remark lane (on)'
+        type: choice
+        options: ['off', 'on']
+        default: 'off'
       max_findings_per_file:
         # **The cap that turned out to be a ceiling on the work rather than a rail on the noise.** §23.7 measured 25 of
         # one run's 225 drafts refused a slot, and 74 of that run's missed goldens sitting on files it had read - so the
@@ -164,7 +179,7 @@ jobs:
     # **Both matrix keys are in the job's own name**, because a run page that shows two identical titles for two
     # different arms is a page a reader has to open artifacts to disambiguate - and the whole point of the pair is that
     # the difference is legible before anything is downloaded.
-    name: Our reviews on a direct competitor's corpus (${{ matrix.profile }} profile, code context ${{ matrix.code_context }}, adjudicate ${{ matrix.adjudicate }}, agent ${{ inputs.agent || 'off' }})
+    name: Our reviews on a direct competitor's corpus (${{ matrix.profile }} profile, code context ${{ matrix.code_context }}, adjudicate ${{ matrix.adjudicate }}, idioms ${{ matrix.idioms }}, agent ${{ inputs.agent || 'off' }})
     runs-on: ubuntu-latest
     # **Raised from 180 when the corpus went from five pull requests to fourteen**, which is the size at which a 0.04
     # move stops being a coin toss. The previous corpus took 29 minutes; the arithmetic that expects roughly three times
@@ -214,13 +229,20 @@ jobs:
       # does not parse at all. That is not a preference: the dispatch this replaced was refused with
       # *"Unrecognized named-value: 'matrix'"* and the workflow did not load until the expression moved here.
       #
-      # **It varies `adjudicate` from iteration 141**, and the pin on `code_context` is a decision rather than tidying.
+      # **It varied `adjudicate` from iteration 141, and it varies `idioms` now.** The pin on `code_context` is a
+      # decision rather than tidying:
       # §20/R-18 measured the code window at −0.0065 against a registered +0.02 and left it `falsified`, so the two arms
       # below are the reviewer without a window - the configuration every published lane figure was measured under - and
       # the only difference between them is whether a finding's claim is checked before it is filed. **A matrix that
       # varied both would answer neither**, which is the refusal `aacr-ablation-compare.mjs` already encodes.
+      # **Every row carries all four keys, including the ones it does not vary.** A row that omitted `idioms` would
+      # reach the script as `undefined`, and `AACR_IDIOMS` would then be set by a workflow whose matrix did not record
+      # it - the one arrangement in which the artifact and the dispatch can disagree about which reviewer produced the
+      # figure. **The two experiments never run in one dispatch**: `adjudicate` is a retired device kept as an ablation
+      # reference and `idioms` is the arm R-21 registered, and a matrix that varied both would answer neither - which is
+      # the refusal `aacr-ablation-compare.mjs` already encodes as `variedField`.
       matrix:
-        include: '${{ fromJSON((inputs.agent || ''off'') == ''on'' && ''[{"profile":"advisory","code_context":"on","adjudicate":"off"}]'' || ((inputs.pair || ''off'') == ''on'' && ''[{"profile":"advisory","code_context":"off","adjudicate":"off"},{"profile":"advisory","code_context":"off","adjudicate":"on"}]'' || ''[{"profile":"advisory","code_context":"off","adjudicate":"off"}]'')) }}'
+        include: '${{ fromJSON((inputs.agent || ''off'') == ''on'' && ''[{"profile":"advisory","code_context":"on","adjudicate":"off","idioms":"off"}]'' || ((inputs.idioms || ''off'') == ''pair'' && ''[{"profile":"advisory","code_context":"off","adjudicate":"off","idioms":"off"},{"profile":"advisory","code_context":"off","adjudicate":"off","idioms":"on"}]'' || ((inputs.idioms || ''off'') == ''on'' && ''[{"profile":"advisory","code_context":"off","adjudicate":"off","idioms":"on"}]'' || ((inputs.pair || ''off'') == ''on'' && ''[{"profile":"advisory","code_context":"off","adjudicate":"off","idioms":"off"},{"profile":"advisory","code_context":"off","adjudicate":"on","idioms":"off"}]'' || ''[{"profile":"advisory","code_context":"off","adjudicate":"off","idioms":"off"}]'')))) }}'
 
     steps:
       - name: Checkout
@@ -343,6 +365,10 @@ jobs:
           # cannot disagree about which reviewer produced the figure. The agent reads a checkout of the pull request's
           # head commit and ignores `AACR_CODE_CONTEXT` - it does not need a window when it can open the file.
           AACR_AGENT: ${{ inputs.agent || 'off' }}
+          # **The deterministic lane**, passed explicitly for the same reason: the artifact's `configuration.idioms`
+          # names the rules that ran, and a run whose workflow and artifact disagreed about whether they ran would be a
+          # figure with two configurations.
+          AACR_IDIOMS: ${{ matrix.idioms }}
           # **The cap on findings per file, which §23.7 measured to bind rather than to protect.** On `43176459822` the
           # arm filed 225 drafts and kept 196 - **25 were refused a slot, not found wanting** - while 74 goldens it missed
           # sat on files it read and said nothing about. Three per file is inherited from the lanes, where three slots per
@@ -406,7 +432,7 @@ jobs:
           # **Both matrix keys are in the name**, because a pair of artifacts whose names differ in one segment is a pair
           # a reader can match to the arms without opening either - and because `an-artifact-that-is-never-uploaded-is-
           # never-downloaded.test.ts` expands this name from the matrix and refuses a download nothing uploads.
-          name: aacr-bench-${{ matrix.profile }}-${{ matrix.code_context }}-${{ matrix.adjudicate }}
+          name: aacr-bench-${{ matrix.profile }}-${{ matrix.code_context }}-${{ matrix.adjudicate }}-${{ matrix.idioms }}
           # **The figure and the competitor's whole output**, because **that output's format is what the next
           # iteration has to read** and **a field cannot hold a document**.
           path: |
@@ -431,7 +457,7 @@ jobs:
     # reports a comparison is not the job that should discover there is nothing to compare**: a dispatch whose whole
     # purpose is one arm should end green with its figure, and a run of this job over one row would compute a
     # difference between an arm and nothing.
-    if: (inputs.agent || 'off') != 'on' && (inputs.pair || 'off') == 'on'
+    if: (inputs.agent || 'off') != 'on' && ((inputs.pair || 'off') == 'on' || (inputs.idioms || 'off') == 'pair')
     timeout-minutes: 10
     steps:
       - name: Checkout
@@ -453,10 +479,21 @@ jobs:
       # registrations name a sign: R-18 asks the pull-request arm to *rise*. Swapping these two paths would report the
       # same experiment with every gain negated, and **the artifact would be internally consistent while saying the
       # opposite**, which is the one failure no gate in this job can see.
-      - name: Download the run with the code window
+      # **Two names, one of them taken, and both written out rather than computed.** A single step whose name depended on
+      # which input chose the arm would be a name no test can expand and no reader can check against the matrix; two
+      # steps with literal names and complementary conditions are checkable by both, and only one of them ever runs.
+      - name: Download the run with the claim check
+        if: (inputs.idioms || 'off') != 'pair'
         uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8
         with:
-          name: aacr-bench-advisory-off-on
+          name: aacr-bench-advisory-off-on-off
+          path: /tmp/with
+
+      - name: Download the run with the idiom lane
+        if: (inputs.idioms || 'off') == 'pair'
+        uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8
+        with:
+          name: aacr-bench-advisory-off-off-on
           path: /tmp/with
 
       # **Every artifact name here is produced by the matrix above, and a job that downloads a name the matrix does not
@@ -467,7 +504,7 @@ jobs:
       - name: Download the run without it
         uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8
         with:
-          name: aacr-bench-advisory-off-off
+          name: aacr-bench-advisory-off-off-off
           path: /tmp/without
 
       # **No `|| true` and no fallback**: the script refuses to compare two artifacts that are not the same experiment,

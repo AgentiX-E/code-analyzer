@@ -100,11 +100,13 @@ function arms(): Arm[] {
  * against `arms()`: a single-row matrix has no second arm to differ from, and reading one row as a pair would compare an
  * arm with itself and call the difference zero. Exactly one alternative is expected to be a pair - the default run.
  */
-function pair(): Arm[] {
-  const pairs = alternatives().filter((matrix) => matrix.length === 2);
+function pair(varied: 'adjudicate' | 'idioms'): Arm[] {
+  const pairs = alternatives().filter(
+    (matrix) => matrix.length === 2 && matrix[0]![varied] !== matrix[1]![varied],
+  );
   expect(
     pairs,
-    'the workflow declares no two-arm matrix, so nothing is being compared',
+    `the workflow declares no two-arm matrix varying ${varied}, so nothing is being compared`,
   ).toHaveLength(1);
   return pairs[0]!;
 }
@@ -168,18 +170,34 @@ describe('the artifact names of the benchmark workflow', () => {
     }
   });
 
-  it('downloads both arms of the pair, and not the same one twice', () => {
+  it('downloads every arm of every pair, and the baseline exactly once', () => {
+    // **Two experiments can reach the comparison job** - `adjudicate`, the retired device kept as an ablation
+    // reference, and `idioms`, the arm R-21 registered - and each has its own arm to collect. **What must not happen is
+    // a dispatch that pays for an arm and then downloads a name nobody uploaded**, which is the failure this file
+    // exists for: the artifact set is exactly the three arms that can be the `with` side of one of the two experiments,
+    // plus the baseline they are both compared against, and the baseline is one download rather than two.
     const downloads = artifactNames('download');
     expect(new Set(downloads).size).toBe(downloads.length);
-    // **Two arms or no comparison.** The two names have to be the two the paired matrix produces, in some order - and
-    // **the paired matrix rather than every matrix**, because the run that reads the code for itself is one row and
-    // `compare` does not download it: it compares a device against its absence, and there is no absence to name.
     const uploaded = artifactNames('upload').filter((name) => !isStatic(name));
     expect(uploaded.length).toBe(1);
-    const produced = pair().map((arm) => expand(uploaded[0]!, arm));
-    expect(downloads.map((n) => n.replace('aacr-bench-', '')).sort()).toEqual(
-      produced.map((n) => n.replace('aacr-bench-', '')).sort(),
-    );
+    const baseline: Arm = {
+      profile: 'advisory',
+      code_context: 'off',
+      adjudicate: 'off',
+      idioms: 'off',
+    };
+    const expected = new Set([
+      expand(uploaded[0]!, baseline),
+      expand(
+        uploaded[0]!,
+        pair('adjudicate').find((arm) => arm['adjudicate'] === 'on')!,
+      ),
+      expand(
+        uploaded[0]!,
+        pair('idioms').find((arm) => arm['idioms'] === 'on')!,
+      ),
+    ]);
+    expect(new Set(downloads)).toEqual(expected);
   });
 });
 
@@ -192,6 +210,9 @@ describe('the comparison runs only when there is a pair to compare', () => {
     const gate = /\n  compare:\n(?:.*\n)*?    if: (.+)\n/.exec(WORKFLOW);
     expect(gate, 'the comparison job no longer declares a condition').not.toBeNull();
     expect(gate![1]).toContain("(inputs.pair || 'off') == 'on'");
+    // **And the second experiment's own gate**, because `idioms: pair` buys an arm too and a comparison job that only
+    // ran for the other one would spend a hundred pull requests and then report nothing.
+    expect(gate![1]).toContain("(inputs.idioms || 'off') == 'pair'");
     // **And the pairing is checked against the same input the matrix reads**, so an input renamed in one place and not
     // the other fails here rather than leaving a dispatch that pays for two arms and compares none.
     expect(WORKFLOW).toContain("(inputs.pair || ''off'') == ''on''");
@@ -212,21 +233,26 @@ describe('the matrix is one experiment', () => {
     // still declared behind `pair: on`, because the code stays in the tree as an ablation reference and re-pricing it is
     // a decision with a price. **The assertion is a budget**: every alternative is a run somebody pays for, so the shape
     // is enumerated rather than bounded - an alternative that appeared by accident would be a dispatch nobody chose.
+    // **Five alternatives now**: the agent's single row, the idiom lane's pair, the idiom lane alone (a diagnostic
+    // dispatch that prices the lane without a comparison), the claim check's pair, and the default single row.
     expect(
       alternatives()
         .map((matrix) => matrix.length)
         .sort(),
-    ).toEqual([1, 1, 2]);
+    ).toEqual([1, 1, 1, 2, 2]);
   });
 
   it('varies exactly one key, so that a difference between the arms is the device', () => {
-    const [withArm, withoutArm] = pair();
-    const keys = new Set([...Object.keys(withArm!), ...Object.keys(withoutArm!)]);
-    const differ = [...keys].filter((key) => withArm![key] !== withoutArm![key]);
     // **This is the assertion the file was missing.** `aacr-ablation-compare.mjs` refuses a pair whose artifacts differ
     // in more than one configuration key, and that refusal happens in the job that runs *after* both arms have been
-    // paid for - so the only place this can be caught for free is here, before the dispatch.
-    expect(differ, `the arms differ in ${differ.join(' and ')}`).toHaveLength(1);
+    // paid for - so the only place this can be caught for free is here, before the dispatch. **Every pair**, because
+    // the workflow now declares two experiments and a second pair that moved two keys would be refused after the bill.
+    for (const varied of ['adjudicate', 'idioms'] as const) {
+      const [withArm, withoutArm] = pair(varied);
+      const keys = new Set([...Object.keys(withArm!), ...Object.keys(withoutArm!)]);
+      const differ = [...keys].filter((key) => withArm![key] !== withoutArm![key]);
+      expect(differ, `the ${varied} arms differ in ${differ.join(' and ')}`).toHaveLength(1);
+    }
   });
 
   it('varies the claim check, which is the device iteration 141 registered', () => {
@@ -240,7 +266,7 @@ describe('the matrix is one experiment', () => {
     // **The previous device is still pinned, and that is the part worth stating.** §20/R-18 measured the code window at
     // −0.0065 against a registered +0.02 and left it falsified, so both arms read the diff without one: **the pin is
     // what makes the pair a comparison of the claim check rather than of two devices at once.**
-    const all = pair();
+    const all = pair('adjudicate');
     const keys = [...new Set(all.flatMap((arm) => Object.keys(arm)))];
     const varied = keys.find((key) => all[0]![key] !== all[1]![key]);
     expect(varied).toBe('adjudicate');
@@ -251,6 +277,22 @@ describe('the matrix is one experiment', () => {
     expect(all.map((arm) => arm['adjudicate']).sort()).toEqual(['off', 'on']);
     // **And the retired device is held still**, because a pair that also moved it would be measuring two things.
     for (const arm of all) expect(arm['code_context']).toBe('off');
+  });
+
+  it('varies the idiom lane, which is the arm R-21 registered', () => {
+    // **The device under test is named here for the same reason the claim check is**: a matrix that varies something
+    // nobody registered produces a number no sentence in `EVAL-CONTRACT.md` predicted, and this line is what makes the
+    // arm's identity reviewable in a diff rather than only in a run page.
+    //
+    // **And the two retired devices are held still**, because a pair that also moved either of them would be measuring
+    // two things: the claim check was falsified twice (§46.1) and the code window once (§20), and neither is a variable
+    // an experiment about maintainability remarks may smuggle in.
+    const all = pair('idioms');
+    expect(all.map((arm) => arm['idioms']).sort()).toEqual(['off', 'on']);
+    for (const arm of all) {
+      expect(arm['adjudicate']).toBe('off');
+      expect(arm['code_context']).toBe('off');
+    }
   });
 
   it('pins the profile to the one R-17 did not falsify', () => {
@@ -274,6 +316,13 @@ describe('the matrix is one experiment', () => {
     // to both arms, which produces two artifacts whose only difference is a switch neither of them was given.
     expect(WORKFLOW).toContain('AACR_ADJUDICATE: ${{ matrix.adjudicate }}');
     expect(WORKFLOW).not.toMatch(/inputs\.adjudicate/);
+  });
+
+  it('takes the idiom lane from the matrix, not from the dispatch input', () => {
+    // **A device read from a dispatch input is one value given to both arms**, which produces two artifacts whose only
+    // difference is a switch neither of them was given - the defect that made R-18 two dispatches. The input chooses
+    // which matrix to expand; the switch itself can only come from the row.
+    expect(WORKFLOW).toContain('AACR_IDIOMS: ${{ matrix.idioms }}');
   });
 
   it('does not go looking for a counterpart when the matrix has one row', () => {

@@ -131,6 +131,32 @@ export const REGISTRATIONS = Object.freeze({
     // answered by the run it names rather than by two runs that add up to it.
     confirmation: [{ skip: 50, max: 100 }],
   },
+  /**
+   * **The device §47 registered: a deterministic lane for the remarks no prompt was going to produce.**
+   *
+   * Fifty sampled goldens the file arm missed were read one at a time and **82 % of them describe something the five
+   * lanes never attempt** - a `const auto&` on a variable that is only read, a `2.0` that should be `2.0f`, a
+   * commented-out `Fill(0.0)`, an `async` with nothing to await. Two prompt contracts and a stated line-number window
+   * could not move that, because the two reviewers were answering different questions.
+   *
+   * **The mechanism is `recall-rises`, and it is the honest one rather than the flattering one.** The lane adds remarks
+   * the corpus contains, so recall is what should move; **precision is allowed to fall by one golden's worth** and no
+   * further, because a rule that fires on code a reviewer would not comment on costs exactly what a wrong finding costs.
+   * Registering this as a precision device would let a lane that flooded every file pass on a technicality.
+   */
+  idioms: {
+    section: '§47 (R-21)',
+    claim:
+      'the deterministic idiom lane raises the file arm F1 by at least 0.02 on rows the sample did not read, without lowering precision by more than a golden is worth',
+    arm: 'file',
+    registeredGain: 0.02,
+    mechanism: 'recall rises and precision does not fall by more than a golden is worth',
+    mechanismRule: 'recall-rises',
+    // **The hundred rows after the fifty the rules were derived from.** Six rules were chosen by reading goldens from the
+    // first fifty pull requests, so pricing them on those rows would be a measurement of the search rather than of the
+    // lane - the same reason R-17's confirmation reads `skip: 50`.
+    confirmation: [{ skip: 50, max: 100 }],
+  },
 });
 
 /**
