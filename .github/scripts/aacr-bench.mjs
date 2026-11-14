@@ -1122,7 +1122,11 @@ async function dryRun() {
     ],
     wholeEmissionPrecision: 0.2141,
   });
-  assert.equal(defectShape.emitted, 188, 'the defect subset counts two categories, not the mixture');
+  assert.equal(
+    defectShape.emitted,
+    188,
+    'the defect subset counts two categories, not the mixture',
+  );
   assert.equal(defectShape.precision, 0.2872, 'and its precision is what those two carried');
   assert.equal(
     defectShape.wholeEmissionPrecision,
@@ -1157,7 +1161,7 @@ async function dryRun() {
   assert.deepEqual(
     idiomFindings.map((finding) => `${finding.id}@${String(finding.startLine)}`),
     ['commented-out-code@11', 'loose-equality@12'],
-    'the lane reads the patch\'s new-side numbers: the context line is 10, so the two added lines are 11 and 12',
+    "the lane reads the patch's new-side numbers: the context line is 10, so the two added lines are 11 and 12",
   );
   assert.equal(
     detectIdioms({ path: 'src/subject.ts', addedLines: new Map(), patch: idiomPatch }).length,

@@ -434,7 +434,13 @@ describe('every module a package compiles is reachable from an entry its manifes
       // are (`patch-lines.ts`). The last one is a module for the reason the other four are: `diff.ranges` counts the
       // *patch's* lines when the diff was built from a patch, and the engine has already lost a correct finding at file
       // line 900 to that confusion once.
-      intelligence: 179,
+      // **180 since iteration 142**, which added `review/idiom-rules.ts`: the six checks a maintainer writes in a review
+      // comment that no semantic defect detector would ever emit - a commented-out block, a `float` literal in `float`
+      // arithmetic, an `async` with no `await`, a loose comparison against a number. The corpus this repository scores
+      // against is 82% these, and §47.2 measured the engine at zero on them. **A module rather than six branches in the
+      // engine** because the rules are content with a quoted source for each one, and because a lane that can only be
+      // exercised through a provider call is a lane whose every regression costs a run.
+      intelligence: 180,
       mcp: 39,
       server: 24,
       // **11 since iteration 121**, which added `utils/type-text.ts`: the depth-counted removal of type arguments and
