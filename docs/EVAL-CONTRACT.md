@@ -3982,3 +3982,75 @@ doc comments. **The causal claim needs a control** - the pre-repair engine run o
 that as owed rather than assumed. The figure that is not in doubt is the one this table states: **the product as it
 stands answers 475 of 500 CoSQA questions in its top ten and scores MRR@10 0.7762 after reranking**, and the artifact in
 the repository now says so.
+
+## 40. The mechanism was never a variable, and four of them are registered before any of them runs
+
+§39 ended with a sentence that is a defect report rather than a plan: **the shipped fusion scores 0.6498 on 454 rewritten
+questions while the lexical list it re-weights scores 0.7930.** Five weights of one rule, two candidates for choosing
+them, both retired by criteria written in advance - and the rule itself was never the only option. Reciprocal-rank
+fusion is one of four mechanisms the retrieval literature has carried for thirty years, and **this repository had only
+ever measured one of them.**
+
+### 40.1 What the four mechanisms answer, and why a weight is the wrong shape for the question
+
+| mechanism   | how it combines the two lists                            | what it needs                    | the failure it addresses                                      |
+| ----------- | -------------------------------------------------------- | -------------------------------- | ------------------------------------------------------------- |
+| `rrf`       | `Σ weight_c / (60 + rank_c)`                             | a per-question weight            | none - this is the shipped rule                               |
+| `combmnz`   | `(z_lexical + z_vector) × channels`                      | nothing                          | agreement is rewarded, and nothing is weighted                |
+| `supported` | reciprocal ranks, the vector channel only above its mean | nothing beyond one cut at a mean | a confident-and-wrong vector entry displacing a correct one   |
+| `qpp`       | reciprocal ranks at a weight predicted from the lists    | the two heads' own separations   | the weight, derived from ranking quality rather than spelling |
+| `qpp3`      | the same, with a three-answer head                       | the same, read wider             | the same, steadier - and it is a different statistic          |
+
+**A weight is a scalar answer to a two-list question**, so §38's search for the right scalar was a search in the wrong
+space: the same evidence that a paraphrase gives (nothing spells the answer) is the evidence CoSQA gives, and there the
+correct weight is eleven times larger. `combmnz` has no scalar at all, and `qpp` replaces it with a ratio of two measured
+separations - **a rule whose inputs are published, so a reader can disagree with the number rather than with the rule.**
+
+The separation is `(mean of the head − mean of the list) / standard deviation of the list`: scale-free, non-negative by
+construction, and computable from a list the engine already has. Read at one answer (`qpp`) and at three (`qpp3`),
+**because which of those predicts is a measurement and not an argument** - on a six-document fixture the two disagree
+about the same list (`fusion-rules.test.ts` holds that fixture, and the reason it exists).
+
+### 40.2 What has to be true for this to be a measurement rather than a comparison of five implementations
+
+1. **`rrf` in the new module returns the engine's order node for node**, at every weight the sweeps scored. A candidate
+   measured by a second implementation was never compared with the product; it was compared with a second product.
+2. **Every rule returns the union of the two lists, once each.** A rule that dropped the documents it disagreed with
+   would win on recall by never being wrong about them.
+3. **The candidate is reached through the product's own call.** `FederatedSearchEngine` gained `fuse()` - the half of
+   `search()` after the retrieval - so a harness fuses the lists it already paid for, with the arithmetic `search()`
+   uses, and does not embed 454 questions once per mechanism.
+4. **Both conditions in one run, and CoSQA in the same iteration.** A mechanism with a figure on one corpus and no
+   figure on the other is a mechanism nobody has falsified.
+
+### 40.3 Registered acceptance criteria, written before the run
+
+One dispatch of `multirepo-semantic.yml` (`mode=replay`, `rules=rrf,combmnz,supported,qpp,qpp3`, weights
+`0.1,0.35,1,2,4`) and one of `code-qa-benchmark.yml` on the commit that adds the columns. A mechanism is adopted **only
+if all four hold**:
+
+1. **Rewritten questions, four repositories**: `found@10` ≥ **0.7930** (the lexical list alone) and the paired test
+   against the lexical column shows the mechanism ahead at `p < 0.05`. **The stretch bar is 0.8216** - the constant that
+   was tuned on these 454 questions with the answer key in hand - and a mechanism that reaches it with no key at all is
+   the result this section is looking for.
+2. **Quoted questions, same index, same run**: `found@10` ≥ **451 of 454**. The channel may not buy the rewritten
+   condition by moving the condition it already answers.
+3. **CoSQA, 500 questions**: `found@10` ≥ **447** (the shipped derived arm on the same corpus, §39.11) - a mechanism must
+   not regress the corpus the current rule is right about.
+4. **Nothing new to tune**: a mechanism that needs a constant this repository has never measured is not admissible, and
+   the constant would have to be registered as a sweep before the mechanism is scored again.
+
+**If two mechanisms clear all four, the one with fewer parameters wins**, and if the difference is inside the interval
+the choice is recorded as a tie rather than as a finding.
+
+**If none clears them, §40 records the four rows and the product keeps `rrf` at the derived weight**, with one addition
+that does not depend on the outcome: **the mechanism becomes a published parameter of the engine** (`fusionRule`), so the
+next iteration measures a mechanism rather than re-implementing one.
+
+### 40.4 The cost, and the control that runs beside it
+
+Every mechanism column is one pass over fifty entries per question. **No embedding is recomputed, no completion is
+issued, and no second retrieval happens**, so the whole tournament costs one dispatch of two jobs that were scheduled
+anyway. The dispatches also carry §39.11's outstanding control: `attribution-control.yml` runs the **pre-repair engine**
+(`ebb4e6c5`, the parent of `4abde273`) on the same corpus, same runner, same secrets, so the doc-comment repair's effect
+is measured rather than inferred from two runs a month apart.
