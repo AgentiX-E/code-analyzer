@@ -144,6 +144,34 @@ export const REGISTRATIONS = Object.freeze({
    * further, because a rule that fires on code a reviewer would not comment on costs exactly what a wrong finding costs.
    * Registering this as a precision device would let a lane that flooded every file pass on a technicality.
    */
+  /**
+   * **§48's registration, and the one this repository has been able to make since §23 and has not.**
+   *
+   * The reading agent - a plan, a tool loop over a checkout, a finding that survives only if the code it quotes is in
+   * the file - has been dispatchable for four iterations and every number it produced was measured **across dispatches**
+   * against a lane arm from a different day. This repository's own artifact says what that is worth: two dispatches of
+   * the same configuration have reported 0.1691 and 0.2405, a spread larger than every effect `EVAL-CONTRACT.md` has
+   * registered. **A device whose contribution can only be measured across runs cannot be measured by this instrument**,
+   * and `agent: pair` is the edit that removes the excuse rather than a new device.
+   *
+   * **What is registered is the file arm**, because that is the figure this repository publishes and the one the
+   * corpus's leader is quoted at (25.1 % SEM-F1, §46.7). The pull-request arm is the guard, because a device that raises
+   * one view of the corpus by concentrating on a few pull requests is not the thing being claimed.
+   */
+  agent: {
+    section: '§48 (R-22)',
+    claim:
+      'the reading agent raises the file arm F1 by at least 0.02 over the five lanes on the same hundred pull requests, without lowering the pull-request arm',
+    arm: 'file',
+    registeredGain: 0.02,
+    guard: { arm: 'pullRequest', notLoweredBy: 0 },
+    mechanism:
+      'recall rises because the reader can open the file it is describing, and precision does not fall by more than a golden is worth',
+    mechanismRule: 'recall-rises',
+    // **The same hundred rows every lane figure on this slice was measured on**, so the comparison is a pair rather than
+    // a comparison of two corpora: `skip: 50` is the slice after the discovery set, and both arms read it.
+    confirmation: [{ skip: 50, max: 100 }],
+  },
   idioms: {
     section: '§47 (R-21)',
     claim:

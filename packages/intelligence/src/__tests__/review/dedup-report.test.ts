@@ -232,3 +232,89 @@ describe('the deduplication report', () => {
     expect(counts?.wordsNearby).toBeGreaterThan(0);
   });
 });
+
+// **And the removal itself, because the total is the thing that cannot be read.**
+//
+// `dropped: 2 301` is compatible with "the lanes said the same thing five ways" and with "the bug lane's finding was
+// absorbed by the architecture lane's design remark because their ranges overlapped". Those are opposite verdicts on
+// the merge and they have the same total. §46.8 said the composition was worth several points of F1 and that nothing in
+// the artifact could price it, so every removal now carries the finding it removed and the finding it became part of -
+// which is the only pair that can be counted without a human reading the sentences.
+describe('the finding a merge removed, recorded as a pair', () => {
+  it('names the removed finding and the one that absorbed it, including both categories', async () => {
+    const { report } = await mergeOf([
+      finding({
+        startLine: 11,
+        endLine: 13,
+        severity: 'high',
+        category: 'architecture',
+        title: 'the validation layer reaches into the renderer',
+        description: 'the coupling makes the two untestable apart',
+      }),
+      finding({
+        startLine: 12,
+        endLine: 12,
+        severity: 'medium',
+        category: 'bug',
+        title: 'epsilon comparison ignores the y component',
+        description: 'a vertical edge is reported as horizontal',
+      }),
+    ]);
+
+    expect(report?.droppedFindings).toHaveLength(1);
+    expect(report?.droppedFindings[0]).toMatchObject({
+      path: 'src/DimensionValidators.cpp',
+      startLine: 12,
+      endLine: 12,
+      category: 'bug',
+      severity: 'medium',
+      rule: 'rangeOnly',
+      swallowedByStartLine: 11,
+      swallowedByEndLine: 13,
+      swallowedByCategory: 'architecture',
+    });
+    expect(report?.droppedFindings[0]?.title).toContain('epsilon');
+    expect(report?.droppedFindingsBeyondCeiling).toBe(0);
+  });
+
+  it('records nothing beyond the ceiling and says how many it left out', async () => {
+    // **A list that silently stops is worse than no list**, because it reads as the whole of what happened. Four hundred
+    // and five findings inside one range: the first four hundred are recorded and the remainder is counted.
+    const bulk = Array.from({ length: 405 }, (_, index) =>
+      finding({
+        startLine: 12,
+        endLine: 12,
+        severity: 'medium',
+        title: `boundary condition ${index} on the epsilon comparison`,
+        description: `defect ${index} shares a range with every other defect here`,
+      }),
+    );
+    const { report } = await mergeOf(bulk);
+
+    expect(report?.dropped).toBe(404);
+    expect(report?.droppedFindings).toHaveLength(400);
+    expect(report?.droppedFindingsBeyondCeiling).toBe(4);
+  });
+
+  it('reports an empty list rather than an absent field when nothing was merged', async () => {
+    const { report } = await mergeOf([
+      finding({
+        startLine: 11,
+        endLine: 11,
+        severity: 'high',
+        title: 'null check missing',
+        description: 'x',
+      }),
+      finding({
+        startLine: 13,
+        endLine: 13,
+        severity: 'low',
+        category: 'style',
+        title: 'naming',
+        description: 'y',
+      }),
+    ]);
+
+    expect(report?.droppedFindings).toEqual([]);
+  });
+});

@@ -95,9 +95,9 @@ on:
         # **And it collapses the matrix to one arm.** The two arms differ in `code_context`, which the agent provides
         # for itself by reading the file; running the agent twice would buy the same measurement twice and write two
         # artifacts whose only difference is a switch the agent does not consult.
-        description: 'Review arm: the five lanes (off), or the reading agent (on)'
+        description: 'Review arm: the five lanes (off), the reading agent (on), or both in one dispatch (pair)'
         type: choice
-        options: ['off', 'on']
+        options: ['off', 'on', 'pair']
         default: 'off'
       idioms:
         # **Whether the deterministic idiom lane runs beside the five model lanes, and it is the arm the sample bought.**
@@ -246,7 +246,7 @@ jobs:
       # reference and `idioms` is the arm R-21 registered, and a matrix that varied both would answer neither - which is
       # the refusal `aacr-ablation-compare.mjs` already encodes as `variedField`.
       matrix:
-        include: '${{ fromJSON((inputs.agent || ''off'') == ''on'' && ''[{"profile":"advisory","code_context":"on","adjudicate":"off","idioms":"off"}]'' || ((inputs.idioms || ''off'') == ''pair'' && ''[{"profile":"advisory","code_context":"off","adjudicate":"off","idioms":"off"},{"profile":"advisory","code_context":"off","adjudicate":"off","idioms":"on"}]'' || ((inputs.idioms || ''off'') == ''on'' && ''[{"profile":"advisory","code_context":"off","adjudicate":"off","idioms":"on"}]'' || ((inputs.pair || ''off'') == ''on'' && ''[{"profile":"advisory","code_context":"off","adjudicate":"off","idioms":"off"},{"profile":"advisory","code_context":"off","adjudicate":"on","idioms":"off"}]'' || ''[{"profile":"advisory","code_context":"off","adjudicate":"off","idioms":"off"}]'')))) }}'
+        include: '${{ fromJSON((inputs.agent || ''off'') == ''pair'' && ''[{"profile":"advisory","code_context":"off","adjudicate":"off","idioms":"off","agent":"off"},{"profile":"advisory","code_context":"off","adjudicate":"off","idioms":"off","agent":"on"}]'' || (inputs.agent || ''off'') == ''on'' && ''[{"profile":"advisory","code_context":"off","adjudicate":"off","idioms":"off","agent":"on"}]'' || (inputs.idioms || ''off'') == ''pair'' && ''[{"profile":"advisory","code_context":"off","adjudicate":"off","idioms":"off","agent":"off"},{"profile":"advisory","code_context":"off","adjudicate":"off","idioms":"on","agent":"off"}]'' || (inputs.idioms || ''off'') == ''on'' && ''[{"profile":"advisory","code_context":"off","adjudicate":"off","idioms":"on","agent":"off"}]'' || (inputs.pair || ''off'') == ''on'' && ''[{"profile":"advisory","code_context":"off","adjudicate":"on","idioms":"off","agent":"off"},{"profile":"advisory","code_context":"off","adjudicate":"off","idioms":"off","agent":"off"}]'' || ''[{"profile":"advisory","code_context":"off","adjudicate":"off","idioms":"off","agent":"off"}]'') }}'
 
     steps:
       - name: Checkout
@@ -368,7 +368,7 @@ jobs:
           # **The arm itself**, passed explicitly for the same reason as the two above: the artifact and the workflow
           # cannot disagree about which reviewer produced the figure. The agent reads a checkout of the pull request's
           # head commit and ignores `AACR_CODE_CONTEXT` - it does not need a window when it can open the file.
-          AACR_AGENT: ${{ inputs.agent || 'off' }}
+          AACR_AGENT: ${{ matrix.agent }}
           # **The deterministic lane**, passed explicitly for the same reason: the artifact's `configuration.idioms`
           # names the rules that ran, and a run whose workflow and artifact disagreed about whether they ran would be a
           # figure with two configurations.
@@ -436,7 +436,7 @@ jobs:
           # **Both matrix keys are in the name**, because a pair of artifacts whose names differ in one segment is a pair
           # a reader can match to the arms without opening either - and because `an-artifact-that-is-never-uploaded-is-
           # never-downloaded.test.ts` expands this name from the matrix and refuses a download nothing uploads.
-          name: aacr-bench-${{ matrix.profile }}-${{ matrix.code_context }}-${{ matrix.adjudicate }}-${{ matrix.idioms }}
+          name: aacr-bench-${{ matrix.profile }}-${{ matrix.code_context }}-${{ matrix.adjudicate }}-${{ matrix.idioms }}-${{ matrix.agent }}
           # **The figure and the competitor's whole output**, because **that output's format is what the next
           # iteration has to read** and **a field cannot hold a document**.
           path: |
@@ -461,7 +461,7 @@ jobs:
     # reports a comparison is not the job that should discover there is nothing to compare**: a dispatch whose whole
     # purpose is one arm should end green with its figure, and a run of this job over one row would compute a
     # difference between an arm and nothing.
-    if: (inputs.agent || 'off') != 'on' && ((inputs.pair || 'off') == 'on' || (inputs.idioms || 'off') == 'pair')
+    if: (inputs.agent || 'off') == 'pair' || ((inputs.agent || 'off') != 'on' && ((inputs.pair || 'off') == 'on' || (inputs.idioms || 'off') == 'pair'))
     timeout-minutes: 10
     steps:
       - name: Checkout
@@ -487,17 +487,17 @@ jobs:
       # which input chose the arm would be a name no test can expand and no reader can check against the matrix; two
       # steps with literal names and complementary conditions are checkable by both, and only one of them ever runs.
       - name: Download the run with the claim check
-        if: (inputs.idioms || 'off') != 'pair'
+        if: (inputs.idioms || 'off') != 'pair' && (inputs.agent || 'off') != 'pair'
         uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8
         with:
-          name: aacr-bench-advisory-off-on-off
+          name: aacr-bench-advisory-off-on-off-off
           path: /tmp/with
 
       - name: Download the run with the idiom lane
         if: (inputs.idioms || 'off') == 'pair'
         uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8
         with:
-          name: aacr-bench-advisory-off-off-on
+          name: aacr-bench-advisory-off-off-on-off
           path: /tmp/with
 
       # **Every artifact name here is produced by the matrix above, and a job that downloads a name the matrix does not
@@ -505,10 +505,17 @@ jobs:
       # iterations - the name that `without` became when the matrix was renamed by substitution - so the fifty- and
       # hundred-pull-request runs both spent their money, uploaded both artifacts, and then failed here, which is the
       # only step whose output is the thing the run was dispatched for.
+      - name: Download the reading agent's run
+        if: (inputs.agent || 'off') == 'pair'
+        uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8
+        with:
+          name: aacr-bench-advisory-off-off-off-on
+          path: /tmp/with
+
       - name: Download the run without it
         uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8
         with:
-          name: aacr-bench-advisory-off-off-off
+          name: aacr-bench-advisory-off-off-off-off
           path: /tmp/without
 
       # **No `|| true` and no fallback**: the script refuses to compare two artifacts that are not the same experiment,

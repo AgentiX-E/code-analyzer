@@ -2638,12 +2638,28 @@ async function main() {
             for (const rule of ['rangeAndWords', 'rangeOnly', 'wordsNearby']) {
               acc.mergedBy[rule] = (acc.mergedBy[rule] ?? 0) + dd.mergedBy[rule];
             }
+            // **And the removals themselves, because a total cannot be read.** The artifact carries each removed
+            // finding beside the one that absorbed it, so a cross-category absorb - the bug lane's finding merged into
+            // the architecture lane's remark because their ranges overlapped - can be counted without a dispatch.
+            // **Bounded at the run level too**: the per-review ceiling keeps one busy pull request from filling the
+            // artifact, and this one keeps a hundred of them from doing it together.
+            for (const item of dd.droppedFindings ?? []) {
+              if (acc.droppedFindings.length < 4000) acc.droppedFindings.push(item);
+              else acc.droppedFindingsBeyondRunCeiling += 1;
+            }
+            acc.droppedFindingsBeyondCeiling += dd.droppedFindingsBeyondCeiling ?? 0;
           } else {
             engineCounters.dedup = {
               before: dd.before,
               after: dd.after,
               dropped: dd.dropped,
               mergedBy: { ...dd.mergedBy },
+              droppedFindings: [...(dd.droppedFindings ?? [])].slice(0, 4000),
+              droppedFindingsBeyondCeiling: dd.droppedFindingsBeyondCeiling ?? 0,
+              droppedFindingsBeyondRunCeiling: Math.max(
+                0,
+                (dd.droppedFindings ?? []).length - 4000,
+              ),
             };
           }
         }

@@ -100,7 +100,7 @@ function arms(): Arm[] {
  * against `arms()`: a single-row matrix has no second arm to differ from, and reading one row as a pair would compare an
  * arm with itself and call the difference zero. Exactly one alternative is expected to be a pair - the default run.
  */
-function pair(varied: 'adjudicate' | 'idioms'): Arm[] {
+function pair(varied: 'adjudicate' | 'idioms' | 'agent'): Arm[] {
   const pairs = alternatives().filter(
     (matrix) => matrix.length === 2 && matrix[0]![varied] !== matrix[1]![varied],
   );
@@ -194,6 +194,7 @@ describe('the artifact names of the benchmark workflow', () => {
       code_context: 'off',
       adjudicate: 'off',
       idioms: 'off',
+      agent: 'off',
     };
     const expected = new Set([
       expand(uploaded[0]!, baseline),
@@ -204,6 +205,13 @@ describe('the artifact names of the benchmark workflow', () => {
       expand(
         uploaded[0]!,
         pair('idioms').find((arm) => arm['idioms'] === 'on')!,
+      ),
+      // **And the reading agent's own arm**, because `agent: pair` buys it inside one dispatch and the comparison job
+      // downloads it by this name. A dispatch that paid for the arm and then downloaded a name nobody uploaded is the
+      // failure this whole file exists for, and it has already happened once.
+      expand(
+        uploaded[0]!,
+        pair('agent').find((arm) => arm['agent'] === 'on')!,
       ),
     ]);
     expect(new Set(downloads)).toEqual(expected);
@@ -248,7 +256,7 @@ describe('the matrix is one experiment', () => {
       alternatives()
         .map((matrix) => matrix.length)
         .sort(),
-    ).toEqual([1, 1, 1, 2, 2]);
+    ).toEqual([1, 1, 1, 2, 2, 2]);
   });
 
   it('varies exactly one key, so that a difference between the arms is the device', () => {
@@ -256,7 +264,7 @@ describe('the matrix is one experiment', () => {
     // in more than one configuration key, and that refusal happens in the job that runs *after* both arms have been
     // paid for - so the only place this can be caught for free is here, before the dispatch. **Every pair**, because
     // the workflow now declares two experiments and a second pair that moved two keys would be refused after the bill.
-    for (const varied of ['adjudicate', 'idioms'] as const) {
+    for (const varied of ['adjudicate', 'idioms', 'agent'] as const) {
       const [withArm, withoutArm] = pair(varied);
       const keys = new Set([...Object.keys(withArm!), ...Object.keys(withoutArm!)]);
       const differ = [...keys].filter((key) => withArm![key] !== withoutArm![key]);
@@ -301,6 +309,28 @@ describe('the matrix is one experiment', () => {
     for (const arm of all) {
       expect(arm['adjudicate']).toBe('off');
       expect(arm['code_context']).toBe('off');
+    }
+  });
+
+  it('varies the reading agent, which is the arm R-22 registered', () => {
+    // **The device is named here for the same reason the other two are**: a matrix that varies something nobody
+    // registered produces a number no sentence in `EVAL-CONTRACT.md` predicted.
+    //
+    // **And the three retired devices are held still.** The claim check was falsified twice (§46.1), the code window
+    // once (§20) and the idiom lane once (§47.7), so a pair that also moved any of them would be measuring two things -
+    // and `aacr-ablation-compare.mjs` refuses that pair *after* both arms have been paid for.
+    //
+    // **Why this pair exists at all.** The reading agent has been dispatchable since §23 and every figure it produced
+    // was compared against a lane arm from a different day; this repository's own artifact reports the same
+    // configuration at 0.1691 and 0.2405 across two dispatches, which is larger than every registered effect. A device
+    // measurable only across runs is not measurable by this instrument, and this arm is the fix.
+    const all = pair('agent');
+    expect(all.map((arm) => arm['agent']).sort()).toEqual(['off', 'on']);
+    for (const arm of all) {
+      expect(arm['code_context']).toBe('off');
+      expect(arm['adjudicate']).toBe('off');
+      expect(arm['idioms']).toBe('off');
+      expect(arm['profile']).toBe('advisory');
     }
   });
 
@@ -357,6 +387,6 @@ describe('the matrix is one experiment', () => {
     // difference between one arm and nothing is not a comparison.
     const compare = /  compare:[\s\S]*?\n    steps:/.exec(WORKFLOW);
     expect(compare, 'the workflow no longer declares a `compare` job').not.toBeNull();
-    expect(compare![0]).toMatch(/if: \(inputs\.agent \|\| 'off'\) != 'on'/);
+    expect(compare![0]).toMatch(/\(inputs\.agent \|\| 'off'\) != 'on'/);
   });
 });

@@ -5175,3 +5175,88 @@ Three things in the artifact are worth more than the verdict, because they say _
 **What is published from this run is the switch, the rule names, and both arms' figures** - not a claim that the lane
 works. `AACR_IDIOMS` stays available because a caller may want the remarks; the default stays `off`, because every figure
 in this document was measured on the other side of it.
+
+## 48. Two instruments, because the one this campaign needed was measuring the wrong thing
+
+### 48.1 What the artifact already paid for says, read as a diagnosis
+
+The hundred-pull-request run of R-21's pair left an artifact nobody had read as evidence. Read as evidence it says six
+things, and **four of them are about the instrument rather than about the reviewer**:
+
+| what was measured                          | figure                                 | what it means                                                       |
+| ------------------------------------------ | -------------------------------------- | ------------------------------------------------------------------- |
+| emissions                                  | **1 125 findings, 11.25 per PR**       | we are already a volume reviewer; c-CRAB's Claude Code emits 7.3/PR |
+| accepted (unique goldens)                  | **172 of 722**                         | precision 0.1529, recall 0.2382, F1 0.1862                          |
+| ranker discrimination (`score` alone)      | **AUC 0.541**                          | the score cannot tell a hit from a miss                             |
+| cross-lane agreement (`agreement` alone)   | **AUC 0.534**                          | five lanes agreeing is not evidence about a golden                  |
+| a logistic model over every recorded field | **AUC 0.613**                          | 21 features, grouped by pull request, and still near chance         |
+| the merge                                  | **2 279 of 2 301 drops by range only** | 99 % of what the merge removes it removes without reading a word    |
+
+**The self-assessment fields are constants.** `grounded` is true on 92 % of findings, `namesSymbol` on 97 %,
+`proposesChange` on 79 %, and precision does not move across them (`grounded` true 0.212 against false 0.178;
+`namesSymbol` true 0.214 against false 0.056 on thirty-six findings). **A field that is true of almost everything and
+predicts nothing is not a weak feature, it is the emitter grading its own work** - which is the failure Zylos documents
+at pipeline level and CRJudgeBench documents at verifier level (85.5 % "trustworthy" predicted against a 63.8 % base
+rate). §44's veto was built on those fields and this is the arithmetic of why it could not have worked.
+
+**The category split is the only real signal in the artifact.** `test` emits 190 findings for 6 accepted (0.0316);
+`architecture` 244 for 34 (0.1393); `bug` 267 for 64 (0.2397); `performance` 17 for 7 (0.4120). That ordering is also
+the literature's: SWR-Bench finds automated reviewers much stronger on functional defects than on evolutionary advice,
+and its own conclusion is that a tool which cannot separate the two cannot be trusted.
+
+**And the misses say where the failure is.** Of 724 missed goldens, **448 have a finding of ours on the golden's own
+path** - 281 of them on the golden's own line - while **53 sit on files the review never opened** and 22 on paths with
+no finding at all. **The location is not the problem and the file is not the problem: the sentence is.**
+
+### 48.2 The two instruments, and why they come before the next device
+
+**The first is a pair for the reading agent, and its absence was the larger defect.** §23 built a reviewer that reads a
+checkout and every figure it has ever produced was compared against a lane arm from a different dispatch. This
+repository's own workflow says what that is worth: _two dispatches of the same configuration have reported 0.1691 and
+0.2405, a spread larger than every effect registered in this document._ **A device that can only be measured across runs
+cannot be measured by this instrument**, and `agent: pair` is the edit that removes the excuse: the matrix now carries
+`agent` as a fifth key, so one dispatch reviews the same hundred pull requests twice and the difference between the
+artifacts is the reader.
+
+**The second is a record of what the merge removed.** `dedup: {before: 3 426, after: 1 125, dropped: 2 301}` was in
+every artifact and §46.8 said it could not be read: a merge that removed restatements is free and correct, and a merge
+that removed a second defect because its range happened to overlap the first's is a recall defect that no figure here
+can see. **The split by rule answered the question halfway** (`rangeOnly` 2 279, `rangeAndWords` 18, `wordsNearby` 4) and
+halfway is not enough, because a rule firing 2 279 times tells you nothing about what it swallowed. Every removal now
+carries **the finding it removed beside the finding it became part of, with both categories** - bounded at 400 per
+review and 4 000 per run, and both ceilings are counted so a truncated list does not read as a complete one. The
+question it prices is exact: **a `bug` absorbed by an `architecture` remark on an overlapping range is countable without
+a model call.**
+
+### 48.3 Registration R-22, written before the dispatch
+
+> **The reading agent raises the file arm F1 by at least 0.02 over the five lanes on the same hundred pull requests,
+> without lowering the pull-request arm.**
+
+- **The arm is the file arm**, because that is the figure this document publishes and the one the corpus's leader is
+  quoted at (25.1 % SEM-F1, §46.7). The pull-request arm is a **guard** rather than a second claim: a device that raises
+  one view by concentrating on a few pull requests is not the thing being claimed, and the guard is `notLoweredBy: 0`.
+- **The mechanism registered is `recall-rises`**, because the reader can open the file it is describing. That is
+  conservative on purpose: the same arm's earlier run raised precision as well (0.2539 on 36 pull requests), and
+  **registering the optimistic mechanism would make a device that trades recall for precision look like a falsification
+  of its own idea** - the reasoning §44 already used for the adjudicator.
+- **The slice is `skip 50, max 100`**, the same hundred rows every lane figure on this slice was measured on, so the
+  comparison is a pair and not a comparison of two corpora.
+- **The resolution at this size is 0.0194**, so 0.02 is one golden's worth of separation above the instrument's noise -
+  which is the smallest number this corpus can be asked about and the reason the threshold is not larger.
+
+### 48.4 What would falsify the premise rather than the arm
+
+If the pair lands with the agent **below** the lanes, then reading the code is not the lever on this corpus, and the
+next iteration is neither a bigger read budget nor a longer tool loop: it is §47.7's second finding - **the 24 semantic
+misses that are the engine's own category** - and the merge record is the instrument that says whether the merge or the
+emitter is where they went. **That is the stopping rule, written here rather than after the number**: one dispatch, no
+re-dispatch at a larger budget, and no third device aimed at the same question.
+
+### 48.5 What this section does not claim
+
+**It does not claim a gain.** Nothing in this section was measured after the instruments were added; the six figures in
+48.1 were measured under the configuration that shipped, and the two registrations are predictions. It also does not
+claim the merge is defective: it claims **the merge's cost has never been priced**, and that a record of the pairs is
+what prices it. And it does not retract §47.7 - the idiom lane stays off, the rules stay in the tree, and the six
+hundred-and-thirty lines of §47 stand as the record of a direction this corpus did not reward.

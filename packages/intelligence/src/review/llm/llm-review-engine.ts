@@ -313,6 +313,35 @@ export function planLaneWaves(lanes: readonly ReviewLane[], waves: number): Revi
 // LLM Review Engine
 // ---------------------------------------------------------------------------
 
+/**
+ * **One finding the merge removed, and the finding that removed it.**
+ *
+ * The pair is the whole point: a count of removals is compatible with "the five lanes said the same thing five ways"
+ * and with "the bug lane's finding was absorbed by the architecture lane's design remark because their ranges
+ * overlapped", and those two are opposite verdicts on the merge. **Only the pair distinguishes them**, and only the
+ * category pair can be counted without a human reading the sentences.
+ */
+export interface DroppedFinding {
+  /** The file the removed finding was about. */
+  readonly path: string;
+  readonly startLine: number;
+  readonly endLine: number;
+  /** The removed finding's own category, which is what the engine said the defect was. */
+  readonly category: string;
+  readonly severity: Severity;
+  /** Its title, truncated, because the artifact is diffed by hand and a paragraph has no reader. */
+  readonly title: string;
+  /** Which of the three merge rules removed it. */
+  readonly rule: 'rangeAndWords' | 'rangeOnly' | 'wordsNearby';
+  /** The survivor's range and category - the finding this one became part of. */
+  readonly swallowedByStartLine: number;
+  readonly swallowedByEndLine: number;
+  readonly swallowedByCategory: string;
+}
+
+/** How many removals one review may record. Beyond this the count still rises and the list says so. */
+export const DROPPED_FINDINGS_CEILING = 400;
+
 export class LLMReviewEngine {
   private readonly options: Required<LLMReviewOptions>;
 
@@ -533,6 +562,21 @@ export class LLMReviewEngine {
     after: number;
     dropped: number;
     mergedBy: { rangeAndWords: number; rangeOnly: number; wordsNearby: number };
+    /**
+     * **The findings the merge removed, one record each, because the total cannot be read.**
+     *
+     * `dropped: 2 301` is compatible with two opposite readings and §46.8 says so: a merge that removed restatements is
+     * free and correct, and a merge that removed a second defect because its range happened to overlap the first's is a
+     * recall defect that no figure in this repository can see. **The record is what makes the question answerable
+     * offline**, because the alternative is a dispatch: every entry here names the rule, the finding that was removed,
+     * and the finding that removed it - so a cross-category absorb can be counted without a model call.
+     *
+     * **Bounded, and it says when it bounded.** A pull request with three hundred findings would otherwise put three
+     * hundred records in an artifact that exists to be diffed by hand.
+     */
+    droppedFindings: readonly DroppedFinding[];
+    /** How many were removed past the recording ceiling, so a truncated list is not read as a complete one. */
+    droppedFindingsBeyondCeiling: number;
   } | null = null;
 
   /**
@@ -647,6 +691,8 @@ export class LLMReviewEngine {
 
     const survivors: Array<Entry & { absorbed: number }> = [];
     const mergedBy = { rangeAndWords: 0, rangeOnly: 0, wordsNearby: 0 };
+    const droppedFindings: DroppedFinding[] = [];
+    let droppedFindingsBeyondCeiling = 0;
     /**
      * **How many findings each survivor absorbed**, because **agreement between lanes is free evidence and this
      * function was discarding it.**
@@ -695,11 +741,29 @@ export class LLMReviewEngine {
       survivor.absorbed += 1;
       // **Which rule absorbed it**, and the distinction the report needs: a merge under the range rule alone has no
       // textual evidence, so it is the one that can remove a second defect.
-      if (sameLocation !== -1) {
-        if (shares(survivor.words, entry.words) >= this.options.dedupThreshold)
-          mergedBy.rangeAndWords += 1;
-        else mergedBy.rangeOnly += 1;
-      } else mergedBy.wordsNearby += 1;
+      const rule: DroppedFinding['rule'] =
+        sameLocation !== -1
+          ? shares(survivor.words, entry.words) >= this.options.dedupThreshold
+            ? 'rangeAndWords'
+            : 'rangeOnly'
+          : 'wordsNearby';
+      mergedBy[rule] += 1;
+      // **The removal, recorded as a pair rather than as a count**, because the count is what this repository has had
+      // for four iterations and it is what §46.8 says cannot be read.
+      if (droppedFindings.length < DROPPED_FINDINGS_CEILING) {
+        droppedFindings.push({
+          path: fileOf(entry),
+          startLine: entry.finding.startLine,
+          endLine: entry.finding.endLine,
+          category: String(entry.finding.category),
+          severity: entry.finding.severity,
+          title: entry.finding.title.slice(0, 120),
+          rule,
+          swallowedByStartLine: survivor.finding.startLine,
+          swallowedByEndLine: survivor.finding.endLine,
+          swallowedByCategory: String(survivor.finding.category),
+        });
+      } else droppedFindingsBeyondCeiling += 1;
     }
 
     for (const survivor of survivors) {
@@ -715,6 +779,8 @@ export class LLMReviewEngine {
       after: survivors.length,
       dropped: all.length - survivors.length,
       mergedBy,
+      droppedFindings,
+      droppedFindingsBeyondCeiling,
     };
     return results;
   }
