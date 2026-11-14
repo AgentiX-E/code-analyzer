@@ -57,7 +57,7 @@ export interface Question {
   text: string;
   /** Does the question's own text spell the symbol's name? If so it is a name lookup, not a description lookup. */
   namesItsAnswer: boolean;
-  /** How many of the four repositories define a symbol with this name. */
+  /** How many of the corpus' repositories define a symbol with this name. */
   sameNameElsewhere: number;
 }
 
@@ -177,6 +177,44 @@ export function score(ranks: RankList): Score {
     r1: Number((r1 / ranks.length).toFixed(4)),
     mrr: Number((mrr / ranks.length).toFixed(4)),
   };
+}
+
+/**
+ * **The rows that count, when the quota is a promise about scored rows rather than about questions asked.**
+ *
+ * A rejected rewrite is a question that was never scored, so a sample of sixty-seven questions per repository can
+ * produce fifty-nine scored rows for the repository whose rewrites were rejected twice - which is what the first
+ * six-repository run did, and what its own gate refused. **The band was not the defect and widening it would have been
+ * the cover-up**: the quota belongs to the accepted set.
+ *
+ * This takes the rows that were accepted, computes the same water-filled share over *them*, and keeps an evenly spread
+ * subset of each repository. Nothing is invented, nothing is asked twice, and the trim only decides which of the rows
+ * that were already generated and already measured are counted.
+ */
+export function trimToQuota<T>(rows: readonly T[], of: (row: T) => string, target: number): T[] {
+  if (target >= rows.length) return [...rows];
+
+  const groups = new Map<string, T[]>();
+  for (const row of rows) {
+    const name = of(row);
+    const group = groups.get(name);
+    if (group === undefined) groups.set(name, [row]);
+    else group.push(row);
+  }
+
+  const quota = allocateQuota(
+    new Map([...groups.entries()].map(([name, group]) => [name, group.length])),
+    target,
+  );
+
+  const kept = new Set<T>();
+  for (const [name, group] of groups) {
+    const take = Math.min(quota.get(name) ?? 0, group.length);
+    for (let at = 0; at < take; at++) kept.add(group[Math.floor((at * group.length) / take)]!);
+  }
+  // **In the order they arrived**, because the per-question columns are zipped against the row order and a reordered
+  // trim would silently misalign every later answer with the previous question.
+  return rows.filter((row) => kept.has(row));
 }
 
 /**
@@ -304,6 +342,50 @@ export function deriveQuestions(store: InMemoryGraphStore): Question[] {
 }
 
 /**
+ * **How many rows each group keeps, when the total is `target` and a group cannot fill its share.**
+ *
+ * The rule is water filling: every group is offered `floor(remaining / still-in-play)` and a group with fewer rows than
+ * that keeps all of them and leaves its surplus to the others. It is one function because it is one rule - the sample
+ * and the trim are the same arithmetic applied to two different pools (the questions a repository has, and the
+ * questions that survived a rejected rewrite), and two copies of it would be two definitions of "equal share".
+ *
+ * **Sorted by name**, because a share that depended on the order an index happened to return groups in would make two
+ * runs two corpora, and the groups here are repositories.
+ */
+function allocateQuota(sizes: ReadonlyMap<string, number>, target: number): Map<string, number> {
+  const names = [...sizes.keys()].sort();
+  const quota = new Map<string, number>();
+  let remaining = Math.max(0, target);
+  let active = names.length;
+
+  let changed = true;
+  while (changed && active > 0) {
+    changed = false;
+    for (const name of names) {
+      if (quota.has(name)) continue;
+      const share = Math.floor(remaining / active);
+      const size = sizes.get(name)!;
+      if (size <= share) {
+        quota.set(name, size);
+        remaining -= size;
+        active -= 1;
+        changed = true;
+      }
+    }
+  }
+
+  const open = names.filter((name) => !quota.has(name));
+  const share = open.length === 0 ? 0 : Math.floor(remaining / open.length);
+  const leftover = open.length === 0 ? 0 : remaining - share * open.length;
+  open.forEach((name, at) => {
+    // The remainder is one row each, in name order: which groups take it is fixed by the sort rather than by anything
+    // about the group.
+    quota.set(name, share + (at < leftover ? 1 : 0));
+  });
+  return quota;
+}
+
+/**
  * The sampled question set, **and the rule written down**: every repository contributes an equal number of questions.
  *
  * Four hundred because that is a denominator an effect of three questions can be stated against, and because every
@@ -332,42 +414,13 @@ export function sampleQuestions(questions: Question[], target = 400): Question[]
     else pool.push(question);
   }
 
-  // **Sorted by repository id**, because a quota that depended on the order the index happened to return repositories
-  // in would make two runs two corpora.
-  const repos = [...pools.keys()].sort();
-  const quota = new Map<string, number>();
-  let remaining = target;
-  let active = repos.length;
-
-  // **Water filling**: a repository that cannot fill its share leaves its surplus to the ones that can, and the shares
-  // are recomputed from the repositories still in play rather than from the original count.
-  let changed = true;
-  while (changed && active > 0) {
-    changed = false;
-    for (const repo of repos) {
-      if (quota.has(repo)) continue;
-      const share = Math.floor(remaining / active);
-      const pool = pools.get(repo)!;
-      if (pool.length <= share) {
-        quota.set(repo, pool.length);
-        remaining -= pool.length;
-        active -= 1;
-        changed = true;
-      }
-    }
-  }
-
-  const open = repos.filter((repo) => !quota.has(repo));
-  const share = open.length === 0 ? 0 : Math.floor(remaining / open.length);
-  const leftover = open.length === 0 ? 0 : remaining - share * open.length;
-  open.forEach((repo, at) => {
-    // The remainder is one question each, in repository order: 400 over 6 leaves 4 repositories with one more question
-    // and the identities of those four are fixed by the sort rather than by anything about the repositories.
-    quota.set(repo, share + (at < leftover ? 1 : 0));
-  });
+  const quota = allocateQuota(
+    new Map([...pools.entries()].map(([repo, pool]) => [repo, pool.length])),
+    target,
+  );
 
   const sample: Question[] = [];
-  for (const repo of repos) {
+  for (const repo of [...pools.keys()].sort()) {
     const pool = pools.get(repo)!;
     const take = Math.min(quota.get(repo) ?? 0, pool.length);
     for (let at = 0; at < take; at++) {

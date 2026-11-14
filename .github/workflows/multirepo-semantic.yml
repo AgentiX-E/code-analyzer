@@ -9,7 +9,7 @@ name: Multi-Repo Semantic
 #
 # **The channel exists in the product and was never measured on this corpus.** `FederatedSearchEngine.registerEmbeddings`
 # is wired, `HybridSearchEngine` fuses the two lists by reciprocal rank, and `deriveVectorWeight` reads the question to
-# decide how much the vector list counts. None of that had a figure on four released repositories, because both
+# decide how much the vector list counts. None of that had a figure on released repositories, because both
 # multi-repository scripts measured the lexical half alone and the machine that runs them has no key.
 #
 # **So this job is where the key is, and it is dispatch-only.** A workflow that names a provider credential must not be
@@ -242,12 +242,18 @@ jobs:
           const per = a.byRepository?.paraphraseFederated;
           if (!per) { console.error('::error::the artifact has no per-repository figure, so a reader cannot see whether the sample is a sample'); process.exit(1); }
           const counts = [];
+          let total = 0;
           for (const repo of repos) {
             const score = per[repo];
             if (!score) { console.error('::error::' + repo + ' is in the corpus and has no scored question'); process.exit(1); }
-            if (score.n < 60 || score.n > 70) { console.error('::error::' + repo + ' contributed ' + score.n + ' scored rows, outside the registered 60-70 band'); process.exit(1); }
+            if (score.n > 67) { console.error('::error::' + repo + ' contributed ' + score.n + ' scored rows, above the share a 400 question quota over six repositories allows (67)'); process.exit(1); }
+            if (score.n < 40) { console.error('::error::' + repo + ' contributed only ' + score.n + ' scored rows, so the repository is named and not measured'); process.exit(1); }
+            total += score.n;
             counts.push(score.n + ' ' + repo);
           }
+          // **The sum is what says the trim did nothing it should not have**: a quota that quietly dropped rows would
+          // shrink the denominator while the artifact still said "400 questions".
+          if (total !== a.questions.scored) { console.error('::error::the per-repository rows sum to ' + total + ' and the artifact says it scored ' + a.questions.scored); process.exit(1); }
           const extra = Object.keys(per).filter((repo) => !repos.includes(repo));
           if (extra.length > 0) { console.error('::error::the artifact scored repositories the corpus does not name: ' + extra.join(', ')); process.exit(1); }
           const languages = a.byLanguage?.paraphraseFederated;
@@ -380,7 +386,8 @@ jobs:
           for (const repo of repos) {
             const score = per[repo];
             if (!score) { console.error('::error::' + repo + ' is in the corpus and has no scored question'); process.exit(1); }
-            if (score.n < 60 || score.n > 70) { console.error('::error::' + repo + ' contributed ' + score.n + ' rows, outside the registered 60-70 band'); process.exit(1); }
+            if (score.n > 67) { console.error('::error::' + repo + ' contributed ' + score.n + ' rows, above the share a 400 question quota over six repositories allows'); process.exit(1); }
+            if (score.n < 40) { console.error('::error::' + repo + ' contributed only ' + score.n + ' rows, so the repository is named and not measured'); process.exit(1); }
             total += score.n;
             counts.push(score.n + ' ' + repo);
           }

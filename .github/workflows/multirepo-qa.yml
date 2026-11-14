@@ -2,15 +2,15 @@ name: Multi-Repo QA
 
 # **Story 10: "answer my question across several repositories", measured instead of asserted.**
 #
-# The claim has three parts and each of them was unproven: **four repositories**, **four languages**, and **one
+# The claim has three parts and each of them was unproven: **six repositories**, **six languages**, and **one
 # question asked of all of them at once**. The test that was supposed to prove it carried an `it.skip` for two
 # iterations, with a comment naming two possible causes for a federated search that returned nothing - and the cause was
 # neither: `repoFilter` was compared to `node.projectId`, which the group indexer writes as `owner/name`, so a question
 # scoped to a repository answered nothing while the same question unscoped answered fine.
 #
-# This job downloads **four released repositories at pinned commits** - flask (Python), express (JavaScript), got
-# (TypeScript), gson (Java) - indexes them into one workspace, derives a question from every doc comment, and reports
-# three conditions with a paired test between two of them. **No model is called**: the corpus, the questions and the
+# This job downloads **six released repositories at pinned commits** - flask (Python), express (JavaScript), got
+# (TypeScript), gson (Java), gin (Go), ripgrep (Rust) - indexes them into one workspace, derives a question from every
+# doc comment, and reports three conditions with a paired test between two of them. **No model is called**: the corpus, the questions and the
 # answer key are all in the checkouts, so a run costs nothing and repeats exactly.
 
 on:
@@ -34,9 +34,9 @@ permissions:
 
 jobs:
   measure:
-    name: Four repositories, four languages, one question
+    name: Six repositories, six languages, one question
     runs-on: ubuntu-latest
-    # **Twenty minutes**, stated rather than discovered: four tarballs are ~20 MB and index in under a minute on the
+    # **Twenty minutes**, stated rather than discovered: six tarballs are ~30 MB and index in under two minutes on the
     # sandbox; the rest is dependency installation. **The paraphrase condition is not here** - it names a provider
     # credential, and a workflow that names one may not be triggered by the code it measures. It lives in
     # `multirepo-paraphrase.yml`, which is dispatch-only.
@@ -64,7 +64,7 @@ jobs:
         run: pnpm build
 
       # **The commits come from the corpus file, so the job and the artifact cannot disagree about what was measured.**
-      - name: Fetch the four checkouts at their pinned commits
+      - name: Fetch the pinned checkouts
         run: |
           set -euo pipefail
           mkdir -p .cache/multirepo-qa
@@ -92,7 +92,7 @@ jobs:
         if: always()
         run: |
           {
-            echo '### Cross-repository QA — four released repositories, four languages'
+            echo '### Cross-repository QA — six released repositories, six languages'
             echo ''
             echo '```'
             grep -E '^MULTIREPO' /tmp/multirepo-qa.log || echo 'no figures were printed'

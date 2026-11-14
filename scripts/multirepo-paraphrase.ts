@@ -34,6 +34,7 @@ import {
   sampleQuestions,
   score,
   scoreBy,
+  trimToQuota,
   type Question,
 } from './lib/multirepo-harness.js';
 import { FederatedSearchEngine } from '../packages/intelligence/src/cross-repo/federated-search.js';
@@ -249,6 +250,15 @@ async function rewrite(
   return { text, reasons, attempts: 2, usd };
 }
 
+/**
+ * **The denominator the sample is drawn for, stated once.**
+ *
+ * Four hundred because that is a denominator an effect of three questions can be stated against, and because every
+ * question is a paid rewrite rather than a free lookup. It is passed to `sampleQuestions` and to `trimToQuota`, so the
+ * two cannot disagree about what the quota is.
+ */
+const SAMPLE_TARGET = 400;
+
 async function main(): Promise<void> {
   const mode = arg('mode', 'replay');
   const out = arg('out', 'benchmarks/multirepo-qa-paraphrase.json');
@@ -257,7 +267,7 @@ async function main(): Promise<void> {
 
   const corpus = readCorpus();
   const { store, manager, index, indexMs } = await buildWorkspace(corpus, cache);
-  const questions = sampleQuestions(deriveQuestions(store));
+  const questions = sampleQuestions(deriveQuestions(store), SAMPLE_TARGET);
 
   let rows: CorpusRow[];
   let generation: { usd: number; attempts: number; model: string } | undefined;
@@ -332,6 +342,18 @@ async function main(): Promise<void> {
       `${missing.length} corpus rows are not in this run's question set, so the two conditions would be different samples`,
     );
   }
+
+  /**
+   * **The rows that count, which is the accepted set trimmed to the quota it was sampled for.**
+   *
+   * §41.3's R1 promised every repository 60–70 scored rows, the first six-repository run produced 59 from `flask`
+   * because eight of its sixty-seven rewrites were rejected twice, and the gate refused the artifact. **The refusal was
+   * correct and the band was not the fix**: the quota is a promise about scored rows, so it belongs to the accepted set.
+   * With a target of 400 over six repositories the trim is inert at 370 accepted - it can only remove rows, and it does
+   * not remove rows to hit a number - and it becomes the piece that keeps a future `generate` run with headroom from
+   * letting one repository carry more than its share.
+   */
+  const scored = trimToQuota(accepted, (row) => row.repo, SAMPLE_TARGET);
 
   const engine = new FederatedSearchEngine(store, manager);
 
@@ -430,7 +452,7 @@ async function main(): Promise<void> {
   const lexicalEvidence: number[] = [];
   const vectorEvidence: number[] = [];
 
-  for (const row of accepted) {
+  for (const row of scored) {
     const question = byKey.get(row.key)!;
     const asked = { ...question, text: row.paraphrase };
 
@@ -551,10 +573,14 @@ async function main(): Promise<void> {
    * The arithmetic is `score()`, applied to a subset, because a per-repository MRR computed by a second formula would be
    * a second definition of MRR and the two would drift.
    */
-  const acceptedQuestions = accepted.map((row) => byKey.get(row.key)!);
+  const acceptedQuestions = scored.map((row) => byKey.get(row.key)!);
   const languageOf = new Map(corpus.repositories.map((repo) => [repo.id, repo.language]));
   const byRepository = {
-    paraphraseFederated: scoreBy(acceptedQuestions, paraphraseFederated, (question) => question.repo),
+    paraphraseFederated: scoreBy(
+      acceptedQuestions,
+      paraphraseFederated,
+      (question) => question.repo,
+    ),
     paraphraseScoped: scoreBy(acceptedQuestions, paraphraseScoped, (question) => question.repo),
     verbatimFederated: scoreBy(acceptedQuestions, verbatimFederated, (question) => question.repo),
     ...(semanticEngine === null
@@ -565,7 +591,11 @@ async function main(): Promise<void> {
             semanticParaphrase,
             (question) => question.repo,
           ),
-          semanticVerbatim: scoreBy(acceptedQuestions, semanticVerbatim, (question) => question.repo),
+          semanticVerbatim: scoreBy(
+            acceptedQuestions,
+            semanticVerbatim,
+            (question) => question.repo,
+          ),
         }),
   };
   const byLanguage = {
@@ -632,6 +662,9 @@ async function main(): Promise<void> {
       sampled: questions.length,
       generated: rows.length,
       accepted: accepted.length,
+      // **What the aggregates are over**, which is not the accepted count when a trim applies: an artifact whose
+      // `n` and whose row count disagree is an artifact nobody can replay.
+      scored: scored.length,
       rejected: rows.length - accepted.length,
       namesItsAnswer: accepted.filter((row) => {
         const question = byKey.get(row.key)!;

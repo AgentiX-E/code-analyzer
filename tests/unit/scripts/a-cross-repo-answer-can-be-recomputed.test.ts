@@ -68,9 +68,14 @@ describe('the multi-repository artifact can be re-derived from its own columns',
     // while the corpus grew to six - and it did pass, exactly once, on the commit that added `go` and `rust`, until the
     // workflow ran it against the new artifact.
     const corpus = JSON.parse(
-      readFileSync(new URL('../../../benchmarks/multirepo-qa-corpus.json', import.meta.url), 'utf8'),
+      readFileSync(
+        new URL('../../../benchmarks/multirepo-qa-corpus.json', import.meta.url),
+        'utf8',
+      ),
     ) as { repositories: Array<{ id: string; sha: string }> };
-    expect(artifact.corpus.map((repo) => repo.id)).toEqual(corpus.repositories.map((repo) => repo.id));
+    expect(artifact.corpus.map((repo) => repo.id)).toEqual(
+      corpus.repositories.map((repo) => repo.id),
+    );
     expect(new Set(artifact.corpus.map((repo) => repo.language))).toEqual(
       new Set(['python', 'javascript', 'typescript', 'java', 'go', 'rust']),
     );

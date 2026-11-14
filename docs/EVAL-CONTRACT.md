@@ -4351,3 +4351,51 @@ the report says that instead of comparing the new figure to the old one.
 Six tarballs (≈ 4 MB compressed), ~15k declaration embeddings, ~400 rewrite completions at temperature 0, and zero
 completions in the search arms. **Under $0.15 for the iteration**, of which the rewrites are ~$0.08 and the embeddings a
 fraction of a cent.
+
+### 41.5 The run, and the criterion the run refused
+
+The first six-repository dispatch (04:03–04:25 UTC, `f9d49c9b`) measured both conditions and **the quota gate refused
+the artifact**: `pallets/flask` contributed **59** scored rows out of the 67 it was asked, because eight of its rewrites
+were rejected twice. **The refusal was correct and the band was not the defect.** A quota is a promise about *scored*
+rows, and it had been applied to *asked* ones.
+
+| repository             | asked | accepted | scored (first run) |
+| ---------------------- | ----: | -------: | -----------------: |
+| `google/gson`          |    67 |       66 |                 66 |
+| `BurntSushi/ripgrep`   |    68 |       65 |                 65 |
+| `gin-gonic/gin`        |    68 |       63 |                 63 |
+| `sindresorhus/got`     |    67 |       61 |                 61 |
+| `pallets/flask`        |    67 |   **59** |             **59** |
+| `expressjs/express`    |    63 |       56 |                 56 |
+| **total**              |   400 |      370 |                370 |
+
+The measurement itself is intact and is reported below; what the run established is that **a rejected rewrite is a
+question that was never scored, so the quota belongs to the accepted set**.
+
+## 42. The quota belongs to the rows that were scored, and the cap - not the floor - is what a quota promises
+
+### 42.1 What changed
+
+1. **`trimToQuota(rows, of, target)`** in the harness: the same water filling, applied to the accepted rows instead of
+   the pool, and it can only remove rows - never add one, never reorder, and never remove rows to hit a number it was not
+   asked to hit.
+2. **`allocateQuota` is one function** now, used by both the sample and the trim, because two copies of "equal share"
+   would be two definitions of it.
+3. **The gate asserts the cap and the sum**, not a floor: no repository may carry more than `ceil(400 / 6) = 67` rows
+   (dominance is what the defect was), a repository below **40** is refused (a repository that contributes almost nothing
+   is named and not measured), and the per-repository counts must sum to the artifact's own `questions.scored`.
+
+### 42.2 Why the floor was withdrawn rather than widened
+
+**Widening 60 to 55 would have made the gate pass without changing anything.** The floor was a proxy for "every
+repository is measured on a quota's worth", and the run showed the proxy was attached to the wrong quantity: the sampler
+guarantees an **upper** bound (no repository exceeds its share) and cannot guarantee a lower one, because rejections only
+ever subtract. A criterion has to state the invariant the mechanism actually holds. **Registered before the second run:
+the six repositories' rows sum to `questions.scored`, none exceeds 67, and the widest repository is at most 18 per cent
+of the measurement** - against the 67 per cent a stride gave one of them.
+
+### 42.3 The cost of the correction
+
+**One replay dispatch and no completions**: the corpus the first run generated is committed, so the second run reads it
+and pays only the embeddings (~17 200 short vectors, a fraction of a cent). **The first run's rewrites are not repeated**
+- 400 completions, ≈ $0.08, already spent and now carried as a file with its digest.

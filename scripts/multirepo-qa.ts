@@ -57,7 +57,10 @@ function arg(name: string, fallback: string): string {
 async function main(): Promise<void> {
   const out = arg('out', 'benchmarks/multirepo-qa.json');
   const cache = arg('cache', '.cache/multirepo-qa');
-  const corpus = readCorpus();
+  // **`--corpus` exists so a change to the sample can be measured against the corpus it replaced.** An iteration that
+  // adds two repositories and changes the sampler changes two things at once, and the only way to say which moved a
+  // per-repository figure is to run the new sampler on the old corpus - which is free, because this arm calls no model.
+  const corpus = readCorpus(arg('corpus', 'benchmarks/multirepo-qa-corpus.json'));
 
   // **The four checkouts and the index over them**, which the paraphrase script shares: two corpora compared on the
   // same symbols have to be the same symbols, and the only way to be sure is to run the same code.
@@ -173,11 +176,15 @@ async function main(): Promise<void> {
     ...(semanticEngine === null
       ? {}
       : {
-          semanticFederated: scoreBy(sample, semanticFederated, (question) =>
-            languageOf.get(question.repo) ?? '',
+          semanticFederated: scoreBy(
+            sample,
+            semanticFederated,
+            (question) => languageOf.get(question.repo) ?? '',
           ),
-          semanticScoped: scoreBy(sample, semanticScoped, (question) =>
-            languageOf.get(question.repo) ?? '',
+          semanticScoped: scoreBy(
+            sample,
+            semanticScoped,
+            (question) => languageOf.get(question.repo) ?? '',
           ),
         }),
   };
