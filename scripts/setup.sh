@@ -97,7 +97,11 @@ install_node() {
       if command -v brew &>/dev/null; then
         brew install node@22
       else
-        curl -fsSL https://raw.githubusercontent.com/Homebrew/install/HEAD/install.sh | bash
+        # **Pinned to a commit, because `HEAD` is a moving pointer to a script that runs with the caller's privileges.**
+        # `raw.githubusercontent.com/<owner>/<repo>/<sha>/…` is the one form of download-then-run that can be verified
+        # from the URL alone: the content behind a 40-character sha cannot change, and a compromised branch cannot
+        # substitute another one.
+        curl -fsSL https://raw.githubusercontent.com/Homebrew/install/e5b3c5834e3932c8aaa42deef4794076c9b0cbf0/install.sh | bash
         brew install node@22
       fi
       ;;

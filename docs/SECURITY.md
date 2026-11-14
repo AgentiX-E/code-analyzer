@@ -355,17 +355,52 @@ Two things about the shape of the defect are worth keeping:
 which that is). It reports the 30 remaining job-level writes rather than failing them, because a job that publishes a
 release or uploads an alert is doing what the scope is for.
 
-## 4. `PinnedDependenciesID` (20), and what is left
+## 4. `PinnedDependenciesID`, which was three findings wearing one name
 
-`PinnedDependenciesID` counts GitHub Actions, `pip`/`npm` commands and container images that are not pinned to a
-digest. Every **action** in this repository is pinned by the `action-pin-gate` (281 references, 30 repositories, one
-commit each); the twenty open are the other three kinds — a base image per `Dockerfile` stage, six `npm`/`pip`
-installations inside benchmark workflows, and one `downloadThenRun` in `scripts/setup.sh`. A digest is resolved per
-reference and a wrong one is a broken job, so each lands with a green run behind it rather than beside one.
+`PinnedDependencies` asks one question - can this dependency name an immutable revision - and gives one answer. Read
+on 2026-11-14 it was **18 findings**, and reading them one by one splits them into three groups that need three
+different responses.
 
-**The rest of the ledger, read on 2026-11-11: 72 open.** `js/file-system-race` (7), `js/file-access-to-http` (6) and
-`js/http-to-file-access` (5), `js/template-syntax-in-string-literal` (4), the 20 above, `js/polynomial-redos` (2,
-both measured linear at 40 KB and 400 KB and recorded as a choice rather than hidden), `js/call-to-non-callable` (2, in
-a fixture that exists to be wrong), and fourteen single instances listed in
-`audits/2026-11-11-the-scope-and-the-name.md` §11. **What is not in this document is not triaged**, and §11 of that
-page is where the untriaged ones are named rather than counted.
+**Group 1: nothing named a revision.** Six findings, all fixed here.
+
+| what                                    | before                                         | after                                                               |
+| --------------------------------------- | ---------------------------------------------- | ------------------------------------------------------------------- |
+| Dockerfile base image                   | `FROM node:${NODE_VERSION}-bookworm-slim`      | `…@${NODE_IMAGE_DIGEST}`, the manifest list for that tag            |
+| four `FROM base AS <stage>`             | unpinned by inheritance, scored by name lookup | cleared with the base image, which is what they inherit             |
+| `scripts/setup.sh` Homebrew             | `…/install/HEAD/install.sh`                    | `…/install/e5b3c58…/install.sh`                                     |
+| `pip install vulture`                   | no version                                     | `vulture==2.16`                                                     |
+| `pip install pyarrow pandas` (two jobs) | no version                                     | `pyarrow==26.0.1`, `pandas==3.1.1`                                  |
+| three `npm install -g` competitors      | no version                                     | `@kodus/cli@0.4.22`, `@augmentcode/auggie@0.37.1`, `greptile@3.8.0` |
+
+The `Kodus` line was not a missing version but a missing package: it asked for `@kodus/flow`, which is not published,
+so `|| echo` was the only branch ever taken and the probe has been recording "not distributed under that name" about a
+name that never existed. It asks for `@kodus/cli` now.
+
+**Group 2: a version was named and the scanner does not read it.** Ten findings.
+`checks/raw/shell_download_validate.go` decides npm pinning with `isNpmUnpinnedDownload`, which returns _pinned_ only
+for `npm ci` or a git URL carrying a 40-character sha - `pkg@1.2.3` falls through to `return true`. Pip is the same
+shape: `isUnpinnedPipInstall` accepts `--require-hashes`, a wheel, or an editable install from a pinned source, and
+counts `pkg==1.2.3` as an unhandled argument. **No rewrite of `npm install -g foo@1.2.3` changes that verdict**, which
+is why these ten are dismissed as false positives with this paragraph as the reason rather than chased.
+
+**Group 3: shapes the scanner cannot express.** One vendor ships `curl | bash https://cubic.dev/install` and has no npm
+package and no revisioned URL - a hash of the script would be a hash of whatever is deployed next. One `npm install`
+with no package name reinstalls the project tree from `pnpm-lock.yaml` for a flat `node_modules`, which is what `vsce`
+needs; there is no package to version.
+
+**The rule the repository holds itself to is the stricter one**, and it is
+`tests/unit/scripts/a-dependency-with-no-version-is-not-a-dependency.test.ts`: every global npm install carries
+`@x.y.z`, every pip install carries `==x.y.z`, every `curl | bash` either names a 40-character commit in a
+`raw.githubusercontent.com` URL or is listed with the reason it does not, and every `FROM` carries a digest. Each of
+those six cases was seen red before the fix, and the exception tables are checked for entries that no longer match
+anything - an exclusion that outlives its reason is the failure mode this section is about.
+
+**Two of the eighteen were neither**: `vscode-ci.yml:151` is the project reinstall described above, and
+`Dockerfile`'s `npm install -g node-gyp@10.2.0` has carried its version since it was written.
+
+**The rest of the ledger, read on 2026-11-14: 22 open, and none of them CodeQL.** 18 `PinnedDependenciesID` above, and
+four settings findings that no commit changes: `CIIBestPracticesID` (a badge that has to be registered by hand),
+`CodeReviewID` (0 of 30 changesets reviewed, because commits arrive on `master` directly), `FuzzingID` (no fuzz
+target), and `BranchProtectionID` (administrator bypass enabled, one approval required, no required status checks).
+The 33 CodeQL findings that stood here on 2026-11-12 are closed - see the paragraph in §1.6 about the second analysis
+that was re-asking them.

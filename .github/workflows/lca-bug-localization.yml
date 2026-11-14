@@ -115,8 +115,10 @@ jobs:
       - name: Install dependencies
         run: pnpm install --frozen-lockfile
 
+      # **Pinned, because a parquet reader is what decides the shape of the corpus this job measures** - and a
+      # floating one changes the schema a run reads without changing anything in this repository.
       - name: Install parquet support
-        run: python3 -m pip install --quiet pyarrow
+        run: python3 -m pip install --quiet "pyarrow==26.0.1"
 
       # **The split, from the repository that publishes it**, one parquet per language. The hub is public and the
       # licence is Apache-2.0; a 401 here means the dataset became gated, and the job fails rather than measuring a

@@ -10,6 +10,18 @@
 ARG NODE_VERSION=22.23.4
 ARG PNPM_VERSION=9.15.0
 
+# **The base image is pinned by digest as well as by tag, and both live here so a bump is one edit.**
+#
+# A tag is a mutable pointer: `node:22.23.4-bookworm-slim` resolves to whatever the publisher last pushed under that
+# name, so the image this file built on Tuesday and the one it builds on Friday can differ while nothing in the
+# repository changed. The digest below is the manifest list for that tag - the multi-arch index, so `buildx
+# --platform linux/amd64,linux/arm64` still resolves both architectures - and it is what `PinnedDependencies` reads.
+#
+# It is an `ARG` rather than a literal in the `FROM` line because the tag and the digest have to move together: a
+# `NODE_VERSION` bump that left this behind would fail the build loudly, which is the correct outcome, but the two
+# lines being adjacent is what makes the failure easy to read.
+ARG NODE_IMAGE_DIGEST=sha256:5ec23b7c622b00547753bc6ffd78085dd868a68aeb41c8e0a1418f033e13d96d
+
 # ─────────────────────────────────────────────────────────────────────────────
 # Stage 0: Base — shared build foundation
 # ─────────────────────────────────────────────────────────────────────────────
@@ -17,7 +29,7 @@ ARG PNPM_VERSION=9.15.0
 # (javascript, typescript, python, …) ship glibc prebuilt binaries, so they install
 # without compiling. On musl/alpine they have no prebuilds and every grammar must be
 # compiled from source — tens of minutes, and even worse under arm64 QEMU.
-FROM node:${NODE_VERSION}-bookworm-slim AS base
+FROM node:${NODE_VERSION}-bookworm-slim@${NODE_IMAGE_DIGEST} AS base
 ARG PNPM_VERSION
 RUN corepack enable && corepack prepare pnpm@${PNPM_VERSION} --activate
 # Native toolchain for node-gyp: `tree-sitter-toml` (prod dep of @code-analyzer/analyzer)

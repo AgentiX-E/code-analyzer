@@ -75,17 +75,26 @@ jobs:
           command -v ocr
           ocr --version
           # **`PR-Agent`: pip, and its model layer is LiteLLM** - so **the endpoint below is the whole of the
-          # configuration**, and DeepSeek is a `model` line rather than a negotiation.
-          python -m pip install --upgrade "pr-agent"
+          # configuration**, and DeepSeek is a `model` line rather than a negotiation. **Pinned to the release the
+          # recorded comparison was measured against**, for the same reason `open-code-review` is pinned: `--upgrade`
+          # with no version reinstalls "the competitor" as whatever shipped this week.
+          python -m pip install --upgrade "pr-agent==0.50.0"
           python -m pip show pr_agent | head -3
-          # **`Kodus`: npm, with a documented bring-your-own-key path.**
-          npm install -g @kodus/flow || echo "kodus is not distributed on npm under that name"
+          # **`Kodus`: npm, with a documented bring-your-own-key path, under `@kodus/cli`.** The name this line used
+          # to ask for, `@kodus/flow`, is not published at all - so the `|| echo` behind it was the only path ever
+          # taken, and the probe has been recording "not distributed under that name" for a package that never
+          # existed under it.
+          npm install -g @kodus/cli@0.4.22 || echo "kodus is not installable from npm in this environment"
           # **The three this job twice filed as `serviceOnly`.** **Each installs a CLI, and the probe records whether
           # it starts** - because **the claim that a tool cannot be run is a claim this repository has now got wrong
           # twice, and a probe is what settles it.**
+          # **`cubic` ships an unversioned `curl | bash` and nothing else**, so this line is the one install in the file
+          # that cannot be pinned: there is no commit to name, no npm package, and a hash of the script would be a hash
+          # of whatever the vendor deploys next. It is recorded rather than removed, because "the vendor only offers an
+          # installer nobody can pin" is the finding - and the probe is where that finding lives.
           curl -fsSL https://cubic.dev/install | bash || echo "the cubic installer did not complete"
-          npm install -g @augmentcode/auggie || echo "auggie is not installable from npm in this environment"
-          npm install -g greptile || echo "greptile is not distributed on npm under that name"
+          npm install -g @augmentcode/auggie@0.37.1 || echo "auggie is not installable from npm in this environment"
+          npm install -g greptile@3.8.0 || echo "greptile is not distributed on npm under that name"
 
       # **One step, and the probe makes every call in it.** **Its own documentation says `ocr` is configured
       # interactively**, so **the question "can this run unattended" is answered by asking the CLI**, not by guessing a

@@ -34,8 +34,10 @@ jobs:
     timeout-minutes: 30
 
     steps:
+      # **Pinned, because this job's output *is* a description of the corpora's schema**, and a reader that changed
+      # between two runs would report a schema change that happened on the reader's side.
       - name: Install parquet support
-        run: python3 -m pip install --quiet pyarrow pandas
+        run: python3 -m pip install --quiet "pyarrow==26.0.1" "pandas==3.1.1"
 
       - name: Write the two readers
         run: |
