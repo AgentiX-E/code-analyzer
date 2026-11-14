@@ -22,6 +22,7 @@
 
 import { describe, expect, it } from 'vitest';
 
+import type { Finding, Golden } from '../../../.github/scripts/lib/file-semantic.mjs';
 import {
   FILE_SEMANTIC_PROTOCOL,
   groupByPath,
@@ -30,12 +31,12 @@ import {
 } from '../../../.github/scripts/lib/file-semantic.mjs';
 
 /** A corpus row, in the shape `attributeGoldens` already reads: a path, a note, and sometimes a line. */
-function golden(path, note, startLine = null) {
+function golden(path: string, note: string, startLine: number | null = null): Golden {
   return { path, note, startLine };
 }
 
 /** A finding, in the shape the ranked list already carries. */
-function finding(path, text) {
+function finding(path: string, text: string): Finding {
   return { path, text };
 }
 
@@ -233,9 +234,9 @@ describe('the file-level semantic score', () => {
     });
 
     expect([...grouped.keys()]).toEqual(['src/a.ts', 'src/b.ts']);
-    expect(grouped.get('src/a.ts').findings.map((entry) => entry.text)).toEqual(['x', 'z']);
-    expect(grouped.get('src/a.ts').goldens.map((entry) => entry.note)).toEqual(['g1', 'g2']);
-    expect(grouped.get('src/b.ts').goldens).toEqual([]);
+    expect(grouped.get('src/a.ts')?.findings.map((entry) => entry.text)).toEqual(['x', 'z']);
+    expect(grouped.get('src/a.ts')?.goldens.map((entry) => entry.note)).toEqual(['g1', 'g2']);
+    expect(grouped.get('src/b.ts')?.goldens).toEqual([]);
   });
 
   it('is a lower bound on the corpus figure rather than a substitute for it', () => {
