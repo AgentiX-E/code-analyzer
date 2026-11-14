@@ -4397,7 +4397,7 @@ of the measurement** - against the 67 per cent a stride gave one of them.
 
 ### 42.3 The cost of the correction
 
-**One replay dispatch and no completions**: the corpus the first run generated is committed, so the second run reads it
-and pays only the embeddings (~17 200 short vectors, a fraction of a cent). **The first run's rewrites are not repeated**
-
-- 400 completions, ≈ $0.08, already spent and now carried as a file with its digest.
+**Two replays and no completions**, the second of which passed every gate (`05:48:33`) and reproduced the first's lexical
+columns bit for bit and its vector column within 0.0013 MRR. The corpus the first run generated is committed, so both
+replays read it and pay only the embeddings - ~17 200 short vectors, a fraction of a cent. **The first run's rewrites are
+not repeated**: 400 completions, ≈ $0.08, already spent and now carried as a file with its digest.
