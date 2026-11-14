@@ -4535,3 +4535,4 @@ two commands cannot disagree about what a checkout is or how it is configured.
 3. **The dead command still exited 0 in the empty-checkout case**, because `tail` had swallowed the exit code in the
    manual check. Run without a pipe it exits 1, which is what `process.exit(result.success ? 0 : 1)` says and what the
    suite asserts.
+

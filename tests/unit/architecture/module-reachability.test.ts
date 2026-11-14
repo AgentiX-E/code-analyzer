@@ -427,6 +427,10 @@ describe('every module a package compiles is reachable from an entry its manifes
       // caller, so the CLI built one per command, the MCP context one per session and the GraphQL resolver one per
       // request - each recomputing field lengths over the whole store. A ranking is a property of the index, so the
       // engine is now obtained from the store rather than built beside it, and the module is where that sentence lives.
+      // **174 since iteration 140**, which added `search/engine-for-store.ts`. The engine was constructed once per
+      // caller, so the CLI built one per command, the MCP context one per session and the GraphQL resolver one per
+      // request - each recomputing field lengths over the whole store. A ranking is a property of the index, so the
+      // engine is now obtained from the store rather than built beside it, and the module is where that sentence lives.
       intelligence: 174,
       mcp: 39,
       server: 24,
