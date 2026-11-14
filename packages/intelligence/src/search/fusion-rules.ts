@@ -211,9 +211,11 @@ export function fuseByRule(
   for (const hit of lexical) entry(hit.node.id, hit.node).bm25Score = hit.score;
   for (const hit of vector) entry(hit.node.id, hit.node).vectorScore = hit.score;
 
+  // **Every caller passes an id this map already holds** - the rank maps are built from the two lists, and every
+  // document in either list has an entry here. A guard would be a branch no corpus can reach, which is the claim that
+  // the code handles a case it has never seen.
   const add = (id: number, value: number): void => {
-    const target = nodes.get(id);
-    if (target) target.combinedScore += value;
+    nodes.get(id)!.combinedScore += value;
   };
 
   switch (rule) {
@@ -311,7 +313,9 @@ export function fuseByRule(
       const zVec = zScores(vector);
       for (const [id, rank] of lexRanks) add(id, 1 / (k + rank));
       for (const [id, rank] of vecRanks) {
-        if ((zVec.get(id) ?? 0) >= 0) add(id, weight / (k + rank));
+        // **No fallback here, unlike `combmnz`**: this loop walks the vector list's own ranks, so every id it visits has
+        // a z-score by construction.
+        if (zVec.get(id)! >= 0) add(id, weight / (k + rank));
       }
       break;
     }

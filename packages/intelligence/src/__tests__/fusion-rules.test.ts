@@ -237,6 +237,11 @@ describe('the head separation is scale-free, which is why the two channels can b
       expect(headSeparation(list)).toBeGreaterThanOrEqual(0);
   });
 
+  it('gives a list of one a z-score of one rather than dividing by zero', () => {
+    // The degenerate list is not an edge case here: a scoped search over a repository with one symbol produces one.
+    expect(zScores([ranked(A, 3)]).get(A.id)).toBe(1);
+  });
+
   it('reads a flat list as a flat head', () => {
     // Every score equal: there is no head, and returning a number here would be inventing a separation the list does
     // not have.
@@ -312,6 +317,38 @@ describe('the query-performance weight is the ratio of the two heads, clamped to
   });
 });
 
+describe('the tie-break reads the evidence the tie was computed from', () => {
+  // **A reciprocal rank is a small integer over a small denominator**, so ties are common in fusion - and §29 already
+  // paid once for a tie broken by insertion order. These three cases are the three rungs of the ladder: the same fused
+  // score and the same lexical score leaves the vector score to decide, and two documents identical in every scored
+  // field are ordered by identity so that the result is a function of the corpus and not of the walk.
+  const tied = [ranked(A, 10), ranked(B, 10)];
+  const crossed = [ranked(B, 0.9), ranked(A, 0.5)];
+
+  it('falls to the lexical score when the fused scores tie', () => {
+    const fused = fuseByRule('rrf', [ranked(A, 20), ranked(B, 10)], crossed);
+    // Both documents appear once at rank 1 and once at rank 2, so the fused scores are equal and `alpha`'s better
+    // lexical score decides.
+    expect(fused[0]!.combinedScore).toBeCloseTo(fused[1]!.combinedScore, 12);
+    expect(fused[0]!.node.id).toBe(A.id);
+  });
+
+  it('falls to the vector score when the fused and lexical scores both tie', () => {
+    const fused = fuseByRule('rrf', tied, crossed);
+    // Equal lexical scores, equal fused scores, and `beta` is the vector list's first answer: **the tie is decided by
+    // the cosine**, which is the number one of the two contributions was computed from.
+    expect(fused[0]!.node.id).toBe(B.id);
+    expect(fused[0]!.vectorScore).toBeGreaterThan(fused[1]!.vectorScore);
+  });
+
+  it('falls to identity when every scored field ties', () => {
+    const fused = fuseByRule('rrf', tied, []);
+    // Nothing distinguishes them, so the order has to be stable across runs - the property `compareNodeIdentity` exists
+    // for, and the reason a determinism test alone cannot see this branch.
+    expect(fused.map((entry) => entry.node.id)).toEqual([A.id, B.id]);
+  });
+});
+
 describe('every rule returns the union of the two lists, once each', () => {
   it('never duplicates a document and never drops one', () => {
     for (const rule of FUSION_RULE_NAMES) {
@@ -322,6 +359,16 @@ describe('every rule returns the union of the two lists, once each', () => {
       // score better on recall by never being wrong about it - which is the competition's failure mode, not a fix.
       expect(new Set(ids)).toEqual(new Set([...lexical, ...vector].map((hit) => hit.node.id)));
     }
+  });
+
+  it('keeps the first rank of a document a channel named twice', () => {
+    // `fuseResults` documents that a duplicate is only possible through a direct call, and a direct call is what this
+    // module is for: **the second occurrence must not overwrite the first's rank**, or a list that repeats its best
+    // answer would push that answer down.
+    const repeated = [ranked(A, 30), ranked(A, 12), ranked(B, 9)];
+    const fused = fuseByRule('rrf', repeated, []);
+    const alpha = fused.find((entry) => entry.node.id === A.id)!;
+    expect(alpha.combinedScore).toBeCloseTo(1 / 61, 12);
   });
 
   it('honours a limit by prefix, not by subset', () => {
