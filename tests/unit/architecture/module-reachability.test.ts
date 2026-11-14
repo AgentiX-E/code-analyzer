@@ -427,11 +427,14 @@ describe('every module a package compiles is reachable from an entry its manifes
       // caller, so the CLI built one per command, the MCP context one per session and the GraphQL resolver one per
       // request - each recomputing field lengths over the whole store. A ranking is a property of the index, so the
       // engine is now obtained from the store rather than built beside it, and the module is where that sentence lives.
-      // **174 since iteration 140**, which added `search/engine-for-store.ts`. The engine was constructed once per
-      // caller, so the CLI built one per command, the MCP context one per session and the GraphQL resolver one per
-      // request - each recomputing field lengths over the whole store. A ranking is a property of the index, so the
-      // engine is now obtained from the store rather than built beside it, and the module is where that sentence lives.
-      intelligence: 174,
+      // **179 since iteration 141**, which added the claim-adjudication pass in `review/adjudication/`. Five modules
+      // rather than one, because the pass is four decisions and a coordinate system: which sentences are not claims
+      // (`narration.ts`, a measurement table), what the second reader's answer may be (`verdict.ts`), what it is asked
+      // (`prompt.ts`), how it is run and what a run counts (`adjudicator.ts`), and where the diff's added lines actually
+      // are (`patch-lines.ts`). The last one is a module for the reason the other four are: `diff.ranges` counts the
+      // *patch's* lines when the diff was built from a patch, and the engine has already lost a correct finding at file
+      // line 900 to that confusion once.
+      intelligence: 179,
       mcp: 39,
       server: 24,
       // **11 since iteration 121**, which added `utils/type-text.ts`: the depth-counted removal of type arguments and

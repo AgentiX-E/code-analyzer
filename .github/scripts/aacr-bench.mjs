@@ -1450,12 +1450,28 @@ async function main() {
   // the cheapest next measurement is the same run at a higher threshold**: **0.8 requires four fifths of the content
   // words to agree, so a genuinely different defect in the adjacent line survives.**
   const DEDUP_THRESHOLD = Number(process.env['AACR_DEDUP_THRESHOLD'] ?? 0.8);
+  /**
+   * **Whether a finding's claim is checked before it is filed**, and the arm this dispatch exists to measure.
+   *
+   * The diagnosis it comes from is in the published artifact, in two rows: **302 false positives against 160 accepted**,
+   * whose largest block is comments that assert nothing about the code, and **141 goldens missed by a comment standing
+   * on the golden's own line**. Neither is a targeting failure and neither is repaired by wording - **one needs a reader
+   * that asks "is this true", the other needs one that asks "what is true here"** - which is
+   * `packages/intelligence/src/review/adjudication/`.
+   *
+   * **It is an input rather than an edit for the reason every device in this repository is**: `off` is the configuration
+   * every published figure was measured under, so an arm that cannot be switched off cannot be measured against them.
+   */
+  const ADJUDICATE = String(process.env['AACR_ADJUDICATE'] ?? 'off').toLowerCase() === 'on';
   const engine = new LLMReviewEngine(new DeepSeekProvider({ ledger, ceilingUsd: MAX_USD }), {
     dedupThreshold: DEDUP_THRESHOLD,
     languageChecklist: CHECKLIST,
     promptOrder: PROMPT_ORDER,
+    adjudicate: ADJUDICATE,
   });
-  console.log(`AACR-BENCH dedup threshold ${DEDUP_THRESHOLD} · prompt order ${PROMPT_ORDER}`);
+  console.log(
+    `AACR-BENCH dedup threshold ${DEDUP_THRESHOLD} · prompt order ${PROMPT_ORDER} · adjudicate ${ADJUDICATE}`,
+  );
 
   /**
    * **The second parameter of every draw this job takes.**
@@ -1520,6 +1536,28 @@ async function main() {
     // half-strength number as the device's own.
     codeContext: CODE_CONTEXT
       ? { enabled: true, requested: 0, read: 0, absent: 0, failed: 0, chars: 0, reasons: [] }
+      : { enabled: false },
+    /**
+     * **What the claim check did to the findings, summed over the corpus.**
+     *
+     * **Four counts and not one**, because they answer four different questions and only the split can say which device
+     * earned a figure: `refuted` and `unanchored` are comments removed (a precision claim), `repaired` is a comment
+     * rewritten (the only one that can raise recall as well), and `unchecked` is a call that did not happen - **a run
+     * whose `unchecked` is not zero describes a reviewer without this device for that part of the corpus**, which is the
+     * distinction a single "kept" count would erase.
+     */
+    adjudication: ADJUDICATE
+      ? {
+          enabled: true,
+          candidates: 0,
+          upheld: 0,
+          repaired: 0,
+          refuted: 0,
+          unanchored: 0,
+          unchecked: 0,
+          unreadable: 0,
+          narrationRefused: {},
+        }
       : { enabled: false },
   };
   /**
@@ -2351,6 +2389,24 @@ async function main() {
           sectionDiff,
         );
         lanes.push(...produced);
+        // **And what the claim check decided about this file's findings**, summed where the engine already keeps the
+        // per-call report. **A device whose effect is only visible in the score is a device nobody can debug**: a run
+        // whose F1 did not move can be one whose adjudicator refuted nothing, or one whose every call was unchecked, and
+        // those two need opposite repairs.
+        const claims = engine.lastAdjudication;
+        if (claims && engineCounters.adjudication.enabled) {
+          const totals = engineCounters.adjudication;
+          totals.candidates += claims.claims?.candidates ?? 0;
+          totals.upheld += claims.claims?.upheld ?? 0;
+          totals.repaired += claims.claims?.repaired ?? 0;
+          totals.refuted += claims.claims?.refuted ?? 0;
+          totals.unanchored += claims.claims?.unanchored ?? 0;
+          totals.unchecked += claims.claims?.unchecked ?? 0;
+          totals.unreadable += claims.claims?.unreadable ?? 0;
+          for (const [rule, count] of Object.entries(claims.narration.refusedByRule)) {
+            totals.narrationRefused[rule] = (totals.narrationRefused[rule] ?? 0) + count;
+          }
+        }
         // **And what the engine's own parse and filter did with this file's findings.**
         //
         // **The chain is `complete` -> `parseLLMResponse` -> `filterFindings`**, and **the third ran a check with the
@@ -3270,6 +3326,10 @@ async function main() {
       // comparable as settings of one instrument: they differ in what the model is given, in how many calls it makes and
       // in what a finding must contain to survive. **A figure without this field is a figure with no reviewer attached.**
       agent: AGENT,
+      // **Whether a finding's claim was checked before it was filed**, because this is the arm under test and a figure
+      // whose artifact does not name the side of the switch it came from is a figure a second run can disagree with
+      // without either being wrong - the defect every other field in this block was added to prevent, one device later.
+      adjudicate: ADJUDICATE,
       // **The cap that §23.7 measured to bind**: 25 of one run's 225 drafts were refused a slot rather than found
       // wanting. **A figure from a capped run and a figure from an uncapped one are two reviewers**, so the number is a
       // coordinate of the figure beside `agent` rather than a detail of the harness.

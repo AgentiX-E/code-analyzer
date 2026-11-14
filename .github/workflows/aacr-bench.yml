@@ -147,7 +147,7 @@ jobs:
     # **Both matrix keys are in the job's own name**, because a run page that shows two identical titles for two
     # different arms is a page a reader has to open artifacts to disambiguate - and the whole point of the pair is that
     # the difference is legible before anything is downloaded.
-    name: Our reviews on a direct competitor's corpus (${{ matrix.profile }} profile, code context ${{ matrix.code_context }}, agent ${{ inputs.agent || 'off' }})
+    name: Our reviews on a direct competitor's corpus (${{ matrix.profile }} profile, code context ${{ matrix.code_context }}, adjudicate ${{ matrix.adjudicate }}, agent ${{ inputs.agent || 'off' }})
     runs-on: ubuntu-latest
     # **Raised from 180 when the corpus went from five pull requests to fourteen**, which is the size at which a 0.04
     # move stops being a coin toss. The previous corpus took 29 minutes; the arithmetic that expects roughly three times
@@ -196,8 +196,14 @@ jobs:
       # a job-level `if` cannot see `matrix` - the expansion happens before it, and a workflow that names `matrix` there
       # does not parse at all. That is not a preference: the dispatch this replaced was refused with
       # *"Unrecognized named-value: 'matrix'"* and the workflow did not load until the expression moved here.
+      #
+      # **It varies `adjudicate` from iteration 141**, and the pin on `code_context` is a decision rather than tidying.
+      # §20/R-18 measured the code window at −0.0065 against a registered +0.02 and left it `falsified`, so the two arms
+      # below are the reviewer without a window - the configuration every published lane figure was measured under - and
+      # the only difference between them is whether a finding's claim is checked before it is filed. **A matrix that
+      # varied both would answer neither**, which is the refusal `aacr-ablation-compare.mjs` already encodes.
       matrix:
-        include: '${{ fromJSON((inputs.agent || ''off'') == ''on'' && ''[{"profile":"advisory","code_context":"on"}]'' || ''[{"profile":"advisory","code_context":"off"},{"profile":"advisory","code_context":"on"}]'') }}'
+        include: '${{ fromJSON((inputs.agent || ''off'') == ''on'' && ''[{"profile":"advisory","code_context":"on","adjudicate":"off"}]'' || ''[{"profile":"advisory","code_context":"off","adjudicate":"off"},{"profile":"advisory","code_context":"off","adjudicate":"on"}]'') }}'
 
     steps:
       - name: Checkout
@@ -309,6 +315,10 @@ jobs:
           # is exactly the arrangement that made R-18 a comparison across two dispatches. The artifact's
           # `configuration.codeContext` and this line cannot disagree: there is one place to write `on`.
           AACR_CODE_CONTEXT: ${{ matrix.code_context }}
+          # **The arm under test**, read from the matrix rather than from a dispatch input, because an input is one value
+          # chosen once and given to both arms - the arrangement that made R-18 a comparison across two dispatches and
+          # this repository's own variance larger than the effect it was trying to see.
+          AACR_ADJUDICATE: ${{ matrix.adjudicate }}
           # **The profile the artifact will record**, passed explicitly rather than left to the script's default, so the
           # workflow and the artifact cannot disagree about which reviewer produced the figure.
           AACR_PROFILE: ${{ matrix.profile }}
@@ -379,7 +389,7 @@ jobs:
           # **Both matrix keys are in the name**, because a pair of artifacts whose names differ in one segment is a pair
           # a reader can match to the arms without opening either - and because `an-artifact-that-is-never-uploaded-is-
           # never-downloaded.test.ts` expands this name from the matrix and refuses a download nothing uploads.
-          name: aacr-bench-${{ matrix.profile }}-${{ matrix.code_context }}
+          name: aacr-bench-${{ matrix.profile }}-${{ matrix.code_context }}-${{ matrix.adjudicate }}
           # **The figure and the competitor's whole output**, because **that output's format is what the next
           # iteration has to read** and **a field cannot hold a document**.
           path: |
@@ -429,7 +439,7 @@ jobs:
       - name: Download the run with the code window
         uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8
         with:
-          name: aacr-bench-advisory-on
+          name: aacr-bench-advisory-off-on
           path: /tmp/with
 
       # **Every artifact name here is produced by the matrix above, and a job that downloads a name the matrix does not
@@ -440,7 +450,7 @@ jobs:
       - name: Download the run without it
         uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8
         with:
-          name: aacr-bench-advisory-off
+          name: aacr-bench-advisory-off-off
           path: /tmp/without
 
       # **No `|| true` and no fallback**: the script refuses to compare two artifacts that are not the same experiment,

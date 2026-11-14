@@ -408,6 +408,33 @@ export type {
   PullRequestReviewOptions,
 } from './review/llm/llm-review-engine.js';
 
+// Claim adjudication — the pass that decides whether a finding's sentence is true of the code before it is filed.
+// **Exported rather than private to the engine** because the pieces are the parts that can be argued with: the narration
+// rules are a measurement table, the verdict parser is what stands between a refutation and a filed invention, and the
+// patch walk is the only coordinate system in this exchange that cannot be off by a constant. A caller that wants to
+// score the adjudicator's decisions without filing anything needs all three.
+export { ClaimAdjudicator } from './review/adjudication/adjudicator.js';
+export type {
+  AdjudicationCandidate,
+  AdjudicationReport,
+} from './review/adjudication/adjudicator.js';
+export { buildAdjudicationPrompt, clipCode } from './review/adjudication/prompt.js';
+export type { AdjudicationRequest } from './review/adjudication/prompt.js';
+export { applyVerdict, readAdjudication, resolveAnchor } from './review/adjudication/verdict.js';
+export type {
+  AdjudicationVerdict,
+  AdjudicationVerdictName,
+  Anchor,
+  AppliedVerdict,
+} from './review/adjudication/verdict.js';
+export { applyNarrationVeto, readNarration } from './review/adjudication/narration.js';
+export type {
+  DescribedFinding,
+  NarrationReason,
+  NarrationVetoReport,
+} from './review/adjudication/narration.js';
+export { addedLinesOf } from './review/adjudication/patch-lines.js';
+
 // Actionability ranking — the order a reader should meet the findings in.
 export {
   ACTIONABILITY_WEIGHTS,

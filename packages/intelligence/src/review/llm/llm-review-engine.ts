@@ -12,6 +12,9 @@ import {
 } from './prompts.js';
 import { collectDiffFacts, diffHeaderPaths, rankFindings } from '../actionability.js';
 import { codeContextForSections, type CodeContextLimits } from './code-context.js';
+import { ClaimAdjudicator, type AdjudicationReport } from '../adjudication/adjudicator.js';
+import { applyNarrationVeto, type NarrationVetoReport } from '../adjudication/narration.js';
+import { addedLinesOf } from '../adjudication/patch-lines.js';
 
 import type { LLMProvider, CompletionOptions } from './provider.js';
 import type { ReviewComment, ReviewCategory, Severity, GitDiff } from '@code-analyzer/shared';
@@ -56,6 +59,20 @@ export interface LLMReviewOptions {
    * paired runs later the claim is falsified in both directions** - the gain is negative and so is the mechanism - so the
    * shipped default follows the measurement. See `docs/EVAL-CONTRACT.md` §15.3.
    */
+  /**
+   * **Whether a finding's claim is checked before it is filed.** Defaults to **false**, and the default is the
+   * unmeasured side until a run says otherwise.
+   *
+   * **Why the product needs this at all.** On AACR-Bench's fifty pull requests this engine files 569 comments and a
+   * judge accepts 160: **73 of the 302 false positives are comments that assert nothing about the code**, and **141 of
+   * the 452 goldens it misses are missed by a comment standing on the golden's own line**. Neither is a reading failure
+   * and neither is repaired by a better prompt - **the first needs a reader that asks "is this true", and the second
+   * needs one that asks "what is true here".** `ClaimAdjudicator` is that reader, and this flag is where it is switched
+   * on so that what is measured is what ships.
+   */
+  adjudicate?: boolean;
+  /** How many adjudication calls may be in flight at once. Defaults to 4. */
+  adjudicateConcurrency?: number;
   languageChecklist?: boolean;
   /**
    * **Where the target-and-diff block sits in every lane prompt.** Undefined means `boilerplate-first`, the arrangement
@@ -226,6 +243,8 @@ const DEFAULT_OPTIONS: Required<LLMReviewOptions> = {
   // checklist is good at is real: 76 fewer false positives per 170 goldens. **A product that prefers precision to F1
   // should turn it back on**, and this line is where it does so.
   languageChecklist: false,
+  adjudicate: false,
+  adjudicateConcurrency: 4,
   promptOrder: 'boilerplate-first',
   laneWaves: 1,
   codeContext: false,
@@ -296,7 +315,88 @@ export class LLMReviewEngine {
     const lanes = this.options.lanes;
 
     const results = await this.runLanes(ctx, lanes);
-    return this.deduplicateAcrossLanes(results);
+    const merged = this.deduplicateAcrossLanes(results);
+    if (!this.options.adjudicate) return merged;
+    return this.checkClaims(merged, diff, fileContext);
+  }
+
+  /**
+   * **What the claim check did, and it is `null` when the check did not run.**
+   *
+   * Two reports rather than one, because the two halves are different bets: `narration` refuses a sentence that is not
+   * a claim and costs nothing, `claims` buys one model call per survivor. **A single count would hide which half
+   * produced a figure**, and the next iteration would have to buy the run again to find out.
+   */
+  lastAdjudication: { narration: NarrationVetoReport; claims: AdjudicationReport | null } | null =
+    null;
+
+  /**
+   * **Check every merged finding's claim before it can be filed.**
+   *
+   * The order is deliberate and it is the cheap half first: **the narration veto is deterministic and free**, so a
+   * comment that restates the diff never reaches a paid call. On the recorded artifact that is 10 of 569 - **the device
+   * is small, and its size is the reason it is allowed to run first rather than being trusted with the decision.**
+   *
+   * **What happens to the lane structure.** The pass works on a flat list and then rebuilds each lane's own result from
+   * the survivors, because `ReviewComment` conversion, the per-lane tables and the benchmark's lane counters are all
+   * keyed by lane. **A reviewer that returned one flat list would be simpler and would silently stop being able to say
+   * which lane earned a golden**, which is the measurement every prompt decision in this file was made with.
+   */
+  private async checkClaims(
+    results: LLMReviewResult[],
+    diff: GitDiff,
+    fileContext?: string,
+  ): Promise<LLMReviewResult[]> {
+    const patch = fileContext ?? this.buildDiffContent(diff);
+    // **Read from the patch, not from `diff.ranges`** - see `addedLinesOf`. The benchmark builds its diffs out of patch
+    // text, where `ranges` counts the patch's own lines and a file's line 900 does not exist.
+    const addedLines = addedLinesOf(patch);
+
+    const entries = results.flatMap((result, resultAt) =>
+      result.success
+        ? result.findings.map((finding, findingAt) => ({ resultAt, findingAt, finding }))
+        : [],
+    );
+
+    const veto = applyNarrationVeto(entries.map((entry) => entry.finding));
+    const refused = new Set(veto.refused.map((entry) => entry.finding));
+    const survivors = entries.filter((entry) => !refused.has(entry.finding));
+
+    const adjudicator = new ClaimAdjudicator(this.provider, {
+      concurrency: this.options.adjudicateConcurrency,
+      timeout: this.options.laneTimeout,
+    });
+    const outcome = await adjudicator.adjudicate(
+      survivors.map((entry) => ({
+        finding: entry.finding,
+        addedCode: patch,
+        addedLines,
+        ...(fileContext === undefined ? {} : { fileContext }),
+      })),
+      { path: diff.filePath },
+    );
+
+    this.lastAdjudication = { narration: veto.report, claims: outcome.report };
+
+    // **The survivors are placed back at the coordinates they came from.** Position is not enough - a refutation in the
+    // middle shifts every later index - so the candidate's own index travels with it, and the lane a finding is
+    // attributed to is the lane that produced it rather than the lane that happened to be first.
+    const keptBySlot = new Map<string, LLMFinding>();
+    for (const entry of outcome.kept) {
+      const origin = survivors[entry.index];
+      if (origin === undefined) continue;
+      keptBySlot.set(`${origin.resultAt}:${origin.findingAt}`, entry.finding);
+    }
+
+    return results.map((result, resultAt) => {
+      if (!result.success) return result;
+      const findings: LLMFinding[] = [];
+      result.findings.forEach((_finding, findingAt) => {
+        const kept = keptBySlot.get(`${resultAt}:${findingAt}`);
+        if (kept !== undefined) findings.push(kept);
+      });
+      return { ...result, findings };
+    });
   }
 
   /**

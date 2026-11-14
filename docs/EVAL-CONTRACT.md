@@ -4536,3 +4536,159 @@ two commands cannot disagree about what a checkout is or how it is configured.
    manual check. Run without a pipe it exits 1, which is what `process.exit(result.success ? 0 : 1)` says and what the
    suite asserts.
 
+## 44. The reviewer was measuring the comment's shape, and the sentence was never checked
+
+### 44.1 What the artifact said, read as a diagnosis rather than as a score
+
+The published AACR-Bench figure is `precision 0.2196, recall 0.1881, F1 0.2026` over fifty pull requests: **160 findings
+a judge accepted against 302 it did not**, and **452 goldens of which 85 were matched**. Three rows of the same artifact
+say what the 302 and the 367 are, and none of them says "the reviewer cannot read code":
+
+| bucket                  | goldens | what it is                                                           |
+| ----------------------- | ------- | -------------------------------------------------------------------- |
+| `hit`                   | 123     | found                                                                |
+| `findingOnPathRejected` | **254** | a comment of ours stood on that file and the judge did not accept it |
+| `fileNotReviewed`       | 39      | the file never reached the reviewer                                  |
+| `noFindingOnPath`       | 36      | the file was read and the lane said nothing                          |
+
+**And the rejection has a shape**, which the artifact also carries: of those 254, **141 sit on the golden's own line**,
+51 within ten lines, 62 beyond fifty. **So the reviewer is not looking in the wrong place** - it is standing on the
+right line and describing something else. The per-category table says the same thing from the other side:
+
+| category          | emitted | accepted | rate       |
+| ----------------- | ------- | -------- | ---------- |
+| `documentation`   | 12      | 8        | 66.7 %     |
+| `security`        | 14      | 6        | 42.9 %     |
+| `bug`             | 211     | 86       | **40.8 %** |
+| `maintainability` | 41      | 10       | 24.4 %     |
+| `performance`     | 14      | 3        | 21.4 %     |
+| `architecture`    | 179     | 36       | 20.1 %     |
+| `test`            | 95      | 11       | **11.6 %** |
+| `style`           | 3       | 0        | 0 %        |
+
+**The reviewer is precise where it is talking about behaviour and imprecise where it is talking about shape**, and the
+false positives that made the list unreadable are, in their own words, not claims at all:
+
+```
+Public API change: balloonArrow() return type changed from int to ArrowType
+Public API breaking change: RefType enum converted to scoped enum
+Forward-declared enum used as return type of public slot
+    ... whose description reads "a forward-declared scoped enum with a fixed underlying type is legal"
+```
+
+**A restatement cannot be wrong**, so no reading of the code can refute it, no maintainer can act on it, and a judge has
+nothing to match it to. **That is a property of the sentence, not of the model's aim**, and it is the reason the next
+device is a reader rather than a better finder.
+
+**Two things this section is not claiming.** It is not a claim that filtering fixes the figure: §19.3 already measured
+the category floor at +0.0079 against a registered +0.02 on a hundred unseen pull requests, **losing 68 goldens for every
+38 it gained**, and a device that can only subtract cannot win that trade. And it is not a claim that recall is somebody
+else's problem: 36 goldens sit on files the lanes read and never spoke about, and a device that only removes comments
+makes that number worse.
+
+### 44.2 Three devices, and why the check is a second call
+
+`packages/intelligence/src/review/adjudication/` is five modules and one of them is a coordinate system:
+
+1. **`narration.ts`** - a deterministic veto. A finding whose text names no consequence _and_ matches one of three
+   changelog shapes is refused before any call is spent on it. **Free, so it runs first.**
+2. **`adjudicator.ts`** - one model call per surviving finding, asking a _different question from the one the lanes were
+   asked_: is this sentence true of this code, and if not, does the code at this line contain a defect the sentence
+   mis-stated. **`verdict.ts`** reads the answer, **`prompt.ts`** asks it.
+3. **`patch-lines.ts`** - which line numbers the diff actually added. Not a detail: `diff.ranges` counts the _patch's_
+   lines when the diff was built out of patch text, and **a filter in this engine has already lost a correct finding at
+   file line 900 to exactly that confusion.**
+
+**Why the check is a second call rather than a self-critique inside the lane.** A claim checked by the process that
+produced it is checked by an instrument that agrees with itself - the criticism this corpus's own benchmark carries, and
+the reason the two calls are given opposite jobs. **The finder is rewarded for coverage; the second reader is rewarded
+for disagreeing.**
+
+**Why a repair is part of it, and the one thing that separates this device from a filter.** A comment can stand on
+exactly the line a golden sits on and describe a different problem - **141 of 452 goldens were missed that way, at
+distance zero** - and the only repair for that is to say the right thing at the right line. **A refutation removes a
+false positive; a repair removes a false positive and a false negative in one move.** The contract is therefore stricter
+for a repair than for a new finding: it must name the failure rather than the fix, it must stay inside the lines the
+comment pointed at, and an answer that carries no sentence is treated as unreadable rather than as a repair.
+
+### 44.3 The veto's own measurement, and the four rules it lost
+
+**A rule that refuses a sentence is a claim, and claims here are measured.** The veto's four candidate shapes were read
+against the recorded 569 findings and the corpus's answer key, one rule at a time:
+
+| rule                                       | refused | of which accepted |
+| ------------------------------------------ | ------- | ----------------- |
+| `Public API change:` / `signature changed` | 8       | **0**             |
+| `an entity was added`                      | 1       | **0**             |
+| `overload argument order changed`          | 1       | **0**             |
+| `no longer ...`                            | 19      | 5                 |
+| `X was renamed / moved / converted`        | 3       | 1                 |
+| `now returns / takes / accepts`            | 8       | 2                 |
+| `the code is legal / fine / correct`       | 7       | 3                 |
+
+**The last four are gone.** _"Auth nonce is no longer invalidated after validation, enabling replay"_ and _"ModuleSpecifier
+panics after removing its case"_ are claims about behaviour that happen to use a change verb; at 23 % those rules refuse
+accepted findings at almost the rate the reviewer produces them (28 %), which is a filter with no signal in it. **What
+survives refuses 10 of 569 and none of the 160 accepted** - a device of +0.002 F1 that is kept because it is free and
+exact, and whose real value is that it is the part of the contract a test can check without a provider.
+
+### 44.4 The registration, before the dispatch
+
+`§44 (R-19)`: _checking each finding against the code before filing it raises the file arm F1 by at least 0.04 and does
+not lower recall by more than 0.01_, mechanism **`recall-holds`**.
+
+**The mechanism is the conservative one on purpose.** A repair can raise precision and recall together, and a
+registration that named `recall-rises` would turn a device which merely trades recall for precision into a
+falsification of its own idea. **If repairs work, the gain appears as a gain and the artifact says so; if they do not,
+the registered claim still describes what was promised.**
+
+**The slice is the discovery rows and the entry says so.** `skip 0 max 50` is where the diagnosis was made - three of
+the four numbers in §44.1 come from it - so this dispatch is a discovery, and **the confirmation R-19 owes is a later run
+over rows the diagnosis did not read**, which is the next registration rather than this one. **The pin on `code_context`
+is what makes the pair a comparison of one device**: §20/R-18 left the code window falsified at −0.0065, so both arms
+read the diff without one.
+
+### 44.5 What it can cost, and what it cannot do
+
+**One call per surviving finding, at a 600-token ceiling and a zero temperature**, tagged `review:adjudicate` so a bill
+can separate it from the lanes. The recorded run bought **3 195 calls** for the fifty pull requests, of which 1 695 were
+lane calls and 569 findings survived the gate - so **this device's bill is bounded by the emission, at roughly a third of
+what the lanes cost**, and the tag is what lets the first measured run say whether that bound held. **A device whose cost
+cannot be read off the ledger is a device nobody can decide to keep.**
+
+**It cannot recover a golden nobody spoke about.** The 36 `noFindingOnPath` goldens and the 39 `fileNotReviewed` ones are
+a coverage problem, and coverage is the lanes' job. **A pass that only ever removes comments reports a better precision
+on a smaller numerator**, which is the trade §19.3 already refused.
+
+### 44.6 What the tests prove without a provider
+
+Four files, and every assertion is about code this repository owns - the provider in them is a transport double, because
+the alternative is a suite that measures the endpoint's mood on every push.
+
+- **`patch-lines.test.ts`** - the plain hunk, **the `+++`/`---` trap** (a first-character walk shifts every number in the
+  file by the number of headers above it), the two-hunk file, the deletion, the omitted count in `@@ -1 +1 @@`, and the
+  two cases that are not a patch: a code window, and **a list of hunk headers with no content under it** - which is what
+  this engine's own `buildDiffContent` produces, and which an empty set would read as "the diff added nothing".
+- **`narration.test.ts`** - each surviving rule against the sentence it was written for, and the two rows that killed
+  `no longer`.
+- **`adjudication-verdict.test.ts`** - the fence, a line number that arrives as a string, a zero line, a repair with no
+  sentence, and **`unreadable` kept apart from `refuted`** because the two have opposite repairs.
+- **`adjudicator.test.ts` / `engine-claims.test.ts`** - the index each survivor carries, the concurrency bound, **the
+  fail-open path** (a provider outage must not report perfect precision and no recall), and through the engine: **the
+  lane a survivor is attributed to**, a restatement refused before a paid call, and a repair filed with the sentence the
+  second reader wrote.
+
+**And the fixture that caught its own author**: the patch in `engine-claims.test.ts` first declared `+8,7` over four
+context lines and three additions, which put the additions on 10, 11 and 12 rather than on the 11, 12 and 13 every
+fixture points at. **The failure read as an anchoring bug and was a fixture bug**, which is why the count is now written
+beside the constant.
+
+**Coverage, because a suite that passes is not a suite that measured anything.** All five new modules are at **100 % on
+statements, branches, functions and lines**, measured with `--coverage.include` on `review/adjudication/**` and nothing
+else - and the run as a whole is at **99.00 / 97.98 / 99.14 / 99.24** over 19 420 tests. **The engine file is not at
+100 % and this iteration did not make it so**: its uncovered lines are the lane error path and the pull-request
+truncation, which predate this work; what is new is that `reviewDiff`'s two branches - with the claim check and without
+it - are both exercised, by `engine-claims.test.ts`. **Two branches had to be deleted rather than tested to reach it**: four `?? ''` defaults in the prompt
+builder were branches no call can reach, because `LLMFinding` requires those fields and the parser enforces exactly
+that - **a defensive default that cannot fire is not a safety net, it is a line that makes an impossible state look
+handled**, and the honest fix is to remove it.

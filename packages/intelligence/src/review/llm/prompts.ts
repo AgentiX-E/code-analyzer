@@ -56,6 +56,16 @@ export interface LLMFinding {
    * six terms**, which is the only reason it is stored.
    */
   agreement?: number;
+  /**
+   * **Set when the claim-checking pass rewrote this finding rather than accepting it**, and the reason it is a field
+   * rather than a comparison against the original.
+   *
+   * **A repaired finding is a different bet from an upheld one**: upheld says the reviewer's sentence was true, repaired
+   * says the reviewer was looking at the right code and described the wrong thing. **The two are the whole question the
+   * pass exists to answer** - filtering can only trade precision for recall, and a repair is the one move that raises
+   * both - so a report that cannot separate them cannot say whether the device worked or merely subtracted.
+   */
+  repaired?: boolean;
 }
 
 /** Parameters passed to each review prompt template. */

@@ -209,22 +209,28 @@ describe('the matrix is one experiment', () => {
     expect(differ, `the arms differ in ${differ.join(' and ')}`).toHaveLength(1);
   });
 
-  it('varies the code window, which is the device §20 registered', () => {
+  it('varies the claim check, which is the device iteration 141 registered', () => {
     // Named rather than derived: **a matrix that varies something nobody registered is a dispatch that produces a
     // number no sentence in `EVAL-CONTRACT.md` predicted**, and this line is what makes the arm's identity reviewable
     // in a diff instead of only in a run page.
     // **Located by value rather than by position**, because the order of `include` entries is a fact about the YAML and
     // not about the experiment: reading the first entry as "the arm with the device" would invert every sign in the
     // comparison the moment somebody sorted the list.
+    //
+    // **The previous device is still pinned, and that is the part worth stating.** §20/R-18 measured the code window at
+    // −0.0065 against a registered +0.02 and left it falsified, so both arms read the diff without one: **the pin is
+    // what makes the pair a comparison of the claim check rather than of two devices at once.**
     const all = pair();
     const keys = [...new Set(all.flatMap((arm) => Object.keys(arm)))];
     const varied = keys.find((key) => all[0]![key] !== all[1]![key]);
-    expect(varied).toBe('code_context');
-    const withDevice = all.find((arm) => arm['code_context'] === 'on');
-    const withoutDevice = all.find((arm) => arm['code_context'] === 'off');
+    expect(varied).toBe('adjudicate');
+    const withDevice = all.find((arm) => arm['adjudicate'] === 'on');
+    const withoutDevice = all.find((arm) => arm['adjudicate'] === 'off');
     expect(withoutDevice, 'the matrix declares no `off` arm to compare against').toBeDefined();
     expect(withDevice, 'the matrix declares no `on` arm, which is the device').toBeDefined();
-    expect(all.map((arm) => arm['code_context']).sort()).toEqual(['off', 'on']);
+    expect(all.map((arm) => arm['adjudicate']).sort()).toEqual(['off', 'on']);
+    // **And the retired device is held still**, because a pair that also moved it would be measuring two things.
+    for (const arm of all) expect(arm['code_context']).toBe('off');
   });
 
   it('pins the profile to the one R-17 did not falsify', () => {
@@ -241,6 +247,13 @@ describe('the matrix is one experiment', () => {
     // this assertion is what stops it coming back.
     expect(WORKFLOW).toContain('AACR_CODE_CONTEXT: ${{ matrix.code_context }}');
     expect(WORKFLOW).not.toMatch(/inputs\.code_context/);
+  });
+
+  it('takes the claim check from the matrix for the same reason', () => {
+    // **The same defect would arrive the same way**: an `AACR_ADJUDICATE` read from a dispatch input is one value given
+    // to both arms, which produces two artifacts whose only difference is a switch neither of them was given.
+    expect(WORKFLOW).toContain('AACR_ADJUDICATE: ${{ matrix.adjudicate }}');
+    expect(WORKFLOW).not.toMatch(/inputs\.adjudicate/);
   });
 
   it('does not go looking for a counterpart when the matrix has one row', () => {

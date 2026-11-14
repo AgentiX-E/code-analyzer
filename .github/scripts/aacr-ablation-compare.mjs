@@ -81,6 +81,37 @@ export const REGISTRATIONS = Object.freeze({
     // **The slice the registration names**: the thirty-six pull requests its baseline read, which is `skip 14`.
     confirmation: [{ skip: 14, max: 36 }],
   },
+  /**
+   * **§44's registration, written before the dispatch rather than after it.**
+   *
+   * The diagnosis is two rows of the published artifact: **302 false positives against 160 accepted, whose largest block
+   * is comments that assert nothing about the code** ("Public API change: return type changed from int to ArrowType",
+   * and a comment whose own body argues the declaration is legal), and **141 goldens missed by a comment standing on the
+   * golden's own line**. **One needs a reader that asks "is this true"; the other needs one that asks "what is true
+   * here".** `review/adjudication/` is that reader, and the device is one call per surviving finding.
+   *
+   * **Why `recall-holds` rather than `recall-rises`, although the device can repair.** A repair is the only move that
+   * raises precision and recall at once, and it is also the move with the largest failure mode - an adjudicator that
+   * rewrites a correct comment into an invention. **Registering the optimistic mechanism would make a device that trades
+   * recall for precision look like a falsification of its own idea**, so the registered mechanism is the conservative
+   * one: precision up, recall not down by more than a golden is worth. **If repairs do their job the recall gain shows
+   * up as a gain, and the artifact will say so.**
+   *
+   * **What is registered as the slice is the discovery rows, and that is stated rather than hidden.** The fifty pull
+   * requests are the ones the diagnosis was made on, so this dispatch is a discovery and not a confirmation - **the
+   * confirmation this entry owes is a later run over rows the diagnosis did not read (`skip: 50`), and it is the next
+   * registration rather than this one.**
+   */
+  adjudicate: {
+    section: '§44 (R-19)',
+    claim:
+      'checking each finding against the code before filing it raises the file arm F1 by at least 0.04 and does not lower recall by more than 0.01',
+    arm: 'file',
+    registeredGain: 0.04,
+    mechanism: 'precision rises and recall does not fall by more than a golden is worth',
+    mechanismRule: 'recall-holds',
+    confirmation: [{ skip: 0, max: 50 }],
+  },
   emissionProfile: {
     section: '§19 (R-17)',
     claim:
