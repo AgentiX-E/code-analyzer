@@ -8,7 +8,6 @@
 
 import { describe, expect, it } from 'vitest';
 
-import { FUSION_WEIGHT_BOUNDS } from '../search/fusion-weight.js';
 import {
   DEFAULT_RRF_K,
   FUSION_RULE_NAMES,
@@ -19,6 +18,7 @@ import {
   qppVectorWeight,
   zScores,
 } from '../search/fusion-rules.js';
+import { FUSION_WEIGHT_BOUNDS } from '../search/fusion-weight.js';
 import { HybridSearchEngine } from '../search/hybrid-search.js';
 
 import type { RankedResult } from '../search/hybrid-search.js';

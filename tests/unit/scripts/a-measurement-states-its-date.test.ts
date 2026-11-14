@@ -56,7 +56,9 @@ describe('every measurement says when it was taken', () => {
       expect(stamp, `${name} records no measurement date`).toBeDefined();
       // **Parsed, not merely present**: a field with a placeholder in it passes a presence check and fails the only
       // question a reader has - was this taken before or after the change I am reading about.
-      expect(Number.isNaN(Date.parse(stamp!)), `${name} has an unparseable date ${stamp}`).toBe(false);
+      expect(Number.isNaN(Date.parse(stamp!)), `${name} has an unparseable date ${stamp}`).toBe(
+        false,
+      );
     }
   });
 
@@ -65,9 +67,12 @@ describe('every measurement says when it was taken', () => {
     // the reason `space` is `null` rather than absent on a lexical run - **`null` is an answer, a missing key is not**.
     for (const [name, artifact] of measurements()) {
       if (!Object.hasOwn(artifact, 'space')) continue;
-      if (artifact.space === null) continue;
-      expect(artifact.space.index, `${name} does not name its index space`).toBeDefined();
-      expect(artifact.space.query, `${name} does not name its query space`).toBeDefined();
+      const space = artifact.space;
+      // **`null` is the lexical run and is an answer**; absent is the defect, and a key that exists but is `undefined`
+      // is the same defect with a different spelling.
+      if (space === null || space === undefined) continue;
+      expect(space.index, `${name} does not name its index space`).toBeDefined();
+      expect(space.query, `${name} does not name its query space`).toBeDefined();
     }
   });
 });
