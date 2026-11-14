@@ -107,6 +107,27 @@ describe('an async method with no await misleads its caller', () => {
     ).toEqual([]);
     expect(fired(script(['  const x = async () => this.value;']))).toEqual([]);
   });
+
+  it('stays silent when the declaration has no body inside the patch', () => {
+    // **`async` on a line with no `{` is a signature** - an interface member, or an overload whose body the patch does
+    // not show. The `await` may be four hundred lines below the hunk, so the silence is the only verdict the lane can
+    // defend; a guess here is a finding about code it never received.
+    expect(fired(script(['  async declare(): Promise<void>;']))).toEqual([]);
+  });
+
+  it('counts the braces of a nested block rather than the first closing one', () => {
+    // **Without the brace counter this case ends at the `}` of the `if`**, and the method reads as closed four lines
+    // before it is - which is the shape that would report a body that does await further down.
+    const lines = [
+      '  async pick(flag: boolean): Promise<number> {',
+      '    if (flag) {',
+      '      return 1;',
+      '    }',
+      '    return 0;',
+      '  }',
+    ];
+    expect(fired(script(lines))).toContain('redundant-async');
+  });
 });
 
 describe('a loose equality is a coercion the checklist forbids', () => {
@@ -123,6 +144,12 @@ describe('a loose equality is a coercion the checklist forbids', () => {
     // both `null` and `undefined`. A rule that fired on it would be arguing with the language, not with the author.
     expect(fired(script(['if (value == null) {']))).toEqual([]);
     expect(fired(script(['if (value != undefined) {']))).toEqual([]);
+  });
+
+  it('fires when the left operand is a literal rather than a name', () => {
+    // **`0 == value` has no identifier on the left**, so the null-guard exclusion has nothing to compare - and the
+    // coercion the rule is about is unchanged by which side the literal is on.
+    expect(fired(script(['if (0 == value) {']))).toContain('loose-equality');
   });
 });
 
@@ -161,6 +188,16 @@ describe('a macro whose name is not upper case is a name that will be mistyped',
     // **A function-like macro is a different construct** and the corpus's finding was about names of constants; a rule
     // that also fired on `#define MIN(a, b)` would be reporting a style the C preprocessor's own headers use.
     expect(fired(patch(['#define MAX_OF(a, b) ((a) > (b) ? (a) : (b))']))).toEqual([]);
+  });
+});
+
+describe('a path decides which rules run at all', () => {
+  it('reads a documentation file as neither C++ nor a script and still applies the two rules for every language', () => {
+    // **`other` is the third bucket**, and the corpus needs it: `observer.rst` carries the article finding and
+    // `SoDatumLabel.cpp` carries the float one. The two rules declared for every language still run, and the four that
+    // name a language do not - which is the distinction the language list exists to make.
+    const input = patch(['# Return an Scale value for the section.'], 10, 'docs/notes.py');
+    expect(fired(input)).toEqual(['article-agreement-in-comment']);
   });
 });
 

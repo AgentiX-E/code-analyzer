@@ -59,6 +59,26 @@ interface Draft {
   readonly suggestion: string;
 }
 
+/**
+ * **The capture group at `index`, which every pattern in this file guarantees is there.**
+ *
+ * `noUncheckedIndexedAccess` types an index into a match as `string | undefined`, because the compiler cannot read a
+ * regular expression. Written as `match[1] ?? ''`, that becomes **a branch no test can ever take the other side of** -
+ * the group is present whenever the match is - and the per-file coverage gate counts each one as a half-measured
+ * branch. Nine of them were 86.17% of this file's branches, which is the arithmetic that made the gate fail rather
+ * than a gap in the tests. **One assertion in one place, with the reason, rather than nine that each look like a
+ * decision about what to do when a group is missing.**
+ */
+function group(match: ReadonlyArray<string>, index: number): string {
+  return match[index] as string;
+}
+
+/** What a rule may read besides its own line: the patch's `float` declarations, and the lines that follow it. */
+interface RuleContext {
+  readonly floats: ReadonlySet<string>;
+  readonly lines: readonly string[];
+}
+
 // ---------------------------------------------------------------------------
 // Reading a comment's body
 // ---------------------------------------------------------------------------
@@ -77,7 +97,7 @@ function commentBody(line: string): string | null {
   const match = /^\s*(?:\/\/[/!]?|#(?!\s*[![])|--)\s?(.*)$/.exec(line);
   if (match === null) return null;
   if (DIRECTIVE.test(line)) return null;
-  return match[1] ?? '';
+  return group(match, 1);
 }
 
 /** Markers a reader uses to say "this is not a statement": a task, a tag, a reference, a URL. */
@@ -117,22 +137,24 @@ function isCommentedOutCode(body: string): boolean {
  * the two possible repairs - delete it, or restore it - are both decisions the author is the only one who can make. It
  * is therefore `maintainability` rather than `style`: the count that matters is whether a reader would act.
  */
-function commentedOutCode(line: number, text: string): Draft | null {
+function commentedOutCode(line: number, text: string): Draft[] {
   const body = commentBody(text);
-  if (body === null || !isCommentedOutCode(body)) return null;
+  if (body === null || !isCommentedOutCode(body)) return [];
   const quoted = body.trim();
-  return {
-    id: 'commented-out-code',
-    line,
-    category: 'maintainability',
-    severity: 'low',
-    title: 'Commented-out code should be deleted or restored',
-    description:
-      `The added line comments out a statement: \`${quoted}\`. Commented-out code is not checked by the compiler ` +
-      'and cannot be trusted by a reader - it either still matters, in which case it belongs in the code, or it does ' +
-      'not, in which case it belongs in the history.',
-    suggestion: 'Delete the commented statements, or uncomment them if they are still needed.',
-  };
+  return [
+    {
+      id: 'commented-out-code',
+      line,
+      category: 'maintainability',
+      severity: 'low',
+      title: 'Commented-out code should be deleted or restored',
+      description:
+        `The added line comments out a statement: \`${quoted}\`. Commented-out code is not checked by the compiler ` +
+        'and cannot be trusted by a reader - it either still matters, in which case it belongs in the code, or it does ' +
+        'not, in which case it belongs in the history.',
+      suggestion: 'Delete the commented statements, or uncomment them if they are still needed.',
+    },
+  ];
 }
 
 // ---------------------------------------------------------------------------
@@ -157,26 +179,28 @@ function floatLiteralInFloatArithmetic(
   line: number,
   text: string,
   floats: ReadonlySet<string>,
-): Draft | null {
-  if (floats.size === 0) return null;
+): Draft[] {
+  if (floats.size === 0) return [];
   DOUBLE_LITERAL.lastIndex = 0;
   const match = DOUBLE_LITERAL.exec(text);
-  if (match === null) return null;
-  const literal = match[1] ?? '';
-  const variable = match[2] ?? '';
-  if (!floats.has(variable)) return null;
-  return {
-    id: 'float-literal-in-float-arithmetic',
-    line,
-    category: 'maintainability',
-    severity: 'low',
-    title: 'Double literal widens float arithmetic',
-    description:
-      `\`${literal}\` is a double literal, so \`${literal} * ${variable}\` is evaluated in double precision and the ` +
-      `result is narrowed back when it is stored beside \`${variable}\`. Writing \`${literal}f\` keeps the whole ` +
-      'expression in float arithmetic, which is what the declared type says was intended.',
-    suggestion: `Use \`${literal}f\` instead of \`${literal}\`.`,
-  };
+  if (match === null) return [];
+  const literal = group(match, 1);
+  const variable = group(match, 2);
+  if (!floats.has(variable)) return [];
+  return [
+    {
+      id: 'float-literal-in-float-arithmetic',
+      line,
+      category: 'maintainability',
+      severity: 'low',
+      title: 'Double literal widens float arithmetic',
+      description:
+        `\`${literal}\` is a double literal, so \`${literal} * ${variable}\` is evaluated in double precision and the ` +
+        `result is narrowed back when it is stored beside \`${variable}\`. Writing \`${literal}f\` keeps the whole ` +
+        'expression in float arithmetic, which is what the declared type says was intended.',
+      suggestion: `Use \`${literal}f\` instead of \`${literal}\`.`,
+    },
+  ];
 }
 
 // ---------------------------------------------------------------------------
@@ -195,21 +219,15 @@ const ASYNC_METHOD =
  * patch does not show is not evidence of anything - the `await` may be four hundred lines down - so an unclosed block
  * is a silence rather than a guess.
  */
-function redundantAsync(
-  line: number,
-  text: string,
-  lines: readonly string[],
-  at: number,
-): Draft | null {
-  if (!ASYNC_METHOD.test(text)) return null;
+function redundantAsync(line: number, text: string, lines: readonly string[], at: number): Draft[] {
+  const declared = ASYNC_METHOD.exec(text);
+  if (declared === null) return [];
   const openAt = text.lastIndexOf('{');
-  if (openAt < 0) return null;
+  if (openAt < 0) return [];
   let depth = 1;
   let sawAwait = false;
-  const rest = `${text.slice(openAt + 1)}`;
-  const walk = [rest, ...lines.slice(at + 1)];
-  for (let index = 0; index < walk.length; index += 1) {
-    const current = walk[index] ?? '';
+  const walk = [text.slice(openAt + 1), ...lines.slice(at + 1)];
+  for (const current of walk) {
     if (/\bawait\b/.test(current)) sawAwait = true;
     for (const character of current) {
       if (character === '{') depth += 1;
@@ -219,21 +237,23 @@ function redundantAsync(
   }
   // **An unclosed block is the truncation case**, and it is the one where a finding would be a claim about code the
   // lane never saw.
-  if (depth > 0 || sawAwait) return null;
-  const name = ASYNC_METHOD.exec(text)?.[1] ?? 'method';
-  return {
-    id: 'redundant-async',
-    line,
-    category: 'maintainability',
-    severity: 'low',
-    title: '`async` method performs no asynchronous work',
-    description:
-      `\`${name}\` is declared \`async\` but its body contains no \`await\`, so it returns an already-settled promise. ` +
-      'Every caller has to `await` a value that was available synchronously, and the signature says the method does ' +
-      'work that it does not do.',
-    suggestion:
-      'Remove `async` and return the value directly, or `await` the work it is meant to do.',
-  };
+  if (depth > 0 || sawAwait) return [];
+  const name = group(declared, 1);
+  return [
+    {
+      id: 'redundant-async',
+      line,
+      category: 'maintainability',
+      severity: 'low',
+      title: '`async` method performs no asynchronous work',
+      description:
+        `\`${name}\` is declared \`async\` but its body contains no \`await\`, so it returns an already-settled promise. ` +
+        'Every caller has to `await` a value that was available synchronously, and the signature says the method does ' +
+        'work that it does not do.',
+      suggestion:
+        'Remove `async` and return the value directly, or `await` the work it is meant to do.',
+    },
+  ];
 }
 
 // ---------------------------------------------------------------------------
@@ -248,12 +268,14 @@ const NULLISH_OPERANDS = new Set(['null', 'undefined']);
 
 /** The identifier ending just before `at`, or `''` when the operand is not a name. */
 function operandBefore(text: string, at: number): string {
-  return /([A-Za-z_$][\w$]*)\s*$/.exec(text.slice(0, at))?.[1] ?? '';
+  const found = /([A-Za-z_$][\w$]*)\s*$/.exec(text.slice(0, at));
+  return found === null ? '' : group(found, 1);
 }
 
 /** The identifier starting just after `at`, or `''` when the operand is not a name. */
 function operandAfter(text: string, at: number): string {
-  return /^\s*([A-Za-z_$][\w$]*)/.exec(text.slice(at))?.[1] ?? '';
+  const found = /^\s*([A-Za-z_$][\w$]*)/.exec(text.slice(at));
+  return found === null ? '' : group(found, 1);
 }
 
 /**
@@ -264,30 +286,32 @@ function operandAfter(text: string, at: number): string {
  * `undefined`, which is why it is idiomatic rather than sloppy; a rule that fired on it would be arguing with the
  * language. A comparison against any other value coerces, and coercion is what the corpus's checklist forbids.
  */
-function looseEquality(line: number, text: string): Draft | null {
+function looseEquality(line: number, text: string): Draft[] {
   const trimmed = text.trimStart();
-  if (trimmed.startsWith('//') || trimmed.startsWith('*') || trimmed.startsWith('/*')) return null;
+  if (trimmed.startsWith('//') || trimmed.startsWith('*') || trimmed.startsWith('/*')) return [];
   const match = LOOSE_EQUALITY.exec(text);
-  if (match === null) return null;
-  const operator = match[1] ?? '==';
+  if (match === null) return [];
+  const operator = group(match, 1);
   // **The operator's own offset, not the match's.** The match carries one leading character (the lookbehind that keeps
   // `===` out), so the operands are read from the operator rather than from the pattern's start.
-  const operatorAt = (match.index ?? 0) + match[0].length - operator.length;
+  const operatorAt = match.index + match[0].length - operator.length;
   const left = operandBefore(text, operatorAt);
   const right = operandAfter(text, operatorAt + operator.length);
-  if (NULLISH_OPERANDS.has(left) || NULLISH_OPERANDS.has(right)) return null;
-  return {
-    id: 'loose-equality',
-    line,
-    category: 'bug',
-    severity: 'medium',
-    title: 'Loose equality coerces its operands',
-    description:
-      `\`${operator}\` compares after type coercion, so \`0\`, \`""\` and \`false\` all compare equal to each other ` +
-      'and a mistyped operand becomes a silent pass rather than a failed comparison. The checklist requires `===` and ' +
-      '`!==` for every comparison.',
-    suggestion: `Use \`${operator === '==' ? '===' : '!=='}\` instead of \`${operator}\`.`,
-  };
+  if (NULLISH_OPERANDS.has(left) || NULLISH_OPERANDS.has(right)) return [];
+  return [
+    {
+      id: 'loose-equality',
+      line,
+      category: 'bug',
+      severity: 'medium',
+      title: 'Loose equality coerces its operands',
+      description:
+        `\`${operator}\` compares after type coercion, so \`0\`, \`""\` and \`false\` all compare equal to each other ` +
+        'and a mistyped operand becomes a silent pass rather than a failed comparison. The checklist requires `===` and ' +
+        '`!==` for every comparison.',
+      suggestion: `Use \`${operator === '==' ? '===' : '!=='}\` instead of \`${operator}\`.`,
+    },
+  ];
 }
 
 // ---------------------------------------------------------------------------
@@ -323,9 +347,10 @@ function articleAgreement(line: number, text: string): Draft[] {
   const drafts: Draft[] = [];
   ARTICLE.lastIndex = 0;
   for (let match = ARTICLE.exec(body); match !== null; match = ARTICLE.exec(body)) {
-    const article = match[1] ?? 'a';
-    const noun = match[2] ?? '';
-    if (noun.length === 0) continue;
+    // **`[A-Za-z][a-z]+` is two characters or more**, so there is no empty noun to skip - a guard for it would be a
+    // branch the pattern already excludes.
+    const article = group(match, 1);
+    const noun = group(match, 2);
     const agrees = article === 'an' ? startsWithVowelSound(noun) : !startsWithVowelSound(noun);
     if (agrees) continue;
     const shouldBe = article === 'an' ? 'a' : 'an';
@@ -358,53 +383,95 @@ const OBJECT_MACRO = /^\s*#\s*define\s+([A-Za-z_]\w*)(?=\s)/;
  * **Function-like macros are excluded.** `#define MAX(a, b)` is a different construct with a different convention, and
  * the corpus's finding was about constants.
  */
-function macroNameCase(line: number, text: string): Draft | null {
-  const name = OBJECT_MACRO.exec(text)?.[1];
-  if (name === undefined || !/[a-z]/.test(name)) return null;
+function macroNameCase(line: number, text: string): Draft[] {
+  const declared = OBJECT_MACRO.exec(text);
+  if (declared === null) return [];
+  const name = group(declared, 1);
+  if (!/[a-z]/.test(name)) return [];
   const upper = name.replace(/[a-z]/g, (character) => character.toUpperCase());
-  return {
-    id: 'macro-name-case',
-    line,
-    category: 'style',
-    severity: 'low',
-    title: `Macro \`${name}\` is not upper case`,
-    description:
-      `\`#define ${name}\` is a constant whose name is not in upper case, while the other definitions in this header ` +
-      'are. The inconsistency makes the new constant read like a variable at the call site and like a different ' +
-      'convention at the definition.',
-    suggestion: `Rename it to \`${upper}\`.`,
-  };
+  return [
+    {
+      id: 'macro-name-case',
+      line,
+      category: 'style',
+      severity: 'low',
+      title: `Macro \`${name}\` is not upper case`,
+      description:
+        `\`#define ${name}\` is a constant whose name is not in upper case, while the other definitions in this header ` +
+        'are. The inconsistency makes the new constant read like a variable at the call site and like a different ' +
+        'convention at the definition.',
+      suggestion: `Rename it to \`${upper}\`.`,
+    },
+  ];
 }
 
 // ---------------------------------------------------------------------------
 // The lane
 // ---------------------------------------------------------------------------
 
-/** Every rule, with the languages it applies to. **A rule that applies to nothing is a rule nobody measured.** */
-export const IDIOM_RULES: ReadonlyArray<{
+/** What one rule reads and what it says. **The verdict is a list**, so a rule may report zero and the lane's dispatch
+ * needs no null check of its own. */
+type RuleRun = (line: number, text: string, at: number, context: RuleContext) => readonly Draft[];
+
+/**
+ * **Every rule, with the languages it applies to and the golden it came from.**
+ *
+ * The three things sit in one row because they are one decision: **a rule that applies to nothing is a rule nobody
+ * measured**, and a rule whose corpus line is not written down is a rule somebody added on taste. The language list is
+ * also what makes the dispatch below a loop rather than six `if`s - two of the six apply to every language, so two of
+ * those six were conditions no test could make false.
+ */
+interface RuleRow {
   readonly id: string;
   readonly languages: readonly Language[];
   readonly corpus: string;
-}> = Object.freeze([
+  readonly run: RuleRun;
+}
+
+/** The rows, in the order the lane runs them. */
+const RULE_TABLE: readonly RuleRow[] = [
   {
     id: 'commented-out-code',
     languages: ['cxx', 'javascript', 'other'],
     corpus: 'FemVTKTools.cpp:1434',
+    run: commentedOutCode,
   },
   {
     id: 'float-literal-in-float-arithmetic',
     languages: ['cxx'],
     corpus: 'SoDatumLabel.cpp:84',
+    run: (line, text, _at, context) => floatLiteralInFloatArithmetic(line, text, context.floats),
   },
-  { id: 'redundant-async', languages: ['javascript'], corpus: 'index.ts:460' },
-  { id: 'loose-equality', languages: ['javascript'], corpus: 'ExtrudeGeometry.js:406' },
+  {
+    id: 'redundant-async',
+    languages: ['javascript'],
+    corpus: 'index.ts:460',
+    run: (line, text, at, context) => redundantAsync(line, text, context.lines, at),
+  },
+  {
+    id: 'loose-equality',
+    languages: ['javascript'],
+    corpus: 'ExtrudeGeometry.js:406',
+    run: looseEquality,
+  },
   {
     id: 'article-agreement-in-comment',
     languages: ['cxx', 'javascript', 'other'],
     corpus: 'lv_observer.h:610',
+    run: articleAgreement,
   },
-  { id: 'macro-name-case', languages: ['cxx'], corpus: 'usb_ids.h:63' },
-]);
+  { id: 'macro-name-case', languages: ['cxx'], corpus: 'usb_ids.h:63', run: macroNameCase },
+];
+
+/** The rule table as the lane and the artifact read it: frozen, so a caller cannot add a rule to a shared array. */
+export const IDIOM_RULES: readonly RuleRow[] = Object.freeze(RULE_TABLE);
+
+/** The `float` declarations in the patch, which are the evidence that a literal beside one widens the expression. */
+function floatDeclarations(patch: string): ReadonlySet<string> {
+  const names = new Set<string>();
+  for (const match of patch.matchAll(FLOAT_DECLARATION)) names.add(group(match, 1));
+  return names;
+}
 
 /**
  * **Every remark this lane has to make about one file, in line order, capped per rule.**
@@ -416,44 +483,21 @@ export const IDIOM_RULES: ReadonlyArray<{
  */
 export function detectIdioms(input: IdiomInput): LLMFinding[] {
   const language = languageOf(input.path);
-  const applies = new Set(
-    IDIOM_RULES.filter((rule) => rule.languages.includes(language)).map((rule) => rule.id),
-  );
-
   const entries = [...input.addedLines.entries()].sort((left, right) => left[0] - right[0]);
-  const lines = entries.map(([, text]) => text);
-
-  const floats = new Set<string>();
-  for (const match of input.patch.matchAll(FLOAT_DECLARATION)) {
-    if (match[1] !== undefined) floats.add(match[1]);
-  }
+  const context: RuleContext = {
+    floats: floatDeclarations(input.patch),
+    lines: entries.map(([, text]) => text),
+  };
 
   const drafts: Draft[] = [];
-  entries.forEach(([line, text], at) => {
-    if (applies.has('commented-out-code')) {
-      const draft = commentedOutCode(line, text);
-      if (draft !== null) drafts.push(draft);
+  for (const [at, [line, text]] of entries.entries()) {
+    for (const rule of IDIOM_RULES) {
+      // **The table decides which rules apply, not a branch per rule in this function** - a seventh rule cannot be
+      // added without saying which languages it is for, and the dispatch stays one condition deep.
+      if (!rule.languages.includes(language)) continue;
+      drafts.push(...rule.run(line, text, at, context));
     }
-    if (applies.has('float-literal-in-float-arithmetic')) {
-      const draft = floatLiteralInFloatArithmetic(line, text, floats);
-      if (draft !== null) drafts.push(draft);
-    }
-    if (applies.has('redundant-async')) {
-      const draft = redundantAsync(line, text, lines, at);
-      if (draft !== null) drafts.push(draft);
-    }
-    if (applies.has('loose-equality')) {
-      const draft = looseEquality(line, text);
-      if (draft !== null) drafts.push(draft);
-    }
-    if (applies.has('article-agreement-in-comment')) {
-      drafts.push(...articleAgreement(line, text));
-    }
-    if (applies.has('macro-name-case')) {
-      const draft = macroNameCase(line, text);
-      if (draft !== null) drafts.push(draft);
-    }
-  });
+  }
 
   const perRule = new Map<string, number>();
   const kept: LLMFinding[] = [];
