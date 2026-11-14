@@ -1,6 +1,7 @@
 // **An artifact that prints a number nobody can re-derive is a claim, not a measurement.**
 //
-// `benchmarks/multirepo-qa.json` is produced by `scripts/multirepo-qa.ts` from four released repositories. This test
+// `benchmarks/multirepo-qa.json` is produced by `scripts/multirepo-qa.ts` from the repositories the corpus file pins.
+// This test
 // does what the artifact's own comment promises a reader can do: it decodes the per-question rank columns and
 // recomputes every aggregate printed beside them. If the two disagree, one of them is wrong and this test does not get
 // to guess which.
@@ -62,17 +63,23 @@ function recompute(column: string, n: number): Condition {
 }
 
 describe('the multi-repository artifact can be re-derived from its own columns', () => {
-  it('measured four repositories in four languages, each pinned to a commit', () => {
-    expect(artifact.corpus).toHaveLength(4);
+  it('measured every repository the corpus pins, in six languages, each pinned to a commit', () => {
+    // **The corpus file is the single place the list is written down.** A test that hardcoded four would have passed
+    // while the corpus grew to six - and it did pass, exactly once, on the commit that added `go` and `rust`, until the
+    // workflow ran it against the new artifact.
+    const corpus = JSON.parse(
+      readFileSync(new URL('../../../benchmarks/multirepo-qa-corpus.json', import.meta.url), 'utf8'),
+    ) as { repositories: Array<{ id: string; sha: string }> };
+    expect(artifact.corpus.map((repo) => repo.id)).toEqual(corpus.repositories.map((repo) => repo.id));
     expect(new Set(artifact.corpus.map((repo) => repo.language))).toEqual(
-      new Set(['python', 'javascript', 'typescript', 'java']),
+      new Set(['python', 'javascript', 'typescript', 'java', 'go', 'rust']),
     );
     for (const repo of artifact.corpus) {
       // **A branch name is not a pin.** Two runs of one artifact have to read one corpus.
       expect(repo.sha).toMatch(/^[0-9a-f]{40}$/);
       expect(repo.id).toMatch(/^[^/]+\/[^/]+$/);
     }
-    expect(artifact.index.reposIndexed).toBe(4);
+    expect(artifact.index.reposIndexed).toBe(corpus.repositories.length);
     expect(artifact.index.errors).toEqual([]);
     expect(artifact.index.totalNodes).toBeGreaterThan(1_000);
   });
