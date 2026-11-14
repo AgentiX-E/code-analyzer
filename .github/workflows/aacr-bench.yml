@@ -110,9 +110,13 @@ on:
         #
         # **`off` is the default**, because every figure this repository has published was measured without this lane:
         # an arm that cannot be switched off cannot be compared with them.
-        description: 'Idiom lane: five model lanes (off), plus the deterministic remark lane (on)'
+        #
+        # **`pair` is what R-21 is scored with**: the same hundred pull requests reviewed twice inside one dispatch, so the
+        # difference between the arms is the lane. `on` alone is the diagnostic dispatch - it prices the lane without a
+        # comparison - and it is the value that makes the matrix expression's third branch reachable.
+        description: 'Idiom lane: five model lanes (off), the lane alone (on), or both arms (pair)'
         type: choice
-        options: ['off', 'on']
+        options: ['off', 'on', 'pair']
         default: 'off'
       max_findings_per_file:
         # **The cap that turned out to be a ceiling on the work rather than a rail on the noise.** §23.7 measured 25 of

@@ -136,6 +136,15 @@ function artifactNames(action: 'upload' | 'download'): string[] {
   return names;
 }
 
+/** The `options` a `choice` dispatch input declares, in the order it declares them. */
+function choiceOptions(name: string): string[] {
+  const block = new RegExp(
+    `\\n      ${name}:\\n(?:(?!\\n      [a-z_]+:)[\\s\\S])*?\\n        options: \\[([^\\]]*)\\]`,
+  ).exec(WORKFLOW);
+  expect(block, `the ${name} input declares no \`options\``).not.toBeNull();
+  return block![1]!.split(',').map((value) => value.trim().replace(/^'|'$/g, ''));
+}
+
 /** A name with every `${{ matrix.key }}` replaced by that arm's value. */
 function expand(name: string, arm: Arm): string {
   return name.replace(/\$\{\{\s*matrix\.([\w-]+)\s*\}\}/g, (_whole, key: string) => {
@@ -316,6 +325,22 @@ describe('the matrix is one experiment', () => {
     // to both arms, which produces two artifacts whose only difference is a switch neither of them was given.
     expect(WORKFLOW).toContain('AACR_ADJUDICATE: ${{ matrix.adjudicate }}');
     expect(WORKFLOW).not.toMatch(/inputs\.adjudicate/);
+  });
+
+  it('lets the dispatch choose every value the matrix reads', () => {
+    // **A matrix branch a dispatch cannot reach is a branch nobody runs**, and a choice input is where that happens: the
+    // `idioms` input was written with `['off', 'on']` and the matrix then gained a `pair` branch, so the first dispatch
+    // of R-21 was refused with *"Provided value 'pair' for input 'idioms' not in the list of allowed values"* - a
+    // refusal that cost nothing only because it arrived before the run existed.
+    const declared = choiceOptions('idioms');
+    expect(declared).toContain('pair');
+    // **And every value the matrix expression tests is one of them**, read out of the expression rather than listed
+    // again here: a fourth branch added without a fourth option would fail this line instead of a dispatch.
+    const tested = [...WORKFLOW.matchAll(/inputs\.idioms \|\| 'off'\) == '([a-z]+)'/g)].map(
+      (match) => match[1]!,
+    );
+    expect(tested.length).toBeGreaterThan(1);
+    for (const value of tested) expect(declared, `the matrix reads ${value}`).toContain(value);
   });
 
   it('takes the idiom lane from the matrix, not from the dispatch input', () => {
