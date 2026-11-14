@@ -36,6 +36,7 @@ import {
   repoName,
   sampleQuestions,
   score,
+  scoreBy,
 } from './lib/multirepo-harness.js';
 import { FederatedSearchEngine } from '../packages/intelligence/src/cross-repo/federated-search.js';
 import {
@@ -152,21 +153,42 @@ async function main(): Promise<void> {
   const pairedSemanticScoped =
     semanticEngine === null ? null : compareArms(semanticScoped, semanticFederated);
 
-  const byRepo: Record<string, { federated: number; scoped: number; n: number }> = {};
-  sample.forEach((question, index) => {
-    const row = (byRepo[question.repo] ??= { federated: 0, scoped: 0, n: 0 });
-    row.n += 1;
-    if (foundWithin(federated[index], CUT)) row.federated += 1;
-    if (foundWithin(scoped[index], CUT)) row.scoped += 1;
-  });
+  // **The whole figure and the parts of it**, computed by the same `score()` rather than by a second formula: a
+  // per-repository hit count answered "how many" and never "how well", so the artifact could not show that one
+  // repository was two thirds of every number published above it.
+  const languageOf = new Map(corpus.repositories.map((repo) => [repo.id, repo.language]));
+  const byRepository = {
+    federated: scoreBy(sample, federated, (question) => question.repo),
+    scoped: scoreBy(sample, scoped, (question) => question.repo),
+    ...(semanticEngine === null
+      ? {}
+      : {
+          semanticFederated: scoreBy(sample, semanticFederated, (question) => question.repo),
+          semanticScoped: scoreBy(sample, semanticScoped, (question) => question.repo),
+        }),
+  };
+  const byLanguage = {
+    federated: scoreBy(sample, federated, (question) => languageOf.get(question.repo) ?? ''),
+    scoped: scoreBy(sample, scoped, (question) => languageOf.get(question.repo) ?? ''),
+    ...(semanticEngine === null
+      ? {}
+      : {
+          semanticFederated: scoreBy(sample, semanticFederated, (question) =>
+            languageOf.get(question.repo) ?? '',
+          ),
+          semanticScoped: scoreBy(sample, semanticScoped, (question) =>
+            languageOf.get(question.repo) ?? '',
+          ),
+        }),
+  };
 
   const artifact = {
     comment: [
-      'Cross-repository question answering on four released repositories in four languages.',
+      'Cross-repository question answering on six released repositories in six languages.',
       '',
       "Every question is the first sentence of a symbol's own doc comment and every expected answer is that symbol, so",
       'the answer key comes from the code and not from this project. `scoped` minus `federated` is what the presence of',
-      'three other repositories costs.',
+      'five other repositories costs.',
       '',
       '`perQuestion` holds the rank of the intended answer for each question, 1-based, `-` for not returned. Every',
       'aggregate above can be recomputed from those columns, and a test does recompute them.',
@@ -223,7 +245,8 @@ async function main(): Promise<void> {
             'semantic-scoped-vs-semantic-federated': pairedSemanticScoped,
           }),
     },
-    byRepo,
+    byRepository,
+    byLanguage,
     perQuestion: {
       keys: sample.map((question) => question.key),
       federated: encodeRanks(federated),

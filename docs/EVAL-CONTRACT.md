@@ -4274,3 +4274,80 @@ decide, because it is a product trade rather than a measurement.
    CombMNZ whose count multiplies a _rank-weighted_ score rather than a z-score or a percentile. **Registered as a
    hypothesis, not as a candidate**: it needs its own two corpora and its own six criteria, and it is worth doing only
    after the corpus has four languages rather than four repositories.
+
+## 41. The corpus said four repositories and meant one, and the two languages the roadmap named were not in it
+
+### 41.1 The defect, as a sample rather than an opinion
+
+`sampleQuestions` was the first of every *k* over a pool sorted by `projectId:qualifiedName`. **A stride over a pool is
+proportional to how thoroughly a repository documents itself**, and the published artifact carried the consequence in a
+field nobody read as one:
+
+| repository             | language   | questions in the 494-row sample | share |
+| ---------------------- | ---------- | ------------------------------: | ----: |
+| `google/gson`          | java       |                         **332** | 67.2% |
+| `pallets/flask`        | python     |                             118 | 23.9% |
+| `sindresorhus/got`     | typescript |                              23 |  4.7% |
+| `expressjs/express`    | javascript |                              21 |  4.3% |
+
+**"Four repositories" was one repository and three guests.** Every sentence in this repository that says "four released
+repositories" is a sentence about a sample in which five sixths of the evidence for three of them does not exist, and
+the per-repository figure that would have shown it was a hit count rather than a score - so the artifact could not
+contradict the prose. And the corpus held four languages, none of them `go` or `rust`, which the language priority list
+names and whose doc-comment handling had just been repaired for this purpose.
+
+### 41.2 What changed, and what each change is for
+
+1. **`sampleQuestions` is a quota per repository.** Every repository contributes `floor(target / repositories)` questions,
+   the remainder goes one each in repository order, and a repository smaller than its share gives what it has while the
+   surplus is redistributed by water filling. Within a repository the questions are `floor(at × length / take)` - spread
+   over the whole pool rather than taken from the front, because the pool is sorted by symbol name and a prefix of a
+   sorted list is an alphabet.
+2. **`go` and `rust` entered the corpus, chosen by measurement rather than reputation.** Four candidates were indexed
+   locally before any of them was pinned: `gin-gonic/gin` produced **407** documented questions against `spf13/cobra`'s
+   279, and `BurntSushi/ripgrep` produced **869** against `serde-rs/serde`'s 204. The two that won were pinned by commit
+   (`73726dc6`, `178cc027`) and the two that lost are recorded here so the choice is auditable.
+3. **`byRepository` and `byLanguage` are published per condition**, computed by the same `score()` as the aggregate. A
+   per-repository hit count answered "how many" and never "how well", which is why the table above was invisible.
+4. **The claim "four" is now read from the corpus** (`${corpus.repositories.length}`) rather than typed into a group
+   description, and the workflow gate refuses an artifact whose repositories are not all present with a quota each.
+
+**A quota makes doc-comment density irrelevant to the weight of a repository, and that cuts both ways**: `ripgrep`
+documents itself roughly three times as thoroughly as `gson`, and it now contributes the same ~66 questions. That is the
+point - the denominator is the repository, not the prose.
+
+### 41.3 Registered acceptance criteria, written before the run
+
+- **R1 Quorum.** Every repository contributes **60–70** scored rows, and the verbatim artifact's six `n`s sum to **400**.
+  (`floor(400/6) = 66`, the remainder goes one each in repository order, and a rejected rewrite may cost a repository up
+  to six.) **This criterion was wrong in its first draft and the draft is recorded rather than quietly replaced**: it
+  said "66 or 67", which assumed every repository has more than its share to give. The lexical dry run - no model, no
+  cost, so not a measurement - showed `expressjs/express` has **63** documented symbols in the whole repository, so it
+  hands 3 questions back and the water filling gives them to the two repositories whose names sort first (`88b30ab`'s
+  pool: ripgrep 68, gin 68, gson 67, flask 67, got 67, express 63). The band and the sum are what the arithmetic
+  actually promises; a criterion that named 66 would have failed on a correct corpus.
+- **R2 Languages.** `byLanguage` has **six** keys, and `go` and `rust` each carry **n ≥ 60**.
+- **R3 The vector channel carries the rewritten question in every language.** For each language,
+  `semanticParaphrase.mrr > paraphraseFederated.mrr` on the same rows. **A language where this fails is a language whose
+  semantic claim is restricted, not a language to average away.**
+- **R4 The quoted condition does not regress in any language.** For each language,
+  `semanticVerbatim.mrr ≥ verbatimFederated.mrr − 0.01`.
+- **R5 The four original repositories are unchanged in what they say.** Each one's `paraphraseFederated.mrr` on the new
+  equal-quota sample is within **±0.06** of the same repository's figure recomputed from the previous artifact's
+  per-question columns. **Descriptive rather than inferential** - the two samples are different questions, so a paired
+  interval would be a claim about rows that were never the same rows.
+- **R6 Provenance.** The corpus and both artifacts name the same six commits; `measuredAt` parses; any artifact carrying
+  a semantic figure has `space.index === space.query !== 'deterministic'`.
+
+**What a failure means, fixed now rather than after the numbers arrive.** R1 or R2 failing rejects the corpus change and
+the corpus is reverted - a corpus that cannot hold its own quota is not the corpus. R3 failing restricts the semantic
+claim to the languages that hold and names the ones that do not. R4 failing rejects the vector half for that language on
+the quoted condition and the artifact says so. **R5 is the one that cannot be fixed by a rerun**: if the four original
+repositories move by more than the tolerance, the quota change is a change of measurement rather than an improvement, and
+the report says that instead of comparing the new figure to the old one.
+
+### 41.4 Cost
+
+Six tarballs (≈ 4 MB compressed), ~15k declaration embeddings, ~400 rewrite completions at temperature 0, and zero
+completions in the search arms. **Under $0.15 for the iteration**, of which the rewrites are ~$0.08 and the embeddings a
+fraction of a cent.

@@ -33,21 +33,22 @@ import {
   repoName,
   sampleQuestions,
   score,
+  scoreBy,
   type Question,
 } from './lib/multirepo-harness.js';
 import { FederatedSearchEngine } from '../packages/intelligence/src/cross-repo/federated-search.js';
 import {
-  channelEvidence,
-  evidenceRatioWeight,
-} from '../packages/intelligence/src/search/fusion-weight.js';
+  DeepSeekProvider,
+  LLMRateLimitError,
+} from '../packages/intelligence/src/review/llm/provider.js';
 import {
   FUSION_RULE_NAMES,
   type FusionRuleName,
 } from '../packages/intelligence/src/search/fusion-rules.js';
 import {
-  DeepSeekProvider,
-  LLMRateLimitError,
-} from '../packages/intelligence/src/review/llm/provider.js';
+  channelEvidence,
+  evidenceRatioWeight,
+} from '../packages/intelligence/src/search/fusion-weight.js';
 import {
   compareArms,
   decodeRanks,
@@ -541,6 +542,64 @@ async function main(): Promise<void> {
     }
   }
 
+  /**
+   * **The whole figure and the parts of it.** Until this block existed the artifact published one aggregate per
+   * condition and one column per question, so a reader could see the sum and the rows and nothing in between: the
+   * corpus file said "six repositories" and no number here could contradict it - and on the previous corpus the
+   * contradiction was real, with one repository contributing 67 per cent of every figure.
+   *
+   * The arithmetic is `score()`, applied to a subset, because a per-repository MRR computed by a second formula would be
+   * a second definition of MRR and the two would drift.
+   */
+  const acceptedQuestions = accepted.map((row) => byKey.get(row.key)!);
+  const languageOf = new Map(corpus.repositories.map((repo) => [repo.id, repo.language]));
+  const byRepository = {
+    paraphraseFederated: scoreBy(acceptedQuestions, paraphraseFederated, (question) => question.repo),
+    paraphraseScoped: scoreBy(acceptedQuestions, paraphraseScoped, (question) => question.repo),
+    verbatimFederated: scoreBy(acceptedQuestions, verbatimFederated, (question) => question.repo),
+    ...(semanticEngine === null
+      ? {}
+      : {
+          semanticParaphrase: scoreBy(
+            acceptedQuestions,
+            semanticParaphrase,
+            (question) => question.repo,
+          ),
+          semanticVerbatim: scoreBy(acceptedQuestions, semanticVerbatim, (question) => question.repo),
+        }),
+  };
+  const byLanguage = {
+    paraphraseFederated: scoreBy(
+      acceptedQuestions,
+      paraphraseFederated,
+      (question) => languageOf.get(question.repo) ?? '',
+    ),
+    paraphraseScoped: scoreBy(
+      acceptedQuestions,
+      paraphraseScoped,
+      (question) => languageOf.get(question.repo) ?? '',
+    ),
+    verbatimFederated: scoreBy(
+      acceptedQuestions,
+      verbatimFederated,
+      (question) => languageOf.get(question.repo) ?? '',
+    ),
+    ...(semanticEngine === null
+      ? {}
+      : {
+          semanticParaphrase: scoreBy(
+            acceptedQuestions,
+            semanticParaphrase,
+            (question) => languageOf.get(question.repo) ?? '',
+          ),
+          semanticVerbatim: scoreBy(
+            acceptedQuestions,
+            semanticVerbatim,
+            (question) => languageOf.get(question.repo) ?? '',
+          ),
+        }),
+  };
+
   const artifact = {
     comment: [
       'The same symbols, asked twice: once as the doc comment reads and once as a model rewrote it.',
@@ -593,6 +652,10 @@ async function main(): Promise<void> {
             semanticVerbatim: score(semanticVerbatim),
           }),
     },
+    // **The parts of every figure above**, per repository and per language: a corpus that names six repositories owes a
+    // reader the six numbers, and the quota is only real if the artifact shows it holding.
+    byRepository,
+    byLanguage,
     // **The sweep, when one was asked for**, each column scored and paired against the lexical list it is a re-weighting
     // of. A column that beats 0.7930 is a weight the product could adopt; a column that does not is evidence that the
     // channel is not a channel this corpus can use, and both are results.

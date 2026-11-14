@@ -179,6 +179,39 @@ export function score(ranks: RankList): Score {
   };
 }
 
+/**
+ * The same arithmetic, per group of questions. **The aggregate is the whole and these are the parts**, and the reason
+ * they exist is that "four repositories" was a claim in a corpus file that no number in the artifact could contradict.
+ *
+ * **A group the key function cannot name is called `unknown` rather than dropped**: a dropped row is a smaller
+ * denominator reported under the same heading, and the case that produces one - a pin added to the corpus and not to the
+ * language map - is exactly the case worth seeing.
+ *
+ * **A column whose length is not the question count throws**, because every rank column here is one off-by-one away from
+ * aligning every question after the missing row with the previous answer, and the figure that produces looks like a
+ * result.
+ */
+export function scoreBy(
+  questions: readonly Question[],
+  ranks: RankList,
+  of: (question: Question) => string,
+): Record<string, Score> {
+  if (ranks.length !== questions.length) {
+    throw new Error(
+      `a column of length ${ranks.length} cannot describe ${questions.length} questions: the rows are misaligned`,
+    );
+  }
+
+  const groups = new Map<string, Array<number | null>>();
+  questions.forEach((question, at) => {
+    const name = of(question) || 'unknown';
+    const group = groups.get(name);
+    if (group === undefined) groups.set(name, [ranks[at] ?? null]);
+    else group.push(ranks[at] ?? null);
+  });
+  return Object.fromEntries([...groups.entries()].map(([name, group]) => [name, score(group)]));
+}
+
 /** What indexing four repositories produced, in the terms the artifact reports. */
 export interface Workspace {
   store: InMemoryGraphStore;
@@ -199,7 +232,13 @@ export async function buildWorkspace(corpus: Corpus, cache: string): Promise<Wor
 
   const store = new InMemoryGraphStore();
   const manager = new RepoGroupManager();
-  manager.createGroup('multirepo-qa', 'multirepo-qa', 'four released repositories');
+  // **The count is read from the corpus rather than written down**, because "four" was true when it was typed
+  // and stayed in the group's description after the corpus grew.
+  manager.createGroup(
+    'multirepo-qa',
+    'multirepo-qa',
+    `${corpus.repositories.length} released repositories`,
+  );
 
   for (const repo of corpus.repositories) {
     const owner = repo.id.slice(0, repo.id.indexOf('/'));
@@ -265,14 +304,78 @@ export function deriveQuestions(store: InMemoryGraphStore): Question[] {
 }
 
 /**
- * The sampled question set, **and the rule written down**: the first of every *k* where *k* makes about four hundred.
+ * The sampled question set, **and the rule written down**: every repository contributes an equal number of questions.
  *
  * Four hundred because that is a denominator an effect of three questions can be stated against, and because every
  * question is a paid call in the paraphrase generation rather than a free one.
+ *
+ * **A quota rather than a stride, because a stride lets documentation length decide the denominator.** The sample used
+ * to be the first of every *k* over the whole pool, so a repository that documents itself thoroughly contributed more
+ * questions than one that does not - and on the published corpus that was `google/gson` at 332 of 494, which makes a
+ * per-repository figure a description of the sample rather than of the repository, and makes "four repositories" one
+ * repository and three guests. **The quota is the smallest rule that makes the word "four" mean four**, and it costs
+ * nothing: the same number of questions is asked either way.
+ *
+ * Within a repository the questions are still spread evenly by position rather than taken from the front, because the
+ * pool is sorted by symbol name and a prefix of a sorted list is an alphabet rather than a sample.
+ *
+ * **A repository smaller than its share gives what it has and the remainder is redistributed**, since the alternative
+ * is a sample that silently shrinks while the artifact's own denominator stays the same.
  */
 export function sampleQuestions(questions: Question[], target = 400): Question[] {
-  const step = Math.max(1, Math.floor(questions.length / target));
-  return questions.filter((_, position) => position % step === 0);
+  if (target <= 0) return [];
+
+  const pools = new Map<string, Question[]>();
+  for (const question of questions) {
+    const pool = pools.get(question.repo);
+    if (pool === undefined) pools.set(question.repo, [question]);
+    else pool.push(question);
+  }
+
+  // **Sorted by repository id**, because a quota that depended on the order the index happened to return repositories
+  // in would make two runs two corpora.
+  const repos = [...pools.keys()].sort();
+  const quota = new Map<string, number>();
+  let remaining = target;
+  let active = repos.length;
+
+  // **Water filling**: a repository that cannot fill its share leaves its surplus to the ones that can, and the shares
+  // are recomputed from the repositories still in play rather than from the original count.
+  let changed = true;
+  while (changed && active > 0) {
+    changed = false;
+    for (const repo of repos) {
+      if (quota.has(repo)) continue;
+      const share = Math.floor(remaining / active);
+      const pool = pools.get(repo)!;
+      if (pool.length <= share) {
+        quota.set(repo, pool.length);
+        remaining -= pool.length;
+        active -= 1;
+        changed = true;
+      }
+    }
+  }
+
+  const open = repos.filter((repo) => !quota.has(repo));
+  const share = open.length === 0 ? 0 : Math.floor(remaining / open.length);
+  const leftover = open.length === 0 ? 0 : remaining - share * open.length;
+  open.forEach((repo, at) => {
+    // The remainder is one question each, in repository order: 400 over 6 leaves 4 repositories with one more question
+    // and the identities of those four are fixed by the sort rather than by anything about the repositories.
+    quota.set(repo, share + (at < leftover ? 1 : 0));
+  });
+
+  const sample: Question[] = [];
+  for (const repo of repos) {
+    const pool = pools.get(repo)!;
+    const take = Math.min(quota.get(repo) ?? 0, pool.length);
+    for (let at = 0; at < take; at++) {
+      // `floor(at * length / take)` spreads `take` questions over the whole pool rather than over its first `take`.
+      sample.push(pool[Math.floor((at * pool.length) / take)]!);
+    }
+  }
+  return sample;
 }
 
 /**

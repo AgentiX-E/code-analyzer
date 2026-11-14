@@ -117,7 +117,7 @@ jobs:
             exit 1
           fi
 
-      - name: Fetch the four checkouts at their pinned commits
+      - name: Fetch the pinned checkouts
         run: |
           set -euo pipefail
           mkdir -p .cache/multirepo-qa
@@ -228,6 +228,39 @@ jobs:
           console.log('weights', weights.join(' '), 'columns', Object.keys(columns).length);
           "
 
+      # **The quota, as a gate rather than as a sentence in a document.** §41.1 found that the published sample was 67
+      # per cent one repository while every paragraph said "four", and nothing in the artifact could contradict it. This
+      # step is that contradiction: every repository the corpus names has to appear with a quota's worth of scored rows,
+      # and `go` and `rust` have to appear as languages rather than as intentions.
+      - name: Every repository in the corpus has to carry its share of the sample
+        run: |
+          set -e
+          node -e "
+          const corpus = require('./benchmarks/multirepo-qa-paraphrase-corpus.json');
+          const a = require('./benchmarks/multirepo-qa-paraphrase-semantic.json');
+          const repos = corpus.repositories.map((repo) => repo.id);
+          const per = a.byRepository?.paraphraseFederated;
+          if (!per) { console.error('::error::the artifact has no per-repository figure, so a reader cannot see whether the sample is a sample'); process.exit(1); }
+          const counts = [];
+          for (const repo of repos) {
+            const score = per[repo];
+            if (!score) { console.error('::error::' + repo + ' is in the corpus and has no scored question'); process.exit(1); }
+            if (score.n < 60 || score.n > 70) { console.error('::error::' + repo + ' contributed ' + score.n + ' scored rows, outside the registered 60-70 band'); process.exit(1); }
+            counts.push(score.n + ' ' + repo);
+          }
+          const extra = Object.keys(per).filter((repo) => !repos.includes(repo));
+          if (extra.length > 0) { console.error('::error::the artifact scored repositories the corpus does not name: ' + extra.join(', ')); process.exit(1); }
+          const languages = a.byLanguage?.paraphraseFederated;
+          if (!languages) { console.error('::error::the artifact has no per-language figure'); process.exit(1); }
+          for (const language of corpus.repositories.map((repo) => repo.language)) {
+            if (!languages[language]) { console.error('::error::' + language + ' has no per-language figure'); process.exit(1); }
+          }
+          for (const language of ['go', 'rust']) {
+            if (!languages[language] || languages[language].n < 60) { console.error('::error::' + language + ' carries fewer than sixty questions, so the language was added and not measured'); process.exit(1); }
+          }
+          console.log('quorum', counts.join(' | '), 'languages', Object.keys(languages).join(' '));
+          "
+
       - name: Upload the figures
         if: always()
         uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7
@@ -235,6 +268,10 @@ jobs:
           name: multirepo-paraphrase-semantic
           path: |
             benchmarks/multirepo-qa-paraphrase-semantic.json
+            # **The corpus too, because a `generate` run rewrites the questions and the artifact alone cannot replay
+            # them.** Without this the file a `replay` run reads is the previous corpus, and the difference between two
+            # runs would be the questions rather than the retriever.
+            benchmarks/multirepo-qa-paraphrase-corpus.json
             /tmp/multirepo-semantic.log
           if-no-files-found: warn
           retention-days: 90
@@ -281,7 +318,7 @@ jobs:
             exit 1
           fi
 
-      - name: Fetch the four checkouts at their pinned commits
+      - name: Fetch the pinned checkouts
         run: |
           set -euo pipefail
           mkdir -p .cache/multirepo-qa
@@ -324,6 +361,38 @@ jobs:
             console.error('::error::the index and the queries were embedded into two different spaces');
             process.exit(1);
           }
+          "
+
+      # **The same gate on the quoted corpus**, because a quota that holds under one wording and not the other is a
+      # sampling rule that the reward of a rejected rewrite can break - and the verbatim condition is the one where the
+      # band is exact: 400 over six repositories is 66 with four repositories taking one extra, and nothing is rejected.
+      - name: Every repository in the corpus has to carry its share of the quoted sample
+        run: |
+          set -e
+          node -e "
+          const corpus = require('./benchmarks/multirepo-qa-corpus.json');
+          const a = require('./benchmarks/multirepo-qa-semantic.json');
+          const repos = corpus.repositories.map((repo) => repo.id);
+          const per = a.byRepository?.federated;
+          if (!per) { console.error('::error::the artifact has no per-repository figure'); process.exit(1); }
+          const counts = [];
+          let total = 0;
+          for (const repo of repos) {
+            const score = per[repo];
+            if (!score) { console.error('::error::' + repo + ' is in the corpus and has no scored question'); process.exit(1); }
+            if (score.n < 60 || score.n > 70) { console.error('::error::' + repo + ' contributed ' + score.n + ' rows, outside the registered 60-70 band'); process.exit(1); }
+            total += score.n;
+            counts.push(score.n + ' ' + repo);
+          }
+          // **The sum is the criterion the band is a proxy for**: a quota that gave every repository 60 would pass the
+          // band and lose twenty questions, and the denominator would shrink without anything saying so.
+          if (total !== 400) { console.error('::error::the six repositories sum to ' + total + ' scored rows, and the registered sample is 400'); process.exit(1); }
+          const languages = a.byLanguage?.federated;
+          if (!languages) { console.error('::error::the artifact has no per-language figure'); process.exit(1); }
+          for (const language of ['go', 'rust']) {
+            if (!languages[language] || languages[language].n < 60) { console.error('::error::' + language + ' carries fewer than sixty questions, so the language was added and not measured'); process.exit(1); }
+          }
+          console.log('quorum', counts.join(' | '), 'languages', Object.keys(languages).join(' '));
           "
 
       - name: Publish the figures to the run summary
