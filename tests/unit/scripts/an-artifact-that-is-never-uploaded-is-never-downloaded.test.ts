@@ -236,6 +236,25 @@ describe('the comparison runs only when there is a pair to compare', () => {
   });
 });
 
+describe('the job name distinguishes the arms it runs', () => {
+  it('reads every matrix key from the matrix rather than from the dispatch input', () => {
+    // **A run page that shows two identical titles for two different arms is a run page that cannot be read.** The name
+    // already carried four matrix keys and read the fifth from the input that collapsed the matrix, so the first
+    // `agent: pair` dispatch produced two jobs both titled `agent pair` - which is the same defect, in the place the
+    // workflow's own comment says it must not happen.
+    const name = /\n    name: Our reviews on a direct competitor's corpus \((.+)\)\n/.exec(WORKFLOW);
+    expect(name, 'the bench job no longer declares a name').not.toBeNull();
+    const keys = new Set(arms().flatMap((arm) => Object.keys(arm)));
+    const referenced = new Set(
+      [...name![1]!.matchAll(/\$\{\{\s*matrix\.([\w-]+)\s*\}\}/g)].map((m) => m[1]!),
+    );
+    expect([...referenced].sort()).toEqual([...keys].sort());
+    // **And nothing in the name is read from an input**, because an input is one value chosen once and given to both
+    // arms - the arrangement that makes two arms indistinguishable in the only place a reader looks.
+    expect(name![1]).not.toContain('inputs.');
+  });
+});
+
 describe('the matrix is one experiment', () => {
   it('runs a pair by default and one row when the reviewer reads the code for itself', () => {
     // **Every arm is paid for**, so the count is a budget and not a style. A third entry is a dispatch that costs half

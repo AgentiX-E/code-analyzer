@@ -183,7 +183,7 @@ jobs:
     # **Both matrix keys are in the job's own name**, because a run page that shows two identical titles for two
     # different arms is a page a reader has to open artifacts to disambiguate - and the whole point of the pair is that
     # the difference is legible before anything is downloaded.
-    name: Our reviews on a direct competitor's corpus (${{ matrix.profile }} profile, code context ${{ matrix.code_context }}, adjudicate ${{ matrix.adjudicate }}, idioms ${{ matrix.idioms }}, agent ${{ inputs.agent || 'off' }})
+    name: Our reviews on a direct competitor's corpus (${{ matrix.profile }} profile, code context ${{ matrix.code_context }}, adjudicate ${{ matrix.adjudicate }}, idioms ${{ matrix.idioms }}, agent ${{ matrix.agent }})
     runs-on: ubuntu-latest
     # **Raised from 180 when the corpus went from five pull requests to fourteen**, which is the size at which a 0.04
     # move stops being a coin toss. The previous corpus took 29 minutes; the arithmetic that expects roughly three times
