@@ -4279,16 +4279,16 @@ decide, because it is a product trade rather than a measurement.
 
 ### 41.1 The defect, as a sample rather than an opinion
 
-`sampleQuestions` was the first of every *k* over a pool sorted by `projectId:qualifiedName`. **A stride over a pool is
+`sampleQuestions` was the first of every _k_ over a pool sorted by `projectId:qualifiedName`. **A stride over a pool is
 proportional to how thoroughly a repository documents itself**, and the published artifact carried the consequence in a
 field nobody read as one:
 
-| repository             | language   | questions in the 494-row sample | share |
-| ---------------------- | ---------- | ------------------------------: | ----: |
-| `google/gson`          | java       |                         **332** | 67.2% |
-| `pallets/flask`        | python     |                             118 | 23.9% |
-| `sindresorhus/got`     | typescript |                              23 |  4.7% |
-| `expressjs/express`    | javascript |                              21 |  4.3% |
+| repository          | language   | questions in the 494-row sample | share |
+| ------------------- | ---------- | ------------------------------: | ----: |
+| `google/gson`       | java       |                         **332** | 67.2% |
+| `pallets/flask`     | python     |                             118 | 23.9% |
+| `sindresorhus/got`  | typescript |                              23 |  4.7% |
+| `expressjs/express` | javascript |                              21 |  4.3% |
 
 **"Four repositories" was one repository and three guests.** Every sentence in this repository that says "four released
 repositories" is a sentence about a sample in which five sixths of the evidence for three of them does not exist, and
@@ -4356,18 +4356,18 @@ fraction of a cent.
 
 The first six-repository dispatch (04:03–04:25 UTC, `f9d49c9b`) measured both conditions and **the quota gate refused
 the artifact**: `pallets/flask` contributed **59** scored rows out of the 67 it was asked, because eight of its rewrites
-were rejected twice. **The refusal was correct and the band was not the defect.** A quota is a promise about *scored*
-rows, and it had been applied to *asked* ones.
+were rejected twice. **The refusal was correct and the band was not the defect.** A quota is a promise about _scored_
+rows, and it had been applied to _asked_ ones.
 
-| repository             | asked | accepted | scored (first run) |
-| ---------------------- | ----: | -------: | -----------------: |
-| `google/gson`          |    67 |       66 |                 66 |
-| `BurntSushi/ripgrep`   |    68 |       65 |                 65 |
-| `gin-gonic/gin`        |    68 |       63 |                 63 |
-| `sindresorhus/got`     |    67 |       61 |                 61 |
-| `pallets/flask`        |    67 |   **59** |             **59** |
-| `expressjs/express`    |    63 |       56 |                 56 |
-| **total**              |   400 |      370 |                370 |
+| repository           | asked | accepted | scored (first run) |
+| -------------------- | ----: | -------: | -----------------: |
+| `google/gson`        |    67 |       66 |                 66 |
+| `BurntSushi/ripgrep` |    68 |       65 |                 65 |
+| `gin-gonic/gin`      |    68 |       63 |                 63 |
+| `sindresorhus/got`   |    67 |       61 |                 61 |
+| `pallets/flask`      |    67 |   **59** |             **59** |
+| `expressjs/express`  |    63 |       56 |                 56 |
+| **total**            |   400 |      370 |                370 |
 
 The measurement itself is intact and is reported below; what the run established is that **a rejected rewrite is a
 question that was never scored, so the quota belongs to the accepted set**.
@@ -4399,4 +4399,5 @@ of the measurement** - against the 67 per cent a stride gave one of them.
 
 **One replay dispatch and no completions**: the corpus the first run generated is committed, so the second run reads it
 and pays only the embeddings (~17 200 short vectors, a fraction of a cent). **The first run's rewrites are not repeated**
+
 - 400 completions, ≈ $0.08, already spent and now carried as a file with its digest.

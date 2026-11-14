@@ -49,7 +49,9 @@ describe('a quota is applied to the rows that were scored', () => {
 
     // **360 over six is 61 with four repositories taking one more**, and `express` has 56 - fewer than its share, so it
     // keeps all 56 and the surplus goes to the repositories that can take it.
-    expect(Object.keys(byRepo).sort()).toEqual([...new Set(accepted.map((row) => row.repo))].sort());
+    expect(Object.keys(byRepo).sort()).toEqual(
+      [...new Set(accepted.map((row) => row.repo))].sort(),
+    );
     expect(byRepo['expressjs/express']).toBe(56);
     expect(scored.length).toBe(360);
     for (const count of Object.values(byRepo)) expect(count).toBeLessThanOrEqual(62);
