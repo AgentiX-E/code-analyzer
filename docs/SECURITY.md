@@ -400,9 +400,44 @@ anything - an exclusion that outlives its reason is the failure mode this sectio
 **Two of the eighteen were neither**: `vscode-ci.yml:151` is the project reinstall described above, and
 `Dockerfile`'s `npm install -g node-gyp@10.2.0` has carried its version since it was written.
 
-**The rest of the ledger, read on 2026-11-14: 22 open, and none of them CodeQL.** 18 `PinnedDependenciesID` above, and
-four settings findings that no commit changes: `CIIBestPracticesID` (a badge that has to be registered by hand),
-`CodeReviewID` (0 of 30 changesets reviewed, because commits arrive on `master` directly), `FuzzingID` (no fuzz
-target), and `BranchProtectionID` (administrator bypass enabled, one approval required, no required status checks).
-The 33 CodeQL findings that stood here on 2026-11-12 are closed - see the paragraph in §1.6 about the second analysis
-that was re-asking them.
+**The rest of the ledger, walked on 2026-11-14 after those six fixes: 17 open - twelve `PinnedDependenciesID`, four
+settings findings, and one CodeQL.** The 33 CodeQL findings that stood here on 2026-11-12 are closed - see the paragraph
+in §1.6 about the second analysis that was re-asking them - and the one alert in this list arrived later, from a test
+written to close a different one.
+
+### 4.1 The CodeQL alert this section's own check carried
+
+`js/regex/missing-regexp-anchor` on `tests/unit/scripts/a-dependency-with-no-version-is-not-a-dependency.test.ts`. The
+sentence two paragraphs up - "every `curl | bash` either names a 40-character commit in a `raw.githubusercontent.com` URL
+or is listed with the reason it does not" - was implemented as one regex against the whole command line:
+
+```js
+if (/raw\.githubusercontent\.com\/[^/]+\/[^/]+\/[0-9a-f]{40}\//.test(entry.text)) continue;
+```
+
+A regex over a command line reads the host as a substring of the text, so **`https://evil.example/raw.githubusercontent.com/o/r/<sha>/install.sh`
+passed the check that exists to reject it** - the download is served by a name this repository does not control, and the
+real host's name is one path segment of it. So did `https://raw.githubusercontent.com@evil.example/r/<sha>/...`, where the
+raw host sits before the `@` and the authority after it is the one that answers DNS.
+
+The check parses each token with `URL` and compares `hostname` now, then requires the pathname to be
+`/owner/repo/<sha>/` with 40 hex characters. Six cases are in that file, each one a line the regex accepted: the
+path-segment form, the userinfo form, a branch name, a seven-character revision, and `http` where everything else is
+right. **A check written to close an alert can carry one, and this one carried the answer it gave.**
+
+### 4.2 Four findings no commit closes
+
+Read from the API on 2026-11-14, these are the four `scorecard` findings that describe the repository's _settings_ rather
+than its files. Each is listed with what it asks for and what would have to exist for it to stop asking.
+
+| finding              | what it asks for                                           | why no commit closes it                                                                                                                                                                                                                                                                                                                                          |
+| -------------------- | ---------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `CIIBestPracticesID` | an OpenSSF Best Practices badge                            | the badge is issued by `bestpractices.coreinfrastructure.org` after registering the project and answering ~70 criteria there; the account is not a file in this repository                                                                                                                                                                                       |
+| `CodeReviewID`       | a share of recent changesets that a second person reviewed | GitHub does not let an author approve their own pull request, so this needs a second account with write access; **0 of 30 changesets** is the honest reading of a one-person repository                                                                                                                                                                          |
+| `FuzzingID`          | a fuzz target that OSS-Fuzz runs                           | the check looks for `projects/<name>/project.yaml` in `google/oss-fuzz`, not for a `fuzz/` directory here. A harness in this repository is worth having and would not move this number                                                                                                                                                                           |
+| `BranchProtectionID` | rules on the default branch                                | `GET /branches/master/protection` answers **`404 Branch not protected`**, so there is no rule to read. Turning protection on with `enforce_admins` and required status checks would reject the only channel this repository pushes through - a Git Data API ref update from the one admin account - which is a trade this document is not going to make silently |
+
+The last row is the one worth stating precisely, because the previous version of this paragraph described a protection
+that is not there: it said "administrator bypass enabled, one approval required, no required status checks", which is what
+the scanner's own phrasing reads like. **The branch has no protection at all**, and the reason it stays that way is the
+sentence above rather than an omission.
