@@ -4178,3 +4178,44 @@ Three consequences, all of them recorded rather than argued:
    `5590f021` (12 November) are eight, and the control harness makes each one a dispatch. **Registered, not run**: a
    bisect over eight commits, each measuring the same 500 questions, would say which repair bought the hundred and twelve
    - and until it runs, the honest sentence is that the product improved by that much and nobody has isolated why.
+
+### 40.8 The second tournament: the count was not the gain, and neither repair recovered the MRR
+
+Registered in §40.6, run at `b5d5bd56` on the same corpora, same 12 072 vectors, same 454 + 454 + 500 questions.
+
+| mechanism (454 rewritten) |  found@10 |          MRR@10 | quoted found@10 |   quoted MRR@10 | CoSQA found@10 |    CoSQA MRR@10 |
+| ------------------------- | --------: | --------------: | --------------: | --------------: | -------------: | --------------: |
+| `rrf` (shipped)           |       295 |          0.5344 |             452 |          0.9105 |            431 |          0.6406 |
+| `combmnz`                 |   **378** |      **0.6708** |         **453** |      **0.9174** |        **451** |          0.6555 |
+| `combmnz-positive`        |   **378** |          0.6694 |             453 |          0.9174 |            450 |          0.6603 |
+| `combmnz-percentile`      |         — |               — |               — |               — |              — |               — |
+| `rrf-mnz`                 |       356 |          0.5619 |             440 |          0.8757 |            431 |          0.6406 |
+| `qpp3` / `qpp`            | 375 / 373 | 0.6607 / 0.6609 |       453 / 452 | 0.9102 / 0.9082 |      417 / 412 | 0.6310 / 0.6293 |
+| `supported`               |       370 |          0.5747 |             451 |          0.8744 |            445 |          0.6409 |
+
+**Both §40.6 candidates are retired, and the two retirements are more informative than an adoption would have been.**
+
+1. **The gain was never the count.** `rrf-mnz` - the same reciprocal ranks with the count multiplier, and nothing else
+   changed - scores **356** against `combmnz`'s 378, and **440** on the quoted condition against 453: the count costs
+   fourteen quoted questions and buys none of the paraphrase gain. **The gain is the score summation**, which is the half
+   of CombMNZ that the literature names first and the half this project had never tested.
+2. **The loss was not the negative half either.** `combmnz-positive` lifts CoSQA MRR by 0.0048 - real, and nowhere near
+   the 0.0180 that separates it from the shipped arm - and costs nothing on either multi-repository condition. **Both
+   z-score variants sit at 0.655-0.660 on CoSQA against the shipped arm's 0.678**, so the missing two hundredths come
+   from the z-score itself.
+3. **Run-to-run variance is now measured rather than assumed.** The shipped arm was measured twice this iteration and read
+   445 then 451 found@10 on CoSQA (0.6670 then 0.6780 MRR), and the §40.5 winner read 452 then 451 (0.6535 then 0.6555).
+   **The embedding endpoint is not bit-identical between runs**, so a two-question difference is noise and a 0.0180 MRR gap
+   is not - and every criterion in §40.6 was written with a one-question tolerance that this variance can consume.
+
+**The third candidate, registered before its run, changes one thing again**: `combmnz-percentile` replaces the z-score with
+each channel's own percentile, because **a z-score divides by the list's standard deviation and a cosine list with a wide
+tail compresses its own head** - the first answer of fifty sits at about 1.5 deviations on a vector list and at four on a
+BM25 one, which is exactly the scale mismatch `zScores` was meant to remove and does not. A percentile is rank 1 of 50 =
+`1.0` on both channels by construction; it is Borda with an agreement multiplier.
+
+**Criteria: §40.6's six, unchanged and un-renegotiated**, including CoSQA `MRR@10` ≥ **0.6780** (the shipped arm's figure
+on the same run as the candidates, which is the higher of its two measurements and therefore the harder bar). **If it
+fails, the mechanisms chapter closes for this corpus and the next iteration spends its dispatches on languages rather
+than on fusion** - four mechanisms, three retirements, and a measured statement about which half of each one carries the
+result is a finished line of enquiry, not an unfinished one.

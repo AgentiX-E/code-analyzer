@@ -15,6 +15,7 @@ import {
   HEAD_DEPTH_WIDE,
   fuseByRule,
   headSeparation,
+  percentiles,
   qppVectorWeight,
   zScores,
 } from '../search/fusion-rules.js';
@@ -142,6 +143,43 @@ describe('agreement about an answer nobody wanted is not a vote for it', () => {
     const ids = positive.map((entry) => entry.node.id);
     expect(ids.indexOf(F.id)).toBeGreaterThan(ids.indexOf(A.id));
     expect(ids.indexOf(F.id)).toBeGreaterThan(ids.indexOf(E.id));
+  });
+});
+
+describe('a percentile cannot be compressed by a heavy tail, which is the third candidate’s whole claim', () => {
+  it('gives the first answer of every channel the same number, whatever its scale', () => {
+    // **The defect a z-score has and a percentile cannot**: `headSeparation` on a cosine list with a wide tail reads
+    // 1.1 deviations for an answer a BM25 list reads 1.4 for, so two channels' heads are on different scales - and the
+    // rank does not care what the scores were.
+    const scaled = percentiles(vector);
+    expect(scaled.get(E.id)).toBe(1);
+    expect(scaled.get(F.id)).toBe(0);
+    // Last of four is 0 and first is 1, so the middle two are a third and two thirds of the way **in rank order, not in
+    // score order** - which is what makes the statistic independent of the channel's units.
+    expect(scaled.get(B.id)).toBeCloseTo(2 / 3, 12);
+    expect(scaled.get(A.id)).toBeCloseTo(1 / 3, 12);
+  });
+
+  it('rewards agreement over a single channel’s recommendation', () => {
+    const fused = fuseByRule('combmnz-percentile', lexical, vector);
+    const beta = fused.find((entry) => entry.node.id === B.id)!;
+    const epsilon = fused.find((entry) => entry.node.id === E.id)!;
+    // `beta` is second in both lists - `(2/3 + 2/3) × 2` - and `epsilon` is first in one list only, which is `1 × 1`.
+    expect(beta.combinedScore).toBeCloseTo((2 / 3 + 2 / 3) * 2, 12);
+    expect(epsilon.combinedScore).toBeCloseTo(1, 12);
+    // **And `alpha` ties with it exactly**, because being first of four in one list is worth what being second of four in
+    // both is: `(1 + 1/3) × 2`. Borda ties are not a fixture artefact - they are a property of ranks in small sets - and
+    // the order between the two is the engine's own tie-break, which is the lexical score. **A rule that broke that tie
+    // by identity would be measured under a different convention from the engine it would replace.**
+    const alpha = fused.find((entry) => entry.node.id === A.id)!;
+    expect(alpha.combinedScore).toBeCloseTo(beta.combinedScore, 12);
+    expect(fused[0]!.node.id).toBe(A.id);
+    expect(alpha.bm25Score).toBeGreaterThan(beta.bm25Score);
+  });
+
+  it('gives a list of one a percentile of one rather than dividing by zero', () => {
+    const single = [ranked(A, 5)];
+    expect(percentiles(single).get(A.id)).toBe(1);
   });
 });
 

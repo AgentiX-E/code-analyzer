@@ -48,7 +48,7 @@ on:
         # costs one fusion per question over lists the run already has.
         description: 'Fusion mechanisms to score, e.g. rrf,combmnz,supported,qpp,qpp3 (empty measures none)'
         type: string
-        default: 'rrf,combmnz,combmnz-positive,rrf-mnz,supported,qpp,qpp3'
+        default: 'rrf,combmnz,combmnz-positive,combmnz-percentile,rrf-mnz,supported,qpp,qpp3'
       weights:
         # **The fusion weights to sweep, because the weight is what the twenty-two-point cost was attributed to.**
         # `deriveVectorWeight` reads the question, a rewritten question shares no words with its answer, and the derived
@@ -218,7 +218,7 @@ jobs:
           // **The tournament has to be present in full**, because a mechanism with a figure on one corpus and no figure
           // on the other is a mechanism nobody has falsified - and the five names are the registered set rather than
           // whatever the run happened to be asked for.
-          const rules = ['rrf', 'combmnz', 'combmnz-positive', 'rrf-mnz', 'supported', 'qpp', 'qpp3'];
+          const rules = ['rrf', 'combmnz', 'combmnz-positive', 'combmnz-percentile', 'rrf-mnz', 'supported', 'qpp', 'qpp3'];
           for (const rule of rules) {
             if (!a.tournament || !a.tournament[rule]) { console.error('::error::the run did not score mechanism ' + rule); process.exit(1); }
             if (typeof a.perQuestion['rule:' + rule] !== 'string') { console.error('::error::mechanism ' + rule + ' has a figure and no column'); process.exit(1); }

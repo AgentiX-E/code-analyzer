@@ -36,6 +36,7 @@ export const FUSION_RULE_NAMES = [
   'rrf',
   'combmnz',
   'combmnz-positive',
+  'combmnz-percentile',
   'rrf-mnz',
   'supported',
   'qpp',
@@ -162,6 +163,27 @@ function ranksOf(list: readonly RankedResult[]): Map<number, number> {
 }
 
 /**
+ * **Each channel's own ranks as a number in `[0, 1]`, with the first answer at one and the last at zero.**
+ *
+ * A percentile is the rank it was computed from, divided by the only thing that could make it incomparable across
+ * channels - the length of the list it came from. **Unlike a z-score it cannot be compressed by a heavy tail**, because
+ * it does not read the scores at all: a channel that ranks fifty documents says the same thing about its first one
+ * whether its scores decay steeply or not at all.
+ *
+ * **A list of one gets one rather than a division by zero**, and that is the same claim `zScores` makes for a degenerate
+ * list: presence is the information such a list carries.
+ */
+export function percentiles(list: readonly RankedResult[]): Map<number, number> {
+  const ranks = ranksOf(list);
+  const n = list.length;
+  const scaled = new Map<number, number>();
+  for (const [id, rank] of ranks) {
+    scaled.set(id, n < 2 ? 1 : (n - rank) / (n - 1));
+  }
+  return scaled;
+}
+
+/**
  * **The list a rule produces, with the same shape and the same tie-break the engine's fusion returns.**
  *
  * The tie-break is copied rather than reinvented: **a rule measured under a different ordering convention would be a
@@ -232,6 +254,30 @@ export function fuseByRule(
       for (const [id] of nodes) {
         const fromLexical = Math.max(0, zLex.get(id) ?? 0);
         const fromVector = Math.max(0, zVec.get(id) ?? 0);
+        const channels = (lexRanks.has(id) ? 1 : 0) + (vecRanks.has(id) ? 1 : 0);
+        add(id, (fromLexical + fromVector) * channels);
+      }
+      break;
+    }
+
+    case 'combmnz-percentile': {
+      // **The same count multiplier, over each channel's own percentile instead of its z-score.**
+      //
+      // §40.5 and §40.7 measured two z-score variants: both recovered the recall CombMNZ was built for - **378 of 454
+      // rewritten questions against the shipped rule's 295** - and both lost about **0.020 MRR on CoSQA**, an interval
+      // that excluded zero twice. A z-score divides by the list's standard deviation, and **on a cosine list whose tail is
+      // wide that division compresses the head**: the first answer of a fifty-deep vector list sits at perhaps 1.5
+      // deviations, while the first answer of a BM25 list can sit at 4. Two channels weighted by numbers on different
+      // scales is the defect `zScores` was written to avoid, and a percentile cannot have it: rank 1 of fifty is `1.0`
+      // in both channels by construction.
+      //
+      // **This is Borda with an agreement multiplier**, the same family as CombMNZ (Lee, 1997) with the score replaced by
+      // the rank it was computed from - and it is the last candidate that can be built out of published quantities.
+      const pLex = percentiles(lexical);
+      const pVec = percentiles(vector);
+      for (const [id] of nodes) {
+        const fromLexical = pLex.get(id) ?? 0;
+        const fromVector = pVec.get(id) ?? 0;
         const channels = (lexRanks.has(id) ? 1 : 0) + (vecRanks.has(id) ? 1 : 0);
         add(id, (fromLexical + fromVector) * channels);
       }
