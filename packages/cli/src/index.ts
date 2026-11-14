@@ -7,6 +7,7 @@ import { writeFileSync } from 'node:fs';
 import { EOL } from 'node:os';
 
 import { loadConfigWithDiagnostics, type LoadedConfig } from '@code-analyzer/core';
+import { FUSION_RULE_NAMES } from '@code-analyzer/intelligence';
 import { Command } from 'commander';
 
 import { createAgentCommand } from './commands/agent.js';
@@ -246,19 +247,54 @@ program
 // ---------------------------------------------------------------------------
 program
   .command('search')
-  .description('Search the code knowledge graph')
+  .description('Index a checkout and answer a question from the same ranking the benchmarks report')
   .argument('<query>', 'Search query')
+  .option('-d, --directory <path>', 'Checkout to index and search', process.cwd())
   .option('-f, --format <format>', 'Output format: text, json, or summary', 'text')
   .option('-l, --limit <number>', 'Maximum results', '50')
-  .option('-t, --type <type>', 'Filter by node type')
+  .option(
+    '-t, --type <type>',
+    'Filter by node type: function, method, class, interface, enum, file',
+  )
   .option('-v, --verbose', 'Include file content snippets')
+  .option(
+    '--fusion <rule>',
+    `Which mechanism orders the two lists (default: the shipped one). One of: ${FUSION_RULE_NAMES.join(', ')}`,
+  )
+  .option(
+    '--vector-weight <number>',
+    'How much the vector list counts, when vectors were registered (default: derived per question)',
+  )
+  .option('-p, --project-id <id>', 'Name the indexed checkout something other than its path')
   .action(async (query: string, opts: Record<string, string>) => {
+    // **A rule name this build does not have is refused rather than ignored.** A typo that silently fused with the
+    // default would produce an answer to a question the caller did not ask - which is the failure mode §40 exists to
+    // make impossible for a harness, and a CLI is a harness a user runs.
+    const fusion = opts['fusion'];
+    if (fusion !== undefined && !FUSION_RULE_NAMES.includes(fusion as never)) {
+      process.stderr.write(
+        `Unknown fusion rule: ${fusion}. One of: ${FUSION_RULE_NAMES.join(', ')}${EOL}`,
+      );
+      process.exit(2);
+    }
+
+    const vectorWeight = opts['vector-weight'];
+    const parsedWeight = vectorWeight === undefined ? undefined : Number(vectorWeight);
+    if (parsedWeight !== undefined && !Number.isFinite(parsedWeight)) {
+      process.stderr.write(`--vector-weight must be a number, got: ${vectorWeight}${EOL}`);
+      process.exit(2);
+    }
+
     const options: SearchOptions = {
       query,
+      directory: opts['directory'] ?? process.cwd(),
+      projectId: opts['project-id'],
       format: (opts['format'] as SearchOptions['format']) ?? 'text',
       limit: parseInt(opts['limit'] ?? '50', 10) || 50,
       type: opts['type'],
       verbose: opts['verbose'] !== undefined ? true : undefined,
+      ...(fusion === undefined ? {} : { fusionRule: fusion as never }),
+      ...(parsedWeight === undefined ? {} : { vectorWeight: parsedWeight }),
     };
 
     const result = await searchGraph(options);

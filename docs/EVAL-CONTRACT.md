@@ -4401,3 +4401,102 @@ of the measurement** - against the 67 per cent a stride gave one of them.
 columns bit for bit and its vector column within 0.0013 MRR. The corpus the first run generated is committed, so both
 replays read it and pay only the embeddings - ~17 200 short vectors, a fraction of a cent. **The first run's rewrites are
 not repeated**: 400 completions, ≈ $0.08, already spent and now carried as a file with its digest.
+
+## 43. The product's search was a different retrieval from the measured one
+
+### 43.1 The defect, as four call sites and one dead command
+
+Every published figure in this repository comes from `FederatedSearchEngine`. Nothing a user could reach did.
+
+| surface                        | what it called                                               | what it answered                                                   |
+| ------------------------------ | ------------------------------------------------------------ | ------------------------------------------------------------------ |
+| `code-analyzer search <query>` | `searchFts` on a **freshly built empty store**               | **zero rows, exit code 0**                                         |
+| MCP `search_graph`             | `store.searchFts`                                            | containment ranking: 173 of 447 rewritten questions in the top ten |
+| GraphQL `searchGraph`          | `store.searchFts`, then a **post-search** `projectId` filter | a page fetched globally and filtered afterwards                    |
+| GraphQL `crossRepoSearch`      | `store.searchFts`                                            | the same containment channel                                       |
+
+**`code-analyzer search` had no way to be told which checkout to search.** `searchGraph` constructed an
+`InMemoryGraphStore`, asked it a question, and printed `Found: 0 results in 0ms` — with `success: true` and exit code 0,
+which is the exit code of an answer. The command's own header comment claimed "FTS5, graph traversal, and optional
+semantic scoring"; it performed one of the three, on nothing.
+
+The other three surfaces performed the containment channel the engine's docstring already documents as the losing side
+of a comparison the repository had measured and published:
+
+|                                 447 rewritten questions | `searchFts` | field-weighted BM25 |
+| ------------------------------------------------------: | ----------: | ------------------: |
+|             found in the top ten, all repositories open | 173 (38.7%) |     **358 (80.1%)** |
+| found in the top ten, scoped to the answer's repository | 188 (42.1%) |     **371 (83.0%)** |
+
+**The measurement was of a library, not of the product**, and the gap was not a tuning difference — it was a factor of
+2.07 in recall at the same cut, on the same questions, with the better channel already written and already paid for.
+
+The GraphQL field was worse than a weaker ranking: it asked the global list for a page of `limit` and then dropped the
+rows whose project did not match, so a repository whose best answer was eleventh answered **nothing**. That is the same
+defect `§37.7` fixed inside the engine by moving the scope into the ranking; the resolver was still on the other side of
+the fix.
+
+### 43.2 What changed
+
+1. **`searchEngineFor(store, scopes?)`** — one ranking engine per store, held in a `WeakMap`. `HybridSearchEngine`
+   computes field lengths and collection statistics over every node, and those numbers describe the index rather than
+   the question: a surface that built one per request recomputed them on a store that had not changed, and two surfaces
+   that built their own held two copies of the same arithmetic. **Weak, because a store that goes out of scope should
+   take its statistics with it.**
+2. **`FederatedSearchOptions` gained `offset` and `labels`.** Both are filters the _ranking_ sees, for the reason
+   `§37.7` gives: a page carved out of a differently-ordered list is a different ranking, and a label removed after the
+   fusion is a rank spent on a row nobody sees.
+3. **`FederatedSearchItem` gained `id`.** A hit is the beginning of a conversation — "who calls this", "show me the
+   file" — and every follow-up is keyed by an identity. `qualifiedName` is the one a person reads; `id` is the one the
+   store answers by.
+4. **`code-analyzer search` indexes what it is given.** `-d/--directory` (default `process.cwd()`), then the same
+   `analyze_repository` tool the MCP server exposes, then the engine. It also gained `--fusion` and `--vector-weight`,
+   because `§40` measured eight mechanisms and the ability to compare them belonged only to a harness.
+5. **MCP `search_graph` and both GraphQL fields ask the engine**, with `labels`, `offset` and `repoFilter` forwarded as
+   ranking inputs rather than applied afterwards.
+
+**The dead command also learned to distinguish two zeroes.** `success: false` with `Nothing indexed` means the index is
+empty; `success: false` with `No checkout named` means the command was not told where to look; a successful empty list
+means the question has no answer **in a graph that was read**. The command previously printed the third for all three.
+
+### 43.3 Registered acceptance criteria
+
+These are structural rather than directional, so they are asserted in the suite and enforced by it on every run — unlike
+the retrieval figures of §40–§42, which are readings of a corpus and belong in a report because a test that asserted them
+would be a test edited until it passed.
+
+- **A1 One order.** For a checkout indexed on disk, the CLI, the MCP tool and both GraphQL fields return the engine's
+  list, item for item and in the same order. Compared **against the engine** rather than against a recorded constant: a
+  constant would be a fifth opinion, and the engine is the thing the artifacts report.
+- **A2 The control that makes A1 mean something.** On the same corpus, `store.searchFts('limits')` ranks a `File` node
+  first while the engine — which returns code symbols — answers with the function inside that file. Asserted in the same
+  test, because a corpus that stopped distinguishing the two channels would make A1 vacuous and a control nobody checks
+  is a control that silently expired.
+- **A3 Scope inside the ranking.** A question asked of repository `beta` answers from `beta` even when the global winner
+  belongs to `alpha`, and equals the engine called with `repoFilter: ['beta']`.
+- **A4 One engine per store.** Same store, same instance; different store, different instance; a second resolver over
+  one store is ignored rather than merged, because an engine that swapped resolvers between questions would make
+  `groupId` mean two things inside one process.
+- **A5 The mechanism is a product option.** `--fusion combmnz` produces the order the engine produces under the same
+  rule, so a user whose corpus disagrees with ours can check rather than take it on trust.
+- **A6 Two zeroes are two answers.** An empty store, a missing `--directory`, a missing path and a directory that
+  produced no graph each report a different sentence, and only the last of them can be reached through the indexing
+  tool's own error.
+
+### 43.4 What was deliberately left on the containment channel, and why
+
+`findSymbol` and the two `get_symbol`/`find_implementations` fallbacks still call `searchFts`, and they are not defects
+of the same kind: they are **name resolution**, where the question is "which node is called this" rather than "which code
+answers this". A BM25 ranking that returns ten neighbours of a name would be a worse answer to a following-the-identity
+question, and `searchFts`'s exact-name rule (rank 20 for a name that _is_ the query, 10 for one that contains it) is
+precisely the rule that question needs. `search_code`'s store-only fallback is also still containment, and it says so in
+its own output (`searchMethod: 'FTS (basic text search)'`) because a fallback that looked like the product would hide
+which one a caller got.
+
+### 43.5 Cost
+
+**Zero model calls.** This iteration changed which function answers a question and where the engine is constructed; it
+indexed two throwaway checkouts of one file each in the tests and read no corpus. The full suite is 19 341 passing tests,
+`packages/intelligence/src/search/engine-for-store.ts` is at 100 % on all four dimensions, and
+`packages/cli/src/commands/search.ts` is at 100 % statements/functions/lines and 95.6 % branches — the two branches that
+remain are `??` defaults on values the indexing tool always supplies.

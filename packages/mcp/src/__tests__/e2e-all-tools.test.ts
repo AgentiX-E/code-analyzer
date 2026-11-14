@@ -1418,7 +1418,12 @@ describe('MCP E2E — All 51 Tools Integration', () => {
         ctx,
       );
 
-      expect(result.isError).toBeFalsy();
+      // **An empty question is refused and the refusal is the answer.** This used to be a non-error because the
+      // containment channel happily matched nothing and reported that as a well-formed empty list; the fused engine
+      // throws, and the tool reports the throw. What this test exists for is that the call does not crash, and a
+      // sentence saying why is a better outcome than a silent empty page.
+      expect(result.isError).toBe(true);
+      expect(result.content[0]!.text).toContain('Search error');
     });
 
     it('all 40 tools respond without crashing', async () => {

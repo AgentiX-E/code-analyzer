@@ -409,9 +409,14 @@ describe('searchGraph', () => {
   });
 
   it('coerces a non-Error throw into a readable error message', async () => {
-    const result = await searchGraph({ query: 'x' }, new StringThrowingStore());
+    // **The path changed and the contract did not.** This tool used to fail inside `searchFts`; it now asks the fused
+    // engine, whose first act is to walk the store, so the store that throws on `getAllNodes` is the one that fails.
+    // Keeping the old fixture would have left the assertion passing against a call this tool no longer makes.
+    const store = new StringThrowingStore();
+    store.throwOn = 'allNodes';
+    const result = await searchGraph({ query: 'x' }, store);
     expect(result.isError).toBe(true);
-    expect(textOf(result)).toBe('Search error: searchFts-boom');
+    expect(textOf(result)).toBe('Search error: getAllNodes-boom');
   });
 });
 

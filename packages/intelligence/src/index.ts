@@ -18,6 +18,14 @@ export {
   SELF_EVIDENCE_GUESSING,
 } from './search/fusion-weight.js';
 export type { RankedResult, HybridSearchResult } from './search/hybrid-search.js';
+// **The fusion mechanisms, so a surface can offer them rather than only a harness being able to run them.** §40
+// measured eight and retired four; the four that remain are a product option now, and the names are exported so a CLI
+// can refuse a name it does not have instead of silently fusing with the default.
+export { FUSION_RULE_NAMES, fuseByRule } from './search/fusion-rules.js';
+export type { FusionRuleName } from './search/fusion-rules.js';
+// **The engine belongs to the store.** Every surface that answers a question — the CLI, the MCP tools, the GraphQL
+// resolver — asks this for the ranking, so they are one retrieval rather than four similar ones.
+export { searchEngineFor } from './search/engine-for-store.js';
 // **Whether two rank lists differ by more than the questions they were measured on.** Every comparison before this
 // module subtracted two averages, which is a description of the instrument; these are the paired tests.
 export {

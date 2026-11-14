@@ -3,10 +3,34 @@
 // Tests command structure, error handling, and agent setup.
 
 import { describe, it, expect, beforeEach, afterEach } from 'vitest';
-import { mkdtempSync, mkdirSync, rmSync } from 'node:fs';
+import { mkdtempSync, mkdirSync, rmSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { tmpdir } from 'node:os';
 import { Command } from 'commander';
+
+/**
+ * **A checkout on disk, because the search command now reads one.**
+ *
+ * The two workflow tests below used to call `searchGraph({ query })` with no directory and assert `success: true` -
+ * which it was, because the command constructed an empty store, found nothing and called that a success. A test that
+ * asserts the exit code of an answer nobody could have is the test that kept the defect alive, so the checkout is real
+ * and the question is answerable from it.
+ */
+function writeSearchableCheckout(): string {
+  const root = mkdtempSync(join(tmpdir(), 'cli-e2e-search-'));
+  mkdirSync(join(root, 'src'), { recursive: true });
+  writeFileSync(
+    join(root, 'src', 'widget.ts'),
+    [
+      '/** Assemble the widget a request asks for. */',
+      'export function assembleWidget(request: string): string {',
+      '  return request;',
+      '}',
+      '',
+    ].join('\n'),
+  );
+  return root;
+}
 
 // ---------------------------------------------------------------------------
 // CLI Command Structure Tests
@@ -67,12 +91,22 @@ describe('CLI E2E — Full Workflow', () => {
     const analyzeOutput = formatAnalyzeResult(analyzeResult, 'text');
     expect(analyzeOutput).toContain('Failed');
 
-    // Search with a query
-    const searchResult = await searchGraph({ query: 'test', format: 'json' });
-    expect(searchResult.success).toBe(true);
+    // Search the checkout that was actually written, so the workflow has an answer to print
+    const checkout = writeSearchableCheckout();
+    try {
+      const searchResult = await searchGraph({
+        query: 'assemble the widget',
+        directory: checkout,
+        format: 'json',
+      });
+      expect(searchResult.success).toBe(true);
+      expect(searchResult.results[0]?.name).toBe('assembleWidget');
 
-    const searchOutput = formatSearchResult(searchResult, 'text');
-    expect(searchOutput).toContain('Search');
+      const searchOutput = formatSearchResult(searchResult, 'text');
+      expect(searchOutput).toContain('Search');
+    } finally {
+      rmSync(checkout, { recursive: true, force: true });
+    }
   });
 
   it('should execute review workflow', async () => {
@@ -148,12 +182,21 @@ describe('CLI E2E — Error Handling', () => {
 
   it('should format search results as JSON correctly', async () => {
     const { searchGraph, formatSearchResult } = await import('../commands/search.js');
-    const result = await searchGraph({ query: 'function', format: 'json' });
-    const output = formatSearchResult(result, 'json');
-    expect(() => JSON.parse(output)).not.toThrow();
-    const parsed = JSON.parse(output);
-    expect(parsed.success).toBe(true);
-    expect(Array.isArray(parsed.results)).toBe(true);
+    const checkout = writeSearchableCheckout();
+    try {
+      const result = await searchGraph({
+        query: 'assemble the widget',
+        directory: checkout,
+        format: 'json',
+      });
+      const output = formatSearchResult(result, 'json');
+      expect(() => JSON.parse(output)).not.toThrow();
+      const parsed = JSON.parse(output);
+      expect(parsed.success).toBe(true);
+      expect(Array.isArray(parsed.results)).toBe(true);
+    } finally {
+      rmSync(checkout, { recursive: true, force: true });
+    }
   });
 
   it('should format analyze results as summary', async () => {

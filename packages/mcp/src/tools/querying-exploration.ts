@@ -4,7 +4,7 @@ import { existsSync, readFileSync } from 'node:fs';
 import { resolve, sep } from 'node:path';
 
 import { InMemoryGraphStore } from '@code-analyzer/infra';
-import { describeFailure, rerankCandidates } from '@code-analyzer/intelligence';
+import { describeFailure, rerankCandidates, searchEngineFor } from '@code-analyzer/intelligence';
 import { EDGE_CALLS, EDGE_EXTENDS, EDGE_HAS_METHOD, EDGE_IMPLEMENTS } from '@code-analyzer/shared';
 
 import { buildSearchResponse, buildTraceResponse } from './smart-response.js';
@@ -72,26 +72,34 @@ export async function searchGraph(
     const graphStore = getStore(store);
 
     if (graphStore) {
-      const results = graphStore.searchFts(query, {
-        limit,
+      // **The same retrieval the benchmarks ran**, through the same engine the CLI and the GraphQL resolver ask for.
+      // This tool used to call `store.searchFts`, the containment channel that finds 173 of 447 rewritten questions
+      // where the field-weighted BM25 beside it finds 358 (`EVAL-CONTRACT.md` §37.7) - so the answer an agent got from
+      // the product and the answer the product published were two different answers to the same question.
+      const engine = getContext(store)?.getFederatedSearch() ?? searchEngineFor(graphStore);
+
+      const found = await engine.search(query, {
+        maxResults: limit,
         offset,
-        labels: (params.labels ?? []) as NodeLabel[],
+        // **Omitted means the code symbols**, and a caller that wants the files and modules beside them says so: the
+        // label filter is a filter the ranking sees, not one applied to the rows it already spent rank on.
+        ...(params.labels === undefined ? {} : { labels: params.labels as NodeLabel[] }),
       });
 
-      const rawItems = results.map((r) => ({
-        nodeId: r.nodeId,
-        name: r.node.name,
-        qualifiedName: r.node.qualifiedName,
-        label: r.node.label,
-        filePath: r.node.filePath,
-        rank: r.rank,
-        snippet: r.snippet,
+      const rawItems = found.results.map((hit) => ({
+        nodeId: hit.id,
+        name: hit.symbol,
+        qualifiedName: hit.qualifiedName,
+        label: hit.label,
+        filePath: hit.filePath,
+        rank: hit.relevance,
+        snippet: hit.snippet,
       }));
 
       // Build enriched response with pre-computed context
       const enriched = buildSearchResponse(rawItems, graphStore);
       enriched.query = query;
-      enriched.hasMore = results.length >= limit;
+      enriched.hasMore = found.results.length >= limit;
 
       return {
         content: [
@@ -101,9 +109,9 @@ export async function searchGraph(
               {
                 // Legacy flat format (backward compatible)
                 items: rawItems,
-                total: results.length,
-                returned: results.length,
-                hasMore: results.length >= limit,
+                total: found.results.length,
+                returned: found.results.length,
+                hasMore: found.results.length >= limit,
                 // Enriched context for AI agents
                 enriched,
               },

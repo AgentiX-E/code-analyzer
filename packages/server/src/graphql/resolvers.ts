@@ -2,6 +2,7 @@
 // Resolver implementations for all queries, mutations, and subscriptions.
 // Delegates all data access to the InMemoryGraphStore and analysis engine.
 
+import { searchEngineFor } from '@code-analyzer/intelligence';
 import { EDGE_CALLS, EDGE_IMPORTS } from '@code-analyzer/shared';
 
 import type { GraphQLContext } from './context.js';
@@ -11,7 +12,6 @@ import type {
   InMemoryGraphStore,
   NodeQuery,
   EdgeQuery,
-  FtsSearchResult,
 } from '@code-analyzer/infra';
 import type { NodeLabel, RelationshipType } from '@code-analyzer/shared';
 
@@ -109,15 +109,6 @@ function edgeToGraphQL(e: GraphEdge) {
     ...e,
     properties: e.properties,
     createdAt: e.createdAt,
-  };
-}
-
-function searchResultToGraphQL(r: FtsSearchResult) {
-  return {
-    node: nodeToGraphQL(r.node),
-    score: r.rank,
-    matchedField: r.matchedColumn,
-    matchedValue: r.snippet,
   };
 }
 
@@ -294,18 +285,40 @@ export const resolvers = {
       };
     },
 
-    searchGraph: (_root: unknown, args: SearchGraphArgs, ctx: GraphQLContext) => {
+    searchGraph: async (_root: unknown, args: SearchGraphArgs, ctx: GraphQLContext) => {
       const store = ctx.store;
       const limit = args.limit ?? 20;
       const offset = args.offset ?? 0;
 
-      const results = store.searchFts(args.query, { limit, offset });
-      // Filter by projectId post-search
-      const filtered = results.filter((r) => r.node.projectId === args.projectId);
+      // **The scope is a filter the ranking sees, and the order is the engine's.** This resolver used to ask the
+      // containment channel for a page and then throw away the rows whose project did not match - so a project whose
+      // best answer was eleventh in the global list answered nothing, and the page a caller received was shorter than
+      // the page it asked for. `§37.7` fixed that inside `FederatedSearchEngine`; this is the surface catching up.
+      const found = await searchEngineFor(store).search(args.query, {
+        maxResults: limit,
+        offset,
+        repoFilter: [args.projectId],
+      });
 
       return {
-        items: filtered.map(searchResultToGraphQL),
-        pageInfo: pageInfo(filtered.length, 0, limit),
+        // **A hit that the store cannot resolve is dropped rather than invented.** The engine's list came from this
+        // store, so the lookup succeeds; the filter states that a row without a node would be a row without a name.
+        items: found.results.flatMap((hit) => {
+          const node = store.getNode(hit.id);
+          if (node === null) return [];
+          return [
+            {
+              node: nodeToGraphQL(node),
+              score: hit.relevance,
+              // **Which field matched is a question a fused ranking cannot answer**, and the field used to carry the
+              // containment channel's own answer. The score is now a rank fusion, so the field says so rather than
+              // naming one of the two lists it was computed from.
+              matchedField: 'fused',
+              matchedValue: hit.snippet,
+            },
+          ];
+        }),
+        pageInfo: pageInfo(found.totalResults, offset, limit),
       };
     },
 
@@ -345,16 +358,30 @@ export const resolvers = {
       };
     },
 
-    crossRepoSearch: (_root: unknown, args: CrossRepoSearchArgs, ctx: GraphQLContext) => {
+    crossRepoSearch: async (_root: unknown, args: CrossRepoSearchArgs, ctx: GraphQLContext) => {
       const store = ctx.store;
       const limit = args.limit ?? 20;
       const offset = args.offset ?? 0;
 
-      const results = store.searchFts(args.query, { limit, offset });
+      // **Cross-repository means no scope at all**, and the engine is the only list that ranks across every project at
+      // once: the containment channel this used to call is the one `findSymbol` still uses for name resolution, and a
+      // question in the words of the code is not a name.
+      const found = await searchEngineFor(store).search(args.query, { maxResults: limit, offset });
 
       return {
-        items: results.map(searchResultToGraphQL),
-        pageInfo: pageInfo(results.length, 0, limit),
+        items: found.results.flatMap((hit) => {
+          const node = store.getNode(hit.id);
+          if (node === null) return [];
+          return [
+            {
+              node: nodeToGraphQL(node),
+              score: hit.relevance,
+              matchedField: 'fused',
+              matchedValue: hit.snippet,
+            },
+          ];
+        }),
+        pageInfo: pageInfo(found.totalResults, offset, limit),
       };
     },
 

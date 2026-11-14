@@ -419,7 +419,11 @@ describe('every module a package compiles is reachable from an entry its manifes
       // mechanisms the retrieval literature carries are a module rather than a branch inside `fuseResults` - **a
       // candidate that a corpus has not scored cannot become the product's order**, and a candidate behind an `if` in
       // the engine is a candidate the product already runs.
-      intelligence: 173,
+      // **174 since iteration 140**, which added `search/engine-for-store.ts`. The engine was constructed once per
+      // caller, so the CLI built one per command, the MCP context one per session and the GraphQL resolver one per
+      // request - each recomputing field lengths over the whole store. A ranking is a property of the index, so the
+      // engine is now obtained from the store rather than built beside it, and the module is where that sentence lives.
+      intelligence: 174,
       mcp: 39,
       server: 24,
       // **11 since iteration 121**, which added `utils/type-text.ts`: the depth-counted removal of type arguments and

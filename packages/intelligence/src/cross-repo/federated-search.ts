@@ -25,6 +25,24 @@ export interface FederatedSearchOptions {
   repoFilter?: string[];
   /** Maximum results to return (default 50) */
   maxResults?: number;
+  /**
+   * **How many ranked hits to skip, which is a page of the order rather than a second order.**
+   *
+   * Pagination belongs after the fusion and not before it: a caller that asked the ranking for `offset + limit` rows and
+   * sliced the answer would pay for the rows it discarded, and one that asked for `limit` rows starting at `offset`
+   * would be asking for a different ranking. Both are the same mistake the scoped search made before `projectIds`
+   * entered the filter (`§37.7`), one layer up.
+   */
+  offset?: number;
+  /**
+   * **Which node labels the answer may carry.**
+   *
+   * Omitted means the code symbols the product ships - functions, methods, classes, interfaces, type aliases and enums -
+   * because a developer asking a question wants the declaration that answers it, not the file that contains one. A
+   * surface that needs a wider or narrower set says so here rather than filtering the answer afterwards, for the same
+   * reason the scope is a filter: **a label removed after the ranking is a rank that was spent on a row nobody sees.**
+   */
+  labels?: NodeLabel[];
   /** Include code snippets in results */
   includeCode?: boolean;
   /**
@@ -78,6 +96,13 @@ export interface RepoScopeResolver {
 }
 
 export interface FederatedSearchItem {
+  /**
+   * **The store's own node id**, so a caller can ask the next question without a second lookup.
+   *
+   * `qualifiedName` is the identity a person reads and `id` is the identity a store answers by; a surface that had only
+   * the first would search again to use the second, and a surface that had only the second could not print a hit.
+   */
+  id: number;
   repo: string;
   symbol: string;
   /**
@@ -255,7 +280,7 @@ export class FederatedSearchEngine {
     return this.retrieval().channels({
       query,
       limit: maxResults,
-      labels: SYMBOL_LABELS,
+      labels: options.labels ?? SYMBOL_LABELS,
       projectIds: scope ? [...scope.selected] : undefined,
     });
   }
@@ -302,25 +327,36 @@ export class FederatedSearchEngine {
     // **The rule is a parameter of the measurement, and the product's rule is the default.** A candidate that has not
     // beaten the shipped one on both corpora cannot become the order an answer arrives in, so the branch is a selection
     // rather than a replacement: `fuseResults` still produces every figure the product publishes.
-    const ranked =
+    // **The page is carved out of the ranking and never out of the query.** `offset` is applied to the fused list, so
+    // page two is the second ten of the same order rather than the first ten of a second order - and the extra rows are
+    // asked for in the same call, because asking twice would fuse twice.
+    const offset = Math.max(0, options.offset ?? 0);
+    const wanted = maxResults + offset;
+
+    const rankedAll =
       options.fusionRule === undefined || options.fusionRule === 'rrf'
-        ? this.retrieval().fuseResults(lexical, vector, 60, maxResults, vectorWeight)
+        ? this.retrieval().fuseResults(lexical, vector, 60, wanted, vectorWeight)
         : fuseByRule(options.fusionRule, lexical, vector, {
             k: 60,
             vectorWeight: options.vectorWeight,
-            limit: maxResults,
+            limit: wanted,
           });
 
     const repoBreakdown: Record<string, number> = {};
-    // **`ranked[0]` exists whenever the map below does**, so the divisor is the best score in a non-empty list and the
-    // ratio is in (0, 1]. A guard here would be a branch no corpus can reach, and an unreachable branch is a claim that
-    // the code handles a case it has never seen.
-    const topScore = ranked.length > 0 ? ranked[0]!.combinedScore : 1;
+    // **`rankedAll[0]` exists whenever the list below does**, so the divisor is the best score in a non-empty ranking and
+    // the ratio is in (0, 1]. A guard here would be a branch no corpus can reach, and an unreachable branch is a claim
+    // that the code handles a case it has never seen.
+    //
+    // **The divisor is the whole ranking's best and not the page's**, so the same hit carries the same relevance on every
+    // page: a figure that changed when a caller turned to page two would be a figure about pagination.
+    const topScore = rankedAll.length > 0 ? rankedAll[0]!.combinedScore : 1;
+    const ranked = offset === 0 ? rankedAll : rankedAll.slice(offset);
 
     const items: FederatedSearchItem[] = ranked.map((hit) => {
       const repo = hit.node.projectId ?? '';
       repoBreakdown[repo] = (repoBreakdown[repo] ?? 0) + 1;
       return {
+        id: hit.node.id,
         repo,
         symbol: hit.node.name,
         qualifiedName: hit.node.qualifiedName,

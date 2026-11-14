@@ -2,203 +2,179 @@
  * Tests for the search command.
  */
 
-import { describe, it, expect, vi } from 'vitest';
 import { InMemoryGraphStore } from '@code-analyzer/infra';
-import { searchGraph, formatSearchResult, type SearchOutput } from '../commands/search.js';
+import { describe, it, expect } from 'vitest';
+
+import { createTestNode } from '../../../infra/src/__tests__/helpers.js';
+import {
+  defaultProjectId,
+  searchGraph,
+  formatSearchResult,
+  type SearchOutput,
+} from '../commands/search.js';
+
+/**
+ * **A store with a graph in it**, because the command's job is to answer from one.
+ *
+ * The previous suite mocked `searchFts` and asserted that the mock's rows were mapped to the right fields - so it passed
+ * while `searchGraph` built an empty store and answered nothing, and it would have kept passing while the command asked
+ * a different retrieval from the one every published figure was measured on. These rows go in through `insertNode` and
+ * the questions go through the engine.
+ */
+function graphStore(): InMemoryGraphStore {
+  const store = new InMemoryGraphStore();
+  store.insertNode(
+    createTestNode({
+      name: 'clampValue',
+      qualifiedName: 'src/limits:clampValue',
+      label: 'Function',
+      filePath: 'src/limits.ts',
+      startLine: 12,
+      docstring: 'Keep a number below a ceiling so the value stays finite.',
+    }),
+  );
+  store.insertNode(
+    createTestNode({
+      name: 'CeilingPolicy',
+      qualifiedName: 'src/policy:CeilingPolicy',
+      label: 'Class',
+      filePath: 'src/policy.ts',
+      startLine: 4,
+      docstring: 'Decides the ceiling a value may reach.',
+    }),
+  );
+  return store;
+}
 
 describe('searchGraph', () => {
-  it('should return structured output for a query', async () => {
-    const result = await searchGraph({ query: 'function' });
+  it('answers a question asked in the words of the code', async () => {
+    const result = await searchGraph({ query: 'number below a ceiling' }, graphStore());
+
     expect(result.success).toBe(true);
-    expect(result.query).toBe('function');
-    expect(result.results).toBeInstanceOf(Array);
-    expect(typeof result.totalResults).toBe('number');
+    expect(result.query).toBe('number below a ceiling');
+    expect(result.results.length).toBeGreaterThan(0);
+    expect(result.results[0]!.name).toBe('clampValue');
     expect(result.duration).toBeGreaterThanOrEqual(0);
   });
 
-  it('should accept limit option', async () => {
-    const result = await searchGraph({ query: 'class', limit: 10 });
-    expect(result.results.length).toBeLessThanOrEqual(10);
+  it('accepts a limit', async () => {
+    const result = await searchGraph({ query: 'ceiling', limit: 1 }, graphStore());
+    expect(result.results.length).toBeLessThanOrEqual(1);
   });
 
-  it('should accept type filter', async () => {
-    const result = await searchGraph({ query: 'test', type: 'function' });
-    expect(result.results.every((r) => r.type === 'function')).toBe(true);
+  it('filters by the type spelling a user types', async () => {
+    const result = await searchGraph({ query: 'ceiling', type: 'class' }, graphStore());
+
+    // The filter is compared as a label rather than as a string: `class` and `Class` are the same type and comparing
+    // them literally drops every row, which looks exactly like a question with no answer.
+    expect(result.results.length).toBe(1);
+    expect(result.results[0]!.type).toBe('Class');
   });
 
-  it('should handle verbose option', async () => {
-    const result = await searchGraph({ query: 'export', verbose: true });
-    // should not crash
-    expect(result.success).toBe(true);
+  it('carries a snippet only when asked', async () => {
+    const plain = await searchGraph({ query: 'ceiling' }, graphStore());
+    const verbose = await searchGraph({ query: 'ceiling', verbose: true }, graphStore());
+
+    expect(plain.results[0]!.snippet).toBeUndefined();
+    expect(verbose.results[0]!.snippet?.length).toBeGreaterThan(0);
   });
 
-  it('should return results sorted by score', async () => {
-    const result = await searchGraph({ query: 'main', limit: 10 });
+  it("returns the hits in the engine's order, which is not sorted afterwards", async () => {
+    const result = await searchGraph({ query: 'ceiling policy', limit: 10 }, graphStore());
+
+    // The old code re-sorted by a field it had itself computed, so the order it printed was its own. The order here is
+    // the fused one and a second sort would be a second ranking: `relevance` is relative to the best hit and is
+    // therefore monotone by construction, so this asserts that the command did not touch it.
     for (let i = 1; i < result.results.length; i++) {
       expect(result.results[i]!.score).toBeLessThanOrEqual(result.results[i - 1]!.score);
     }
   });
 
-  it('should handle empty query gracefully', async () => {
-    const result = await searchGraph({ query: '' });
-    expect(result.success).toBe(true);
-    expect(result.results).toBeInstanceOf(Array);
-  });
+  it('refuses an empty query rather than reporting an empty answer', async () => {
+    const result = await searchGraph({ query: '' }, graphStore());
 
-  it('should handle store errors gracefully', async () => {
-    const mockStore = {
-      searchFts: vi.fn().mockImplementation(() => {
-        throw new Error('FTS index corrupted');
-      }),
-    };
-    const result = await searchGraph(
-      { query: 'error-test' },
-      mockStore as unknown as InMemoryGraphStore,
-    );
+    // An empty question has no answer and "no results" is a different statement: the first is about the question and the
+    // second about the index. The engine throws, and the command reports the throw.
     expect(result.success).toBe(false);
-    expect(result.error).toContain('FTS index corrupted');
-    expect(result.query).toBe('error-test');
+    expect(result.error).toContain('Search query is required');
     expect(result.results).toEqual([]);
   });
 
-  it('should handle non-Error throw in store', async () => {
-    const mockStore = {
-      searchFts: vi.fn().mockImplementation(() => {
-        throw 'String error';
-      }),
+  it('reports a store that throws, and names what it said', async () => {
+    const failing = {
+      getProjectIds: () => ['p'],
+      getAllNodes: () => {
+        throw new Error('index corrupted');
+      },
     };
     const result = await searchGraph(
-      { query: 'string-error' },
-      mockStore as unknown as InMemoryGraphStore,
+      { query: 'anything' },
+      failing as unknown as InMemoryGraphStore,
     );
+
     expect(result.success).toBe(false);
-    expect(result.error).toContain('String error');
+    expect(result.error).toContain('index corrupted');
+    expect(result.query).toBe('anything');
   });
 
-  it('should include snippet when verbose and store returns content', async () => {
-    const mockStore = {
-      searchFts: vi.fn().mockReturnValue([
-        {
-          id: 1,
-          name: 'UserService',
-          type: 'class',
-          label: 'class',
-          file: 'src/UserService.ts',
-          line: 5,
-          score: 0.95,
-          content: '/** User service for authentication */\nexport class UserService {',
-        },
-      ]),
+  it('reports a non-Error throw without inventing a message', async () => {
+    const failing = {
+      getProjectIds: () => ['p'],
+      getAllNodes: () => {
+        // The case is a store that throws something which is not an Error, which is what the command's `String(err)`
+        // arm exists for; the rule below forbids it everywhere else.
+        // eslint-disable-next-line @typescript-eslint/only-throw-error
+        throw 'plain string';
+      },
     };
     const result = await searchGraph(
-      { query: 'UserService', verbose: true },
-      mockStore as unknown as InMemoryGraphStore,
+      { query: 'anything' },
+      failing as unknown as InMemoryGraphStore,
     );
+
+    expect(result.success).toBe(false);
+    expect(result.error).toBe('plain string');
+  });
+
+  it('says nothing is indexed when the store is empty', async () => {
+    const result = await searchGraph({ query: 'nonexistent' }, new InMemoryGraphStore());
+
+    expect(result.success).toBe(false);
+    expect(result.results).toEqual([]);
+    expect(result.error).toMatch(/nothing indexed/i);
+  });
+
+  it('passes a type it does not know straight through, rather than dropping every row', async () => {
+    // The mapping is a courtesy, not a whitelist: a store may hold labels this CLI has no friendly spelling for, and
+    // turning an unknown spelling into "no results" would make a typo indistinguishable from an empty answer.
+    const result = await searchGraph({ query: 'ceiling', type: 'Macro' }, graphStore());
     expect(result.success).toBe(true);
-    expect(result.results[0]!.snippet).toBeDefined();
-    expect(result.results[0]!.snippet?.length).toBeGreaterThan(0);
+    expect(result.results).toEqual([]);
   });
 
-  it('should filter results by type when type option is provided', async () => {
-    const mockStore = {
-      searchFts: vi.fn().mockReturnValue([
-        { id: 1, name: 'calculate', type: 'function', file: 'a.ts', line: 1, score: 0.9 },
-        { id: 2, name: 'User', type: 'class', file: 'b.ts', line: 2, score: 0.8 },
-        { id: 3, name: 'render', type: 'function', file: 'c.ts', line: 3, score: 0.7 },
-      ]),
-    };
-    const result = await searchGraph(
-      { query: 'test', type: 'function' },
-      mockStore as unknown as InMemoryGraphStore,
-    );
-    expect(result.results.length).toBe(2);
-    expect(result.results.every((r) => r.type === 'function')).toBe(true);
-  });
-
-  it('should accept a store parameter instead of creating one', async () => {
-    const mockStore = {
-      searchFts: vi
-        .fn()
-        .mockReturnValue([
-          { id: 42, name: 'testFn', type: 'function', file: 'test.ts', line: 1, score: 1.0 },
-        ]),
-    };
-    const result = await searchGraph(
-      { query: 'search' },
-      mockStore as unknown as InMemoryGraphStore,
-    );
+  it('forwards a vector weight the caller set', async () => {
+    // No vectors are registered on this store, so the weight cannot change the order - the point is that the option is
+    // passed to the engine rather than accepted and discarded, which is what a surface that only *offers* a control does.
+    const result = await searchGraph({ query: 'ceiling', vectorWeight: 0.3 }, graphStore());
     expect(result.success).toBe(true);
-    expect(result.results[0]!.id).toBe(42);
+    expect(result.results[0]!.name).toBe('CeilingPolicy');
   });
 
-  it('should use fallback values when store returns incomplete data', async () => {
-    const mockStore = {
-      searchFts: vi
-        .fn()
-        .mockReturnValue([{}, { name: 'partialFn' }, { type: 'class', label: 'interface' }]),
-    };
-    const result = await searchGraph(
-      { query: 'incomplete' },
-      mockStore as unknown as InMemoryGraphStore,
-    );
-    expect(result.success).toBe(true);
-    expect(result.results.length).toBe(3);
-    // First result: all defaults
-    expect(result.results[0]!.id).toBe(0);
-    expect(result.results[0]!.name).toBe('unknown');
-    expect(result.results[0]!.type).toBe('unknown');
-    expect(result.results[0]!.file).toBe('');
-    expect(result.results[0]!.line).toBe(1);
-    expect(result.results[0]!.score).toBe(0);
-    // Second result: partial
-    expect(result.results[1]!.name).toBe('partialFn');
+  it('names an indexed checkout by its path, and by its directory when the path is the current one', () => {
+    // **The second case is the one a command cannot reach in a test**: `relative` is empty only when the checkout *is*
+    // the directory the process is in, and a test that changed the process directory would change it for every other
+    // test in the run. The rule is exported so both cases can be stated.
+    expect(defaultProjectId('/work/repos/alpha', '/work')).toBe('repos/alpha');
+    expect(defaultProjectId('/work/repos/alpha', '/work/repos/alpha')).toBe('alpha');
   });
 
-  it('should return empty results for a valid store with no matches', async () => {
-    const mockStore = {
-      searchFts: vi.fn().mockReturnValue([]),
-    };
-    const result = await searchGraph(
-      { query: 'nonexistent' },
-      mockStore as unknown as InMemoryGraphStore,
-    );
-    expect(result.success).toBe(true);
-    expect(result.results.length).toBe(0);
-    expect(result.totalResults).toBe(0);
-  });
+  it('says which flag names a checkout when none was given and no store was handed in', async () => {
+    const result = await searchGraph({ query: 'nonexistent' });
 
-  it('should handle verbose with missing content gracefully', async () => {
-    const mockStore = {
-      searchFts: vi
-        .fn()
-        .mockReturnValue([
-          { id: 1, name: 'fn', type: 'function', file: 'a.ts', line: 1, score: 0.9 },
-        ]),
-    };
-    const result = await searchGraph(
-      { query: 'fn', verbose: true },
-      mockStore as unknown as InMemoryGraphStore,
-    );
-    expect(result.results[0]!.snippet).toBe('');
-  });
-
-  it('should filter mixed types correctly', async () => {
-    const mockStore = {
-      searchFts: vi.fn().mockReturnValue([
-        { id: 1, name: 'fn1', type: 'function', file: 'a.ts', line: 1, score: 0.9 },
-        { id: 2, name: 'Cls1', type: 'class', file: 'b.ts', line: 2, score: 0.8 },
-        { id: 3, name: 'fn2', type: 'function', file: 'c.ts', line: 3, score: 0.7 },
-        { id: 4, name: 'Cls2', type: 'class', file: 'd.ts', line: 4, score: 0.6 },
-      ]),
-    };
-    const result = await searchGraph(
-      { query: 'test', type: 'class' },
-      mockStore as unknown as InMemoryGraphStore,
-    );
-    expect(result.results.length).toBe(2);
-    expect(result.results.every((r) => r.type === 'class')).toBe(true);
-    expect(result.results[0]!.score).toBe(0.8);
-    expect(result.results[1]!.score).toBe(0.6);
+    // The command used to answer this case with zero rows and exit 0. It is the one case where the fix is a sentence: a
+    // user who has not indexed anything needs to be told how, not told that their question found nothing.
+    expect(result.success).toBe(false);
+    expect(result.error).toMatch(/--directory/);
   });
 });
 
@@ -210,6 +186,8 @@ describe('formatSearchResult', () => {
       {
         id: 1,
         name: 'calculateTotal',
+        qualifiedName: 'src/utils:calculateTotal',
+        repo: 'utils',
         type: 'function',
         file: 'src/utils.ts',
         line: 42,
@@ -218,6 +196,8 @@ describe('formatSearchResult', () => {
       {
         id: 2,
         name: 'UserModel',
+        qualifiedName: 'src/models/user:UserModel',
+        repo: 'user',
         type: 'class',
         file: 'src/models/user.ts',
         line: 10,
@@ -231,7 +211,7 @@ describe('formatSearchResult', () => {
 
   it('should format as JSON', () => {
     const output = formatSearchResult(sampleOutput, 'json');
-    const parsed = JSON.parse(output);
+    const parsed = JSON.parse(output) as { query: string; results: unknown[] };
     expect(parsed.query).toBe('export');
     expect(parsed.results.length).toBe(2);
   });
@@ -271,6 +251,8 @@ describe('formatSearchResult', () => {
         {
           id: 1,
           name: 'UserModel',
+          qualifiedName: 'src/models/user:UserModel',
+          repo: 'user',
           type: 'class',
           file: 'src/models/user.ts',
           line: 10,
@@ -290,6 +272,8 @@ describe('formatSearchResult', () => {
         {
           id: 1,
           name: 'orphanFn',
+          qualifiedName: 'src/orphan:orphanFn',
+          repo: 'orphan',
           type: 'function',
           file: '',
           line: 1,
