@@ -8,12 +8,15 @@
 // indexes the checkout it is given and then asks the same `FederatedSearchEngine` every published figure was measured
 // on, through the same `searchEngineFor` the MCP tools and the GraphQL resolver ask.
 
+import { existsSync } from 'node:fs';
 import { EOL } from 'node:os';
 import { basename, relative, resolve } from 'node:path';
 
 import { InMemoryGraphStore } from '@code-analyzer/infra';
+import { persistGraph, PipelineOrchestrator, type PipelineResult } from '@code-analyzer/analyzer';
 import { searchEngineFor, type FusionRuleName } from '@code-analyzer/intelligence';
-import { createToolRegistry, ToolContextImpl } from '@code-analyzer/mcp';
+
+import { buildPipelineContext, loadPhases } from './analyze.js';
 
 import type { NodeLabel } from '@code-analyzer/shared';
 
@@ -125,30 +128,23 @@ async function indexCheckout(
   projectId: string | undefined,
 ): Promise<void> {
   const root = resolve(directory);
-  const context = new ToolContextImpl(store, { llm: null });
-  const indexed = await createToolRegistry().execute(
-    'analyze_repository',
-    // **`force`, because a store is per-process here and a second index of the same path must not be skipped.** The flag
-    // means "write the graph" as much as "re-index", and a fresh store has nothing to skip.
-    {
-      path: root,
-      projectId: projectId ?? defaultProjectId(root),
-      force: true,
-    },
-    context,
-  );
-
-  // **The tool owns the check for a path that is not there**, and it returns an error rather than throwing, so this is
-  // the one place "the directory you named does not exist" is decided. A second `existsSync` here was a branch that
-  // could only disagree with the tool's own answer, and it made the message depend on which of the two noticed first.
-  if (indexed.isError === true) {
-    throw new Error(`Indexing failed: ${indexed.content[0]?.text ?? 'no reason given'}`);
+  if (!existsSync(root)) {
+    throw new Error(`Path does not exist: ${root}`);
   }
 
-  // **`persistGraph` cannot report a failure to persist**: its `persisted` field is the literal `true`, because every
-  // way a node or an edge can fail to be stored is counted in `duplicateNodes`/`orphanEdges` and the graph is still
-  // written. A branch on that field would be a branch no corpus reaches, and the state that *can* happen - a store that
-  // ends up with no project in it - is caught below, at the place that can observe it.
+  // **The pipeline is the only thing that knows how to turn files into a graph**, and this runs it rather than walking
+  // the directory a second way: a second walk would be a second definition of what a checkout contains, and the answer
+  // it produced would drift from the one the MCP server gives for the same directory.
+  const id = projectId ?? defaultProjectId(root);
+  const phases = await loadPhases();
+  const ctx = buildPipelineContext(root, id);
+
+  const result: PipelineResult = await new PipelineOrchestrator(phases).execute(ctx);
+
+  // **What the store took, not what the pipeline computed.** The two numbers were one number until the graph was
+  // discarded, and a command that reported the first while the second was zero is the shape of a defect this product
+  // has already had once.
+  persistGraph(store, result, id, true);
 }
 
 /**
@@ -272,13 +268,17 @@ export function formatSearchResult(
   lines.push(`${'='.repeat(60)}`);
   lines.push(`Code Analyzer — Search Results: "${result.query}"`);
   lines.push(`${'='.repeat(60)}`);
-  lines.push(`Found: ${result.totalResults} results in ${result.duration}ms`);
-  lines.push(` `);
 
+  // **The error comes before the count**, because "Found: 0 results" is a sentence about the question and an error is a
+  // sentence about the run. A reader who saw the first and stopped had been told their question has no answer in a
+  // repository that was never read.
   if (!result.success && result.error) {
     lines.push(`Error: ${result.error}`);
     return lines.join(EOL);
   }
+
+  lines.push(`Found: ${result.totalResults} results in ${result.duration}ms`);
+  lines.push(` `);
 
   for (let i = 0; i < result.results.length; i++) {
     const r = result.results[i]!;

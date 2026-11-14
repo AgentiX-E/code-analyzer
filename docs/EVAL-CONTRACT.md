@@ -4500,3 +4500,38 @@ indexed two throwaway checkouts of one file each in the tests and read no corpus
 `packages/intelligence/src/search/engine-for-store.ts` is at 100 % on all four dimensions, and
 `packages/cli/src/commands/search.ts` is at 100 % statements/functions/lines and 95.6 % branches — the two branches that
 remain are `??` defaults on values the indexing tool always supplies.
+
+### 43.6 The CLI does not depend on the MCP server, and the image found out first
+
+The first version of this iteration had `code-analyzer search` index its checkout by calling the `analyze_repository`
+**MCP tool**. It passed every test in the suite and the CLI image's smoke test failed:
+
+```
+Error: Cannot find module '@code-analyzer/mcp'
+- /app/packages/cli/dist/commands/search.js
+```
+
+**The Dockerfile was right and the code was wrong.** The CLI stage copies `core`, `shared`, `infra`, `analyzer`,
+`intelligence` and `cli` — it has never copied `mcp`, because a command-line tool that answers one question about one
+directory has no use for a graph server and a transport. `packages/cli/package.json` listed `@code-analyzer/mcp` as a
+dependency that **no source file imported**, so the declaration was a lie that nothing read: the tests ran from the
+workspace where every package resolves, and only the image asked what the package actually needed.
+
+**The fix is not a `COPY` line.** `persistGraph` — the function that remaps pipeline ids into store ids and reports what
+was taken — moved from `packages/mcp/src/tools/indexing-lifecycle.ts` to
+`packages/analyzer/src/pipeline/persist-graph.ts`, where it sits beside the pipeline that produces its input and the
+package that already declares a dependency on the store it writes. The MCP tool imports it; the CLI imports it; the
+context builder (`buildPipelineContext`) and the phase loader became shared exports of `commands/analyze.ts` so that the
+two commands cannot disagree about what a checkout is or how it is configured.
+
+**Three consequences worth stating**, because each of them was a defect that the image caught and the suite did not:
+
+1. **A declared dependency that nothing imports is not a dependency, it is a claim.** Nothing checks that
+   `package.json` describes what `src/` needs, and a workspace resolves everything, so only a production image can
+   answer it.
+2. **`formatSearchResult` printed `Found: 0 results` before the error**, so a user whose directory had not been indexed
+   read the count, believed it, and stopped. The error now comes first — a sentence about the run rather than a sentence
+   about the question.
+3. **The dead command still exited 0 in the empty-checkout case**, because `tail` had swallowed the exit code in the
+   manual check. Run without a pipe it exits 1, which is what `process.exit(result.success ? 0 : 1)` says and what the
+   suite asserts.

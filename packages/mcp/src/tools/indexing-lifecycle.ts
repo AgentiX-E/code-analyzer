@@ -3,13 +3,13 @@
 import { existsSync } from 'node:fs';
 import { resolve } from 'node:path';
 
+import { persistGraph, type PersistenceReport } from '@code-analyzer/analyzer';
 import { InMemoryGraphStore } from '@code-analyzer/infra';
 import { analyzeInterproceduralTaint } from '@code-analyzer/intelligence';
 
 import { ToolContextImpl, type ToolContext } from './tool-context.js';
 
 import type { ToolResult } from './registry.js';
-import type { PipelineResult } from '@code-analyzer/analyzer';
 import type { ParsedFile, SupportedLanguage } from '@code-analyzer/shared';
 
 // ---------------------------------------------------------------------------
@@ -27,20 +27,6 @@ function getStore(storeOrContext: unknown): InMemoryGraphStore | null {
   return null;
 }
 
-/** What happened when the analysis graph was written to the store. */
-interface PersistenceReport {
-  /** Whether a store was reachable at all. **`false` means the nodes went out of scope with the pipeline result.** */
-  readonly persisted: boolean;
-  readonly nodes: number;
-  readonly edges: number;
-  /** Nodes whose qualified name already existed — the graph is stored as far as the store would take it. */
-  readonly duplicateNodes: number;
-  /** Edges whose endpoints were dropped, so they could not be remapped. */
-  readonly orphanEdges: number;
-  /** The first defect, in one sentence, or `null` when every node and edge was taken. */
-  readonly reason: string | null;
-}
-
 /**
  * The report for a call that never ran a pipeline, so it had nothing to store.
  *
@@ -52,86 +38,6 @@ interface PersistenceReport {
  */
 function nothingStored(reason: string): PersistenceReport {
   return { persisted: false, nodes: 0, edges: 0, duplicateNodes: 0, orphanEdges: 0, reason };
-}
-
-/**
- * Write a pipeline result into the graph store, remapping node ids as it goes.
- *
- * **The store is a parameter of type `InMemoryGraphStore`, not `InMemoryGraphStore | null`.** It was nullable,
- * for a caller that could not supply one — and the only caller supplies `ctx.store`, which the context guarantees,
- * so the null arm was a branch no test and no deployment could take. Covering it would have meant writing a test
- * for a state the code cannot be in; removing it means the type says what the function needs.
- *
- * **This function exists because the tool that indexes did not index.** `analyze_repository` ran the full pipeline,
- * reported `nodeCount`, and dropped `result.graph` when the handler returned: `currentAnalysis` was assigned on the tool
- * context and read by nothing, so after "indexing" a project the store held zero nodes and every query tool answered
- * about an empty graph. The unit tests did not see it because they insert nodes by hand, and the L4 harness saw it on its
- * first run — a tool that reports 805 nodes and leaves the store empty is the exact defect an end-to-end measurement
- * exists to find.
- *
- * **Ids are remapped, not copied.** The pipeline numbers its own nodes from zero and the store allocates its own ids, so
- * an edge inserted with the pipeline's ids either fails the store's existence check or - worse - attaches to whatever
- * node happened to take that id. The map is built as the nodes go in, and an edge with a missing endpoint is counted
- * rather than silently dropped.
- */
-function persistGraph(
-  graphStore: InMemoryGraphStore,
-  result: PipelineResult,
-  projectId: string,
-  force: boolean,
-): PersistenceReport {
-  // **`force` is the promise that a re-index replaces the old one**, and a promise the store would otherwise keep by
-  // throwing on the first node whose qualified name already exists — leaving the project half old and half new.
-  if (force) {
-    for (const edge of graphStore.getAllEdges()) {
-      if (edge.projectId === projectId) graphStore.deleteEdge(edge.id);
-    }
-    for (const node of graphStore.getAllNodes()) {
-      if (node.projectId === projectId) graphStore.deleteNode(node.id);
-    }
-  }
-
-  const idMap = new Map<number, number>();
-  let nodes = 0;
-  let duplicateNodes = 0;
-  let reason: string | null = null;
-  for (const [pipelineId, node] of result.graph.nodes) {
-    const { id: _pipelineId, ...rest } = node;
-    try {
-      idMap.set(pipelineId, graphStore.insertNode(rest));
-      nodes += 1;
-    } catch (error) {
-      duplicateNodes += 1;
-      reason ??= `node "${node.qualifiedName}" was not stored: ${String((error as Error).message)}`;
-    }
-  }
-
-  let edges = 0;
-  let orphanEdges = 0;
-  for (const edge of result.graph.edges.values()) {
-    const sourceId = idMap.get(edge.sourceId);
-    const targetId = idMap.get(edge.targetId);
-    if (sourceId === undefined || targetId === undefined) {
-      orphanEdges += 1;
-      continue;
-    }
-    try {
-      graphStore.insertEdge({
-        projectId: edge.projectId,
-        type: edge.type,
-        sourceId,
-        targetId,
-        properties: edge.properties,
-        weight: edge.weight,
-      });
-      edges += 1;
-    } catch (error) {
-      orphanEdges += 1;
-      reason ??= `edge ${edge.type} was not stored: ${String((error as Error).message)}`;
-    }
-  }
-
-  return { persisted: true, nodes, edges, duplicateNodes, orphanEdges, reason };
 }
 
 // ---------------------------------------------------------------------------

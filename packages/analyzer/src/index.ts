@@ -3,6 +3,11 @@
 
 // Pipeline
 export { PipelineOrchestrator } from './pipeline/orchestrator.js';
+// **Writing a pipeline result into a store is not a tool's job.** It lives here so that the CLI can index a checkout
+// without depending on the MCP server package, which would pull a graph server and a transport into an image whose
+// whole purpose is to answer one question about one directory.
+export { persistGraph } from './pipeline/persist-graph.js';
+export type { PersistenceReport } from './pipeline/persist-graph.js';
 export type {
   PipelineResult,
   PhaseResult,

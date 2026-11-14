@@ -115,7 +115,6 @@ describe('a question asked of four surfaces is one answer', () => {
       null,
       { query: 'assemble the widget', limit: 10 },
       ctx,
-      {} as never,
     )) as GraphQLSearchPayload;
     expect(names(across)).toEqual(engine.results.map((item) => item.symbol));
 
@@ -126,7 +125,6 @@ describe('a question asked of four surfaces is one answer', () => {
       null,
       { projectId: 'beta', query: 'assemble the widget', limit: 10 },
       ctx,
-      {} as never,
     )) as GraphQLSearchPayload;
     expect(names(scoped)).toEqual(['assembleGadget']);
 

@@ -78,11 +78,52 @@ export interface AnalyzeOutput {
 // Phase factory (lazy-loaded to avoid tsc overhead)
 // ---------------------------------------------------------------------------
 
-async function loadPhases() {
+export async function loadPhases() {
   // The full phase list is registered inside the analyzer package.
   // We dynamically import createAllPhases to generate the default phases.
   const { createAllPhases } = await import('@code-analyzer/analyzer');
   return createAllPhases();
+}
+
+/**
+ * **The pipeline context, built in one place.**
+ *
+ * `search` indexes a checkout before it asks a question, and it has to build the same context `analyze` builds - same
+ * defaults, same root, same include/exclude amendments. Two copies of that construction would be two definitions of what
+ * a checkout is, and the day they disagreed the answer would depend on which command produced it.
+ *
+ * **The configuration is built from the defaults and then amended**, because a partial object handed to the orchestrator
+ * is *not* replaced by the defaults (`if (!ctx.config)`), and a `maxFiles` of `undefined` makes
+ * `results.length >= undefined` false - an unbounded walk behind a command that looks configured.
+ */
+export function buildPipelineContext(
+  repoPath: string,
+  projectId: string,
+  options: Pick<AnalyzeOptions, 'config' | 'include' | 'exclude'> & { signal?: AbortSignal } = {},
+): PipelineContext {
+  const defaults = options.config ?? getDefaultConfig();
+  const config: typeof defaults = {
+    ...defaults,
+    // **The root, said once more where the schema keeps it.** No phase of this pipeline reads it - they read
+    // `ctx.rootPath` - and a configuration whose own root disagrees with the run's is a trap left for the first phase
+    // that does.
+    rootPath: repoPath,
+    includePatterns: options.include ?? defaults.includePatterns,
+    excludePatterns:
+      options.exclude === undefined
+        ? defaults.excludePatterns
+        : [...defaults.excludePatterns, ...options.exclude],
+  };
+
+  return {
+    projectId,
+    repoPath,
+    rootDir: repoPath,
+    config,
+    graph: undefined,
+    signal: options.signal,
+    metadata: {},
+  } as unknown as PipelineContext;
 }
 
 // ---------------------------------------------------------------------------
@@ -129,32 +170,12 @@ export async function analyzeRepository(options: AnalyzeOptions): Promise<Analyz
       const store = new InMemoryGraphStore();
       const phases = await loadPhases();
 
-      // **The configuration is built from the defaults and then amended**, because a partial object handed to the
-      // orchestrator is *not* replaced by the defaults (`if (!ctx.config)`), and a `maxFiles` of `undefined` makes
-      // `results.length >= undefined` false - an unbounded walk behind a command that looks configured.
-      const defaults = options.config ?? getDefaultConfig();
-      const config: typeof defaults = {
-        ...defaults,
-        // **The root, said once more where the schema keeps it.** No phase of this pipeline reads it - they read
-        // `ctx.rootPath` - and a configuration whose own root disagrees with the run's is a trap left for the first
-        // phase that does.
-        rootPath: repoPath,
-        includePatterns: options.include ?? defaults.includePatterns,
-        excludePatterns:
-          options.exclude === undefined
-            ? defaults.excludePatterns
-            : [...defaults.excludePatterns, ...options.exclude],
-      };
-
-      const ctx = {
-        projectId,
-        repoPath,
-        rootDir: repoPath,
-        config,
-        graph: undefined,
+      const ctx = buildPipelineContext(repoPath, projectId, {
+        ...(options.config === undefined ? {} : { config: options.config }),
+        ...(options.include === undefined ? {} : { include: options.include }),
+        ...(options.exclude === undefined ? {} : { exclude: options.exclude }),
         signal: controller.signal,
-        metadata: {},
-      } as unknown as PipelineContext;
+      });
 
       const orchestrator = new PipelineOrchestrator(phases);
       const result: PipelineResult = await orchestrator.execute(ctx);

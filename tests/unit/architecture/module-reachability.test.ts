@@ -358,7 +358,11 @@ describe('every module a package compiles is reachable from an entry its manifes
       // a second time with two `lastIndexOf` calls, which is the copy that would have kept the old rule. (91 was
       // iteration 120, which added `languages/doc-comments.ts`: the scanner that replaced the doc-comment pattern in
       // the PHP and TypeScript parsers.)
-      analyzer: 92,
+      // **93 since iteration 140**, which added `pipeline/persist-graph.ts`. Writing a pipeline result into a store is
+      // arithmetic over a `PipelineResult` and an `InMemoryGraphStore`, and it lived in the MCP tool that needed it
+      // first - which meant the CLI could only index a checkout by depending on the server package, and its image
+      // carried a graph server and a transport to answer one question about one directory.
+      analyzer: 93,
       // **14 since iteration 112**, which added `commands/config.ts`: the command that prints the configuration and
       // where every value in it came from. The register is why it is written down here rather than inferred: a command
       // surface that grows is a decision, and this is where it is recorded. (13 was iteration 111, which added the three

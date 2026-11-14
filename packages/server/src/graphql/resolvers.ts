@@ -301,23 +301,15 @@ export const resolvers = {
       });
 
       return {
-        // **A hit that the store cannot resolve is dropped rather than invented.** The engine's list came from this
-        // store, so the lookup succeeds; the filter states that a row without a node would be a row without a name.
-        items: found.results.flatMap((hit) => {
-          const node = store.getNode(hit.id);
-          if (node === null) return [];
-          return [
-            {
-              node: nodeToGraphQL(node),
-              score: hit.relevance,
-              // **Which field matched is a question a fused ranking cannot answer**, and the field used to carry the
-              // containment channel's own answer. The score is now a rank fusion, so the field says so rather than
-              // naming one of the two lists it was computed from.
-              matchedField: 'fused',
-              matchedValue: hit.snippet,
-            },
-          ];
-        }),
+        items: found.results.map((hit) => ({
+          node: nodeToGraphQL(hit.node),
+          score: hit.relevance,
+          // **Which field matched is a question a fused ranking cannot answer**, and the field used to carry the
+          // containment channel's own answer. The score is now a rank fusion, so the field says so rather than naming
+          // one of the two lists it was computed from.
+          matchedField: 'fused',
+          matchedValue: hit.snippet,
+        })),
         pageInfo: pageInfo(found.totalResults, offset, limit),
       };
     },
@@ -369,18 +361,12 @@ export const resolvers = {
       const found = await searchEngineFor(store).search(args.query, { maxResults: limit, offset });
 
       return {
-        items: found.results.flatMap((hit) => {
-          const node = store.getNode(hit.id);
-          if (node === null) return [];
-          return [
-            {
-              node: nodeToGraphQL(node),
-              score: hit.relevance,
-              matchedField: 'fused',
-              matchedValue: hit.snippet,
-            },
-          ];
-        }),
+        items: found.results.map((hit) => ({
+          node: nodeToGraphQL(hit.node),
+          score: hit.relevance,
+          matchedField: 'fused',
+          matchedValue: hit.snippet,
+        })),
         pageInfo: pageInfo(found.totalResults, offset, limit),
       };
     },

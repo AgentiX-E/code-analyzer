@@ -103,6 +103,15 @@ export interface FederatedSearchItem {
    * the first would search again to use the second, and a surface that had only the second could not print a hit.
    */
   id: number;
+  /**
+   * **The node the hit is about**, carried rather than looked up again.
+   *
+   * A surface that renders a hit needs the whole record — language, export flag, end line — and one that only had the
+   * projection below would fetch the node again by id, which is a second read of a map the engine has already read. The
+   * lookups agreed, so the branch that handled their disagreeing could not be reached and could not be tested: **the
+   * fix is to stop asking twice**, not to write a test for a state the code cannot be in.
+   */
+  node: GraphNode;
   repo: string;
   symbol: string;
   /**
@@ -357,6 +366,7 @@ export class FederatedSearchEngine {
       repoBreakdown[repo] = (repoBreakdown[repo] ?? 0) + 1;
       return {
         id: hit.node.id,
+        node: hit.node,
         repo,
         symbol: hit.node.name,
         qualifiedName: hit.node.qualifiedName,
