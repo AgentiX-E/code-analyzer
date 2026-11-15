@@ -100,7 +100,7 @@ function arms(): Arm[] {
  * against `arms()`: a single-row matrix has no second arm to differ from, and reading one row as a pair would compare an
  * arm with itself and call the difference zero. Exactly one alternative is expected to be a pair - the default run.
  */
-function pair(varied: 'adjudicate' | 'idioms' | 'agent' | 'code_context'): Arm[] {
+function pair(varied: 'adjudicate' | 'idioms' | 'agent' | 'code_context' | 'remarks'): Arm[] {
   const pairs = alternatives().filter(
     (matrix) => matrix.length === 2 && matrix[0]![varied] !== matrix[1]![varied],
   );
@@ -195,6 +195,7 @@ describe('the artifact names of the benchmark workflow', () => {
       adjudicate: 'off',
       idioms: 'off',
       agent: 'off',
+      remarks: 'off',
     };
     const expected = new Set([
       expand(uploaded[0]!, baseline),
@@ -219,6 +220,12 @@ describe('the artifact names of the benchmark workflow', () => {
       expand(
         uploaded[0]!,
         pair('code_context').find((arm) => arm['code_context'] === 'on')!,
+      ),
+      // **And the remark pass's own arm**, because R-25 buys it inside one dispatch and a control or a device that is
+      // paid for and then never downloaded is the failure this file exists for.
+      expand(
+        uploaded[0]!,
+        pair('remarks').find((arm) => arm['remarks'] === 'on')!,
       ),
     ]);
     expect(new Set(downloads)).toEqual(expected);
@@ -286,7 +293,7 @@ describe('the matrix is one experiment', () => {
       alternatives()
         .map((matrix) => matrix.length)
         .sort(),
-    ).toEqual([1, 1, 1, 2, 2, 2, 2]);
+    ).toEqual([1, 1, 1, 1, 2, 2, 2, 2, 2]);
   });
 
   it('varies exactly one key, so that a difference between the arms is the device', () => {

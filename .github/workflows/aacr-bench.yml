@@ -134,6 +134,28 @@ on:
         type: choice
         options: ['off', 'on', 'pair']
         default: 'off'
+      remarks:
+        # **The arm R-25 registers: one model call per file, asked for the remarks the five lanes never attempt.**
+        #
+        # §47.1 read fifty of the goldens that had a finding of ours on their own path and were still judged not to
+        # address them: **five were the same concern in other words, four aimed at the same function with a different
+        # focus, and forty-one described something else entirely** - a `const auto&` on a loop variable that is only
+        # read, a `2.0` that should be `2.0f`, a commented-out `Fill(0.0)`, a doc comment naming the old parameter.
+        # **About ten report a defect and about twenty-nine report a maintainability or convention remark**, and the
+        # engine emits semantic defects and nothing else.
+        #
+        # **Why this is not `idioms` again.** R-21 measured the six deterministic rules at +0.0148 against a registered
+        # +0.02 (p = 0.2615): the right direction and short of the bar, which is what a fixed list looks like against a
+        # vocabulary. **A rule fires on the construct its author thought of**; the families in `remark-lane.ts` are a
+        # list of things to look for, and the reading is still the model's.
+        #
+        # **`off` is the default** because every published lane figure was measured without it, and `pair` is how the
+        # device is priced: the same hundred pull requests reviewed twice inside one dispatch, differing in this line.
+        description: 'Remark pass: five lanes (off), the pass alone (on), or both arms (pair)'
+        type: choice
+        options: ['off', 'on', 'pair']
+        default: 'off'
+
       max_findings_per_file:
         # **The cap that turned out to be a ceiling on the work rather than a rail on the noise.** §23.7 measured 25 of
         # one run's 225 drafts refused a slot, and 74 of that run's missed goldens sitting on files it had read - so the
@@ -199,7 +221,7 @@ jobs:
     # **Both matrix keys are in the job's own name**, because a run page that shows two identical titles for two
     # different arms is a page a reader has to open artifacts to disambiguate - and the whole point of the pair is that
     # the difference is legible before anything is downloaded.
-    name: Our reviews on a direct competitor's corpus (${{ matrix.profile }} profile, code context ${{ matrix.code_context }}, adjudicate ${{ matrix.adjudicate }}, idioms ${{ matrix.idioms }}, agent ${{ matrix.agent }})
+    name: Our reviews on a direct competitor's corpus (${{ matrix.profile }} profile, code context ${{ matrix.code_context }}, adjudicate ${{ matrix.adjudicate }}, idioms ${{ matrix.idioms }}, agent ${{ matrix.agent }}, remarks ${{ matrix.remarks }})
     runs-on: ubuntu-latest
     # **Raised from 180 when the corpus went from five pull requests to fourteen**, which is the size at which a 0.04
     # move stops being a coin toss. The previous corpus took 29 minutes; the arithmetic that expects roughly three times
@@ -262,7 +284,7 @@ jobs:
       # reference and `idioms` is the arm R-21 registered, and a matrix that varied both would answer neither - which is
       # the refusal `aacr-ablation-compare.mjs` already encodes as `variedField`.
       matrix:
-        include: '${{ fromJSON((inputs.window || ''off'') == ''pair'' && ''[{"profile":"advisory","code_context":"off","adjudicate":"off","idioms":"off","agent":"off"},{"profile":"advisory","code_context":"on","adjudicate":"off","idioms":"off","agent":"off"}]'' || (inputs.agent || ''off'') == ''pair'' && ''[{"profile":"advisory","code_context":"off","adjudicate":"off","idioms":"off","agent":"off"},{"profile":"advisory","code_context":"off","adjudicate":"off","idioms":"off","agent":"on"}]'' || (inputs.agent || ''off'') == ''on'' && ''[{"profile":"advisory","code_context":"off","adjudicate":"off","idioms":"off","agent":"on"}]'' || (inputs.idioms || ''off'') == ''pair'' && ''[{"profile":"advisory","code_context":"off","adjudicate":"off","idioms":"off","agent":"off"},{"profile":"advisory","code_context":"off","adjudicate":"off","idioms":"on","agent":"off"}]'' || (inputs.idioms || ''off'') == ''on'' && ''[{"profile":"advisory","code_context":"off","adjudicate":"off","idioms":"on","agent":"off"}]'' || (inputs.pair || ''off'') == ''on'' && ''[{"profile":"advisory","code_context":"off","adjudicate":"on","idioms":"off","agent":"off"},{"profile":"advisory","code_context":"off","adjudicate":"off","idioms":"off","agent":"off"}]'' || ''[{"profile":"advisory","code_context":"off","adjudicate":"off","idioms":"off","agent":"off"}]'') }}'
+        include: '${{ fromJSON((inputs.window || ''off'') == ''pair'' && ''[{"profile":"advisory","code_context":"off","adjudicate":"off","idioms":"off","agent":"off","remarks":"off"},{"profile":"advisory","code_context":"on","adjudicate":"off","idioms":"off","agent":"off","remarks":"off"}]'' || (inputs.agent || ''off'') == ''pair'' && ''[{"profile":"advisory","code_context":"off","adjudicate":"off","idioms":"off","agent":"off","remarks":"off"},{"profile":"advisory","code_context":"off","adjudicate":"off","idioms":"off","agent":"on","remarks":"off"}]'' || (inputs.agent || ''off'') == ''on'' && ''[{"profile":"advisory","code_context":"off","adjudicate":"off","idioms":"off","agent":"on","remarks":"off"}]'' || (inputs.idioms || ''off'') == ''pair'' && ''[{"profile":"advisory","code_context":"off","adjudicate":"off","idioms":"off","agent":"off","remarks":"off"},{"profile":"advisory","code_context":"off","adjudicate":"off","idioms":"on","agent":"off","remarks":"off"}]'' || (inputs.idioms || ''off'') == ''on'' && ''[{"profile":"advisory","code_context":"off","adjudicate":"off","idioms":"on","agent":"off","remarks":"off"}]'' || (inputs.remarks || ''off'') == ''pair'' && ''[{"profile":"advisory","code_context":"off","adjudicate":"off","idioms":"off","agent":"off","remarks":"off"},{"profile":"advisory","code_context":"off","adjudicate":"off","idioms":"off","agent":"off","remarks":"on"}]'' || (inputs.remarks || ''off'') == ''on'' && ''[{"profile":"advisory","code_context":"off","adjudicate":"off","idioms":"off","agent":"off","remarks":"on"}]'' || (inputs.pair || ''off'') == ''on'' && ''[{"profile":"advisory","code_context":"off","adjudicate":"on","idioms":"off","agent":"off","remarks":"off"},{"profile":"advisory","code_context":"off","adjudicate":"off","idioms":"off","agent":"off","remarks":"off"}]'' || ''[{"profile":"advisory","code_context":"off","adjudicate":"off","idioms":"off","agent":"off","remarks":"off"}]'') }}'
 
     steps:
       - name: Checkout
@@ -389,6 +411,12 @@ jobs:
           # names the rules that ran, and a run whose workflow and artifact disagreed about whether they ran would be a
           # figure with two configurations.
           AACR_IDIOMS: ${{ matrix.idioms }}
+          # **The model-driven remark pass, R-25's arm.** R-21 measured the six deterministic rules at +0.0148 against a
+          # registered +0.02, and §47.1 says why a fixed list cannot get there: **the bucket is a vocabulary rather than
+          # six constructs**. This switch buys one call per file whose contract is that vocabulary, with the patch's
+          # added lines as the only place it may speak - and it is read from the matrix for the same reason every other
+          # arm is, so the artifact and the workflow cannot disagree about which reviewer produced the figure.
+          AACR_REMARKS: ${{ matrix.remarks }}
           # **The cap on findings per file, which §23.7 measured to bind rather than to protect.** On `43176459822` the
           # arm filed 225 drafts and kept 196 - **25 were refused a slot, not found wanting** - while 74 goldens it missed
           # sat on files it read and said nothing about. Three per file is inherited from the lanes, where three slots per
@@ -452,7 +480,7 @@ jobs:
           # **Both matrix keys are in the name**, because a pair of artifacts whose names differ in one segment is a pair
           # a reader can match to the arms without opening either - and because `an-artifact-that-is-never-uploaded-is-
           # never-downloaded.test.ts` expands this name from the matrix and refuses a download nothing uploads.
-          name: aacr-bench-${{ matrix.profile }}-${{ matrix.code_context }}-${{ matrix.adjudicate }}-${{ matrix.idioms }}-${{ matrix.agent }}
+          name: aacr-bench-${{ matrix.profile }}-${{ matrix.code_context }}-${{ matrix.adjudicate }}-${{ matrix.idioms }}-${{ matrix.agent }}-${{ matrix.remarks }}
           # **The figure and the competitor's whole output**, because **that output's format is what the next
           # iteration has to read** and **a field cannot hold a document**.
           path: |
@@ -477,7 +505,7 @@ jobs:
     # reports a comparison is not the job that should discover there is nothing to compare**: a dispatch whose whole
     # purpose is one arm should end green with its figure, and a run of this job over one row would compute a
     # difference between an arm and nothing.
-    if: (inputs.window || 'off') == 'pair' || (inputs.agent || 'off') == 'pair' || ((inputs.agent || 'off') != 'on' && ((inputs.pair || 'off') == 'on' || (inputs.idioms || 'off') == 'pair'))
+    if: (inputs.window || 'off') == 'pair' || (inputs.agent || 'off') == 'pair' || (inputs.remarks || 'off') == 'pair' || ((inputs.agent || 'off') != 'on' && ((inputs.pair || 'off') == 'on' || (inputs.idioms || 'off') == 'pair'))
     timeout-minutes: 10
     steps:
       - name: Checkout
@@ -503,17 +531,17 @@ jobs:
       # which input chose the arm would be a name no test can expand and no reader can check against the matrix; two
       # steps with literal names and complementary conditions are checkable by both, and only one of them ever runs.
       - name: Download the run with the claim check
-        if: (inputs.idioms || 'off') != 'pair' && (inputs.agent || 'off') != 'pair' && (inputs.window || 'off') != 'pair'
+        if: (inputs.idioms || 'off') != 'pair' && (inputs.agent || 'off') != 'pair' && (inputs.window || 'off') != 'pair' && (inputs.remarks || 'off') != 'pair'
         uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8
         with:
-          name: aacr-bench-advisory-off-on-off-off
+          name: aacr-bench-advisory-off-on-off-off-off
           path: /tmp/with
 
       - name: Download the run with the idiom lane
         if: (inputs.idioms || 'off') == 'pair'
         uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8
         with:
-          name: aacr-bench-advisory-off-off-on-off
+          name: aacr-bench-advisory-off-off-on-off-off
           path: /tmp/with
 
       # **Every artifact name here is produced by the matrix above, and a job that downloads a name the matrix does not
@@ -528,20 +556,30 @@ jobs:
         if: (inputs.window || 'off') == 'pair'
         uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8
         with:
-          name: aacr-bench-advisory-on-off-off-off
+          name: aacr-bench-advisory-on-off-off-off-off
           path: /tmp/with
 
       - name: Download the reading agent's run
         if: (inputs.agent || 'off') == 'pair'
         uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8
         with:
-          name: aacr-bench-advisory-off-off-off-on
+          name: aacr-bench-advisory-off-off-off-on-off
+          path: /tmp/with
+
+      # **And the remark pass's own arm, R-25's device side.** It is the arm that answers §47.1's bucket - 386 of 724
+      # goldens had a finding of ours on their path and were still judged not to address them - with one call per file
+      # whose contract is a remark vocabulary rather than a defect checklist.
+      - name: Download the run with the remark pass
+        if: (inputs.remarks || 'off') == 'pair'
+        uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8
+        with:
+          name: aacr-bench-advisory-off-off-off-off-on
           path: /tmp/with
 
       - name: Download the run without it
         uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8
         with:
-          name: aacr-bench-advisory-off-off-off-off
+          name: aacr-bench-advisory-off-off-off-off-off
           path: /tmp/without
 
       # **No `|| true` and no fallback**: the script refuses to compare two artifacts that are not the same experiment,

@@ -1538,6 +1538,11 @@ async function main() {
   // rules produced the figure.**
   const { IDIOM_RULES } = await import('../../packages/intelligence/dist/review/idiom-rules.js');
   const IDIOM_RULE_NAMES = IDIOM_RULES.map((rule) => rule.id);
+  // **The remark families, read from the module for the same reason the rule names are**: an artifact that carried a
+  // hand-written list would keep naming a family after the prompt stopped asking for it.
+  const { REMARK_FAMILIES, REMARKS_PER_FILE_CEILING } =
+    await import('../../packages/intelligence/dist/review/remark-lane.js');
+  const REMARK_FAMILY_IDS = REMARK_FAMILIES.map((family) => family.id);
   // **And the defect subset's arithmetic, from the module a test can reach**, so the figure in the artifact and the
   // figure in the test come from one implementation rather than from two that agree today.
   const { scoreDefectSubset } = await import('./lib/defect-subset.mjs');
@@ -1597,6 +1602,18 @@ async function main() {
    */
   const IDIOMS = String(process.env['AACR_IDIOMS'] ?? 'off').toLowerCase() === 'on';
   /**
+   * **Whether the model-driven remark pass runs beside the five lanes, and it is the device R-25 registers.**
+   *
+   * R-21 measured the six deterministic rules at **+0.0148 against a registered +0.02** - the right direction and short
+   * of the bar - and §47.1 says why a rule list cannot get there: **the bucket is a vocabulary, not six constructs**.
+   * This switch buys one call per file whose contract is the remark families in `remark-lane.ts`, each naming the golden
+   * or the count it came from, with the patch's added lines as the only place it may speak.
+   *
+   * **Off by default**, because every published figure here was measured with the five lanes and a switch that cannot be
+   * turned off cannot be compared with them.
+   */
+  const REMARKS = String(process.env['AACR_REMARKS'] ?? 'off').toLowerCase() === 'on';
+  /**
    * **How many refusals the artifact carries, and why it is not all of them.**
    *
    * A corpus of fifty pull requests refuses about five hundred comments, and five hundred rows in one field would make
@@ -1620,9 +1637,10 @@ async function main() {
     promptOrder: PROMPT_ORDER,
     adjudicate: ADJUDICATE,
     idioms: IDIOMS,
+    remarks: REMARKS,
   });
   console.log(
-    `AACR-BENCH dedup threshold ${DEDUP_THRESHOLD} · prompt order ${PROMPT_ORDER} · adjudicate ${ADJUDICATE} · idioms ${IDIOMS}`,
+    `AACR-BENCH dedup threshold ${DEDUP_THRESHOLD} · prompt order ${PROMPT_ORDER} · adjudicate ${ADJUDICATE} · idioms ${IDIOMS} · remarks ${REMARKS}`,
   );
 
   /**
@@ -1679,6 +1697,12 @@ async function main() {
     fileFailures: 0,
     firstFileFailure: null,
     laneStats: null,
+    // **What the remark pass kept and what its two rails removed**, summed over the corpus, because **a pass that filed
+    // nothing is two different findings depending on which rail fired**: a model that said nothing about a clean diff is
+    // the device working, and a rail that refused every line it named is the device measuring its own prompt.
+    remarks: REMARKS
+      ? { enabled: true, kept: 0, notAddedLine: 0, capped: 0, notAPatch: 0, files: 0 }
+      : { enabled: false },
     // **What the category profile removed and why**, filled during the loop and published beside the figure, because
     // **a precision that rose because two thirds of the emission left is a different claim from one that rose because
     // the findings got better**, and only the count can tell them apart.
@@ -2615,8 +2639,19 @@ async function main() {
           totals.refusedTotal += claims.refused.length;
           refusalsSeen.push(...claims.refused);
         }
-        // **And what the engine's own parse and filter did with this file's findings.**
-        //
+        // **And what the remark pass kept, and which rail removed the rest.** A pass that filed nothing is either the
+        // device working on a clean diff or a rail refusing every line it named, and only these four counts tell those
+        // two apart - which is the difference between keeping the switch and rewriting its prompt.
+        if (REMARKS) {
+          const selection = engine.lastRemarks;
+          const totals = engineCounters.remarks;
+          totals.files += 1;
+          totals.kept += selection.kept.length;
+          totals.notAddedLine += selection.notAddedLine;
+          totals.capped += selection.capped;
+          if (selection.notAPatch) totals.notAPatch += 1;
+        }
+        // **And what the engine's own parse and filter did with this file's findings.**        //
         // **The chain is `complete` -> `parseLLMResponse` -> `filterFindings`**, and **the third ran a check with the
         // wrong coordinate system**: **it compared the model's file line numbers against the DIFF's line count**, so a
         // correct finding at line 900 of a 1,500-line file died on a 40-line diff. **The engine now counts its drops
@@ -3728,6 +3763,15 @@ async function main() {
         lane: 'idioms',
         rules: IDIOM_RULE_NAMES,
         why: '41 of 50 sampled missed goldens are remarks the five lanes never attempt, and each is decidable from the syntax of one construct',
+      },
+      // **Whether a model was asked for the rest of that bucket**, and the families it was asked for rather than "some
+      // remarks": **a figure from a run with this on and one with it off are two reviewers**, and a family list that is
+      // not in the artifact is a prompt nobody can reproduce.
+      remarks: {
+        enabled: REMARKS,
+        families: REMARK_FAMILY_IDS,
+        ceilingPerFile: REMARKS_PER_FILE_CEILING,
+        why: '386 of 724 goldens had one of our findings on their own path and were still judged not to address them; 29 of 50 read goldens are maintainability or convention remarks',
       },
       // **The cap that §23.7 measured to bind**: 25 of one run's 225 drafts were refused a slot rather than found
       // wanting. **A figure from a capped run and a figure from an uncapped one are two reviewers**, so the number is a

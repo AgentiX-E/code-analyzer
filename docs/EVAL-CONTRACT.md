@@ -5459,3 +5459,80 @@ R-23 is the confirmation that change is owed.
 **And it does not retract §47.** The idiom lane stays off; the difference between it and §49.2 is that the lane _added_
 findings on a premise that turned out to be wrong about the corpus, while the cut _removed_ findings whose acceptance rate
 the artifact measures directly.
+
+## 50. The bucket nobody had priced, and the cut that was already doing part of the reader's work
+
+### 50.1 Four counts, one of which is 53 % of the corpus
+
+`rankedFindings` on the R-22 pair carries `missedGoldens.counts`, and the four counts add to the denominator:
+
+| outcome                     | goldens | what it says                                                                         |
+| --------------------------- | ------- | ------------------------------------------------------------------------------------ |
+| `hit`                       | 184     | a comment of ours was matched to it                                                  |
+| `fileNotReviewed`           | 55      | the file was never read - 7 failed clones, all `ClickHouse/ClickHouse`, out of disk  |
+| `noFindingOnPath`           | 99      | we read the file and said nothing on that path                                       |
+| **`findingOnPathRejected`** | **386** | **we said something on that path and the judge ruled it did not address the golden** |
+
+**The last row is the finding.** Fifty of those 386 were read one at a time (§47.1) and **41 of 50 described something
+else entirely** - a `const auto&`, a `2.0` that should be `2.0f`, a commented-out `Fill(0.0)`. **The reviewer and the
+corpus were not disagreeing about a defect; they were answering different questions**, and no prompt that asks for
+defects will close that.
+
+### 50.2 The cut was already doing the reader's work, and the size of that is measurable
+
+Both arms of the R-22 pair, scored at four operating points with `scripts/aacr-operating-point.mjs`:
+
+| point                             | five lanes | reading agent | reader − lanes |
+| --------------------------------- | ---------- | ------------- | -------------- |
+| shipped gate                      | **0.1689** | **0.2101**    | **+0.0412**    |
+| no rule at all                    | 0.1731     | 0.2101        | +0.0370        |
+| `drop:test`                       | 0.1860     | 0.2173        | +0.0313        |
+| `drop:test` + 13 per pull request | 0.1872     | 0.2170        | +0.0298        |
+
+**Two things follow, and the second is the one worth writing down.**
+
+1. **The gate is a loss on this corpus at every point it is applied to**, which §49.2 already said and this table repeats
+   in the unit the decision is made in.
+2. **A quarter of the reader's gain is the cut's.** Measured on the operating point this repository is about to ship, the
+   reader is **+0.0298 and not +0.0412** - because a reader that removes a third of the emission and a cut that removes
+   the same categories are partly the same device. **The two are not the same device** (recall is unchanged under the
+   reader and falls under the cut), but a number quoted without the cut under it is a number about a product nobody is
+   going to ship.
+
+**And it is the second time this campaign has found a published figure measuring two things.** §49.5 is the first: the
+window's +0.0240 sits inside the reader's +0.0412 and the control that separates them was dispatched after the number was
+published, not before it. **The lesson is not that the numbers were wrong. It is that a device is priced against the
+configuration it will ship inside, and this repository priced two of them against a configuration it had already
+decided to drop.**
+
+### 50.3 R-25, registered here
+
+> **A model asked for the remarks a reviewer leaves - with the added lines as the only place it may speak - raises the
+> five lanes' F1 by at least 0.02 over `drop:test`, on the same hundred pull requests, and does not lower recall.**
+
+- **The device is one call per file**, `packages/intelligence/src/review/remark-lane.ts`: eight families, each naming the
+  golden or the count it came from, the prompt asking for a remark rather than a defect, and **three rails** - added lines
+  only, three per file, silence when the text is not a patch.
+- **The bar is the same +0.02 R-21 was measured against and missed** (+0.0148, p = 0.2615), so the two devices are
+  compared on one number rather than on two narratives. **A model pass that lands below a six-rule list would be a
+  finding about the family list, and a pass above it is a finding about rule lists.**
+- **Recall is the guard, and it is written down because the pass is a precision device by construction.** A remark family
+  that fires on the wrong line adds false positives and no coverage; the guard says the arm may buy precision but may not
+  buy it with goldens we already had.
+- **The pair is inside one dispatch** (`remarks: pair`, a hundred rows, both arms one corpus, one judge), because §21's
+  variance measurement is larger than the effect and this repository has refused cross-dispatch comparisons since.
+- **`off` stays the default** until the pair says otherwise, and the artifact records the family ids and the ceiling
+  rather than the word "remarks".
+
+### 50.4 What this section does not claim
+
+**It does not claim the remark bucket is winnable.** 386 goldens is the ceiling of _matching_, not of _answering_: the
+judge decides whether a remark addresses the golden, and a family list that produces the right kind of sentence on the
+right line can still lose the match on wording. **What the registration prices is the device, not the bucket.**
+
+**It does not claim the reader should be dropped.** +0.0298 on the shipping cut is still the largest single movement this
+campaign has measured, and the decomposition in §49.5 is what decides the rest of it.
+
+**And it does not reopen §47.** The deterministic lane stays in the tree as an ablation reference with its six rules
+named; the remark pass is a second device for the same bucket, registered separately, so that a falsification of one is
+not a falsification of the other.

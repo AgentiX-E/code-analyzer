@@ -12,6 +12,7 @@ import {
 } from './prompts.js';
 import { collectDiffFacts, diffHeaderPaths, rankFindings } from '../actionability.js';
 import { detectIdioms } from '../idiom-rules.js';
+import { remarkPrompt, selectRemarks, type RemarkSelection } from '../remark-lane.js';
 import { codeContextForSections, type CodeContextLimits } from './code-context.js';
 import {
   ClaimAdjudicator,
@@ -127,6 +128,21 @@ export interface LLMReviewOptions {
    * with it off. `AACR_IDIOMS` in the benchmark is how it is turned on for a run that says so.
    */
   idioms?: boolean;
+  /**
+   * **Whether the remark pass runs beside the five lanes. Defaults to `false`.**
+   *
+   * The deterministic lane decides six constructs it can see in the patch; **this is the device for the rest of the
+   * bucket** - one extra call whose contract is *the remarks a senior reviewer leaves and a compiler cannot check*,
+   * with the family list in `remark-lane.ts` standing where a lane prompt puts a defect checklist.
+   *
+   * **Why it is a second device rather than a longer rule list.** R-21 measured the six rules at +0.0148 against a
+   * registered +0.02 (p = 0.2615): directionally right and short of the bar, which is what a fixed list looks like
+   * against the remark vocabulary of a whole corpus. **A rule fires on the construct its author thought of.**
+   *
+   * **Off by default for the same reason the idiom lane is**: every figure this repository has published was measured
+   * without it, and `AACR_REMARKS` in the benchmark is how a run says which side of the switch it was.
+   */
+  remarks?: boolean;
 }
 
 /** Result of an LLM review for a single diff. */
@@ -146,11 +162,12 @@ export interface LLMReviewResult {
   /**
    * **What produced these findings when the producer was not a model call.**
    *
-   * Absent means a lane. `'idioms'` means the deterministic lane, and **the distinction has to travel with the result**:
-   * a lane table that counted the idiom lane as a sixth model lane would report a call that was never made, and a
-   * reader comparing two runs would see the same lane names and different products.
+   * Absent means a lane. `'idioms'` means the deterministic lane and `'remarks'` means the remark pass - a model call
+   * that is not one of the five lanes and whose findings must not be counted as one: **a lane table that counted either
+   * as a sixth lane would report a call the five did not make, and a reader comparing two runs would see the same lane
+   * names and different products.**
    */
-  source?: 'idioms';
+  source?: 'idioms' | 'remarks';
   /** Optional token usage tracking. */
   tokenUsage?: {
     promptTokens: number;
@@ -280,6 +297,10 @@ const DEFAULT_OPTIONS: Required<LLMReviewOptions> = {
   // `AACR_IDIOMS=on` for a run that reports it, and a default that was on would make every figure this repository has
   // already published describe a product that no longer exists.
   idioms: false,
+  // **Off, for the same reason and with the same switch.** The remark pass is the model-driven half of §47.1's bucket:
+  // a run that turns it on says so in its artifact, and a default of `true` would silently re-price every published
+  // lane figure by one call per file.
+  remarks: false,
 };
 
 /**
@@ -392,10 +413,90 @@ export class LLMReviewEngine {
         });
       }
     }
+    // **The remark pass joins the list on the same side of the merge as the deterministic lane**, and for the same
+    // reason: a remark that a lane and this pass both made is one remark, and a merge that ran first would file it
+    // twice. **It is pushed even when it filed nothing**, because it was paid for: a pass that spoke and a pass that
+    // was never asked are the same zero in a figure, and the lane table is where the difference is visible.
+    if (this.options.remarks) {
+      results.push(await this.reviewRemarks(diff, fileContext));
+    }
     const merged = this.deduplicateAcrossLanes(results);
     if (!this.options.adjudicate) return merged;
     return this.checkClaims(merged, diff, fileContext);
   }
+
+  /**
+   * **One model call, asked for the remarks the five lanes were never asked for, with three rails on what it may file.**
+   *
+   * The prompt, the families and the ceiling are `remark-lane.ts`'s, and **the parse and the diff filter are the same
+   * two every lane goes through** - a pass with its own parser would be a second place for a coordinate to be wrong.
+   * What this method adds is the one rail the lanes do not have: **only added lines**, read from the patch text.
+   *
+   * **It returns a result rather than findings**, because a pass that is paid for and files nothing still has to appear
+   * in the lane table: an empty `findings` and a call that was never made are the same zero in a figure, and only one of
+   * them is a reason to keep the switch.
+   */
+  async reviewRemarks(diff: GitDiff, fileContext?: string): Promise<LLMReviewResult> {
+    const startTime = Date.now();
+    // **The patch is the argument the caller handed over, and `buildDiffContent` is only the header plus the hunk
+    // lines** - it carries no added lines, so a rail read from it would answer "not a patch" for every real call and the
+    // pass would silently file nothing. This is the same reading `reviewIdioms` takes, and for the same reason.
+    const patch = fileContext ?? this.buildDiffContent(diff);
+    const ctx: PromptContext = {
+      diffContent: this.truncateDiff(patch),
+      filePath: diff.filePath,
+      changeType: diff.changeType,
+      fileContext,
+      languageChecklist: this.options.languageChecklist,
+      promptOrder: this.options.promptOrder,
+    };
+    try {
+      const result = await this.provider.complete(remarkPrompt(ctx), {
+        maxTokens: this.options.maxTokensPerLane,
+        temperature: this.options.temperature,
+        timeout: this.options.laneTimeout,
+        tag: 'review:remarks',
+      });
+      this.spend.calls += 1;
+      if (result.usage) {
+        this.spend.promptTokens += result.usage.promptTokens;
+        this.spend.completionTokens += result.usage.completionTokens;
+        this.spend.cacheHitTokens += result.usage.cacheHitTokens ?? 0;
+      }
+      this.spend.costUsd += result.costUsd ?? 0;
+
+      const parsed = parseLLMResponse(result.content);
+      // **The coordinate filter runs first and the rail second**, because the two answer different questions: the filter
+      // asks whether the line is inside a hunk the model was shown, and the rail asks whether the pull request added it.
+      const selection = selectRemarks(this.filterFindings(parsed, ctx), patch);
+      this.lastRemarks = selection;
+      return {
+        filePath: diff.filePath,
+        lane: 'maintainability',
+        findings: [...selection.kept],
+        success: true,
+        durationMs: Date.now() - startTime,
+        source: 'remarks',
+        ...(result.usage ? { tokenUsage: result.usage } : {}),
+        ...(result.costUsd !== undefined ? { costUsd: result.costUsd } : {}),
+      };
+    } catch (err: unknown) {
+      const message = err instanceof Error ? err.message : String(err);
+      this.lastRemarks = { kept: [], notAddedLine: 0, capped: 0, notAPatch: true };
+      return {
+        filePath: diff.filePath,
+        lane: 'maintainability',
+        findings: [],
+        success: false,
+        error: message,
+        durationMs: Date.now() - startTime,
+        source: 'remarks',
+      };
+    }
+  }
+
+  /** **What the last remark pass kept and what the two rails removed**, so a low count can be explained. */
+  lastRemarks: RemarkSelection = { kept: [], notAddedLine: 0, capped: 0, notAPatch: false };
 
   /**
    * **The remarks the deterministic lane has to make about one diff, with no model call.**
