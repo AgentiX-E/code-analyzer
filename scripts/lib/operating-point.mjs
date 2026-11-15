@@ -67,7 +67,7 @@ export function pullRequestOf(finding) {
 }
 
 /** The score a budget ranks by, read from either shape an artifact has carried. */
-function scoreOf(finding) {
+export function scoreOf(finding) {
   const value = finding?.['score'];
   if (typeof value === 'number') return value;
   return Number(value?.score ?? 0);

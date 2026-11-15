@@ -22,6 +22,7 @@ import { existsSync, readFileSync } from 'node:fs';
 import { resolve } from 'node:path';
 
 import { cutComparison, pairArms } from './lib/arm-pair.mjs';
+import { bestScoreThreshold, budgetRuleTable } from './lib/budget-rules.mjs';
 import {
   TABLE_HEADER,
   applyCut,
@@ -33,11 +34,12 @@ import {
 } from './lib/operating-point.mjs';
 
 function argv(tokens) {
-  const options = { benches: [], cut: null, pair: null, help: false };
+  const options = { benches: [], cut: null, pair: null, budget: null, help: false };
   for (let at = 0; at < tokens.length; at += 1) {
     const token = tokens[at];
     if (token === '--bench') options.benches.push(tokens[(at += 1)] ?? '');
     else if (token === '--cut') options.cut = tokens[(at += 1)] ?? null;
+    else if (token === '--budget') options.budget = tokens[(at += 1)] ?? null;
     else if (token === '--pair') {
       const [off = '', on = ''] = String(tokens[(at += 1)] ?? '').split(',');
       options.pair = { off, on };
@@ -119,8 +121,40 @@ function pairBlock(offPath, onPath) {
   );
 }
 
+/**
+ * **The budget axis on one artifact**: the flat budget, the rules that scale it, the answer, and the bound.
+ *
+ * Printed here rather than kept in a session because **§52's argument is that the room a count could work in is +0.04**,
+ * and a reader who wants to doubt it should be able to print the table rather than take the number.
+ */
+function budgetBlock(path) {
+  const artifact = JSON.parse(readFileSync(resolve(path), 'utf8'));
+  const { rows, goldens } = budgetRuleTable(artifact);
+  const threshold = bestScoreThreshold(
+    artifact,
+    Array.from({ length: 10 }, (_unused, at) => at / 10),
+  );
+  console.log(`\n${path}  (${goldens} pull requests with coverage rows)`);
+  console.log('rule                                n   tp       P       R      F1');
+  for (const row of rows) {
+    console.log(
+      `${row.rule.padEnd(34)} ${String(row.emitted).padStart(4)} ${String(row.truePositives).padStart(4)}  ${row.precision.toFixed(4)}  ${row.recall.toFixed(4)}  ${row.f1.toFixed(4)}`,
+    );
+  }
+  console.log(
+    `best score threshold ${String(threshold?.threshold ?? 0)}: n ${String(threshold?.emitted ?? 0)} tp ${String(threshold?.truePositives ?? 0)} F1 ${(threshold?.f1 ?? 0).toFixed(4)}`,
+  );
+  console.log(
+    'the oracle reads the answers and cannot be deployed; it is the room a count would have to work in',
+  );
+}
+
 function main() {
   const options = argv(process.argv.slice(2));
+  if (options.budget !== null) {
+    budgetBlock(options.budget);
+    return;
+  }
   if (options.pair !== null) {
     pairBlock(options.pair.off, options.pair.on);
     return;

@@ -5638,3 +5638,49 @@ reader's effect is at least the +0.0412 that was measured with a negative device
 **And it does not retire §20.** The window was measured on a different corpus slice then, and this control was labelled
 `not a confirmation` before it ran, because its registration names `skip 14 max 36`. **A control can overturn a component
 without overturning the section that published it** - and here it did the smaller of the two.
+
+## 52. The budget axis, measured four ways and closed
+
+### 52.1 Four families, four losses
+
+**Before spending a dispatch on a budget device, the budget axis was priced on artifacts already paid for**: the window
+control's two arms and R-22's two, all with `test` dropped, all with per-pull-request maximum matching, all dividing by
+the corpus. The fixed budget of 13 is the bar every row is read against.
+
+| rule for the per-pull-request budget              | window off | R-22 off   | R-22 on    |
+| ------------------------------------------------- | ---------- | ---------- | ---------- |
+| fixed 13 (the shipped cut)                        | **0.2014** | **0.1872** | **0.2170** |
+| `ceil(emitted / 2)`                               | 0.1701     | 0.1553     | 0.1674     |
+| `ceil(√emitted × 2)`                              | 0.1986     | 0.1757     | 0.1957     |
+| one per golden the pull request actually had      | 0.1274     | 0.1175     | 0.1600     |
+| one per golden plus three                         | 0.1759     | 0.1677     | 0.2031     |
+| global score threshold, best of nine values tried | 0.1963     | 0.1875     | 0.2173     |
+
+**Four families, four losses, and the second row is the one that matters**: even with the answers - one slot per golden the
+pull request actually contained - **the budget loses to a flat thirteen**, because most pull requests hold one or two
+goldens and a budget that believes them throws away the recall a flat budget buys. **A rule that knows the answer and
+still loses is a rule whose premise is wrong**, and the premise was "the emission is misallocated across pull requests".
+
+**What the axis does contain, and it is not nothing.** Scanning every `k` for every pull request and keeping the one that
+maximises that pull request's own credit-per-emission - a greedy bound that reads the answers and cannot be deployed -
+gives **0.2424 / 0.2271 / 0.2552**, and the median chosen budget is **2**. So there is **+0.04** in _deciding how many
+problems a pull request has_, and **nothing in deciding it from the emission, the score or the golden count**.
+
+**That is the registration §52.2 makes, and it is the reason this section exists**: the next device is not a better
+budget rule, it is an answer to the question the budget keeps guessing.
+
+### 52.2 R-27, registered here and not yet dispatched
+
+> **One call per pull request that answers "how many distinct problems does this diff contain" raises the five lanes' F1
+> by at least 0.02 over the fixed budget of 13 with `test` dropped, and lowers recall by no more than 0.005.**
+
+- **The device is a count, not a finding**: its output is an integer, `budget = clamp(n, 1, 13)`, and **an integer is
+  the cheapest thing a model can be asked for and the most falsifiable** - a count that is wrong is wrong by a number,
+  which can be read against the goldens the corpus actually holds for that pull request.
+- **The bar is the same +0.02 as R-21, R-25 and R-26.** The upper bound above is +0.04, so the bar is half the room.
+- **The guard is recall**, because a count that runs low is a precision device that pays in coverage: the row it must not
+  cross is a recall drop of more than 0.005.
+- **It is registered and not dispatched**, because two arms are already queued (§50.3's remark pass and §51.5's clean
+  reader) and **a third registration in the queue buys nothing that a third registration after their verdicts does not**.
+- **It is falsified by the first row of the table above if the count cannot beat a flat thirteen**: the oracle that reads
+  the answers gains +0.04, and any count that estimates them badly lands on the `√emitted × 2` row, which loses.
