@@ -13,6 +13,8 @@
  * - **recall's denominator is the corpus, not the cut**, because otherwise a cut that keeps a tenth of the emission
  *   reports the recall of the tenth it kept.
  */
+import { readFileSync } from 'node:fs';
+
 import { describe, expect, it } from 'vitest';
 
 import type { CutStep } from '../../../scripts/lib/operating-point.mjs';
@@ -21,6 +23,7 @@ import {
   describeCut,
   formatRow,
   maximumMatchingByPullRequest,
+  operatingPointTable,
   parseCut,
   registeredCuts,
   score,
@@ -250,5 +253,76 @@ describe('a row is fixed-width so two runs can be diffed', () => {
     });
     expect(row.startsWith('no rule')).toBe(true);
     expect(row).toContain(' 1125  172  0.1529  0.2376  0.1860');
+  });
+});
+
+/**
+ * **The table a run publishes beside its own rows**, so the cut that produced the headline figure is not the only cut
+ * the artifact can answer for.
+ *
+ * The property that matters is **self-consistency**: every row must be the same number a reader gets by taking the
+ * row's own `steps`, applying them to the same `rankedFindings`, and scoring them. A table that could not be replayed
+ * from its own artifact would be a second place for a figure to live.
+ */
+describe('the artifact can carry the cuts it was measured at', () => {
+  const rows = [
+    finding({ matchedGoldens: [0], category: 'bug', score: 0.9 }),
+    finding({ matchedGoldens: [], category: 'test', score: 0.5 }),
+    finding({ matchedGoldens: [1], category: 'maintainability', score: 0.4 }),
+  ];
+
+  it('prints every registered cut, and the shipped gate first', () => {
+    const table = operatingPointTable(rows, 4);
+    expect(table.length).toBe(registeredCuts().length);
+    expect(table[0]?.cut).toBe('actionability gate');
+    expect(table[0]?.steps).toEqual([{ kind: 'gate' }]);
+  });
+
+  it('replays every row to its own figure, which is the only property a table has to have', () => {
+    const table = operatingPointTable(rows, 4);
+    for (const row of table) {
+      const replayed = score(applyCut(rows, row.steps), creditOf, 4);
+      expect(replayed.f1).toBeCloseTo(row.f1, 12);
+      expect(replayed.truePositives).toBe(row.truePositives);
+    }
+  });
+
+  it('keeps the denominator the corpus, in every row', () => {
+    const table = operatingPointTable(rows, 4);
+    for (const row of table) {
+      expect(row.truePositives + row.falseNegatives).toBe(4);
+    }
+  });
+
+  it('names each row by its cut rather than by its position', () => {
+    const table = operatingPointTable(rows, 4);
+    expect(new Set(table.map((row) => row.cut)).size).toBe(table.length);
+  });
+});
+
+/**
+ * **The artifact has to carry the table, or the only question it answers is the one it was dispatched at.**
+ *
+ * A library nobody calls is a library with a test file beside it, and the failure this guards is specific: the CLI
+ * prints these rows, the artifact does not carry them, and a reader weeks later meets one figure with no way to ask
+ * what another cut would have scored without downloading a script.
+ */
+describe('the artifact carries the table, not only the cut it was dispatched at', () => {
+  const source = readFileSync(
+    new URL('../../../.github/scripts/aacr-bench.mjs', import.meta.url),
+    'utf8',
+  );
+
+  it('writes the registered cuts from the same implementation the CLI prints', () => {
+    expect(source).toContain(
+      "import { operatingPointTable } from '../../scripts/lib/operating-point.mjs';",
+    );
+    expect(source).toContain('operatingPoints: operatingPointTable(');
+  });
+
+  it('divides by the corpus the run was scored against, not by the cut', () => {
+    expect(source).toMatch(
+      /operatingPointTable\(\s*rankedDetail,\s*gated\.truePositives \+ gated\.falseNegatives,?\s*\)/,
+    );
   });
 });

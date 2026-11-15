@@ -55,6 +55,7 @@ import {
   withRecord,
   writeBaseline,
 } from './lib/competitor-baseline.mjs';
+import { operatingPointTable } from '../../scripts/lib/operating-point.mjs';
 
 const BENCH = process.env['AACR_DIR'] ?? '/tmp/aacr-bench';
 const MODEL = process.env['AACR_JUDGE_MODEL'] ?? process.env['MARTIAN_MODEL'] ?? 'deepseek-chat';
@@ -4090,6 +4091,20 @@ async function main() {
       },
       rows: goldenDiagnosis,
     },
+    /**
+     * **Every registered cut, scored from the rows below it, inside the artifact that carries them.**
+     *
+     * §49.3 established that an operating point is arithmetic over `rankedFindings[].matchedGoldens` and that the cut
+     * the run was dispatched at is therefore one row of a table, not the only question the artifact can answer. **The
+     * CLI could already print that table; the artifact could not carry it**, so the figure a reader meets first is the
+     * dispatched cut and every other cut costs a download and a script.
+     *
+     * **The rows are here and the denominator is the corpus** (`truePositives + falseNegatives` at the published
+     * point), which is the property that makes the table replayable: take a row's own `steps`, apply them to the
+     * `rankedFindings` in this file, and the number must be the row's. **A table whose rows could not be replayed from
+     * its own artifact would be a second place for a figure to live.**
+     */
+    operatingPoints: operatingPointTable(rankedDetail, gated.truePositives + gated.falseNegatives),
     rankedFindings: rankedDetail,
     // **And the reading after the loop**, so **what the run spent is derivable** and **a draw taken on an empty
     // account is labelled rather than reported as a reviewer's result.**

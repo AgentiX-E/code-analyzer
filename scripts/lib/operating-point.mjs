@@ -183,6 +183,25 @@ export function registeredCuts(budgets = [6, 8, 10, 12, 13, 14, 16, 20, 24]) {
 }
 
 /**
+ * **The registered cuts, scored, as rows an artifact can carry.**
+ *
+ * The CLI prints this table and the benchmark writes it into the artifact, from one implementation, because **two
+ * implementations of one table is two tables** - and the artifact's copy is the one a reader will find first, weeks
+ * later, with no CLI beside it.
+ *
+ * Each row carries its own `steps` and not only its label: **a label is a name for a rule and the steps are the rule**,
+ * so a reader who disagrees with a row can re-apply it to the same `rankedFindings` and get either the same number or a
+ * bug, with no reading of prose in between.
+ */
+export function operatingPointTable(findings, goldens, budgets) {
+  return registeredCuts(budgets).map(({ steps }) => ({
+    cut: describeCut(steps),
+    steps,
+    ...score(applyCut(findings, steps), (finding) => finding?.['matchedGoldens'] ?? [], goldens),
+  }));
+}
+
+/**
  * **A cut written the way a person writes it**, so a frozen rule can be named in a workflow input and applied to an
  * artifact months later without the reader having to reconstruct it from a table.
  *
