@@ -60,11 +60,23 @@ export declare function resolutionFor(
   options?: { measuredAt?: number; measuredResolution?: number },
 ): number;
 
-/** The single configuration field the two artifacts differ in, or why there is not exactly one. */
+/**
+ * The single configuration field the two artifacts differ in, or why there is not exactly one.
+ *
+ * **`entailed` is the key a device switches on as a consequence of being itself** - `agent: on` turns `codeContext` on -
+ * and it is reported rather than folded away, because the pair compares one device and the artifact has to say which
+ * keys it did not treat as a second variable.
+ */
 export declare function variedField(
   on: Record<string, unknown>,
   off: Record<string, unknown>,
-): { field: string | null; with: unknown; without: unknown };
+): {
+  field: string | null;
+  differ: string[];
+  entailed?: string[];
+  withValue: unknown;
+  withoutValue: unknown;
+};
 
 /** Every reason these two artifacts are not the same experiment. */
 export declare function confoundsBetween(

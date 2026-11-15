@@ -100,7 +100,7 @@ function arms(): Arm[] {
  * against `arms()`: a single-row matrix has no second arm to differ from, and reading one row as a pair would compare an
  * arm with itself and call the difference zero. Exactly one alternative is expected to be a pair - the default run.
  */
-function pair(varied: 'adjudicate' | 'idioms' | 'agent'): Arm[] {
+function pair(varied: 'adjudicate' | 'idioms' | 'agent' | 'code_context'): Arm[] {
   const pairs = alternatives().filter(
     (matrix) => matrix.length === 2 && matrix[0]![varied] !== matrix[1]![varied],
   );
@@ -213,6 +213,13 @@ describe('the artifact names of the benchmark workflow', () => {
         uploaded[0]!,
         pair('agent').find((arm) => arm['agent'] === 'on')!,
       ),
+      // **And the code-window control's arm.** §49.5: R-22's +0.0412 arrives with the window switched on inside the
+      // reader, so the lanes are run with the window in a dispatch of their own and the difference is subtracted. A
+      // control that is not downloaded is a control that was paid for and never read.
+      expand(
+        uploaded[0]!,
+        pair('code_context').find((arm) => arm['code_context'] === 'on')!,
+      ),
     ]);
     expect(new Set(downloads)).toEqual(expected);
   });
@@ -242,7 +249,9 @@ describe('the job name distinguishes the arms it runs', () => {
     // already carried four matrix keys and read the fifth from the input that collapsed the matrix, so the first
     // `agent: pair` dispatch produced two jobs both titled `agent pair` - which is the same defect, in the place the
     // workflow's own comment says it must not happen.
-    const name = /\n    name: Our reviews on a direct competitor's corpus \((.+)\)\n/.exec(WORKFLOW);
+    const name = /\n    name: Our reviews on a direct competitor's corpus \((.+)\)\n/.exec(
+      WORKFLOW,
+    );
     expect(name, 'the bench job no longer declares a name').not.toBeNull();
     const keys = new Set(arms().flatMap((arm) => Object.keys(arm)));
     const referenced = new Set(
@@ -269,13 +278,15 @@ describe('the matrix is one experiment', () => {
     // still declared behind `pair: on`, because the code stays in the tree as an ablation reference and re-pricing it is
     // a decision with a price. **The assertion is a budget**: every alternative is a run somebody pays for, so the shape
     // is enumerated rather than bounded - an alternative that appeared by accident would be a dispatch nobody chose.
-    // **Five alternatives now**: the agent's single row, the idiom lane's pair, the idiom lane alone (a diagnostic
-    // dispatch that prices the lane without a comparison), the claim check's pair, and the default single row.
+    // **Six alternatives now, and the sixth is a control rather than a device**: `window: pair` runs the five lanes
+    // twice, once shown the block each hunk sits in. It exists because the reading agent cannot be switched on without
+    // being shown that block, so **R-22's +0.0412 contains an unmeasured component** and the cheapest way to measure it
+    // is the arm that was deleted when the window stopped being an input (§49.5).
     expect(
       alternatives()
         .map((matrix) => matrix.length)
         .sort(),
-    ).toEqual([1, 1, 1, 2, 2, 2]);
+    ).toEqual([1, 1, 1, 2, 2, 2, 2]);
   });
 
   it('varies exactly one key, so that a difference between the arms is the device', () => {

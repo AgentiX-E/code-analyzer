@@ -290,3 +290,50 @@ describe('the comparison between two arms of an ablation', () => {
     expect(configuration?.['differ']).toContain('agentOptions');
   });
 });
+
+/**
+ * **A device that switches on another device is one experiment, and the guard could not tell the difference.**
+ *
+ * `agent: on` reads the checkout, so its arm's artifact carries `codeContext: true` while the lane arm carries `false`.
+ * The pair was refused - `"the two artifacts are not the same experiment"` - and the refusal was true of the artifact and
+ * false of the experiment: **the second key is what the first switch means**, not a second thing the run varied.
+ *
+ * Run 43644547321 is where this surfaced, and its cost is the reason it is written down: two arms of a hundred pull
+ * requests, four hours, and a comparison job that declined to read them. **The entailment is therefore named, and it is
+ * named in one direction with both values checked** - an arm that turned the window on and left the reader off differs in
+ * two keys that are not an entailment, and it is still refused.
+ */
+describe('a device that entails another key is still one variable', () => {
+  it('reads agent as the variable and codeContext as what it means', async () => {
+    const { variedField } = await import('../../../.github/scripts/aacr-ablation-compare.mjs');
+    const on = {
+      configuration: { agent: true, codeContext: true, adjudicate: false, idioms: false },
+    };
+    const off = {
+      configuration: { agent: false, codeContext: false, adjudicate: false, idioms: false },
+    };
+    expect(variedField(on, off)).toMatchObject({
+      field: 'agent',
+      differ: ['agent', 'codeContext'],
+      entailed: ['codeContext'],
+      withValue: true,
+      withoutValue: false,
+    });
+  });
+
+  it('refuses when the entailed key does not move the way the device implies', async () => {
+    const { variedField } = await import('../../../.github/scripts/aacr-ablation-compare.mjs');
+    // A reader switched on beside a window that was already on: the two keys do not stand in the relation the
+    // entailment names, so this is a pair that varied two things and one of them is unexplained.
+    const on = { configuration: { agent: true, codeContext: true, adjudicate: false } };
+    const off = { configuration: { agent: false, codeContext: false, adjudicate: true } };
+    expect(variedField(on, off).field).toBeNull();
+  });
+
+  it('refuses a third key that no entailment accounts for', async () => {
+    const { variedField } = await import('../../../.github/scripts/aacr-ablation-compare.mjs');
+    const on = { configuration: { agent: true, codeContext: true, idioms: true } };
+    const off = { configuration: { agent: false, codeContext: false, idioms: false } };
+    expect(variedField(on, off).field).toBeNull();
+  });
+});

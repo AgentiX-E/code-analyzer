@@ -370,6 +370,22 @@ function sameConfigurationValue(a, b) {
  * serialisation difference, and treating it as the variable would compare nothing at all. **And two objects that hold
  * the same entries are the same device**, for the same reason one level up - see `sameConfigurationValue`.
  */
+const ENTAILED_BY = {
+  /**
+   * **A reader cannot be switched on without being shown the code it reads.**
+   *
+   * `agent: on` sets `codeContext: true` inside the arm, so its artifact differs from the lane arm in two keys and the
+   * pair was refused as confounded - which is true of the *artifact* and false of the *experiment*: **the device is one
+   * switch and the second key is what the switch means**. Listing the entailment here rather than teaching the arm to
+   * lie about its own configuration keeps the artifact honest and puts the claim where a reader can check it.
+   *
+   * **The entailment is directional and checked in both directions**: it holds only when the varied arm carries the
+   * entailed key *on* and the baseline carries it *off*. An arm that turned the window on and left the reader off would
+   * then differ in two keys that are not an entailment, and it is refused - because that is a different experiment.
+   */
+  agent: [{ key: 'codeContext', whenOn: true, whenOff: false }],
+};
+
 export function variedField(on, off) {
   const keys = new Set([
     ...Object.keys(on.configuration ?? {}),
@@ -380,6 +396,26 @@ export function variedField(on, off) {
     const b = off.configuration?.[key] ?? null;
     return !sameConfigurationValue(a, b);
   });
+  if (differ.length > 1) {
+    for (const candidate of differ) {
+      const entailments = ENTAILED_BY[candidate] ?? [];
+      if (entailments.length === 0) continue;
+      const rest = differ.filter((key) => key !== candidate);
+      const explained = rest.every((key) => {
+        const rule = entailments.find((entry) => entry.key === key);
+        if (rule === undefined) return false;
+        return on.configuration?.[key] === rule.whenOn && off.configuration?.[key] === rule.whenOff;
+      });
+      if (!explained) continue;
+      return {
+        field: candidate,
+        differ,
+        entailed: rest,
+        withValue: on.configuration?.[candidate] ?? null,
+        withoutValue: off.configuration?.[candidate] ?? null,
+      };
+    }
+  }
   return {
     field: differ.length === 1 ? differ[0] : null,
     differ,

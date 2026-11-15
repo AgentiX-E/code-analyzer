@@ -1,0 +1,67 @@
+/**
+ * **The declarations exist because the module is JavaScript and the tests are TypeScript.**
+ *
+ * `tsconfig.tests.json` typechecks the tests, and a `.mjs` import without declarations is `any` - which is how a typo in
+ * a field name survives to a table that reads plausibly and adds up wrong. The types here are the ones the module
+ * actually honours: a finding is whatever the artifact wrote, and the only fields this arithmetic reads are named.
+ */
+
+/** One finding as an artifact stores it. **Only the fields the arithmetic reads are required.** */
+export interface EmittedFinding {
+  readonly pr?: string;
+  readonly path?: string;
+  readonly startLine?: number;
+  readonly endLine?: number;
+  readonly category?: string;
+  readonly severity?: string;
+  readonly actionable?: boolean;
+  readonly score?: number | { readonly score?: number; readonly actionable?: boolean };
+  /** The golden indices this finding's judge verdicts allow it to claim, **within its own pull request**. */
+  readonly matchedGoldens?: readonly number[];
+}
+
+export type CutStep =
+  | { readonly kind: 'drop'; readonly categories: readonly string[] }
+  | { readonly kind: 'keep-category'; readonly categories: readonly string[] }
+  | { readonly kind: 'gate' }
+  | { readonly kind: 'budget'; readonly k: number };
+
+export interface Point {
+  readonly emitted: number;
+  readonly truePositives: number;
+  readonly falsePositives: number;
+  readonly falseNegatives: number;
+  readonly precision: number;
+  readonly recall: number;
+  readonly f1: number;
+}
+
+export function maximumMatchingByPullRequest(
+  findings: readonly EmittedFinding[],
+  creditOf: (finding: EmittedFinding) => readonly number[],
+): number;
+
+export function pullRequestOf(finding: EmittedFinding | undefined): string;
+
+export function score(
+  findings: readonly EmittedFinding[],
+  creditOf: (finding: EmittedFinding) => readonly number[],
+  goldens: number,
+): Point;
+
+export function applyCut(
+  findings: readonly EmittedFinding[],
+  steps: readonly CutStep[],
+): EmittedFinding[];
+
+export function describeCut(steps: readonly CutStep[]): string;
+
+export function registeredCuts(
+  budgets?: readonly number[],
+): ReadonlyArray<{ readonly steps: readonly CutStep[] }>;
+
+export function parseCut(text: string): CutStep[];
+
+export const TABLE_HEADER: string;
+
+export function formatRow(label: string, point: Point, width?: number): string;

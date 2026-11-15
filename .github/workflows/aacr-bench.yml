@@ -82,6 +82,22 @@ on:
         description: 'Row to start at (default 0); 50 with 100 reads the slice after the discovery set'
         type: string
         default: '0'
+      window:
+        # **The code-window control, and the arm R-22 needs before its number can be read.**
+        #
+        # R-22 measured the reading agent at **+0.0412** on the file arm in one dispatch, and the reader cannot be
+        # switched on without being shown the code it reads - its artifact carries `codeContext: true` while the lane
+        # arm carries `false`. The window has its own measured movement (**+0.0240**, §20.5, 36 pull requests), so
+        # **a gain of 0.0412 with a 0.0240 component in it is not yet a reader result**.
+        #
+        # `pair` runs the five lanes twice, once with the window and once without, over the same hundred rows - which is
+        # the arm that was deleted when `code_context` stopped being an input. It is back as a control rather than as a
+        # device: the number it produces is **subtracted** from R-22's, and **a decomposition that is not measured is a
+        # confound wearing a verdict.**
+        description: 'Code-window control: one arm (off), or the five lanes with and without it in one dispatch (pair)'
+        type: choice
+        options: ['off', 'pair']
+        default: 'off'
       agent:
         # **The arm the head-to-head made necessary: a reviewer that can read the repository.**
         #
@@ -246,7 +262,7 @@ jobs:
       # reference and `idioms` is the arm R-21 registered, and a matrix that varied both would answer neither - which is
       # the refusal `aacr-ablation-compare.mjs` already encodes as `variedField`.
       matrix:
-        include: '${{ fromJSON((inputs.agent || ''off'') == ''pair'' && ''[{"profile":"advisory","code_context":"off","adjudicate":"off","idioms":"off","agent":"off"},{"profile":"advisory","code_context":"off","adjudicate":"off","idioms":"off","agent":"on"}]'' || (inputs.agent || ''off'') == ''on'' && ''[{"profile":"advisory","code_context":"off","adjudicate":"off","idioms":"off","agent":"on"}]'' || (inputs.idioms || ''off'') == ''pair'' && ''[{"profile":"advisory","code_context":"off","adjudicate":"off","idioms":"off","agent":"off"},{"profile":"advisory","code_context":"off","adjudicate":"off","idioms":"on","agent":"off"}]'' || (inputs.idioms || ''off'') == ''on'' && ''[{"profile":"advisory","code_context":"off","adjudicate":"off","idioms":"on","agent":"off"}]'' || (inputs.pair || ''off'') == ''on'' && ''[{"profile":"advisory","code_context":"off","adjudicate":"on","idioms":"off","agent":"off"},{"profile":"advisory","code_context":"off","adjudicate":"off","idioms":"off","agent":"off"}]'' || ''[{"profile":"advisory","code_context":"off","adjudicate":"off","idioms":"off","agent":"off"}]'') }}'
+        include: '${{ fromJSON((inputs.window || ''off'') == ''pair'' && ''[{"profile":"advisory","code_context":"off","adjudicate":"off","idioms":"off","agent":"off"},{"profile":"advisory","code_context":"on","adjudicate":"off","idioms":"off","agent":"off"}]'' || (inputs.agent || ''off'') == ''pair'' && ''[{"profile":"advisory","code_context":"off","adjudicate":"off","idioms":"off","agent":"off"},{"profile":"advisory","code_context":"off","adjudicate":"off","idioms":"off","agent":"on"}]'' || (inputs.agent || ''off'') == ''on'' && ''[{"profile":"advisory","code_context":"off","adjudicate":"off","idioms":"off","agent":"on"}]'' || (inputs.idioms || ''off'') == ''pair'' && ''[{"profile":"advisory","code_context":"off","adjudicate":"off","idioms":"off","agent":"off"},{"profile":"advisory","code_context":"off","adjudicate":"off","idioms":"on","agent":"off"}]'' || (inputs.idioms || ''off'') == ''on'' && ''[{"profile":"advisory","code_context":"off","adjudicate":"off","idioms":"on","agent":"off"}]'' || (inputs.pair || ''off'') == ''on'' && ''[{"profile":"advisory","code_context":"off","adjudicate":"on","idioms":"off","agent":"off"},{"profile":"advisory","code_context":"off","adjudicate":"off","idioms":"off","agent":"off"}]'' || ''[{"profile":"advisory","code_context":"off","adjudicate":"off","idioms":"off","agent":"off"}]'') }}'
 
     steps:
       - name: Checkout
@@ -461,7 +477,7 @@ jobs:
     # reports a comparison is not the job that should discover there is nothing to compare**: a dispatch whose whole
     # purpose is one arm should end green with its figure, and a run of this job over one row would compute a
     # difference between an arm and nothing.
-    if: (inputs.agent || 'off') == 'pair' || ((inputs.agent || 'off') != 'on' && ((inputs.pair || 'off') == 'on' || (inputs.idioms || 'off') == 'pair'))
+    if: (inputs.window || 'off') == 'pair' || (inputs.agent || 'off') == 'pair' || ((inputs.agent || 'off') != 'on' && ((inputs.pair || 'off') == 'on' || (inputs.idioms || 'off') == 'pair'))
     timeout-minutes: 10
     steps:
       - name: Checkout
@@ -487,7 +503,7 @@ jobs:
       # which input chose the arm would be a name no test can expand and no reader can check against the matrix; two
       # steps with literal names and complementary conditions are checkable by both, and only one of them ever runs.
       - name: Download the run with the claim check
-        if: (inputs.idioms || 'off') != 'pair' && (inputs.agent || 'off') != 'pair'
+        if: (inputs.idioms || 'off') != 'pair' && (inputs.agent || 'off') != 'pair' && (inputs.window || 'off') != 'pair'
         uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8
         with:
           name: aacr-bench-advisory-off-on-off-off
@@ -505,6 +521,16 @@ jobs:
       # iterations - the name that `without` became when the matrix was renamed by substitution - so the fifty- and
       # hundred-pull-request runs both spent their money, uploaded both artifacts, and then failed here, which is the
       # only step whose output is the thing the run was dispatched for.
+      # **The control's own arm, named literally like the rest.** A `window: pair` dispatch uploads
+      # `...-on-off-off-off` and `...-off-off-off-off`; this step takes the first as the device side, so the comparison's
+      # sign is the one the registration states - the window is the *with* side.
+      - name: Download the lanes with the code window
+        if: (inputs.window || 'off') == 'pair'
+        uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8
+        with:
+          name: aacr-bench-advisory-on-off-off-off
+          path: /tmp/with
+
       - name: Download the reading agent's run
         if: (inputs.agent || 'off') == 'pair'
         uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8
