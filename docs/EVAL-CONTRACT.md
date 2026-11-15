@@ -5260,3 +5260,191 @@ re-dispatch at a larger budget, and no third device aimed at the same question.
 claim the merge is defective: it claims **the merge's cost has never been priced**, and that a record of the pairs is
 what prices it. And it does not retract §47.7 - the idiom lane stays off, the rules stay in the tree, and the six
 hundred-and-thirty lines of §47 stand as the record of a direction this corpus did not reward.
+
+## 49. A cut is arithmetic, the gate had never been priced, and the reader is a precision device
+
+**Written 2026-11-15, after run [43644547321](https://github.com/AgentiX-E/code-analyzer/actions/runs/43644547321) and
+before the decomposition run.** Three things were measured in this iteration and none of them was a new device: **one is
+an instrument, one is a cut that has shipped for several iterations without ever being compared against no cut, and one is
+a registration whose mechanism came back wrong while its magnitude came back right.**
+
+### 49.1 The instrument: an operating point is arithmetic over verdicts a run already paid for
+
+Every published figure in this document is one cut of one run's judged matrix. Until this iteration the cut was fixed in
+the harness before the run, so **a question about a different cut cost a dispatch** - two hours and about a dollar, with
+fresh model output on both sides, which meant the answer arrived carrying the job's variance on top of the question's.
+§21 already named that variance at **0.0714 across two dispatches of the same configuration**, larger than every effect
+this document has registered.
+
+**The artifact already carries the verdicts.** `rankedFindings[].matchedGoldens` is each finding's row of the matrix
+before the per-pull-request matching, so every cut can be rescored from one run's own arithmetic. `scripts/aacr-operating-point.mjs`
+does exactly that, with the corpus's own protocol - one verdict per pair, then a maximum bipartite matching per pull
+request - which it reproduces to the golden: on the R-21 artifact it returns the shipped rule's **835 / 138 / 0.1653 /
+0.1906 / 0.1770** and the full emission's **1125 / 172 / 0.1860**, both to four decimals.
+
+**What that changes about the economics of this document.** A cut is now a `$0` question with **no sampling noise**, because
+the findings and the verdicts are identical across the cuts being compared. A _device_ still needs a dispatch, and the two
+kinds of question are now distinguishable in a way they were not: **a table of cuts is arithmetic, and arithmetic does not
+need a budget.**
+
+### 49.2 The actionability gate, priced for the first time
+
+The gate - the range covers an added line, and either a suggestion names an action or the finding quotes added code, and
+the category floor - has been the shipped operating point since §23. **It had never been compared against no gate at all.**
+
+| cut                              | findings | TP  | P      | R      | F1         |
+| -------------------------------- | -------- | --- | ------ | ------ | ---------- |
+| actionability gate (**shipped**) | 835      | 138 | 0.1653 | 0.1906 | **0.1770** |
+| no rule                          | 1 125    | 172 | 0.1529 | 0.2376 | **0.1860** |
+| drop `test`                      | 897      | 165 | 0.1839 | 0.2279 | **0.2036** |
+| drop `test`, then top 13 per PR  | 678      | 148 | 0.2183 | 0.2044 | **0.2111** |
+
+**The gate is a net loss on the arm it ships for.** It removes 290 findings and 34 goldens with them: precision rises
+0.0126 and recall falls 0.0470, and F1 **falls 0.0090**. It is the same shape as §44's veto and for the same reason - the
+gate's second conjunct is one of the self-assessment fields §48.1 showed to be constants (`grounded` true on 92 %,
+`namesSymbol` on 97 %), so what the gate removes it removes **almost without regard to whether a golden was there**.
+
+**And the category that pays for the gate is the one it keeps.** `test` emits 190 findings and 6 acceptances on this slice
+(**0.0316**, against `bug` 0.2397 and `performance` 0.4120). Dropping it alone keeps 165 of 172 goldens and removes 228
+emissions, which is **+0.0266** against the shipped rule — more than the gate's loss and the idiom lane's measured gain
+(§47.7, +0.0148) put together.
+
+**The cut was frozen before the next artifacts were read, and both fresh arms agree.** `drop:test`, named as a cut in the
+script and applied unchanged to run `43644547321`'s two arms:
+
+| artifact     | shipped rule     | no rule | `drop:test` | gate's cost | the drop's gain |
+| ------------ | ---------------- | ------- | ----------- | ----------- | --------------- |
+| R-21, lanes  | 0.1770           | 0.1860  | **0.2036**  | −0.0090     | **+0.0266**     |
+| R-22, lanes  | 0.1689           | 0.1731  | **0.1860**  | −0.0042     | **+0.0171**     |
+| R-22, reader | 0.2101 (no rule) | 0.2101  | **0.2173**  | −0.1450     | **+0.0072**     |
+
+Seven of seven comparisons point the same way. **This is not a registration that needs a dispatch to be believed; it is a
+cut whose direction is stable across three artifacts produced on two different days, one of them by a different arm.**
+
+The reader arm's row is the one that shows why the gate was never caught: **on the reader arm the gate would take F1 from
+0.2101 to 0.0651**, a loss of 0.1450, because a reader that quotes the _file_ rather than an added line fails a conjunct
+that asks it to quote the diff. §23.7 scoped the gate off the reader precisely for that reason - and **the scoping was
+right about the reader and never asked the same question about the lanes.**
+
+### 49.3 Self-consistency and multi-pass, falsified from artifacts already paid for
+
+SWR-Bench reports the largest single gain in the literature: self-aggregation over `n = 10` runs, **F1 +43.67 % relative
+and recall +118 %**, with `n = 5` the cost sweet spot. The premise is instability - _different runs of the same model find
+different change-points_ - and the mechanism is aggregation.
+
+**This repository owns two arms of the same configuration on the same hundred pull requests** (R-21's `idioms: off` and
+`: on`, whose five lanes are identical), which is a free `n = 2` sample of exactly that instability. Two facts come out of
+it, and the second one is the one that matters:
+
+- **The instability is real.** 70.7 % of the lane arm's findings have a counterpart within two lines in the other arm, so
+  **29 % of a run's emissions are that run's alone**; the two arms cover 158 and 160 goldens with only 77 in common.
+- **Agreement does not discriminate.** Findings with a cross-run counterpart have precision **0.2138** against a base rate
+  of **0.2089**. Counting how often two runs said the same thing is **worth 0.005 of precision** - the same non-result
+  cross-lane `agreement` gave (§48.1, AUC 0.534), now measured across runs instead of across lanes. **A device that
+  re-asks the engine reproduces the engine's opinion, not the corpus's.**
+- **And the union is worse than either arm.** Concatenating the two arms and deduplicating by location gives 1 445
+  findings covering **187** goldens - against 1 125 covering 172 - for F1 **0.1726** against **0.1860**. The second run
+  buys 15 goldens with 320 emissions, and the per-pull-request budget curve over the union is below the single arm's at
+  every budget from 4 to 24.
+
+**So the direction is closed here, and the reason is worth more than the closure.** SWR-Bench's gain comes from an
+aggregator that _synthesises_ the drafts - a second, different question asked of the same code - not from voting over
+identical answers. **Multiplicity without a second question is multiplicity of the same noise**, and this corpus can now
+say so with two artifacts it had already paid for.
+
+### 49.4 R-22's verdict: the magnitude was met, the mechanism was wrong, and the guard failed
+
+R-22 registered: _the reading agent raises the file arm F1 by at least 0.02 over the five lanes on the same hundred pull
+requests, without lowering the pull-request arm; the mechanism registered is `recall-rises`._
+
+| clause                         | required     | measured                                           | met     |
+| ------------------------------ | ------------ | -------------------------------------------------- | ------- |
+| file arm F1                    | **≥ +0.02**  | **+0.0412** (0.1689 → **0.2101**)                  | **yes** |
+| pull-request arm not lower     | **≥ 0**      | **−0.0055** (0.1426 → 0.1371)                      | **no**  |
+| mechanism                      | recall rises | recall **+0.0401**, precision **+0.0419**          | partly  |
+| paired test on covered goldens | —            | 77 both / 81 off-only / 83 on-only, **p = 0.9378** | —       |
+
+**The honest sentence is not "the reader works".** It is: **the reader emits 27 % fewer findings and covers the same number
+of goldens** - 799 against 1 102 emissions, 160 against 158 covered, difference **p = 0.94** - so the entire +4.12 points
+is precision, and **the reader is a noise-reduction device rather than a finder**. That is the opposite of the mechanism
+R-22 registered, and it is the _useful_ opposite: precision is the constraint the literature names for this task
+(SWR-Bench's own conclusion is that precision is what must improve; CR-Bench buys recall with noise; c-CRAB's tools emit
+5.6× the comments humans do).
+
+**Three further numbers from the same artifact, because a device that wins has to be priced:**
+
+- **it is cheaper in calls**: 2 465 model calls and 4 224 tool calls for the reader against 5 785 for the five lanes, at
+  **1.55 against 1.16 USD** - more dollars, half the calls, for a third of the API surface;
+- **its filing check did the filtering**: 898 drafts filed, 854 grounding reads, 9 filtered out - the arm's precision comes
+  from _the quoted code having to exist in the file_, which is Greptile's evidence requirement and LASAA's
+  "execution-based evidence" in the cheapest form this repository can afford;
+- **7 of 100 clones failed**, all of them `ClickHouse/ClickHouse` on `No space left on device`. **An arm whose input is a
+  checkout has a failure mode the lanes do not have**, and it is recorded per pull request rather than made silent.
+
+**And the guard failed by four goldens** (0.0055 on 724). The registration said `notLoweredBy: 0`, so this is a fail and
+not a tie. **The correct response is not to soften the guard**: it is to notice that the pull-request arm is a _different
+view_ with its own ceilings (§44's `budgetPerPullRequest: 16`) and that a device which concentrates its gains in the file
+view is exactly what the guard was written to catch.
+
+### 49.5 The confound the comparison job refused on, and why the refusal was half right
+
+`aacr-ablation-compare.mjs` refused this pair: **`differ: ["codeContext", "agent"]`**. The refusal is true of the artifacts
+and false of the experiment - **a reader cannot be switched on without being shown the code it reads**, so `codeContext:
+true` is what `agent: on` _means_ - and it is now named as an entailment, in one direction with both values checked, so a
+pair that moved a third key is still refused.
+
+**But the refusal pointed at a real hole in R-22.** The code window has its own measured movement: **+0.0240 on the file
+arm** (§20.5, 36 pull requests, paired). **+0.0412 with a +0.0240 component in it is not a reader result**, and the arm
+that would separate them - `code_context: on, agent: off` - was not in this dispatch.
+
+**So the window went back into the matrix as a control**, under a `window` input whose `pair` value runs the five lanes
+twice over the same hundred rows: **that is the arm that was deleted when `code_context` stopped being an input** (§21),
+and it is re-instated for the two hours it takes to subtract it from R-22's number. It is **not** a new registration:
+R-18's sentence stands unchanged in §20, and this run reads it on a hundred rows rather than thirty-six - which the
+comparison job will label `not a confirmation: the registration names skip 14 max 36`, and that label is correct. **The
+number is what the control is for; the verdict is a by-product.**
+
+**The subtraction is the point.** If the window alone carries most of the +0.0412, then the reader is a delivery mechanism
+for a device this repository already has and §20's falsification of the pull-request arm stands. If it carries little of
+it, the loop is worth what the dispatch cost. **Either answer decides the next month's work, which is why it is a control
+and not a paragraph.**
+
+### 49.6 R-23, registered here and dispatched after this document
+
+> **A category whose measured acceptance is below the corpus's base rate does not spend a reader's attention: dropping
+> `test` raises the file arm F1 by at least 0.015 over the shipped rule, on rows this repository has not yet read.**
+
+- **The cut is `drop:test` and nothing else.** §49.2 shows `test` at 0.0316 against a 0.2089 base rate, and it shows
+  `architecture` at 0.1393 **paying for itself**: dropping both takes the 100-row artifact from 0.2036 to 0.1995. **The
+  refinement over R-17 is exactly this** - R-17's 0.22 floor dropped `test`, `architecture` and `style` together and was
+  falsified at +0.0079; the floor's _first_ ingredient is the one that pays, and the other two are what the floor was
+  paying with.
+- **The confirmation slice is `skip 150, max 100`** - rows no figure in this document has been fitted on - because R-17's
+  failure was a threshold fitted to its own fifty rows and confirmed at a third of its discovery value. **A cut
+  confirmed on the rows that produced it is not confirmed.**
+- **The prediction is 0.015 and not 0.0266**, the discovery figure, because **the discovery figure is what a cut fitted to
+  its own rows looks like**; half of it is the honest expectation and the resolution at 724 goldens is 0.0194.
+- **The guard is that the reader arm must not fall**, and it is written now because the reader is very likely to be the
+  next default: `drop:test` on the reader arm measured **+0.0072**, the smallest of the three movements, and a precision
+  device that loses precision is not one.
+
+**And the budget stays out of the registration.** `drop:test` plus `top 13 per pull request` is the best row in the table
+(0.2111) and **13 is a number this iteration chose by looking at the curve it is reported on**. It is in the artifact as a
+diagnostic and it is not in the registration, because **a fitted parameter travelling as part of a claim is how a
+registration stops being a prediction.**
+
+### 49.7 What this section does not claim
+
+**It does not claim the reader is the answer.** It claims the reader's file-arm gain is real, that its mechanism is
+precision at equal coverage rather than recall, that a quarter of the gain is unseparated from the code window, and that
+its pull-request arm fell by four goldens against a registered guard of zero. **The decomposition in §49.5 is what turns
+that into a decision.**
+
+**It does not claim the gate should simply be deleted.** Deleting it raises F1 on this corpus and lowers precision, and
+precision is the number a reader of a review tool experiences. What the table settles is narrower and harder: **the gate is
+not a gain and it has been quoted as one.** Its removal and `drop:test` are one change to the shipped operating point, and
+R-23 is the confirmation that change is owed.
+
+**And it does not retract §47.** The idiom lane stays off; the difference between it and §49.2 is that the lane _added_
+findings on a premise that turned out to be wrong about the corpus, while the cut _removed_ findings whose acceptance rate
+the artifact measures directly.
