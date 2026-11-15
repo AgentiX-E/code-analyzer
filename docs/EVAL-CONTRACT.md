@@ -5321,6 +5321,12 @@ script and applied unchanged to run `43644547321`'s two arms:
 Seven of seven comparisons point the same way. **This is not a registration that needs a dispatch to be believed; it is a
 cut whose direction is stable across three artifacts produced on two different days, one of them by a different arm.**
 
+**And reordering the ranking does not buy the budget.** The score cannot tell a hit from a miss (§48.1, AUC 0.541), so
+the obvious repair is to rank by the category priors the artifact measures - and it is worth **at most 0.010**, at `k = 8`,
+on the rows the priors were fitted to: 0.2145 against 0.2049. At `k = 14` the two orders are identical. **A reordering
+whose gain is one golden and one fitting is not a device**, and it is written here so that the next iteration does not
+spend a dispatch discovering it.
+
 The reader arm's row is the one that shows why the gate was never caught: **on the reader arm the gate would take F1 from
 0.2101 to 0.0651**, a loss of 0.1450, because a reader that quotes the _file_ rather than an added line fails a conjunct
 that asks it to quote the diff. §23.7 scoped the gate off the reader precisely for that reason - and **the scoping was
