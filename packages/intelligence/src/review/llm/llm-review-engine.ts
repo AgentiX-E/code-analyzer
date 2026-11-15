@@ -438,10 +438,24 @@ export class LLMReviewEngine {
    */
   async reviewRemarks(diff: GitDiff, fileContext?: string): Promise<LLMReviewResult> {
     const startTime = Date.now();
-    // **The patch is the argument the caller handed over, and `buildDiffContent` is only the header plus the hunk
-    // lines** - it carries no added lines, so a rail read from it would answer "not a patch" for every real call and the
-    // pass would silently file nothing. This is the same reading `reviewIdioms` takes, and for the same reason.
-    const patch = fileContext ?? this.buildDiffContent(diff);
+    // **No patch text means no added lines, and a rail that cannot name the lines this pull request added cannot
+    // approve a remark on any of them.** `buildDiffContent` is the header plus the hunk coordinates and carries no line
+    // text at all, so falling back to it would buy a call whose every finding the rail then discards - a paid silence.
+    // **The pass still returns**, because it was switched on and the lane table is where a switched-on device appears,
+    // but it is not paid for. This is the one place the remark pass diverges from `reviewIdioms`, which reads the diff
+    // ranges and answers from them alone.
+    if (!fileContext) {
+      this.lastRemarks = { kept: [], notAddedLine: 0, capped: 0, notAPatch: true };
+      return {
+        filePath: diff.filePath,
+        lane: 'maintainability',
+        findings: [],
+        success: true,
+        durationMs: Date.now() - startTime,
+        source: 'remarks',
+      };
+    }
+    const patch = fileContext;
     const ctx: PromptContext = {
       diffContent: this.truncateDiff(patch),
       filePath: diff.filePath,
@@ -477,8 +491,11 @@ export class LLMReviewEngine {
         success: true,
         durationMs: Date.now() - startTime,
         source: 'remarks',
-        ...(result.usage ? { tokenUsage: result.usage } : {}),
-        ...(result.costUsd !== undefined ? { costUsd: result.costUsd } : {}),
+        // **Assigned rather than conditionally spread**: `exactOptionalPropertyTypes` is off, so a field the vendor did
+        // not report is written as `undefined` and drops out of the artifact - one code path instead of two on a return
+        // that runs once per file per pass.
+        tokenUsage: result.usage,
+        costUsd: result.costUsd,
       };
     } catch (err: unknown) {
       const message = err instanceof Error ? err.message : String(err);

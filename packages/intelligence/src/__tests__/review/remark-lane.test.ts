@@ -154,6 +154,98 @@ describe('the pass is a switch, and the switch is off', () => {
     expect(engine.lastRemarks.notAddedLine).toBe(1);
   });
 
+  // **The rail cannot be evaluated without the text the rail is about**, and a call whose every remark is guaranteed
+  // to be discarded by the rail is a call that should not be bought. Both halves of that sentence are asserted here:
+  // the pass still appears in the lane table (it was switched on), and the provider was never asked.
+  it('buys no call when there is no patch text to check the rail against', async () => {
+    const { provider, complete } = providerReturning(JSON.stringify({ findings: [remark(11)] }));
+    const engine = new LLMReviewEngine(provider, { lanes: [...lanes], remarks: true });
+    const results = await engine.reviewDiff(diff());
+    const remarkResults = results.filter((result) => result.source === 'remarks');
+    expect(remarkResults).toHaveLength(1);
+    expect(remarkResults[0]?.findings).toEqual([]);
+    expect(remarkResults[0]?.success).toBe(true);
+    expect(engine.lastRemarks.notAPatch).toBe(true);
+    expect(complete).toHaveBeenCalledTimes(lanes.length);
+  });
+
+  // **A pass that is paid for and reports its price is the only kind whose contribution can be priced**, and the
+  // accumulator is what the run-level spend is read from.
+  it('records what the pass cost when the provider reports usage and a price', async () => {
+    const provider: LLMProvider = {
+      name: 'PricedProvider',
+      model: 'mock-model',
+      complete: vi.fn((_prompt: string, options?: { tag?: string }) =>
+        Promise.resolve(
+          options?.tag === 'review:remarks'
+            ? {
+                content: JSON.stringify({ findings: [remark(11)] }),
+                model: 'mock-model',
+                createdAt: new Date().toISOString(),
+                finishReason: 'stop' as const,
+                usage: {
+                  promptTokens: 900,
+                  completionTokens: 40,
+                  totalTokens: 940,
+                  cacheHitTokens: 120,
+                },
+                costUsd: 0.0025,
+              }
+            : {
+                content: JSON.stringify({ findings: [] }),
+                model: 'mock-model',
+                createdAt: new Date().toISOString(),
+                finishReason: 'stop' as const,
+                usage: { promptTokens: 500, completionTokens: 10, totalTokens: 510 },
+              },
+        ),
+      ),
+      completeWithTools: vi.fn(),
+      healthCheck: vi.fn(),
+    };
+    const engine = new LLMReviewEngine(provider, { lanes: [...lanes], remarks: true });
+    const results = await engine.reviewDiff(diff(), PATCH);
+    const remarkResult = results.find((result) => result.source === 'remarks');
+    expect(remarkResult?.tokenUsage?.promptTokens).toBe(900);
+    expect(remarkResult?.costUsd).toBe(0.0025);
+    const cost = engine.costSummary();
+    expect(cost.calls).toBe(lanes.length + 1);
+    expect(cost.promptTokens).toBe(500 + 900);
+    expect(cost.cacheHitTokens).toBe(120);
+    expect(cost.costUsd).toBeCloseTo(0.0025, 6);
+  });
+
+  // **An unpriced model is reported as unknown, not as free**, and a usage report without a cache split must not
+  // invent one - the same two rules §46's ledger states, asserted on the pass that contributes to it.
+  it('reports an unpriced pass as unknown rather than as free', async () => {
+    const provider: LLMProvider = {
+      name: 'UnpricedProvider',
+      model: 'mock-model',
+      complete: vi.fn((_prompt: string) =>
+        Promise.resolve({
+          content: JSON.stringify({ findings: [] }),
+          model: 'mock-model',
+          createdAt: new Date().toISOString(),
+          finishReason: 'stop' as const,
+          usage: { promptTokens: 700, completionTokens: 20, totalTokens: 720 },
+        }),
+      ),
+      completeWithTools: vi.fn(),
+      healthCheck: vi.fn(),
+    };
+    const engine = new LLMReviewEngine(provider, { lanes: [...lanes], remarks: true });
+    const results = await engine.reviewDiff(diff(), PATCH);
+    const remarkResult = results.find((result) => result.source === 'remarks');
+    expect(remarkResult?.success).toBe(true);
+    expect(remarkResult?.error).toBeUndefined();
+    expect(remarkResult?.costUsd).toBeUndefined();
+    const cost = engine.costSummary();
+    expect(cost.calls).toBe(lanes.length + 1);
+    expect(cost.promptTokens).toBe(700 * (lanes.length + 1));
+    expect(cost.cacheHitTokens).toBe(0);
+    expect(cost.costUsd).toBe(0);
+  });
+
   it('survives a pass that answers with prose, and keeps the lanes', async () => {
     const { provider } = providerReturning('I could not find anything to say.');
     const engine = new LLMReviewEngine(provider, { lanes: [...lanes], remarks: true });
@@ -163,6 +255,26 @@ describe('the pass is a switch, and the switch is off', () => {
     expect(remarkResults[0]?.success).toBe(true);
     expect(results.filter((result) => result.source === undefined)).toHaveLength(lanes.length);
   });
+});
+
+// **A provider that rejects with something that is not an `Error` must still produce a message**, because the failure is
+// reported to the run log and "undefined" there is indistinguishable from a pass that was never asked.
+it('reports a refusal that is not an Error as a message rather than as nothing', async () => {
+  const provider: LLMProvider = {
+    name: 'RudeProvider',
+    model: 'mock-model',
+    // The case under test is a provider that refuses with something that is not an `Error`, which is what the catch
+    // block's `instanceof` guard exists for - so the rule that forbids it is the rule this test is about.
+    // eslint-disable-next-line @typescript-eslint/prefer-promise-reject-errors
+    complete: vi.fn(() => Promise.reject('429 Too Many Requests')),
+    completeWithTools: vi.fn(),
+    healthCheck: vi.fn(),
+  };
+  const engine = new LLMReviewEngine(provider, { lanes: [...lanes], remarks: true });
+  const results = await engine.reviewDiff(diff(), PATCH);
+  const remarkResults = results.filter((result) => result.source === 'remarks');
+  expect(remarkResults[0]?.success).toBe(false);
+  expect(remarkResults[0]?.error).toBe('429 Too Many Requests');
 });
 
 it('fails one pass and not the review when the provider refuses the remark call', async () => {
