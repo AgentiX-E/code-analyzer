@@ -552,6 +552,16 @@ jobs:
           set -e
           node .github/scripts/aacr-ablation-compare.mjs /tmp/with/aacr-bench.json /tmp/without/aacr-bench.json
 
+      # **A cut is arithmetic over verdicts the artifacts already carry, so it costs nothing to print here.** The pair
+      # above answers "did the arm move the run"; this answers "how much of what the run said survives each registered
+      # cut", on the same verdicts, in the same job. Reading it afterwards would need the artifact and a hand-run
+      # command, which is how the cut for a published figure became a decision nobody could re-open.
+      - name: What does each registered cut score on these verdicts?
+        run: |
+          set -e
+          node scripts/aacr-operating-point.mjs --bench /tmp/with/aacr-bench.json
+          node scripts/aacr-operating-point.mjs --bench /tmp/without/aacr-bench.json
+
       - name: Upload the comparison
         if: always()
         uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7
