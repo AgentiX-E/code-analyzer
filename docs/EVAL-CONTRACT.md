@@ -5571,13 +5571,18 @@ touches them, which is why the delta survives every category set and every budge
 
 ### 51.3 The pairing, stated with its own verdict rather than with the table's
 
-Coverage sets, one key per `(pull request, golden)` credited, replayed through the same maximum matching the score uses:
+Coverage sets from the artifacts' own `coverage.byPullRequest[].covered`, **which is the published point and not the full
+emission** - the same rows the F1 above is computed over, so that the test and the table are about one configuration:
 
 | both | window off only | window on only | p (exact McNemar) | verdict                 |
 | ---- | --------------- | -------------- | ----------------- | ----------------------- |
-| 110  | 61              | 43             | 0.0950            | not significant at 0.05 |
+| 77   | 62              | 43             | 0.0785            | not significant at 0.05 |
 
-**So the honest reading is narrower than the table.** Eighteen goldens in one direction, on a hundred pull requests, is
+**The full-emission pairing was computed first and is not the one printed here** (both 110, off only 61, on only 43,
+p = 0.0950): it pairs the two arms at a cut neither arm ships, which is the mistake §50.2 was written to stop making.
+Both pairings agree on the direction - nineteen goldens against eighteen - and **neither reaches 0.05**.
+
+**So the honest reading is narrower than the table.** Nineteen goldens in one direction, on a hundred pull requests, is
 **not** a significant difference: this arm is underpowered for an effect of this size, and a hundred rows is what the
 budget allows. **What the run does establish is that the +0.0240 did not reproduce** - a point estimate whose sign
 reversed on a sample two and a half times larger is a point estimate that cannot be carried into a shipping decision.
@@ -5610,7 +5615,7 @@ reversed on a sample two and a half times larger is a point estimate that cannot
 
 ### 51.6 What this section does not claim
 
-**It does not claim the window hurts.** The point estimate is negative at every cut and the paired test is p = 0.0950;
+**It does not claim the window hurts.** The point estimate is negative at every cut and the paired test is p = 0.0785;
 both of those sentence-halves are required, and a reader who quotes only the first has quoted a table and not a result.
 
 **It does not claim the reader is worth +0.0630.** Adding +0.0412 to 0.0218 is arithmetic on two point estimates from two
