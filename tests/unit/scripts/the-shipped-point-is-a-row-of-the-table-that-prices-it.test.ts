@@ -73,7 +73,8 @@ describe('the shipped emission policy and the table', () => {
       (entry) => `${entry.pr}:${String(entry.startLine)}`,
     );
     const harness = applyCut(findings, SHIPPED_EMISSION_STEPS).map(
-      (entry: { pr?: string; startLine?: number }) => `${String(entry.pr)}:${String(entry.startLine)}`,
+      (entry: { pr?: string; startLine?: number }) =>
+        `${String(entry.pr)}:${String(entry.startLine)}`,
     );
     // **Order too**, because a budget that kept the same set in a different order is a reviewer whose comments arrive
     // in a different order on the two sides.

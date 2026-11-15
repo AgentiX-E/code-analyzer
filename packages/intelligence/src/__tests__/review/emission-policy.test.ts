@@ -191,7 +191,9 @@ describe('the shipped emission policy', () => {
       { id: 'a', category: 'security' },
       { id: 'b', category: 'bug' },
     ];
-    const outcome = applyEmissionPolicy(items, [{ kind: 'keep-category', categories: ['security'] }]);
+    const outcome = applyEmissionPolicy(items, [
+      { kind: 'keep-category', categories: ['security'] },
+    ]);
     expect(outcome.droppedByCategory).toEqual([]);
     expect(outcome.truncated).toBe(1);
   });
