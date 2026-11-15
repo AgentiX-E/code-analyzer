@@ -65,3 +65,24 @@ export function parseCut(text: string): CutStep[];
 export const TABLE_HEADER: string;
 
 export function formatRow(label: string, point: Point, width?: number): string;
+
+/** The score the budget step sorts by, exported because a second reader of one ranking is how two orders diverge. */
+export function scoreOf(finding: EmittedFinding | undefined): number;
+
+/** One row of the table an artifact carries: the cut, the steps that reproduce it, and the point it was scored at. */
+export interface OperatingPointRow extends Point {
+  readonly cut: string;
+  readonly steps: readonly CutStep[];
+}
+
+/**
+ * **The registered cuts, scored, as rows an artifact carries beside the `rankedFindings` they were computed from.**
+ *
+ * `goldens` is the corpus denominator (`truePositives + falseNegatives` at the published point), never the cut's own
+ * misses.
+ */
+export function operatingPointTable(
+  findings: readonly EmittedFinding[],
+  goldens: number,
+  budgets?: readonly number[],
+): OperatingPointRow[];
