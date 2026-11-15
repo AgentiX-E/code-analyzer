@@ -440,7 +440,11 @@ describe('every module a package compiles is reachable from an entry its manifes
       // against is 82% these, and §47.2 measured the engine at zero on them. **A module rather than six branches in the
       // engine** because the rules are content with a quoted source for each one, and because a lane that can only be
       // exercised through a provider call is a lane whose every regression costs a run.
-      intelligence: 181,
+      // **182 since iteration 143**, which added `review/emission-policy.ts`: the operating point the product ships, as a
+      // function the command that posts comments and the harness that measures them both call. §54 prices it at F1 0.2121
+      // against the 0.1823 the gate had been publishing, and **a cut applied in two places without one implementation is
+      // a figure about neither**.
+      intelligence: 182,
       mcp: 39,
       server: 24,
       // **11 since iteration 121**, which added `utils/type-text.ts`: the depth-counted removal of type arguments and

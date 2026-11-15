@@ -937,6 +937,30 @@ describe('the shipped emission policy — §54', () => {
       expect(formatPrReviewText(capped.report)).toContain(
         'beyond --max-findings were not reported',
       );
+
+      /**
+       * **And a report the policy truncated names the policy, not the flag.** The fixture is small enough that the budget
+       * of twelve never binds, so the sentence is exercised on the report's own field - **a formatter is a function of
+       * the report, and the branch a corpus cannot reach is still a branch a reader meets on a pull request with twenty
+       * findings.** Two thousand comments in this repository are cyclomatic complexity somebody measured; a sentence that
+       * names the wrong rule is the failure that measurement does not catch.
+       */
+      const truncated = {
+        ...run.report,
+        summary: {
+          ...run.report.summary,
+          truncatedFindings: 3,
+          emissionPolicy: {
+            rule: 'drop test, budget 12',
+            droppedByCategory: [{ category: 'test', count: 2 }],
+            truncatedByBudget: 1,
+          },
+        },
+      };
+      expect(formatPrReviewText(truncated)).toContain(
+        'the shipped emission policy (drop test, budget 12) removed test 2 and 1 beyond',
+      );
+      expect(formatPrReviewMarkdown(truncated)).toContain('the shipped emission policy');
     } finally {
       repo.cleanup();
     }
