@@ -5381,6 +5381,11 @@ R-22 registered, and it is the _useful_ opposite: precision is the constraint th
 - **7 of 100 clones failed**, all of them `ClickHouse/ClickHouse` on `No space left on device`. **An arm whose input is a
   checkout has a failure mode the lanes do not have**, and it is recorded per pull request rather than made silent.
 
+**And the seven failed checkouts do not carry the result - they cost it.** Re-scoring both arms over the 92 rows that are
+not `ClickHouse/ClickHouse`, the reader's movement is **+0.0424** (0.1724 → 0.2148) rather than +0.0417 on all hundred:
+**the arm is worse where its input was missing, which is the direction a device with a failure mode should fail in**, and
+a reader whose gain survived only because the failed rows were not read would have been the other answer.
+
 **And the guard failed by four goldens** (0.0055 on 724). The registration said `notLoweredBy: 0`, so this is a fail and
 not a tie. **The correct response is not to soften the guard**: it is to notice that the pull-request arm is a _different
 view_ with its own ceilings (§44's `budgetPerPullRequest: 16`) and that a device which concentrates its gains in the file
