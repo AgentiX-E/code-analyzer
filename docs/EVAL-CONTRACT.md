@@ -5420,6 +5420,11 @@ for a device this repository already has and §20's falsification of the pull-re
 it, the loop is worth what the dispatch cost. **Either answer decides the next month's work, which is why it is a control
 and not a paragraph.**
 
+> **Measured, and it went the other way.** The control ran on a hundred pull requests and the window is **negative at
+> every cut**, with a coverage difference in the same direction that does not reach 0.05. §51 has the table, the pairing
+> and the correction this sentence now needs: **the +0.0240 above is a thirty-six-pull-request point estimate that did
+> not reproduce**, which is the second time this campaign has had to re-price a figure it published from a small arm.
+
 ### 49.6 R-23, registered here and dispatched after this document
 
 > **A category whose measured acceptance is below the corpus's base rate does not spend a reader's attention: dropping
@@ -5536,3 +5541,82 @@ campaign has measured, and the decomposition in §49.5 is what decides the rest 
 **And it does not reopen §47.** The deterministic lane stays in the tree as an ablation reference with its six rules
 named; the remark pass is a second device for the same bucket, registered separately, so that a falsification of one is
 not a falsification of the other.
+
+## 51. The window is not the reader's engine, and the figure it carried did not reproduce
+
+### 51.1 The instrument
+
+`window: pair` on run `43664718562`: **one dispatch, two arms, the five lanes twice over the same hundred pull requests**
+(`skip 50`, the row no fitted number has ever touched), same judge, one difference in the artifact's `configuration` -
+`codeContext: false` against `codeContext: true`. Per §21, **nothing here is compared across dispatches**, because the
+variance of one configuration between two dispatches (0.0714 measured, and 0.0115 between the two control arms of this
+campaign alone) is larger than every effect registered since.
+
+### 51.2 Negative at every cut, not only at the dispatched one
+
+`scripts/aacr-operating-point.mjs` over both artifacts, 724 goldens, five cuts:
+
+| cut                     | window off | window on | delta       | tp off → on |
+| ----------------------- | ---------- | --------- | ----------- | ----------- |
+| published (gate)        | 0.1804     | 0.1586    | **−0.0218** | 139 → 120   |
+| no rule                 | 0.1838     | 0.1679    | −0.0158     | 171 → 153   |
+| `drop:test`             | 0.1926     | 0.1704    | **−0.0222** | 158 → 137   |
+| `drop:test` + budget 13 | 0.2014     | 0.1791    | **−0.0223** | 141 → 125   |
+| budget 13               | 0.1967     | 0.1826    | −0.0141     | 147 → 135   |
+
+**The emission barely moves and the credit does**: 1137 findings against 1098, and eighteen fewer credited goldens. That
+is not the signature of a device that showed the model the wrong lines to comment on - it showed the model the right
+file and the model still said the less useful thing. **A cut cannot repair it**: the loss is in the rows, before any cut
+touches them, which is why the delta survives every category set and every budget in the table.
+
+### 51.3 The pairing, stated with its own verdict rather than with the table's
+
+Coverage sets, one key per `(pull request, golden)` credited, replayed through the same maximum matching the score uses:
+
+| both | window off only | window on only | p (exact McNemar) | verdict                 |
+| ---- | --------------- | -------------- | ----------------- | ----------------------- |
+| 110  | 61              | 43             | 0.0950            | not significant at 0.05 |
+
+**So the honest reading is narrower than the table.** Eighteen goldens in one direction, on a hundred pull requests, is
+**not** a significant difference: this arm is underpowered for an effect of this size, and a hundred rows is what the
+budget allows. **What the run does establish is that the +0.0240 did not reproduce** - a point estimate whose sign
+reversed on a sample two and a half times larger is a point estimate that cannot be carried into a shipping decision.
+
+### 51.4 The verdict, in the unit the decision is made in
+
+1. **The window stays off, and it was already off.** Nothing in this table argues for turning it on, and the default is
+   the conservative reading of an underpowered negative.
+2. **The +0.0240 of §20.5 is retired as a component.** It is not that it was wrong when measured; it is that a
+   thirty-six-pull-request estimate of a ±0.02 effect is a coin flip with a number attached, and this campaign has now
+   published two of them (§49.5's window, and R-21's +0.0148 against a +0.02 bar).
+3. **The reader keeps its own number.** R-22's on-arm ran with `codeContext: true`, so **+0.0412 was measured while
+   carrying a device that is negative in this dispatch** - which means the reader's own effect is **larger** than
+   +0.0412, not smaller. That correction runs against this campaign's own earlier suspicion, and §50.2's subtraction
+   table is unaffected: it is about the cut, not about the window.
+
+### 51.5 R-26, registered here
+
+> **The reading loop, over the same hundred pull requests and the same judge, raises the five lanes' F1 by at least 0.02
+> over `drop:test` with the code window closed in both arms.**
+
+- **The matrix already separates them.** `agent: pair` now emits `{code_context: off, agent: off}` against
+  `{code_context: off, agent: on}`, so the two arms differ in the loop and in nothing else. **R-22 could not answer
+  this**: its own on-arm carried both switches, and the entailment that made the comparison legal is exactly the reason
+  the number was ambiguous.
+- **The bar is the same +0.02 as R-21 and R-25**, so three devices for the same bucket are read on one number.
+- **The guard is the two arms' coverage sets**, with the pairing above as the format: **a loop that buys precision by
+  emitting less must not lose credited goldens**, and §51.3 is what that test looks like when it is not significant.
+- **`off` stays the default** until this pair says otherwise.
+
+### 51.6 What this section does not claim
+
+**It does not claim the window hurts.** The point estimate is negative at every cut and the paired test is p = 0.0950;
+both of those sentence-halves are required, and a reader who quotes only the first has quoted a table and not a result.
+
+**It does not claim the reader is worth +0.0630.** Adding +0.0412 to 0.0218 is arithmetic on two point estimates from two
+dispatches, which is exactly the operation §21 forbids. **It claims the sign of the correction, not its size**: the
+reader's effect is at least the +0.0412 that was measured with a negative device inside the arm.
+
+**And it does not retire §20.** The window was measured on a different corpus slice then, and this control was labelled
+`not a confirmation` before it ran, because its registration names `skip 14 max 36`. **A control can overturn a component
+without overturning the section that published it** - and here it did the smaller of the two.
