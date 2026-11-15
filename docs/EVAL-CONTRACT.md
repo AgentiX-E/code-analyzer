@@ -5552,22 +5552,33 @@ not a falsification of the other.
 variance of one configuration between two dispatches (0.0714 measured, and 0.0115 between the two control arms of this
 campaign alone) is larger than every effect registered since.
 
-### 51.2 Negative at every cut, not only at the dispatched one
+### 51.2 Negative at twenty-two of the twenty-three registered cuts
 
-`scripts/aacr-operating-point.mjs` over both artifacts, 724 goldens, five cuts:
+`scripts/aacr-operating-point.mjs --pair` over both artifacts, 724 goldens, **the whole registered table rather than a
+selection from it**:
 
-| cut                     | window off | window on | delta       | tp off → on |
-| ----------------------- | ---------- | --------- | ----------- | ----------- |
-| published (gate)        | 0.1804     | 0.1586    | **−0.0218** | 139 → 120   |
-| no rule                 | 0.1838     | 0.1679    | −0.0158     | 171 → 153   |
-| `drop:test`             | 0.1926     | 0.1704    | **−0.0222** | 158 → 137   |
-| `drop:test` + budget 13 | 0.2014     | 0.1791    | **−0.0223** | 141 → 125   |
-| budget 13               | 0.1967     | 0.1826    | −0.0141     | 147 → 135   |
+| cut                                  | window off | window on  | delta       | tp off → on |
+| ------------------------------------ | ---------- | ---------- | ----------- | ----------- |
+| actionability gate (published)       | 0.1804     | 0.1586     | **−0.0218** | 139 → 120   |
+| no rule                              | 0.1838     | 0.1679     | −0.0158     | 171 → 153   |
+| `drop:test`                          | 0.1926     | 0.1704     | **−0.0222** | 158 → 137   |
+| `drop:test` + budget 13              | 0.2014     | 0.1791     | **−0.0223** | 141 → 125   |
+| budget 13                            | 0.1967     | 0.1826     | −0.0141     | 147 → 135   |
+| `drop:test` + budget 8               | 0.1981     | 0.1718     | −0.0262     | 124 → 108   |
+| `drop:test` + `architecture`,`style` | 0.1890     | 0.1644     | −0.0246     | 120 → 102   |
+| **budget 6**                         | **0.1594** | **0.1679** | **+0.0085** | 95 → 100    |
 
-**The emission barely moves and the credit does**: 1137 findings against 1098, and eighteen fewer credited goldens. That
-is not the signature of a device that showed the model the wrong lines to comment on - it showed the model the right
-file and the model still said the less useful thing. **A cut cannot repair it**: the loss is in the rows, before any cut
-touches them, which is why the delta survives every category set and every budget in the table.
+**Twenty-two negative and one positive, and the exception is named rather than rounded away.** `budget 6` is the floor of
+the budget curve: **both arms are at their worst there** (0.1594 and 0.1679, against 0.2029 and 0.1785 under
+`drop:test` + budget 10), the
+difference is five credited goldens, and §51.3 has just measured what five goldens on this corpus mean - nothing at 0.05.
+**A positive at the worst operating point in the table is not a case for the window; it is a case for not quoting a table
+as "every cut" when one row disagrees.**
+
+**The emission barely moves and the credit does**: 1137 findings against 1098, and eighteen fewer credited goldens at the
+published point. That is not the signature of a device that pointed the model at the wrong lines to comment on - it
+pointed at the right file and the model still said the less useful thing. **A cut cannot repair that**: the loss is in the
+rows, before any cut touches them, which is why the delta survives twenty-two category sets and budgets in a row.
 
 ### 51.3 The pairing, stated with its own verdict rather than with the table's
 
@@ -5589,8 +5600,9 @@ reversed on a sample two and a half times larger is a point estimate that cannot
 
 ### 51.4 The verdict, in the unit the decision is made in
 
-1. **The window stays off, and it was already off.** Nothing in this table argues for turning it on, and the default is
-   the conservative reading of an underpowered negative.
+1. **The window stays off, and it was already off.** Nothing in this table argues for turning it on **at the operating
+   point this repository is preparing to ship** - the one positive row is the cheapest budget and the worst point on the
+   curve - and the default is the conservative reading of an underpowered negative.
 2. **The +0.0240 of §20.5 is retired as a component.** It is not that it was wrong when measured; it is that a
    thirty-six-pull-request estimate of a ±0.02 effect is a coin flip with a number attached, and this campaign has now
    published two of them (§49.5's window, and R-21's +0.0148 against a +0.02 bar).
@@ -5615,8 +5627,9 @@ reversed on a sample two and a half times larger is a point estimate that cannot
 
 ### 51.6 What this section does not claim
 
-**It does not claim the window hurts.** The point estimate is negative at every cut and the paired test is p = 0.0785;
-both of those sentence-halves are required, and a reader who quotes only the first has quoted a table and not a result.
+**It does not claim the window hurts.** The point estimate is negative at twenty-two of twenty-three cuts, the exception
+is the worst operating point in the table, and the paired test is p = 0.0785. **All three clauses are required**, and a
+reader who quotes only the first has quoted a table and not a result.
 
 **It does not claim the reader is worth +0.0630.** Adding +0.0412 to 0.0218 is arithmetic on two point estimates from two
 dispatches, which is exactly the operation §21 forbids. **It claims the sign of the correction, not its size**: the

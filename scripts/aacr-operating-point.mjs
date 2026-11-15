@@ -21,6 +21,7 @@
 import { existsSync, readFileSync } from 'node:fs';
 import { resolve } from 'node:path';
 
+import { cutComparison, pairArms } from './lib/arm-pair.mjs';
 import {
   TABLE_HEADER,
   applyCut,
@@ -32,12 +33,15 @@ import {
 } from './lib/operating-point.mjs';
 
 function argv(tokens) {
-  const options = { benches: [], cut: null, help: false };
+  const options = { benches: [], cut: null, pair: null, help: false };
   for (let at = 0; at < tokens.length; at += 1) {
     const token = tokens[at];
     if (token === '--bench') options.benches.push(tokens[(at += 1)] ?? '');
     else if (token === '--cut') options.cut = tokens[(at += 1)] ?? null;
-    else if (token === '--help' || token === '-h') options.help = true;
+    else if (token === '--pair') {
+      const [off = '', on = ''] = String(tokens[(at += 1)] ?? '').split(',');
+      options.pair = { off, on };
+    } else if (token === '--help' || token === '-h') options.help = true;
     else throw new Error(`unknown argument "${token}"`);
   }
   if (options.benches.some((bench) => bench === '')) throw new Error('--bench needs a path');
@@ -80,8 +84,47 @@ function block(path, findings, goldens, cuts) {
   return best;
 }
 
+/**
+ * **Two arms of one device, printed as one table and one pairing.**
+ *
+ * The two numbers a reader takes from a paired dispatch are the delta at a cut and the test over the goldens those cuts
+ * kept, and **they have to be computed at the same point** - §51 is what happens when they are not: the table said
+ * −0.0218 and the first pairing was taken over a cut neither arm shipped, and the two disagreed by seventeen goldens in
+ * the `both` cell while both being correct arithmetic.
+ */
+function pairBlock(offPath, onPath) {
+  const off = JSON.parse(readFileSync(resolve(offPath), 'utf8'));
+  const on = JSON.parse(readFileSync(resolve(onPath), 'utf8'));
+  const paired = pairArms(off, on);
+  const rows = cutComparison(off, on);
+
+  console.log(`\npair: ${offPath} -> ${onPath}`);
+  console.log(
+    `varied: ${paired.varied.join(', ') || 'nothing (the arms are the same configuration)'}`,
+  );
+  console.log('cut                              off F1    on F1     delta   off tp   on tp');
+  for (const row of rows) {
+    const delta = `${row.delta >= 0 ? '+' : ''}${row.delta.toFixed(4)}`;
+    console.log(
+      `${row.cut.padEnd(30)} ${row.off.f1.toFixed(4)}    ${row.on.f1.toFixed(4)}    ${delta.padStart(7)}   ${String(row.off.truePositives).padStart(6)}   ${String(row.on.truePositives).padStart(5)}`,
+    );
+  }
+  console.log(
+    `coverage: both ${paired.both}, off only ${paired.offOnly}, on only ${paired.onOnly}, ` +
+      `p ${paired.pValue.toFixed(4)} (${paired.verdict})`,
+  );
+  console.log(
+    'coverage is read from coverage.byPullRequest[].covered - the published point - so the test and the delta are ' +
+      'about one configuration',
+  );
+}
+
 function main() {
   const options = argv(process.argv.slice(2));
+  if (options.pair !== null) {
+    pairBlock(options.pair.off, options.pair.on);
+    return;
+  }
   if (options.help || options.benches.length === 0) {
     console.log(
       'usage: node scripts/aacr-operating-point.mjs --bench <artifact.json> [--bench ...] [--cut <cut>]',
@@ -90,6 +133,9 @@ function main() {
     console.log('  with --cut   : that cut beside the two baselines it is read against');
     console.log(
       '  a cut is e.g. "gate", "no rule", "drop:test", "budget:13", "drop:test+budget:13"',
+    );
+    console.log(
+      '  --pair <off.json>,<on.json>  : two arms of one device, every cut and the pairing',
     );
     return;
   }

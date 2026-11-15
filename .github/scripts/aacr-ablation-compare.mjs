@@ -28,6 +28,7 @@ import { mkdirSync, readFileSync, writeFileSync } from 'node:fs';
 import { dirname, resolve } from 'node:path';
 import { pathToFileURL } from 'node:url';
 
+import { coverageSet } from '../../scripts/lib/arm-pair.mjs';
 import { pairedComparison } from './lib/paired-test.mjs';
 
 /**
@@ -280,13 +281,10 @@ export function resolutionFor(goldens, { measuredAt = 170, measuredResolution = 
 const round = (value) => Math.round(value * 10000) / 10000;
 
 /** `${pullRequestKey}#${goldenIndex}`, the same key the within-run paired test uses. */
-function coverageSet(artifact) {
-  const set = new Set();
-  for (const pull of artifact.coverage?.byPullRequest ?? []) {
-    for (const at of pull.covered ?? []) set.add(`${pull.pr}#${at}`);
-  }
-  return set;
-}
+// **The coverage set comes from `scripts/lib/arm-pair.mjs`**, which is the same reader the operating-point CLI pairs
+// with: **two readers of one set is how a table and a test come to be about two configurations**, which is what §51
+// documents happening to this repository on 2026-11-15. The library refuses an artifact with no `coverage` block rather
+// than pairing an empty set, and that refusal is the one this job wants - a withheld verdict, not `p = 1`.
 
 /**
  * **One arm's figures out of one artifact, in the shape the verdict reads.**
