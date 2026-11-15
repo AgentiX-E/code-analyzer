@@ -5684,3 +5684,157 @@ budget rule, it is an answer to the question the budget keeps guessing.
   reader) and **a third registration in the queue buys nothing that a third registration after their verdicts does not**.
 - **It is falsified by the first row of the table above if the count cannot beat a flat thirteen**: the oracle that reads
   the answers gains +0.04, and any count that estimates them badly lands on the `√emitted × 2` row, which loses.
+
+## 53. The remark pass added ninety-one comments and found eight goldens (R-25)
+
+### 53.1 The pair
+
+`43669547968`, two arms over the same hundred pull requests (`skip 50`, `max 100`), the same judge
+(`deepseek-chat`), the same 724 goldens, both arms reading all hundred rows (`corpusRead.whole: true`). The only
+configuration key that differs is `remarks.enabled`.
+
+| arm         | findings | goldens found | precision | recall | F1         |
+| ----------- | -------- | ------------- | --------- | ------ | ---------- |
+| remarks off | 1 099    | 139           | 0.1706    | 0.1920 | 0.1806     |
+| remarks on  | 1 190    | 147           | 0.1663    | 0.2030 | **0.1828** |
+
+The pass added **91 comments and 8 goldens**: the block it added has precision **0.088** in a corpus whose population
+precision is **0.156**. The paired test over covered goldens reads **+61 / −53**, exact McNemar **p = 0.5123** - the
+direction a coin produces on this many pairs.
+
+### 53.2 Why a lane of eight families recovers eight of forty-one
+
+The diagnosis that justified the dispatch was a sentence about _content_: of fifty sampled missed goldens, **forty-one
+were a remark no lane attempts**, and the sampling was read as "the goldens are maintainability remarks". The corpus
+agrees on the count - `reviewCategories` over the 724 goldens is **325 maintainability and readability, 315 code defect,
+49 performance, 35 security** - and the eight families were written as _syntax_: `const`-correctness, literal types,
+commented-out code, redundant modifiers, doc mismatch, naming, dead branches, wording.
+
+**The corpus's sentences are not that kind of sentence.** From the fifty-six sampled rejections of §50: "consider using
+`Math.min()` instead of a ternary for readability", "document how this request is validated", "extract the duplicated
+setup into a helper", "the assertion may not always hold". Those are **judgements about design intent**; `article-agreement-in-comment`
+and `macro-name-case` are **checks on spelling**. A lane built from the second cannot produce the first, and the pass's
+own emission says so: **91 comments at 0.088 precision is not a weak signal, it is more of the same thing**.
+
+**And the instrument's own noise is the size of the claimed effect.** The `remarks off` arm of this pair and the `agent
+off` arm of `43676036390` are _the same configuration on the same hundred rows_, and they score 0.1806 and 0.1823. **A
+gain of +0.0022 read against a run-to-run spread of ±0.002 is not readable at all**, which is the second reason the
+verdict does not depend on the threshold.
+
+### 53.3 The verdict, and a registration that says when it was written
+
+The pass is **falsified and closed**: gain +0.0022 against a registered 0.02, p = 0.5123, and 8 of 41 recovered. The
+lane stays off and the artifact keeps `configuration.remarks` so a future run can turn it on and be measured.
+
+**The registration for it was written after the dispatch**, and `aacr-ablation-compare.mjs` carries
+`registeredAfterDispatch: true` for that entry so the artifact can say so. What that field protects is the difference
+between a prediction and a description: the threshold is the house 0.02 every device in the table is registered at, and
+the claim's shape comes from the committed diagnosis (§50), not from the result - **but a reader should still be able to
+see that the entry post-dates the run, and now they can without reading the source.**
+
+## 54. The published point was 0.0298 below a point the artifact already priced (R-28)
+
+### 54.1 The table was already in the artifact
+
+§50.1 established that an operating point is arithmetic over verdicts a run paid for once. `43676036390`'s own artifact
+therefore carries `operatingPoints` - twenty-three cuts of its 1 109 findings - **and the artifact's headline was not the
+best of them**:
+
+| cut                                | findings | goldens found | precision  | recall     | F1         |
+| ---------------------------------- | -------- | ------------- | ---------- | ---------- | ---------- |
+| the actionability gate (published) | 801      | 139           | 0.1735     | 0.1920     | 0.1823     |
+| no rule (full emission)            | 1 109    | 173           | 0.1560     | 0.2390     | 0.1888     |
+| drop test                          | 905      | 163           | 0.1801     | 0.2251     | 0.2001     |
+| drop test + architecture           | 570      | 132           | 0.2316     | 0.1823     | 0.2040     |
+| **drop test, budget 12**           | **653**  | **146**       | **0.2236** | **0.2017** | **0.2121** |
+
+**Every row above the gate is a cut of the same findings, judged by the same calls, on the same goldens.** Moving the
+headline to the fifth line costs nothing and buys **+0.0298 F1, +0.0501 precision and 148 fewer comments** - and, because
+the gate was dropping 308 findings that had already been paid for, it also removes a claim the artifact could not
+support: that the reviewer being measured was the reviewer the command posts.
+
+### 54.2 It replicates on an independent run of the same arm
+
+The `remarks off` arm of §53 is a second run of the same configuration on the same rows. The same three cuts:
+
+| cut                      | `43676036390` off | `43669547968` off |
+| ------------------------ | ----------------- | ----------------- |
+| the actionability gate   | 0.1823            | 0.1806            |
+| drop test                | 0.2001            | 0.1943            |
+| **drop test, budget 12** | **0.2121**        | **0.1960**        |
+
+**Same ordering, same sign, different magnitude**: +0.0298 on the first baseline and +0.0154 on the second. The honest
+statement of the gain is therefore **+0.015 to +0.030 with the ordering stable across two runs**, not the single figure
+0.2121 - and the confirmation in §54.4 is a third run on rows neither baseline read.
+
+**The command's own ordering lands in the same place.** `review pr` sorts by severity and carries no score, so the
+budget's tie-break falls back to that order. Applying the policy with severity order instead of score order gives
+**0.2062** on `43676036390` and **0.1946** on `43669547968` - both still above the gate by +0.024 and +0.014, which is
+why shipping the policy did not require moving the command's ranking into the package first.
+
+### 54.3 What changed, and the test that holds the two implementations together
+
+- **`packages/intelligence/src/review/emission-policy.ts`** is the policy: three steps (`drop`, `keep-category`,
+  `budget`), frozen, with `SHIPPED_EMISSION_STEPS = [drop test, budget 12]` and `describeEmissionSteps` producing the
+  label the table prints.
+- **`review pr` applies it** to the findings it is about to post, and reports what it removed in
+  `summary.emissionPolicy` with the rule's name. An explicit `--max-findings` still wins, and the field is absent then,
+  because a flag is a decision and a policy is a default.
+- **`aacr-bench.mjs` imports the same object** and applies it per pull request, so `emissionRules.shipped` is the point
+  the product occupies rather than a cut nobody can run. The gate stays in the artifact as `laneGate`, measured every run.
+- **`tests/unit/scripts/the-shipped-point-is-a-row-of-the-table-that-prices-it.test.ts`** asserts that
+  `applyEmissionPolicy` and `applyCut` keep the same findings in the same order on a fixture with ties, an empty
+  pull-request key and a dropped category, and that the row the table prints for that label scores what the policy's
+  output scores. **Two implementations of one cut that are not held together by a test are two tables about one run**,
+  which is the failure §51 already paid for once.
+
+### 54.4 R-28, registered here
+
+> **The emission policy `drop test, budget 12` lifts the five lanes' file-arm F1 by at least 0.02 over the actionability
+> gate on the hundred pull requests starting at row 150, without lowering recall by more than 0.01.**
+
+- **Why row 150.** The point was _chosen_ by looking at the twenty-three rows of two artifacts over rows 50-149, and 23
+  cuts against 724 goldens is a small enough search to fit noise. **The rows the selection did not read are the only
+  honest test of it**, and they are the hundred after the ones every figure in §50-§54 has been computed on.
+- **The bar is the lower end of the replicated range** (+0.0154 on `43669547968` off), not the upper end (+0.0298), so a
+  run that lands in between confirms the finding rather than splitting it.
+- **The guard is recall**, because `drop test` is a precision device: 171 test findings carried 9 goldens on the
+  published run, and a policy that raised precision by buying less coverage would be the trade §49.3 already rejected.
+- **It is dispatched with the change rather than after it**, because the policy is now what the command does: a
+  confirmation run of a rule the product does not apply would confirm nothing about the product.
+
+## 55. The reader buys a quarter of the emission and no accuracy (R-22)
+
+`43676036390`, the pair §51.5 left owing a clean reading: both arms with the window off, so the only key that differs is
+`agent`, with `codeContext` entailed by it (§54's guard fix, §55.2).
+
+| arm        | findings | goldens found | precision | recall | F1         | cost  |
+| ---------- | -------- | ------------- | --------- | ------ | ---------- | ----- |
+| lanes      | 1 109    | 173           | 0.1560    | 0.2390 | 0.1888     | $1.17 |
+| the reader | 811      | 147           | 0.1813    | 0.2030 | **0.1915** | $1.53 |
+
+- **Registered claim**: file-arm F1 **≥ +0.02**, pull-request arm not lowered (§48, R-22).
+- **Measured**: file arm **+0.0092**, inside the instrument's resolution of 0.0028 at 724 goldens; pull-request arm
+  **−0.0027**, which fails the guard; paired **+91 / −83**, p = 0.5958.
+- **Verdict: falsified.** The reader stays off in the product, and the artifact keeps `configuration.agent` so the arm
+  can be re-measured rather than argued about.
+
+**What the arm is good for is real and is not accuracy.** It removes **298 of 1 109 comments (−27%)** while raising
+precision **+0.0253** and recall **+0.011** - a reader that files fewer, better comments at the same F1. **At every
+budget-constrained cut it loses to the lanes** (drop test: 0.2020 against 0.2020; drop test + budget 12: 0.2029 against
+0.2121), which is the same statement from the other side: a budget already removes the comments the reader was removing,
+and it removes the ones a reader cannot see at all. It also costs **+31% per run** ($1.53 against $1.17), so the
+reduction is not free.
+
+### 55.1 The one thing this pair did fix, and it was not the reader
+
+The pair was refused by `aacr-ablation-compare.mjs` with `differ: ["codeContext", "agent"]` - a **false refusal of a
+sound pair**, because `agent: on` sets `codeContext: true` inside the arm: a reader cannot be switched on without being
+shown the code it reads. The entailment table that explains this existed and **`confoundsBetween` still refused the pair,
+because it counted the differing keys instead of reading the resolved field.** The self-test that was supposed to cover
+it asserted `variedField` alone and passed while the guard stayed broken.
+
+**Both are fixed**: the guard reads `varied.field`, and the self-test now asserts `confoundsBetween(agentOn, agentOff)`
+is empty _and_ that the inverted pair - window off while the reader is on, window on while the reader is off - is still
+refused. **A guard that refuses sound comparisons is not a safe guard**, and the cost of this one was a paid run's
+verdict held up for four hours.

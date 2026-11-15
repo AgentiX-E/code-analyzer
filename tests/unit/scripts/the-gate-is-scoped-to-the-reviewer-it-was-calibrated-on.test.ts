@@ -1,18 +1,21 @@
-// **A gate calibrated on one reviewer was being applied to another, and the artifact could have said so.**
+// **Which rule decides what reaches a reader, and why the answer has now changed twice.**
 //
-// `43176459822` scored the reading arm at both operating points on the same thirty-six pull requests: **0.2092 with
-// every finding it filed, 0.0523 under the registered actionability gate.** The gate kept twenty-four of 196 findings,
-// eight of them true, and stopped forty-two goldens from being covered by anything. The artifact's own `rankedFindings`
-// says why it was not a threshold problem: of the forty-eight findings that had found a golden and were dropped anyway,
-// **forty-three were `grounded` with both `quotesDiff` and `proposesChange` false** - the gate's second conjunct asks for
-// a suggestion or a quotation of an added line, which is what a single-shot lane produces and not what a reader that
-// quoted the file produces. Every rule the artifact supports was then scored offline against the same judge verdicts, and
-// **none beat emitting everything.**
+// **First change (§23.7).** `43176459822` scored the reading arm at both operating points on the same thirty-six pull
+// requests: **0.2092 with every finding it filed, 0.0523 under the registered actionability gate.** The gate kept
+// twenty-four of 196 findings, eight of them true, and stopped forty-two goldens from being covered by anything. Of the
+// forty-eight findings that had found a golden and were dropped anyway, **forty-three were `grounded` with both
+// `quotesDiff` and `proposesChange` false** - the gate's second conjunct asks for a suggestion or a quotation of an added
+// line, which is what a single-shot lane produces and not what a reader that quoted the file produces. So the gate was
+// scoped to the lanes and the arm kept its own filing check.
 //
-// `docs/EVAL-CONTRACT.md` §23.7 registers the consequence: the gate is scoped to the lanes, the arm's emission rule is its
-// own filing check, **and the lane rule is still scored beside it** so a scoping decision keeps being measured instead of
-// remembered. This file holds the source to that, because a rule that is applied to two reviewers is a two-line defect
-// that no figure can reveal once it has been published.
+// **Second change (§54).** The gate was then priced against every other cut of the same verdicts, and it lost on the
+// lanes as well: on the pair `43676036390` it scores F1 0.1823 where `drop test, budget 12` scores 0.2121, with precision
+// 0.2236 against 0.1735 and 148 fewer comments. **A rule that loses on both arms is not a scoping question**, so the
+// shipped rule became an emission policy the product applies - one object, imported by the harness rather than restated -
+// and the gate stayed in the artifact as `laneGate`, a row that keeps being measured.
+//
+// This file holds the source to both, because **a rule applied to the wrong reviewer, or a rule that survives the
+// measurement that falsified it, is a two-line defect that no published figure can reveal.**
 
 import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
@@ -24,7 +27,7 @@ const SOURCE = readFileSync(
   'utf8',
 );
 
-/** The body of one `const NAME = ...` definition, up to the terminator this file uses between top-level statements. */
+/** The body of one top-level `const NAME = ...` definition, up to the blank line this file uses between statements. */
 function definition(name: string): string {
   const start = SOURCE.indexOf(`const ${name} =`);
   expect(start, `${name} is defined`).toBeGreaterThan(-1);
@@ -42,12 +45,18 @@ function perPullRequestRow(): string {
 }
 
 describe('the emission rule, per reviewer', () => {
-  it('ships everything the reading arm filed and nothing the lanes did not pass', () => {
+  it('applies the product\u2019s own policy rather than a rule written here', () => {
     const rule = definition('shippedRuleKeep');
-    expect(rule).toContain('AGENT ? entries.map(() => true) : laneRuleKeep(entries, profileKept)');
-    // **The arm's half is `true` for every entry**, because its filing check - the quoted code located in the file at the
-    // reviewed commit - already refused 29 of 225 drafts, and **a second filter over the survivors is what §23.7 removed.**
-    expect(rule).toContain('entries.map(() => true)');
+    // **The import is the whole point.** A policy restated in the harness would let the command and the artifact disagree
+    // about which twelve comments a pull request carries, and both figures would still look right.
+    expect(rule).toContain('applyEmissionPolicy(');
+    expect(rule).toContain('pr: pullRequest');
+    // **And the arm special case is gone**, because a rule both reviewers lost to is not a rule for either; the branch
+    // that shipped everything the reader filed is what made that arm's emission unbounded.
+    expect(rule).not.toContain('AGENT ?');
+    expect(SOURCE).toContain(
+      "await import('../../packages/intelligence/dist/review/emission-policy.js')",
+    );
   });
 
   it('keeps the lane rule as its own function, so it can be scored on findings it did not keep', () => {
@@ -66,14 +75,14 @@ describe('the emission rule, per reviewer', () => {
 
   it('computes the shipped rule once, and before both rows that read it', () => {
     // **This test exists because the rule acquired a second reader**, and a second call to `shippedRuleKeep` would be a
-    // second rule: the corpus's arithmetic (EVAL-CONTRACT §46) scores the same findings the headline figures are computed
-    // over, and two calls would let the two figures be about two operating points while both looked right. One
-    // declaration, one row and one pull-request record, in that order - and a third use fails here rather than silently
-    // becoming a third rule.
-    const declared = [...SOURCE.matchAll(/shippedRuleKeep\(ranked, profileKept\)/g)];
+    // second rule: the corpus's arithmetic (§46) scores the same findings the headline figures are computed over, and two
+    // calls would let the two figures be about two operating points while both looked right. **The pull-request key is
+    // part of the call**, because a budget counts twelve per pull request and a run-wide count is a different rule with a
+    // better score.
+    const declared = [...SOURCE.matchAll(/shippedRuleKeep\(ranked, competitorKey\)/g)];
     expect(declared).toHaveLength(1);
     const declarationAt = SOURCE.indexOf(
-      'const shippedKeepFlags = shippedRuleKeep(ranked, profileKept)',
+      'const shippedKeepFlags = shippedRuleKeep(ranked, competitorKey)',
     );
     expect(declarationAt).toBeGreaterThan(-1);
     const uses = [...SOURCE.matchAll(/keep: shippedKeepFlags/g)];
@@ -88,19 +97,22 @@ describe('the emission rule, per reviewer', () => {
       SOURCE.indexOf('fullEmission: allEmitted'),
     );
     expect(rules).toContain('shipped: {');
-    expect(rules).toContain('laneGate: {');
+    // **The label is derived from the steps rather than typed beside them**, so a figure filed under it is the price of
+    // the row with that label and not of a sentence this file wrote down.
+    expect(rules).toContain('describeEmissionSteps(SHIPPED_EMISSION_STEPS)');
     expect(rules).toContain('point: gated');
+    expect(rules).toContain('laneGate: {');
     expect(rules).toContain('point: laneGate');
   });
 
-  it('says in the artifact which rule and which reviewer produced the figure', () => {
-    expect(SOURCE).toContain('the reading arm files only what it can locate');
-    expect(SOURCE).toContain("emissionRule: AGENT\n        ? `the reading arm's own filing rule");
-  });
-
-  it('proves the split without a model, in the dry run the CI job runs on every push', () => {
+  it('proves the rule without a model, in the dry run the CI job runs on every push', () => {
     expect(SOURCE).toContain('assert.equal(\n    laneRule.filter(Boolean).length,\n    3,');
-    expect(SOURCE).toContain('AGENT ? ranked.length : 3');
+    // **The shipped vector is asserted on the policy, not on the arm**: six findings, none of them a test finding, and
+    // six is under the budget - so a fixture that keeps all six is the policy working rather than the policy absent.
+    expect(SOURCE).toContain('shipped.filter(Boolean).length,\n    ranked.length,');
+    expect(SOURCE).toContain(
+      "describeEmissionSteps(SHIPPED_EMISSION_STEPS),\n    'drop test, budget 12',",
+    );
     expect(SOURCE).toContain('shipped F1 ${shippedPoint.f1}');
   });
 });

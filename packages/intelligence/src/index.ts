@@ -477,6 +477,14 @@ export type {
   ProfileOutcome,
 } from './review/category-prior.js';
 
+// Emission policy — the cut the product ships, priced by the table that chose it (§54)
+export {
+  applyEmissionPolicy,
+  describeEmissionSteps,
+  SHIPPED_EMISSION_STEPS,
+} from './review/emission-policy.js';
+export type { EmissionOutcome, EmissionStep, EmissionSubject } from './review/emission-policy.js';
+
 // Idiom rules — the remarks a reviewer makes that are not about a defect, each derived from a golden
 export { detectIdioms, IDIOM_RULES } from './review/idiom-rules.js';
 export type { IdiomInput } from './review/idiom-rules.js';

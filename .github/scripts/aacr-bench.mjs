@@ -202,17 +202,42 @@ const laneRuleKeep = (entries, profileKept) =>
   entries.map((entry) => entry.score.actionable && profileKept.has(entry));
 
 /**
- * **Which findings reach a reader, per reviewer.**
+ * **The product's emission policy, imported from the package that ships it.**
  *
- * For the five lanes it is the registered gate. For the reading arm it is **nothing further**, because the arm's own
- * filing check already refused every draft whose quoted code could not be located in the file at the reviewed commit -
- * 225 drafts became 196 findings in `43176459822` under it - and because the gate's second conjunct asks for a suggestion
- * or a quotation of an added line, which **a reader that quoted the file expresses as a sentence instead**: it dropped 48
- * findings that had found a golden and took that run from F1 0.2092 to 0.0523. §23.7 registers the scoping; the lane
- * rule is still scored beside it so the decision keeps being measured.
+ * Read at module load rather than inside `main`, because the rule below is a top-level constant and **a rule that had to
+ * be passed around a five-hundred-line loop is a rule that gets a second copy**. `dist/` is built by the workflow before
+ * the dry run (`Build all packages` precedes `--dry-run`), which is the same order every other built import in this file
+ * relies on; a checkout without it fails by name instead of silently measuring something else.
  */
-const shippedRuleKeep = (entries, profileKept) =>
-  AGENT ? entries.map(() => true) : laneRuleKeep(entries, profileKept);
+const { applyEmissionPolicy, describeEmissionSteps, SHIPPED_EMISSION_STEPS } =
+  await import('../../packages/intelligence/dist/review/emission-policy.js');
+
+/**
+ * **Which findings reach a reader: the cut §54 prices, applied to one pull request's ranked findings.**
+ *
+ * **This used to be the actionability gate and the category floor**, and it was wrong by measurement: on the pair
+ * `43676036390` the gate scored F1 0.1823 while `drop test, budget 12` - the same findings, the same goldens, the same
+ * judge - scored 0.2121 with 148 fewer comments and precision 0.2236 against 0.1735. **A published point 0.0298 below
+ * the best point the artifact could already price, beside the table that said so.**
+ *
+ * **The rule is imported rather than restated**, because the `review pr` command applies the same object to the comments
+ * it posts - so a figure measured here is a figure about the reviewer a user runs. `laneRuleKeep` stays, because a
+ * scoping decision that stops being re-measured is a decision that can quietly become wrong, and the artifact still
+ * prints the gate beside the headline.
+ */
+const shippedRuleKeep = (entries, pullRequest) => {
+  if (entries.length === 0) return [];
+  const published = applyEmissionPolicy(
+    entries.map((entry) => ({
+      entry,
+      category: entry.finding?.category,
+      score: entry.score?.score,
+      pr: pullRequest,
+    })),
+  );
+  const keep = new Set(published.kept.map((item) => item.entry));
+  return entries.map((entry) => keep.has(entry));
+};
 
 /**
  * **The switch this iteration is about: whether a lane is shown the code each hunk sits in.**
@@ -839,11 +864,12 @@ async function dryRun() {
   // **§23.7's decision, as arithmetic instead of as a paragraph.**
   //
   // The actionability gate was calibrated on lane findings and was being applied to a reading arm, where it took three
-  // quarters of the score. **The scoping is a change to which vector becomes `keep`**, so the thing worth asserting
-  // without a model is that the two vectors are computed for every arm and that the arm's is the wider one:
+  // quarters of the score. §54 then priced the gate itself and found it 0.0298 below a better cut of the same findings,
+  // so **the gate is now a measured row rather than the shipped rule**: `laneRule` is scored beside the headline on
+  // every run, and the shipped vector is the policy the package implements.
   const fixtureProfile = new Set(ranked);
   const laneRule = laneRuleKeep(ranked, fixtureProfile);
-  const shipped = shippedRuleKeep(ranked, fixtureProfile);
+  const shipped = shippedRuleKeep(ranked, 'fixture');
   assert.equal(
     laneRule.filter(Boolean).length,
     3,
@@ -851,10 +877,13 @@ async function dryRun() {
   );
   assert.equal(
     shipped.filter(Boolean).length,
-    AGENT ? ranked.length : 3,
-    AGENT
-      ? 'the reading arm ships every finding its own filing check kept, and the lane rule is scored beside it'
-      : 'the lanes ship exactly what the gate passes, which is the rule every published lane figure was measured under',
+    ranked.length,
+    'the policy keeps the fixture whole: it carries no test finding and six is under the budget of twelve',
+  );
+  assert.equal(
+    describeEmissionSteps(SHIPPED_EMISSION_STEPS),
+    'drop test, budget 12',
+    'and the rule it applies is the row of the table the headline is filed under',
   );
 
   const curve = topKCurve(matrix.matches, goldens.length);
@@ -2998,8 +3027,9 @@ async function main() {
     // refactor that loses a row fails here rather than producing a table that reads plausibly and adds up wrong.
     // **The registered operating point, computed once and used by both the headline and the corpus's arithmetic.** A
     // second call to `shippedRuleKeep` would be a second rule, and two figures about two rules is how a run reports a
-    // comparison between itself and itself.
-    const shippedKeepFlags = shippedRuleKeep(ranked, profileKept);
+    // comparison between itself and itself. **The pull-request key is passed rather than implied**, because the budget
+    // counts twelve per pull request and a run-wide count would be a different rule with a better score.
+    const shippedKeepFlags = shippedRuleKeep(ranked, competitorKey);
     const attribution = attributeGoldens({
       goldens,
       reviewedPaths: sections.map((section) => section.path),
@@ -3879,9 +3909,10 @@ async function main() {
      */
     emissionRules: {
       shipped: {
-        rule: AGENT
-          ? 'the reading arm files only what the code it quotes can be located in: 225 drafts became 196 findings in 43176459822'
-          : 'actionability gate AND the category profile floor, which are one operating point',
+        // **The label is derived from the steps the product applies**, so a figure filed under it is the price of the
+        // row with that label rather than of a rule this file wrote down beside the arithmetic.
+        rule: `${describeEmissionSteps(SHIPPED_EMISSION_STEPS)} (the policy packages/intelligence applies to the comments it posts)`,
+        steps: SHIPPED_EMISSION_STEPS,
         point: gated,
       },
       laneGate: {

@@ -894,3 +894,51 @@ describe('runPrReview — a file the caller excluded is not a file the cap dropp
     }
   });
 });
+
+describe('the shipped emission policy — §54', () => {
+  /**
+   * **The command must post the cut the harness prices, and say which cut it posted.**
+   *
+   * `docs/EVAL-CONTRACT.md` §54 prices twenty-three cuts of one paid run's verdicts. The point every published figure of
+   * this command was filed under scored F1 0.1823; `drop test, budget 12` scores 0.2121 with precision 0.2236 against
+   * 0.1735 and 148 fewer comments. **A command that keeps posting the first point is a command whose artifact describes
+   * a reviewer nobody can run** - so the policy is applied here, its name is in the report, and an explicit
+   * `--max-findings` still wins because a command line is a decision and a policy is a default.
+   */
+  it('reports what the policy removed, and leaves the report capped by --max-findings when it is given', async () => {
+    const repo = pullRequestFixture();
+    try {
+      const run = await runPrReview({
+        repo: repo.dir,
+        targetBranch: 'main',
+        sourceBranch: 'feature',
+        severity: 'info',
+      });
+      if (!run.ok) throw new Error(run.error);
+
+      expect(run.report.summary.emissionPolicy?.rule).toBe('drop test, budget 12');
+      // **Two things the policy guarantees whichever corpus this fixture is**: no test-category finding reaches a
+      // reader, and no pull request carries more than twelve comments.
+      expect(run.report.findings.filter((finding) => finding.category === 'test')).toEqual([]);
+      expect(run.report.findings.length).toBeLessThanOrEqual(12);
+
+      const capped = await runPrReview({
+        repo: repo.dir,
+        targetBranch: 'main',
+        sourceBranch: 'feature',
+        severity: 'info',
+        maxFindings: 2,
+      });
+      if (!capped.ok) throw new Error(capped.error);
+      // **An explicit flag is not a policy, and a report that named one would tell a reader to look at a rule that did
+      // not decide this run.**
+      expect(capped.report.summary.emissionPolicy).toBeUndefined();
+      expect(capped.report.findings.length).toBeLessThanOrEqual(2);
+      expect(formatPrReviewText(capped.report)).toContain(
+        'beyond --max-findings were not reported',
+      );
+    } finally {
+      repo.cleanup();
+    }
+  });
+});

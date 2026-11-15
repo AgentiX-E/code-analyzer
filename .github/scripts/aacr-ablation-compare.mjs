@@ -186,6 +186,39 @@ export const REGISTRATIONS = Object.freeze({
     // lane - the same reason R-17's confirmation reads `skip: 50`.
     confirmation: [{ skip: 50, max: 100 }],
   },
+  /**
+   * **§53's registration, and the one entry in this table that was written after its dispatch.**
+   *
+   * The claim was fixed by the diagnosis, not by the result: `43669547968` was dispatched because a committed diagnostic
+   * read fifty missed goldens and found **forty-one of them a remark no lane attempts** - "consider declaring these as
+   * `const`", "align with the plugin's `Math.min` rule", "document why these are excluded" - so a lane that produced
+   * those remarks had to recover a large share of forty-one to be worth its calls, and 0.02 was the house threshold
+   * every device in this table is registered at. **What is written here after the fact is only the entry, and the entry
+   * says which run already happened** so no reader can mistake this for a prediction.
+   *
+   * **Why it is closed rather than owed a confirmation.** The measured gain is +0.0022 with eight goldens recovered of
+   * the ninety-one comments the pass added - a device that emits at 0.09 precision in a corpus whose population is 0.156
+   * is not a weak signal, it is more of the same thing. A confirmation run over new rows would buy a second measurement
+   * of an effect that is smaller than the instrument's resolution, so `confirmation` is empty for the same reason §8's
+   * is.
+   */
+  remarks: {
+    section: '§53 (R-25)',
+    claim:
+      'the remark pass recovers at least twenty of the forty-one remark-shaped goldens the diagnosis found and raises the file arm F1 by at least 0.02 without lowering recall by more than a golden is worth',
+    arm: 'file',
+    registeredGain: 0.02,
+    mechanism: 'precision rises and recall does not fall by more than a golden is worth',
+    mechanismRule: 'recall-holds',
+    /**
+     * **The entry was written on 2026-11-16, after the run of 2026-11-15.** Recorded as a field rather than as a
+     * sentence, because the artifact is where a reader checks what a verdict is about, and **a verdict read against a
+     * registration written afterwards is a description and not a prediction** - which is exactly what this field makes
+     * it possible to see without reading this file.
+     */
+    registeredAfterDispatch: true,
+    confirmation: [],
+  },
 });
 
 /**
@@ -490,7 +523,12 @@ export function confoundsBetween(on, off) {
       });
   }
   const varied = variedField(on, off);
-  if (varied.differ.length !== 1)
+  // **`field`, not `differ.length`.** The entailment branch resolves the switch out of two differing keys and returns it
+  // as `field` while still reporting both keys in `differ` - so a guard that counted the keys refused the very pair the
+  // branch had just explained, and did it silently: R-22's pair was rejected as confounded with
+  // `differ: ["codeContext","agent"]` **after** the rule that makes those two keys one device had been written for it.
+  // The assertion that catches it is on `confoundsBetween`, not on `variedField`; see the self-test below.
+  if (varied.field === null)
     confounds.push({
       field: 'configuration',
       expected: 'exactly one configuration key differs between the arms',
@@ -1193,9 +1231,85 @@ function selfTest() {
   const healthy = confoundsBetween(qualifies, baseline);
   assert(healthy.length === 0, 'two complete arms raise no confound');
 
+  /**
+   * **An entailment is not a confound, and R-22's pair is what said so.**
+   *
+   * `agent: on` sets `codeContext: true` inside the arm, because a reader cannot be switched on without being shown the
+   * code it reads - so that pair differs in two configuration keys and the guard refused it with
+   * `differ: ["codeContext", "agent"]` **on a run that had already been paid for**. The device is one switch; the second
+   * key is what the switch means. **The rule is directional**: the entailed key must be `true` on the varied arm and
+   * `false` on the baseline, or the pair differs in two independent devices and is still refused.
+   */
+  const agentOff = {
+    ...baseline,
+    configuration: {
+      ...baseline.configuration,
+      emissionProfile: undefined,
+      agent: false,
+      codeContext: false,
+    },
+  };
+  const agentOn = {
+    ...qualifies,
+    configuration: {
+      ...qualifies.configuration,
+      emissionProfile: undefined,
+      agent: true,
+      codeContext: true,
+    },
+  };
+  const entailed = variedField(agentOn, agentOff);
+  assert(entailed.field === 'agent', 'the switch is the variable and the window is what it means');
+  assert(
+    entailed.differ.length === 2 &&
+      entailed.entailed.length === 1 &&
+      entailed.entailed[0] === 'codeContext',
+    'and the entailed key is named rather than dropped silently',
+  );
+  // **And the guard accepts the pair, which is the assertion that was missing.** The first version of this test read
+  // `variedField` alone and passed while `confoundsBetween` still refused the pair on `differ.length`, so the paid run
+  // stayed rejected and the test that was supposed to prevent that reported success.
+  assert(
+    confoundsBetween(agentOn, agentOff).length === 0,
+    'the confound guard accepts a switch and the key it entails, which is what R-22 needed',
+  );
+  // **An entailment that runs the other way is two devices.** A baseline that *had* the window and a varied arm that
+  // drops it while switching the reader on differs in two keys in opposite directions, and a guard that accepted that
+  // would accept a pair whose second variable was removed rather than implied.
+  const inverted = variedField(
+    { ...agentOn, configuration: { ...agentOn.configuration, codeContext: false } },
+    { ...agentOff, configuration: { ...agentOff.configuration, codeContext: true } },
+  );
+  assert(
+    inverted.field === null && inverted.differ.length === 2,
+    'a window switched off while the reader is switched on is a confound, not an entailment',
+  );
+  assert(
+    confoundsBetween(
+      { ...agentOn, configuration: { ...agentOn.configuration, codeContext: false } },
+      { ...agentOff, configuration: { ...agentOff.configuration, codeContext: true } },
+    ).some((confound) => confound.field === 'configuration'),
+    'and the guard refuses it, so the direction of the entailment is enforced rather than described',
+  );
+
   console.log(
     `AACR-ABLATION self-test ok · ${String(good.variedField)} · gain ${String(good.delta.f1)} · null ${String(nothing.delta.f1)} · trade ${String(traded.delta.f1)} · resolution ${String(good.resolution)} · refusals ${String(confounded.length + sameFlag.length + swapped.length + shortArm.length)}`,
   );
+}
+
+/**
+ * **A configuration value as a reader can see it.**
+ *
+ * `remarks` is an object (`{ enabled, families, ceilingPerFile, why }`), so `String(value)` printed
+ * `[object Object] vs [object Object]` on the one line a person reads to find out which way round the arms were - and a
+ * log line that cannot say which value belonged to which arm leaves the artifact as the only record of the comparison.
+ */
+function describeValue(value) {
+  if (typeof value !== 'object' || value === null) return String(value);
+  const text = JSON.stringify(value);
+  // **And bounded**, because the alternative is a line that names the two arms in six hundred characters of prose the
+  // arm itself carries as `why`. The artifact keeps the whole value; the line keeps the part that distinguishes them.
+  return text.length > 96 ? `${text.slice(0, 93)}...` : text;
 }
 
 function main() {
@@ -1251,7 +1365,7 @@ function main() {
   const artifact = summarise(on, off);
   writeArtifact(artifact);
   console.log(
-    `AACR-ABLATION compared · ${String(artifact.variedField)} ${String(artifact.arms.with)} vs ${String(artifact.arms.without)} · delta ${String(artifact.delta.f1)} · paired +${String(artifact.pairedTest.withOnly)}/-${String(artifact.pairedTest.withoutOnly)} p=${String(artifact.pairedTest.pValue)} · ${String(artifact.verdict.outcome)}`,
+    `AACR-ABLATION compared · ${String(artifact.variedField)} ${describeValue(artifact.arms.with)} vs ${describeValue(artifact.arms.without)} · delta ${String(artifact.delta.f1)} · paired +${String(artifact.pairedTest.withOnly)}/-${String(artifact.pairedTest.withoutOnly)} p=${String(artifact.pairedTest.pValue)} · ${String(artifact.verdict.outcome)}`,
   );
 }
 

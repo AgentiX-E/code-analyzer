@@ -28,6 +28,9 @@ import {
   ReviewAgent,
   ReviewSwarm,
   SHIPPED_AGENT_OPTIONS,
+  SHIPPED_EMISSION_STEPS,
+  applyEmissionPolicy,
+  describeEmissionSteps,
   splitPatchByPath,
   type ActionItem,
   type LensFinding,
@@ -149,8 +152,21 @@ export interface PrReviewReport {
     iouDeduped: number;
     /** Findings below the engine's own confidence bar, which a later LLM pass would arbitrate. */
     needsLLMValidation: number;
-    /** Findings dropped because the report hit `--max-findings`. */
+    /** Findings dropped because the report hit `--max-findings` or the shipped emission policy. */
     truncatedFindings: number;
+    /**
+     * **What the shipped emission policy removed before the report was written** (§54), and the name of the rule.
+     *
+     * Absent when `--max-findings` decided: an explicit flag is a decision, and a decision has nothing to explain. **The
+     * field exists because a reader who cannot see a comment the reviewer wrote deserves to know which rule refused
+     * it** - the alternative is a report that quietly says a pull request was clean at one operating point while the
+     * engine spoke at another.
+     */
+    emissionPolicy?: {
+      rule: string;
+      droppedByCategory: readonly { readonly category: string; readonly count: number }[];
+      truncatedByBudget: number;
+    };
   };
   decision: SwarmDecision;
   actionPlan: ActionItem[];
@@ -719,7 +735,19 @@ export async function runPrReview(options: PrReviewOptions): Promise<PrReviewRun
     (finding) => severityRank(finding.severity) >= severityRank(severity),
   );
   const cap = maxFindingsOf(options);
-  const findings = cap === undefined ? reported : reported.slice(0, cap);
+  /**
+   * **The shipped emission policy, applied where the comments become a report.**
+   *
+   * `docs/EVAL-CONTRACT.md` §54 prices twenty-three cuts of one run's verdicts and finds the gate this command's figures
+   * were filed under 0.0298 below a better cut of the same findings: **`drop test, budget 12` scores F1 0.2121 against
+   * 0.1823, with precision 0.2236 against 0.1735 and 148 fewer comments.** The policy is the package's own function, and
+   * the harness imports the same one, so the figure a run publishes and the comments a user receives are one object.
+   *
+   * **An explicit `--max-findings` wins**, because a command line is a decision and the policy is a default - and
+   * `CODE_ANALYZER_REVIEW_MAX_COMMENTS` is read the same way it always was.
+   */
+  const policy = cap === undefined ? applyEmissionPolicy(reported, SHIPPED_EMISSION_STEPS) : null;
+  const findings = policy === null ? reported.slice(0, cap) : [...policy.kept];
 
   const report: PrReviewReport = {
     schema: PR_REVIEW_SCHEMA,
@@ -758,6 +786,17 @@ export async function runPrReview(options: PrReviewOptions): Promise<PrReviewRun
       iouDeduped: lensSummary.iouDeduped,
       needsLLMValidation: lensSummary.needsLLMValidation,
       truncatedFindings: reported.length - findings.length,
+      // **What the policy removed, and which rule it is**, so a reader who misses a comment the run wrote can see the
+      // rule rather than infer one. Absent when `--max-findings` decided, because then there is no policy to name.
+      ...(policy === null
+        ? {}
+        : {
+            emissionPolicy: {
+              rule: describeEmissionSteps(SHIPPED_EMISSION_STEPS),
+              droppedByCategory: policy.droppedByCategory,
+              truncatedByBudget: policy.truncated,
+            },
+          }),
     },
     decision,
     actionPlan,
@@ -860,9 +899,7 @@ export function formatPrReviewMarkdown(report: PrReviewReport): string {
     lines.push('No findings at or above the reported severity.');
     if (report.summary.truncatedFindings > 0) {
       lines.push('');
-      lines.push(
-        `_${report.summary.truncatedFindings} finding(s) beyond \`--max-findings\` were not reported._`,
-      );
+      lines.push(`_${truncationNote(report.summary, 'markdown')}_`);
     }
     return lines.join('\n');
   }
@@ -891,9 +928,7 @@ export function formatPrReviewMarkdown(report: PrReviewReport): string {
 
   if (report.summary.truncatedFindings > 0) {
     lines.push('');
-    lines.push(
-      `_${report.summary.truncatedFindings} finding(s) beyond \`--max-findings\` were not reported._`,
-    );
+    lines.push(`_${truncationNote(report.summary, 'markdown')}_`);
   }
 
   if (report.summary.outsideDiff > 0) {
@@ -967,11 +1002,31 @@ export function formatPrReviewText(report: PrReviewReport): string {
 
   if (report.summary.truncatedFindings > 0) {
     lines.push('');
-    lines.push(
-      `${report.summary.truncatedFindings} finding(s) beyond --max-findings were not reported.`,
-    );
+    lines.push(truncationNote(report.summary, 'text'));
   }
   return lines.join('\n');
+}
+
+/**
+ * **Why a finding the reviewer wrote is not in the report, in the rule's own words.**
+ *
+ * Until §54 there was one reason a finding could be missing - `--max-findings` - so every sentence said so. The shipped
+ * emission policy is now the second reason and the commoner one, and **a sentence that names the wrong rule sends the
+ * reader to a flag that was never set.** The text is derived from the report's own field rather than from a constant, so
+ * a run that changes the policy changes the sentence without changing this function.
+ */
+function truncationNote(summary: PrReviewReport['summary'], style: 'text' | 'markdown'): string {
+  const count = summary.truncatedFindings;
+  const policy = summary.emissionPolicy;
+  const flag = style === 'markdown' ? '`--max-findings`' : '--max-findings';
+  if (policy === undefined) return `${count} finding(s) beyond ${flag} were not reported.`;
+  const dropped =
+    policy.droppedByCategory.map((entry) => `${entry.category} ${entry.count}`).join(', ') ||
+    'nothing';
+  return (
+    `${count} finding(s) were not reported: the shipped emission policy (${policy.rule}) removed ` +
+    `${dropped} and ${policy.truncatedByBudget} beyond the per-pull-request budget.`
+  );
 }
 
 /** The report in the format that was asked for. */
