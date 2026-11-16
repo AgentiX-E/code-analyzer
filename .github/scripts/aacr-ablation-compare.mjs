@@ -29,7 +29,53 @@ import { dirname, resolve } from 'node:path';
 import { pathToFileURL } from 'node:url';
 
 import { coverageSet } from '../../scripts/lib/arm-pair.mjs';
+import { clusterBootstrapDelta } from '../../scripts/lib/corpus-resolution.mjs';
 import { pairedComparison } from './lib/paired-test.mjs';
+
+/**
+ * **The two arms' coverage rows, one pull request at a time**, which is the unit the corpus is sampled in.
+ *
+ * Matched on `pr` rather than on position, because two artifacts written by two dispatches do not have to list their
+ * rows in the same order and a positional join would pair one pull request's goldens with another's. Rows present on
+ * one side only are dropped and counted, so a verdict never claims to have resampled a corpus it only half read.
+ */
+function pairedCoverageRows(onArtifact, offArtifact) {
+  const onRows = Array.isArray(onArtifact?.coverage?.byPullRequest) ? onArtifact.coverage.byPullRequest : [];
+  const offRows = Array.isArray(offArtifact?.coverage?.byPullRequest) ? offArtifact.coverage.byPullRequest : [];
+  const offByKey = new Map();
+  for (const [at, row] of offRows.entries()) offByKey.set(String(row?.pr ?? at), row);
+  const withRows = [];
+  const withoutRows = [];
+  for (const [at, row] of onRows.entries()) {
+    const other = offByKey.get(String(row?.pr ?? at));
+    if (other === undefined) continue;
+    withRows.push(row);
+    withoutRows.push(other);
+  }
+  return { withRows, withoutRows, onRows: onRows.length, offRows: offRows.length };
+}
+
+/**
+ * **The standard normal distribution function**, Abramowitz and Stegun 7.1.26, |error| < 1.5e-7.
+ *
+ * Written out rather than imported because the alternative is a dependency for eighty characters of arithmetic, and a
+ * p-value that a reader cannot recompute from the artifact is a p-value that has to be believed.
+ */
+function normalCdf(x) {
+  const t = 1 / (1 + 0.2316419 * Math.abs(x));
+  const density = 0.3989422804014327 * Math.exp((-x * x) / 2);
+  const tail =
+    density *
+    t *
+    (0.31938153 + t * (-0.356563782 + t * (1.781477937 + t * (-1.821255978 + t * 1.330274429))));
+  return x > 0 ? 1 - tail : tail;
+}
+
+/** Two-sided p for a z statistic, which is the number the outcome sentence quotes. */
+function twoSidedP(z) {
+  return Math.max(0, Math.min(1, 2 * (1 - normalCdf(Math.abs(z)))));
+}
+
 
 /**
  * **The registrations this job knows how to read a verdict against, keyed by the configuration field they vary.**
@@ -922,6 +968,74 @@ export function summarise(on, off) {
   /** How the arm is named in a sentence, because "the file arm" and "the pull-request arm" are not interchangeable. */
   const armName = `the ${armProse(registeredArm)}`;
 
+  /**
+   * **The second question, which this job computed and never asked.**
+   *
+   * The bar asks whether the gain is at least what was registered; **the corpus asks whether the gain could have
+   * arrived by resampling the pull requests**, and until §65 no branch read the answer. A run could reach
+   * `magnitudeMet` with `p = 0.4` and be filed as confirmed, which is a table of noise with a threshold attached.
+   *
+   * The rows are resampled **one pull request at a time**, keeping each row's goldens, coverage and posted comments
+   * together, because goldens inside a row are not independent - a reviewer that understood a file covers several of
+   * them. A golden-level test treats 724 draws as 724 observations and is too optimistic by however much the rows
+   * cluster; McNemar's `p` is reported beside this one for exactly that reason, and **when the two disagree the
+   * clustered one is the one a bar has to clear.**
+   */
+  const pairedRows = pairedCoverageRows(on, off);
+  const significance =
+    pairedRows.withRows.length >= 2
+      ? (() => {
+          const interval = clusterBootstrapDelta(pairedRows.withRows, pairedRows.withoutRows, {
+            resamples: CORPUS_SAMPLING.resamples,
+            seed: CORPUS_SAMPLING.seed,
+          });
+          const sd = interval.sd;
+          const z = sd > 0 ? round(gain / sd) : null;
+          /**
+           * **Whether the rows can reproduce the figure the artifact published.**
+           *
+           * The resampled mean has to land on the delta within one standard deviation, or the rows and the totals are
+           * about two different things - an artifact whose `shippedEmitted` was absent, a corpus the run read and did
+           * not record, a total written beside rows instead of summed from them. **A bootstrap that disagrees with the
+           * number it is qualifying is not an error bar, it is a second opinion**, and signing on it would be signing
+           * on whichever of the two happened to be in the fixture.
+           */
+          const inconsistent = Math.abs(interval.mean - gain) > Math.max(sd, 1e-9);
+          return {
+            unit: 'pull request',
+            view: 'the paired difference in file-arm F1, resampled over the pull requests both arms read',
+            resamples: interval.resamples,
+            pullRequests: interval.pullRequests,
+            mean: interval.mean,
+            sd,
+            lower: interval.lower,
+            upper: interval.upper,
+            positiveRate: interval.positiveRate,
+            z,
+            pValue: z === null ? null : round(twoSidedP(z)),
+            inconsistent,
+            ...(interval.estimated ? { estimated: true } : {}),
+            rowsWithDevice: pairedRows.onRows,
+            rowsWithoutDevice: pairedRows.offRows,
+          };
+        })()
+      : null;
+  /**
+   * **Signed means three things at once**: the rows reproduce the published figure, the resampled difference is not
+   * noise, and - when the corpus is so uniform that every draw returns the same difference - there is no noise for it
+   * to be. `sd = 0` is a degenerate corpus rather than a strong result, but a distribution of width zero does not
+   * change sign under resampling, so it is signed on the point estimate and the artifact says `sd: 0` for a reader to
+   * weigh.
+   */
+  const signed =
+    significance === null
+      ? null
+      : significance.inconsistent
+        ? false
+        : significance.sd === 0
+          ? gain !== 0
+          : significance.pValue !== null && significance.pValue <= 0.05;
+
   const outcome =
     magnitudeMet === null
       ? 'unregistered: no expectation was written before this run'
@@ -937,7 +1051,13 @@ export function summarise(on, off) {
               ? 'falsified: the magnitude arrived, the mechanism did not'
               : guardMet === false
                 ? `falsified: ${armName} gained ${String(gain)} and the ${armProse(String(guardArm))} it must not lower fell by ${String(-guardGain)}`
-                : `confirmed: at least ${String(registeredGain)} F1 on ${armName}, and the mechanism is precision`;
+                : signed === false
+                  ? significance?.inconsistent
+                    ? `met but not signed: ${String(gain)} F1 on ${armName} clears the ${String(registeredGain)} registered, and the ${String(significance?.pullRequests)} pull-request rows resample to ${String(significance?.mean)}, which is ${String(significance?.sd)} wide against a published delta of ${String(gain)} - the rows and the totals are about two different corpora, so there is nothing to sign`
+                    : `met but not signed: ${String(gain)} F1 on ${armName} clears the ${String(registeredGain)} registered, and over ${String(significance?.pullRequests)} pull requests the paired difference is ${String(significance?.sd)} wide, so the gain is ${String(significance?.z)} standard deviations (p = ${String(significance?.pValue)})`
+                  : signed === null
+                    ? `met but unverifiable: ${String(gain)} F1 on ${armName} clears the ${String(registeredGain)} registered, and the artifacts carry ${String(pairedRows.withRows.length)} paired pull-request rows, which is too few to resample a corpus from`
+                    : `confirmed: at least ${String(registeredGain)} F1 on ${armName}, and the mechanism is precision`;
 
   return {
     measuredAt: new Date().toISOString().slice(0, 10),
@@ -1030,6 +1150,8 @@ export function summarise(on, off) {
       pValue: round(paired.pValue),
       verdict: paired.verdict,
     },
+    /** The resampled interval the verdict was signed on, or `null` when the artifacts carried too few rows. */
+    significance,
     verdict: {
       registeredGain,
       /** The arm the threshold above is attached to, as a field rather than as a convention. */
@@ -1057,6 +1179,29 @@ export function summarise(on, off) {
        * verdict that checked only the rising arm would confirm a device that raised one arm by sinking the other.
        */
       guard: guardArm === null ? null : { arm: guardArm, gain: guardGain, met: guardMet },
+      /**
+       * **Whether a bar of this size could be signed at all on this corpus, asked before the run is bought.**
+       *
+       * `resolvable` says the bar is outside one standard deviation; **signing needs 1.96 of them**, so a 0.02 bar on a
+       * corpus that resolves 0.0191 clears the first gate and cannot clear the second. That is not a reason to refuse
+       * the run - the point estimate is still worth having - it is a reason to expect `met but not signed` and to spend
+       * the next dispatch on the corpus rather than on the device.
+       */
+      confirmable: {
+        bar: registeredGain,
+        // **The width of this run's own difference when it could be measured**, and the corpus constant when it could
+        // not: R-32's rows resample to 0.0150 where the R-31 constant predicts 0.0190, so a bar judged against the
+        // constant is judged against a corpus that is not this one. **A width of zero falls back to the constant**, because
+        // a degenerate corpus would otherwise make every bar signable.
+        needs: round(1.96 * (significance !== null && significance.sd > 0 ? significance.sd : resolution)),
+        confirmed:
+          registeredGain === null
+            ? null
+            : registeredGain >=
+              1.96 * (significance !== null && significance.sd > 0 ? significance.sd : resolution),
+      },
+      /** Whether the paired difference over the corpus is outside the noise: the gate below `confirmed`. */
+      signed,
       /** **The only field a reader needs**, and the one that cannot be true when a gate above it failed. */
       confirms: outcome.startsWith('confirmed'),
       outcome,
@@ -1202,6 +1347,10 @@ function selfTest() {
         pr: `pr-${at}`,
         goldens: overrides.goldensPerPr[at],
         covered,
+        // **The comments actually posted on this row**, without which the rows cannot be resampled and the fixture is a
+        // pair of totals pretending to be a corpus. The false positives are spread evenly, which is what makes the rows
+        // reproduce the published figure.
+        shippedEmitted: covered.length + Math.round(overrides.fp / overrides.covered.length),
       })),
     },
   });
@@ -1215,15 +1364,16 @@ function selfTest() {
   // the assertions below were answered by `unfalsifiable`. That went unnoticed while the resolution was 0.0017; a fixture
   // corpus has to be able to resolve the registration it is exercising, and "six of ten" and "six hundred of a thousand"
   // are the same F1 of 0.4.
+  // **The covered indices have to add up to the true positives**, because the corpus bar resamples these rows and a
+  // fixture whose rows say 6 while its total says 600 is two corpora in one artifact - the gate below refuses to sign
+  // it, which is how this was found.
+  const range = (from, count) => Array.from({ length: count }, (_, at) => from + at);
   const qualifies = artifact({
     profile: 'defect',
     tp: 600,
     fp: 1400,
     fn: 400,
-    covered: [
-      [0, 1, 2],
-      [3, 4, 5],
-    ],
+    covered: [range(0, 300), range(300, 300)],
     goldensPerPr: [500, 500],
   });
   const baseline = artifact({
@@ -1231,7 +1381,7 @@ function selfTest() {
     tp: 300,
     fp: 1700,
     fn: 700,
-    covered: [[0, 1], [3]],
+    covered: [range(0, 150), range(150, 150)],
     goldensPerPr: [500, 500],
   });
 
@@ -1243,13 +1393,23 @@ function selfTest() {
   );
   assert(good.verdict.magnitudeMet === true, 'the magnitude branch, against the 0.02 R-17 claim');
   assert(good.verdict.mechanismMet === true, 'precision rose and recall rose');
-  assert(good.pairedTest.withOnly === 3, 'three goldens the device found and the baseline did not');
-  assert(good.pairedTest.withoutOnly === 0, 'and none the other way');
-  // **And the honest part, asserted rather than described**: three discordant pairs one way is p = 0.25, so a device
-  // worth 0.2 F1 on ten goldens is **not** significant. A comparison that called this significant would be a comparison
-  // that would call anything significant.
-  assert(good.pairedTest.pValue === 0.25, 'three discordant pairs one way is p = 0.25');
-  assert(good.pairedTest.verdict === 'not significant at 0.05', 'and the paired test says so');
+  assert(good.pairedTest.withOnly === 450, 'four hundred and fifty goldens the device found and the baseline did not');
+  assert(good.pairedTest.withoutOnly === 150, 'and a hundred and fifty the other way, because the fixture baseline reads rows the device reads too');
+  // **These three assertions used to read 3:0 and `p = 0.25`**, on a fixture of ten goldens where the honest note was
+  // that a device worth 0.2 F1 was not significant. The fixture is a corpus now, because the signature gate resamples it
+  // and two rows cannot be resampled into anything; at this size the same device is significant, and the note the old
+  // assertions made is carried by the tests that build a corpus whose gain is concentrated or whose rows disagree with
+  // its totals.
+  assert(good.pairedTest.pValue < 0.05, `three hundred discordant pairs one way is p = ${String(good.pairedTest.pValue)}`);
+  assert(good.pairedTest.verdict === 'significant at 0.05', 'and the paired test says so');
+  // **Signed, and still not a bar that could have been signed had the gain been small**: 0.02 needs 1.96 standard
+  // deviations of a corpus this size, which is 0.0318, so a device that cleared its bar by a hair would be `met but not
+  // signed`. Both facts sit in one verdict on purpose.
+  assert(good.verdict.signed === true, 'the corpus signs a gain of 0.2');
+  assert(
+    good.verdict.confirmable.confirmed === false,
+    'and the 0.02 bar is still below what this corpus can sign, so a hair-breadth result would not be confirmed',
+  );
   // **The resolved step at ten goldens is eight times wider than at 715**, because the formula scales the measured
   // repeat up as the corpus shrinks - and 0.2 is far outside it either way. **The assertion used to read `> 0.04`**,
   // which was true of an anchor taken from three runs over five pull requests; the repeat of 2026-11-16 replaced it,
@@ -1309,12 +1469,17 @@ function selfTest() {
     tp: 400,
     fp: 2000,
     fn: 600,
-    covered: [[0, 1, 2], [3]],
+    // **A hundred and fifty goldens the baseline missed against fifty the other way**, which is the shape of a trade: more
+    // found, more paid for, and the F1 barely moved.
+    covered: [range(0, 200), range(200, 200)],
     goldensPerPr: [500, 500],
   });
   const traded = summarise(trade, baseline);
   assert(traded.delta.f1 > 0, 'the trade does gain something');
-  assert(traded.pairedTest.withOnly === 1 && traded.pairedTest.withoutOnly === 0, 'and one golden');
+  assert(
+    traded.pairedTest.withOnly === 150 && traded.pairedTest.withoutOnly === 50,
+    `a hundred and fifty goldens one way and fifty the other, received ${String(traded.pairedTest.withOnly)} and ${String(traded.pairedTest.withoutOnly)}`,
+  );
 
   // **The two mechanism rules disagree, and the fixture makes them disagree on purpose.** These are the numbers the
   // hundred-pull-request confirmation actually produced: precision up 0.0937, recall down 0.0414. Under R-17's own

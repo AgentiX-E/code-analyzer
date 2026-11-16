@@ -6781,3 +6781,128 @@ on any of them is a coin-flip's cousin.
 **The gate that is missing is the one already in the artifact.** `pairedTest.pValue` is computed on every comparison and
 no branch reads it: a run can reach `magnitudeMet` with `p = 0.4` and be filed as `confirmed`. Closing that is §65, and
 it is the reason 64.4's table is a table of bars rather than of devices.
+
+## 65. The job computed a p-value on every comparison and no branch read it
+
+### 65.1 Two questions, one of them asked
+
+A registration asks **"is the gain at least what was written down"**. The corpus asks **"could this gain have arrived by
+resampling the pull requests"**. Until this section the comparison job answered the first and printed the second:
+`pairedTest.pValue` has been in every artifact since §51 and no branch of `summarise` consulted it. **A run could reach
+`magnitudeMet` with `p = 0.4` and be filed as `confirmed`**, which is a table of noise with a threshold attached - and
+§64 showed the threshold was one standard deviation from zero, where a device that does nothing reads past it 14.7 % of
+the time.
+
+### 65.2 Which test, and why not the one already there
+
+The artifact already carried McNemar's p over the goldens the two arms agree and disagree on. **It is not the test a bar
+should clear**, because goldens inside a pull request are not independent: a reviewer that understood a file covers
+several of them, one that missed it misses several. A golden-level test treats 724 draws as 724 observations and is too
+optimistic by however much the rows cluster.
+
+So `significance` resamples **pull requests**, with replacement, keeping each row's goldens, coverage and posted comments
+together, and reports the standard deviation, the interval and the z of the paired difference. Both numbers are published
+because they disagree and the disagreement is informative:
+
+| Instrument | R-32 | Reads |
+|---|---|---|
+| McNemar, 84 : 48 goldens | p = 0.0022 | significant |
+| Clustered bootstrap, 100 rows | z = 1.97, p = 0.0485, CI [−0.0005, +0.0582] | signed, on the boundary |
+| Share of resamples where the device wins | 0.9728 | 97 % |
+
+**The clustered one is the one a bar has to clear**, and it is 45 times less impressed by the same evidence.
+
+### 65.3 Three things `signed` means, and the one that is not a formality
+
+- **The rows have to reproduce the published figure.** If the resampled mean misses the delta by more than one standard
+  deviation, the rows and the totals are about two different corpora - an artifact with no `shippedEmitted`, a total
+  written beside rows instead of summed from them - and `inconsistent: true` refuses to sign. **A bootstrap that
+  disagrees with the number it is qualifying is not an error bar, it is a second opinion.** This is how the self-test's
+  own fixtures were found to be two corpora in one artifact.
+- **The difference has to be outside the resampling noise**, which is `p <= 0.05` on the clustered z.
+- **A corpus of width zero is signed on its point estimate**, because a distribution that never moves does not change
+  sign under resampling - `sd: 0` is published for a reader to weigh rather than hidden.
+
+`confirmable` is the *ex ante* version and belongs in the registration: **a bar needs 1.96 standard deviations of the
+corpus it will be judged on**, which is 0.0372 on R-31's 98 rows and 0.0294 on R-32's. Every 0.02 registration on file
+clears `resolvable` and cannot clear `confirmable`, and **that is the sentence that should have been written before the
+dispatch rather than after it.**
+
+### 65.4 The new outcome, and why it is not `inconclusive` returning
+
+```
+met but not signed: 0.0343 F1 on the file arm clears the 0.02 registered, and over 100 pull requests the paired
+difference is 0.021 wide, so the gain is 1.48 standard deviations (p = 0.1376)
+```
+
+`inconclusive` was deleted in §60 because it could only be reached by a registration the file refuses. **This sentence is
+reachable by a real device on a real corpus** - a gain that meets its bar and cannot be signed - and it is the honest name
+for the state this project will be in whenever a device is smaller than the corpus can see. A job that folded it into
+`confirmed` would publish noise; one that folded it into `falsified` would throw away a device that works.
+
+## 66. R-32: the first device that moved the figure and the registration that cannot sign it
+
+### 66.1 The reading
+
+Run `43854378420`, both arms on `skip 50 max 100`, 100 pull requests, **724 goldens** (R-31 read 715 because two diffs
+returned 500; §60's retry fixed that, so this run read the whole slice), same judge, same configuration except the switch:
+
+| Arm | TP | FP | FN | P | R | F1 | Cost |
+|---|---:|---:|---:|---:|---:|---:|---:|
+| `secondConcern: false` | 140 | 514 | 584 | 0.2141 | 0.1934 | **0.2032** | $1.17 |
+| `secondConcern: true` | 176 | 612 | 548 | 0.2234 | 0.2431 | **0.2328** | $1.15 |
+| **Δ** | **+36** | +98 | **−36** | +0.0093 | **+0.0497** | **+0.0296** | −$0.02 |
+
+**The mechanism is the registered one and it is recall.** 36 more goldens found, 98 more comments paid for them, and
+precision rose anyway - because the second concern is kept only at a range the reviewer already reported, so it costs one
+comment per site rather than one per finding.
+
+**The device demonstrably ran**: `engineCounters.dedup.keptAsSecondConcern` is **596** on the arm that has it and **0** on
+the arm that does not. Of 3 372 merged findings, 1 714 were removed by the range rule alone (1 701 of them `rangeOnly`)
+and **596 survived as a second concern** instead of being swallowed by a cross-category overlap. On the control arm the
+same rule removed 2 306 of 3 401 and kept none.
+
+### 66.2 The verdict, and the two gates that disagree
+
+| Gate | Value | Reads |
+|---|---|---|
+| Magnitude (≥ 0.01) | +0.0296 | met |
+| Mechanism (recall rises, precision not lowered) | +0.0497 / +0.0093 | met |
+| Slice (`skip 50 max 100`) | matches | met |
+| Device inputs | not required | — |
+| **Signed (clustered, p ≤ 0.05)** | **z = 1.97, p = 0.0485** | **met, on the boundary** |
+| **Answerable (bar ≥ corpus resolution 0.019)** | **0.01 < 0.019** | **not met** |
+| `confirms` | **false** | **unfalsifiable** |
+
+**So the artifact says something no earlier artifact in this document could say: the device works and the registration
+was written too low to say so.** §60 replaced a 0.0195 anchor with 0.0017 and R-32 was registered at 0.01 against the
+second one; §64 measured the corpus at 0.0191 and the bar fell underneath it. **The result is exploratory, not
+confirmatory, and the difference is not a technicality** - a bar that cannot be resolved cannot distinguish a device
+from the noise it sits in, however large the point estimate turns out to be.
+
+What it does establish, on 100 pull requests with a clustered test and a McNemar beside it: **keeping a second concern
+at a site is worth about three points of F1 and five points of recall, at no cost in precision or dollars.** What it does
+not establish is that a gain of that size would be found again on a corpus this project has not read.
+
+### 66.3 Where 0.2328 stands
+
+| System | F1 | Note |
+|---|---:|---|
+| Claude-4.5-Sonnet, agent, no context (§62.7) | 0.1612 | the published leader |
+| this project, `secondConcern: false` | 0.2032 | the same slice, the same day |
+| **this project, `secondConcern: true`** | **0.2328** | **+44 % over the leader** |
+
+The comparison is not a like-for-like benchmark - the leader's number is over the full 200-pull-request corpus and ours
+over the hundred starting at fifty - and it is the only number this project has that is both measured on a public corpus
+and above every published figure on it.
+
+### 66.4 What has to happen next
+
+1. **R-33 is dispatched** (`43898771717`, `skip 150`, `second_concern: pair`) to test the direction on rows no second
+   concern experiment has read. Two slices agreeing is what §63 requires before a device is called real, and it is now
+   the only thing standing between this reading and a confirmation.
+2. **Nothing is re-registered before R-33 lands.** Writing a 0.0374 bar now, having seen +0.0296, would be fitting the
+   threshold to the result - the exact defect the `skip 50 / skip 150` split exists to prevent.
+3. **A confirmation of this device needs a corpus, not a bar.** At 100 pull requests a 0.03 effect is a 1.97-sigma
+   effect; the same effect on 358 pull requests would be 3.7 sigma. The next dispatch after R-33 should buy rows, not
+   switches.
