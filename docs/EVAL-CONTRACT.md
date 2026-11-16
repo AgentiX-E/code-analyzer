@@ -6427,3 +6427,48 @@ corpus uses - **not a looser matcher**, because a looser matcher raises recall b
 **What this cannot decide.** Whether a *human* would call the pair the same defect. The reader is a model with a prompt,
 the same kind of instrument as the judge it is checking, and **the control is what keeps it from being a second opinion
 that agrees with us.**
+
+### 61.3 The hard control ate the finding, and that is the result
+
+The re-read ran on R-31's lanes artifact - 263 pairs, four readings each:
+
+| reading | pairs | accepted | share |
+| --- | ---: | ---: | ---: |
+| the pairs the run rejected | 263 | 49 | **18.6 %** |
+| crossed: golden from another pull request | 263 | 1 | 0.4 % |
+| **same file, same pull request, another line** | 219 | **35** | **16.0 %** |
+| same pull request, another file | 222 | 12 | 5.4 % |
+
+**A reader that accepts 18.6 % of the real pairs and 16.0 % of pairs made of our comment and a *different* golden from the
+same file is not detecting a shared concern. It is detecting a shared file.** The crossed control was 0.4 % because it
+could be passed without reading either sentence, and the first reading's "48 recovered" was the instrument's bias, not
+the judge's conservatism.
+
+The paired form is the one to quote, because both readings exist on the same 219 pairs:
+
+| discordance | count |
+| --- | ---: |
+| accepted the real pair, rejected the same-file pairing | **28** |
+| rejected the real pair, accepted the same-file pairing | **28** |
+| two-sided exact binomial | **p = 1.00** |
+
+**Exactly balanced.** On the pairs where both readings exist, this reader is as likely to call a deliberately wrong
+pairing a shared concern as the real one, and **the two-sided test cannot distinguish the split from a coin.**
+
+So the stopping rule fires, and it fires on the number it was written against:
+
+- **The matcher is not the repair.** The upper bound of the judge's undercount is **7 credits** - 49 observed against the
+  42 the 16.0 % floor predicts - which is **+0.010 F1**, and a paired test that returns 1.00 cannot license it. An
+  instrument change claiming those seven would be claiming a coin.
+- **The bare four-token judge was right, and a looser matcher would have been a measurement made to flatter us.** This is
+  the one direction that cannot be allowed, and it took a control to see it: without `sameFile`, the same reading reports
+  a **+0.0707** re-scoring of the lanes arm (F1 0.2055 → 0.2762) that is **entirely an artifact**.
+- **So the 434 are genuinely rejected**: our comments are about something in that file, and not about what the human
+  reviewer was about. The 263 on the exact line are §59's case - two defects at one site - and R-32 is already in flight
+  to price it.
+
+**What this changes about how the other claims in this document should be read.** Every device registered here is measured
+against a comparator arm, and the comparator is what makes the difference the device. **A reader - a judge, a matcher, an
+anatomy tool - is the same kind of instrument and needs the same kind of control**, because the failure mode is identical:
+a second reading that agrees with us about one file and one pull request, and is reported as agreeing with us about one
+defect. The cross-pair control was invented here for a matcher and it belongs beside every readback in this document.
