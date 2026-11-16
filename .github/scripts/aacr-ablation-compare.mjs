@@ -312,6 +312,12 @@ export const REGISTRATIONS = Object.freeze({
       'keeping one finding of a different category at a range the reviewer already reported raises the file arm F1 by at least 0.01 and recall, without lowering precision by more than a golden is worth',
     arm: 'file',
     registeredGain: 0.01,
+    // **Registered before the corpus bar was measured, and below it.** §60's 0.0017 said a 0.01 bar was answerable;
+    // `CORPUS_SAMPLING` says a second corpus of 98 rows moves the difference by 0.0191, so 0.01 is inside the corpus'
+    // own noise. The run is paid for and the flag is not a licence to read it as confirmed - `registrationResolvable`
+    // returns `false` for this entry, and its outcome may only be recorded as a point estimate. **Rewriting the bar
+    // after the fact would be the one thing worse than registering it too low.**
+    registeredBelowResolution: true,
     mechanism: 'recall rises and precision does not fall by more than a golden is worth',
     mechanismRule: 'recall-rises',
     confirmation: [{ skip: 50, max: 100 }],
@@ -426,22 +432,63 @@ export const REPRODUCTION = Object.freeze({
 });
 
 /**
+ * **The corpus' own error bar, which is what a registration is about.**
+ *
+ * `REPRODUCTION` holds the reviewer still and measures the reviewer: two dispatches, one configuration, one corpus,
+ * 0.0017. **A registration is not a claim about the reviewer; it is a claim about a corpus** - "this device raises F1 on
+ * review data" - and nothing in a two-run repeat prices the corpus, because the corpus was the thing held fixed.
+ *
+ * The corpus can be priced from one artifact, since every artifact carries its figure per pull request. Resampling the
+ * 98 rows of R-31 with replacement 4000 times and recomputing F1 from the resampled counts gives a spread of **0.0191**
+ * for one arm and a paired difference of `[-0.052, +0.022]` with `P(delta > 0) = 0.19` - eleven times the repeat, and
+ * the same verdict McNemar's 63:82 / p = 0.135 reaches from the golden-level pairs. `scripts/lib/corpus-resolution.mjs`
+ * computes it; the constant below is the reading on R-31's 98 rows so that a registration can be checked without an
+ * artifact in hand.
+ *
+ * **What this corrects, and it is a correction of this document's own last correction.** §60 replaced a `0.04 at 170
+ * goldens` anchor - extrapolated from three runs over five pull requests - with the 0.0017 repeat, on the grounds that
+ * the repeat was measured where the old anchor was guessed. The repeat is measured, and it answers a narrower question
+ * than the one that was asked. The old anchor's **number** was almost right (it resolves 0.0195 at 715 goldens, within
+ * three percent of the 0.0191 computed here) and its **derivation** was wrong; the replacement's derivation was right
+ * and its number was ten times too small. A number that is right for the wrong reason and a number that is wrong for
+ * the right reason are both wrong, and the cost of preferring the second was a bar under which every registration is
+ * confirmable.
+ */
+export const CORPUS_SAMPLING = Object.freeze({
+  pullRequests: 98,
+  goldens: 715,
+  /** Standard deviation of the paired F1 difference over 4000 resamples of the 98 rows, seed 20260816. */
+  deltaSd: 0.0191,
+  /** The same bootstrap on one arm alone, which is not what a registration is tested against. */
+  armSd: 0.0162,
+  resamples: 4000,
+  seed: 20_260_816,
+  /** §60's measurement, kept beside it: the reviewer twice on one corpus. Different question, eleven times smaller. */
+  samplingBar: 0.0017,
+  measuredOn: '2026-11-16',
+  from: 'run 43839753881, the 98 pull requests both arms read',
+});
+
+/**
  * **The smallest bar a registration may set, at the corpus registrations are confirmed on.**
  *
- * A bar under the instrument's resolution is a registration that says "confirm me if the number moves by less than it
- * moves when nothing changes", and the comparison job answers `inconclusive` however well the device does.
+ * A bar under the instrument's resolution is a registration that says "confirm me if the number moves by less than a
+ * second corpus of this size would move it", and the comparison job answers `inconclusive` however well the device
+ * does. **It is the corpus bar, not the repeat bar**, because 0.0017 would make every registration on file confirmable
+ * - and a resolution that is too coarse withholds a verdict while one that is too fine publishes noise as a device.
  */
-export const MINIMUM_REGISTERED_GAIN = 0.0017;
+export const MINIMUM_REGISTERED_GAIN = 0.0191;
 
 /**
  * **What a two-armed comparison on this instrument cannot resolve, as a function of the corpus.**
  *
- * **The anchor is now `REPRODUCTION`**, and the law is unchanged: a standard error falls as the square root of the
- * sample, so 715 goldens resolve 0.0017, 179 resolve 0.0034 and 2 860 resolve 0.0009. **Scaling it is a claim with a
+ * **The anchor is `CORPUS_SAMPLING`**, and the law is unchanged: a standard error falls as the square root of the
+ * sample, so 715 goldens resolve 0.0191, 179 resolve 0.0381 and 2 860 resolve 0.0095. **Scaling it is a claim with a
  * formula behind it; keeping one number at every corpus size would be a claim that the instrument never improves.**
  *
- * **The old anchor is still reachable and still labelled**, because a caller comparing against a verdict published under
- * it should be able to reproduce it - `resolutionFor(170, { measuredAt: 170, measuredResolution: 0.04 })` is 0.04.
+ * **`REPRODUCTION` is still reachable and still labelled**, because a reader comparing against the repeat should be
+ * able to reproduce it - `resolutionFor(715, { measuredAt: 715, measuredResolution: 0.0017 })` is 0.0017, and that is
+ * the reviewer with the corpus held still, not a bar.
  */
 /**
  * **Whether a registration can be answered at the corpus it will be judged on.**
@@ -460,14 +507,14 @@ export function registrationResolvable(registration, goldens) {
       resolvable: false,
       resolution,
       bar,
-      reason: `unfalsifiable: the registered gain ${String(bar)} sits under the ${String(resolution)} this instrument resolves at ${String(goldens)} goldens, so the registration asks for less than the reviewer moves when nothing changes`,
+      reason: `unfalsifiable: the registered gain ${String(bar)} sits under the ${String(resolution)} a second corpus of ${String(goldens)} goldens moves the figure by, so the registration asks for less than the instrument resolves`,
     };
   return { resolvable: true, resolution, bar };
 }
 
 export function resolutionFor(
   goldens,
-  { measuredAt = REPRODUCTION.goldens, measuredResolution = REPRODUCTION.f1Delta } = {},
+  { measuredAt = CORPUS_SAMPLING.goldens, measuredResolution = CORPUS_SAMPLING.deltaSd } = {},
 ) {
   const count = Number(goldens);
   if (!Number.isFinite(count) || count <= 0) {
@@ -476,6 +523,24 @@ export function resolutionFor(
     );
   }
   return Math.round(measuredResolution * Math.sqrt(measuredAt / count) * 10_000) / 10_000;
+}
+
+/**
+ * **The resolution in the unit the corpus is actually sampled in**: pull requests, not goldens.
+ *
+ * Goldens inside one pull request are not independent, so a corpus grows by adding pull requests and its error bar
+ * falls with the square root of *their* count. This is the function to ask "what would a 0.01 bar cost" -
+ * `resolutionForPullRequests(358) = 0.0100`, so 358 rows, and §59's R-32 was registered at 0.01 against the 98 rows
+ * this project buys.
+ */
+export function resolutionForPullRequests(pullRequests, { measuredResolution = CORPUS_SAMPLING.deltaSd } = {}) {
+  const count = Number(pullRequests);
+  if (!Number.isFinite(count) || count <= 0) {
+    throw new Error(`resolution needs a positive pull-request count, received ${JSON.stringify(pullRequests)}`);
+  }
+  return (
+    Math.round(measuredResolution * Math.sqrt(CORPUS_SAMPLING.pullRequests / count) * 10_000) / 10_000
+  );
 }
 
 const round = (value) => Math.round(value * 10000) / 10000;
@@ -1145,25 +1210,29 @@ function selfTest() {
     if (!condition) throw new Error(`self-test failed: ${message}`);
   };
 
-  // Ten goldens. The baseline finds three of them at twenty findings; the device finds six at the same emission.
+  // **A thousand goldens, and the counts scaled to keep every figure the same.** These fixtures used to declare ten, and
+  // ten goldens resolve 0.1615 - so `registrationResolvable` refused R-17's 0.02 bar before the magnitude was read and
+  // the assertions below were answered by `unfalsifiable`. That went unnoticed while the resolution was 0.0017; a fixture
+  // corpus has to be able to resolve the registration it is exercising, and "six of ten" and "six hundred of a thousand"
+  // are the same F1 of 0.4.
   const qualifies = artifact({
     profile: 'defect',
-    tp: 6,
-    fp: 14,
-    fn: 4,
+    tp: 600,
+    fp: 1400,
+    fn: 400,
     covered: [
       [0, 1, 2],
       [3, 4, 5],
     ],
-    goldensPerPr: [5, 5],
+    goldensPerPr: [500, 500],
   });
   const baseline = artifact({
     profile: 'advisory',
-    tp: 3,
-    fp: 17,
-    fn: 7,
+    tp: 300,
+    fp: 1700,
+    fn: 700,
     covered: [[0, 1], [3]],
-    goldensPerPr: [5, 5],
+    goldensPerPr: [500, 500],
   });
 
   const good = summarise(qualifies, baseline);
@@ -1186,19 +1255,39 @@ function selfTest() {
   // which was true of an anchor taken from three runs over five pull requests; the repeat of 2026-11-16 replaced it,
   // and a self-test that kept the old threshold would have gone on passing while asserting nothing about the new one.
   assert(
-    good.resolution === resolutionFor(10),
-    `ten goldens resolve ${String(resolutionFor(10))}, the formula and the artifact agree`,
+    good.resolution === resolutionFor(1000),
+    `a thousand goldens resolve ${String(resolutionFor(1000))}, the formula and the artifact agree`,
   );
   assert(
-    good.resolution > 8 * REPRODUCTION.f1Delta,
-    'ten goldens resolve less finely than the 715 the repeat was measured at',
+    good.resolution < CORPUS_SAMPLING.deltaSd,
+    'and a thousand goldens resolve more finely than the 715 the corpus bar was measured at, which is the direction the law predicts',
+  );
+  // **The two bars, side by side, and the assertion that they are different questions.** The repeat says the reviewer
+  // moves 0.0017 by itself; the corpus says a second 98 rows move the difference by 0.0191. If these ever converge the
+  // distinction has stopped meaning anything, so the relation is asserted rather than described.
+  assert(
+    CORPUS_SAMPLING.deltaSd > 5 * CORPUS_SAMPLING.samplingBar,
+    `the corpus bar ${String(CORPUS_SAMPLING.deltaSd)} is not the repeat bar ${String(CORPUS_SAMPLING.samplingBar)}`,
+  );
+  // **And the paired difference is not much tighter than one arm**, which is a fact about this instrument worth
+  // keeping in front of a reader who assumes a paired design buys free precision: 0.0191 against 0.0162, because the
+  // reviewer's errors on the two arms are nearly independent.
+  assert(
+    CORPUS_SAMPLING.armSd < CORPUS_SAMPLING.deltaSd,
+    'one arm is tighter than the paired difference, so pairing did not buy the variance reduction it is credited with',
+  );
+  assert(MINIMUM_REGISTERED_GAIN === CORPUS_SAMPLING.deltaSd, 'the floor is the corpus bar');
+  assert(resolutionFor(715) === CORPUS_SAMPLING.deltaSd, 'and the formula lands on it at 715 goldens');
+  assert(
+    resolutionForPullRequests(98) === CORPUS_SAMPLING.deltaSd,
+    'and in the unit the corpus is sampled in: 98 pull requests',
   );
   // **And a bar under the error bar is refused before the magnitude is read**, which is the branch R-32 would have taken
-  // had the anchor not been replaced.
+  // had the anchor not been replaced. The answering bar is 0.2 rather than 0.02 because ten goldens resolve 0.16.
   const resolvableGuard = registrationResolvable({ registeredGain: 0.0001, section: 'R-x' }, 10);
   assert(resolvableGuard.resolvable === false, 'a bar under the resolution is unfalsifiable');
   assert(
-    registrationResolvable({ registeredGain: 0.02, section: 'R-x' }, 10).resolvable === true,
+    registrationResolvable({ registeredGain: 0.2, section: 'R-x' }, 10).resolvable === true,
     'and a bar above it is answerable',
   );
 
@@ -1217,11 +1306,11 @@ function selfTest() {
   // A device that trades: same F1, more goldens found, more false positives.
   const trade = artifact({
     profile: 'defect',
-    tp: 4,
-    fp: 20,
-    fn: 6,
+    tp: 400,
+    fp: 2000,
+    fn: 600,
     covered: [[0, 1, 2], [3]],
-    goldensPerPr: [5, 5],
+    goldensPerPr: [500, 500],
   });
   const traded = summarise(trade, baseline);
   assert(traded.delta.f1 > 0, 'the trade does gain something');
@@ -1316,6 +1405,20 @@ function selfTest() {
   // test**, and this asserts that the two are not both weaker than the instrument.
   for (const [key, entry] of Object.entries(REGISTRATIONS)) {
     if (typeof entry.registeredGain !== 'number') continue;
+    // **A registration may be below the bar only if it says so**, because the alternative - silently keeping it and
+    // reading its outcome as confirmed - is how a table fills with devices made of noise. R-32 is the one entry here:
+    // dispatched on 2026-11-16 against §60's 0.0017, before the corpus bar existed.
+    if (entry.registeredBelowResolution === true) {
+      assert(
+        entry.registeredGain < resolutionFor(715),
+        `"${key}" is marked as below the corpus resolution and is in fact below it`,
+      );
+      assert(
+        registrationResolvable(entry, 715).resolvable === false,
+        `"${key}" is refused as unfalsifiable rather than answered`,
+      );
+      continue;
+    }
     assert(
       entry.registeredGain >= resolutionFor(715),
       `"${key}" registers ${String(entry.registeredGain)} against a ${String(resolutionFor(715))} resolution, so a met magnitude is outside it`,
@@ -1332,14 +1435,14 @@ function selfTest() {
   const wideOff = artifact({
     profile: undefined,
     codeContext: false,
-    tp: 3,
-    fp: 17,
-    fn: 7,
-    prTp: 3,
-    prFp: 17,
-    prFn: 7,
+    tp: 300,
+    fp: 1700,
+    fn: 700,
+    prTp: 300,
+    prFp: 1700,
+    prFn: 700,
     covered: [[0, 1, 2], [3]],
-    goldensPerPr: [5, 5],
+    goldensPerPr: [500, 500],
     // **The slice §20 names**, because a run over other rows cannot confirm it whatever its gain - and the arm test
     // would otherwise be answered by the slice gate instead of by the arm.
     slice: { skip: 14, requested: 36 },
@@ -1347,17 +1450,17 @@ function selfTest() {
   const fileOnly = artifact({
     profile: undefined,
     codeContext: true,
-    tp: 6,
-    fp: 14,
-    fn: 4,
-    prTp: 2,
-    prFp: 18,
-    prFn: 8,
+    tp: 600,
+    fp: 1400,
+    fn: 400,
+    prTp: 200,
+    prFp: 1800,
+    prFn: 800,
     covered: [
       [0, 1, 2],
       [3, 4, 5],
     ],
-    goldensPerPr: [5, 5],
+    goldensPerPr: [500, 500],
     slice: { skip: 14, requested: 36 },
   });
   const wrongArm = summarise(fileOnly, wideOff);
@@ -1389,14 +1492,14 @@ function selfTest() {
   const guardBroken = artifact({
     profile: undefined,
     codeContext: true,
-    tp: 2,
-    fp: 18,
-    fn: 8,
-    prTp: 5,
-    prFp: 15,
-    prFn: 5,
+    tp: 200,
+    fp: 1800,
+    fn: 800,
+    prTp: 500,
+    prFp: 1500,
+    prFn: 500,
     covered: [[0, 1, 2, 3, 4], [3]],
-    goldensPerPr: [5, 5],
+    goldensPerPr: [500, 500],
     slice: { skip: 14, requested: 36 },
   });
   const guarded = summarise(guardBroken, wideOff);
@@ -1417,25 +1520,25 @@ function selfTest() {
   // here because either one alone would leave a plausible way to get the wrong verdict.
   const readerOnly = {
     ...artifact({
-      tp: 6,
-      fp: 14,
-      fn: 4,
+      tp: 600,
+      fp: 1400,
+      fn: 400,
       covered: [
         [0, 1, 2],
         [3, 4, 5],
       ],
-      goldensPerPr: [5, 5],
+      goldensPerPr: [500, 500],
     }),
   };
   readerOnly.configuration = { ...readerOnly.configuration, agent: true, ensemble: 'reader' };
   readerOnly.merge = { enabled: true, unionPulls: 0, sides: { lanes: 0, reader: 380 }, pulls: 46 };
   const lanesOnlyArm = {
     ...artifact({
-      tp: 3,
-      fp: 17,
-      fn: 7,
+      tp: 300,
+      fp: 1700,
+      fn: 700,
       covered: [[0, 1], [3]],
-      goldensPerPr: [5, 5],
+      goldensPerPr: [500, 500],
     }),
   };
   lanesOnlyArm.configuration = { ...lanesOnlyArm.configuration, agent: false, ensemble: false };
@@ -1461,25 +1564,25 @@ function selfTest() {
   // fires before the magnitude is read, because a threshold met by the wrong device is not a threshold met.
   const oneSided = {
     ...artifact({
-      tp: 6,
-      fp: 14,
-      fn: 4,
+      tp: 600,
+      fp: 1400,
+      fn: 400,
       covered: [
         [0, 1, 2],
         [3, 4, 5],
       ],
-      goldensPerPr: [5, 5],
+      goldensPerPr: [500, 500],
     }),
   };
   oneSided.configuration = { ...oneSided.configuration, agent: true, ensemble: true };
   oneSided.merge = { enabled: true, unionPulls: 0, sides: { lanes: 0, reader: 394 }, pulls: 46 };
   const oneSidedWithout = {
     ...artifact({
-      tp: 3,
-      fp: 17,
-      fn: 7,
+      tp: 300,
+      fp: 1700,
+      fn: 700,
       covered: [[0, 1], [3]],
-      goldensPerPr: [5, 5],
+      goldensPerPr: [500, 500],
     }),
   };
   oneSidedWithout.configuration = {
@@ -1508,11 +1611,11 @@ function selfTest() {
       artifact({
         profile: undefined,
         codeContext: true,
-        tp: 6,
-        fp: 14,
-        fn: 4,
+        tp: 600,
+        fp: 1400,
+        fn: 400,
         covered: [[0, 1, 2]],
-        goldensPerPr: [5, 5],
+        goldensPerPr: [500, 500],
       }),
       wideOff,
     );

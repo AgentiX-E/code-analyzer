@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 
 import {
+  CORPUS_SAMPLING,
   MINIMUM_REGISTERED_GAIN,
   REGISTRATIONS,
   REPRODUCTION,
@@ -41,14 +42,18 @@ describe('a bar below the instrument error bar is not a strict bar', () => {
   });
 
   it('resolves what the repeat saw, at the corpus the repeat ran on', () => {
-    expect(resolutionFor(715)).toBe(0.0017);
+    // **This file's original assertion was `toBe(0.0017)`, and §64 replaced it.** The repeat is a real measurement of
+    // the reviewer with the corpus held fixed; a registration is a claim about a corpus, and a corpus the same size moved
+    // the paired difference by 0.0191 when its 98 rows were resampled. The repeat is still reachable - by asking for it.
+    expect(resolutionFor(715, { measuredAt: 715, measuredResolution: REPRODUCTION.f1Delta })).toBe(0.0017);
+    expect(resolutionFor(715)).toBe(CORPUS_SAMPLING.deltaSd);
     // **The law is unchanged**, because a standard error that does not fall with the sample would be a claim that the
     // instrument never improves - which the paired tests have already contradicted.
-    expect(resolutionFor(4 * 715)).toBe(0.0009);
-    expect(resolutionFor(715 / 4)).toBe(0.0034);
-    // **And it is still strict at the corpus sizes the old anchor was carried for**: five pull requests of a hundred
-    // goldens resolve 0.0045, not 0.04.
-    expect(resolutionFor(100)).toBeLessThan(0.005);
+    expect(resolutionFor(4 * 715)).toBeCloseTo(CORPUS_SAMPLING.deltaSd / 2, 3);
+    expect(resolutionFor(715 / 4)).toBeCloseTo(CORPUS_SAMPLING.deltaSd * 2, 3);
+    // **And the corpus the old anchor was carried for resolves far more coarsely than either bar**: 100 goldens resolve
+    // about 0.05, so a 0.005 registration on them was never answerable.
+    expect(resolutionFor(100)).toBeGreaterThan(0.04);
   });
 
   it('says which of the two anchors a resolution came from', () => {
@@ -56,6 +61,10 @@ describe('a bar below the instrument error bar is not a strict bar', () => {
     // that 0.04 was wrong about the world; it is that 0.04 was never about this corpus.
     expect(resolutionFor(170, { measuredAt: 170, measuredResolution: 0.04 })).toBe(0.04);
     expect(resolutionFor(170)).toBeLessThan(0.04);
+    // **And the three anchors this document has carried are three different numbers**, which is the reason each one is
+    // named: 0.04 at 170 goldens from three runs over five pull requests, 0.0017 from one configuration twice, 0.0191
+    // from resampling the corpus. Only the last one prices the thing a registration claims.
+    expect(CORPUS_SAMPLING.deltaSd).toBeGreaterThan(REPRODUCTION.f1Delta);
   });
 
   it('refuses a registration whose bar sits under the resolution it will be judged against', () => {
@@ -64,22 +73,35 @@ describe('a bar below the instrument error bar is not a strict bar', () => {
     expect(below.reason).toContain('0.001');
     expect(below.reason).toContain('unfalsifiable');
 
-    const above = registrationResolvable({ registeredGain: 0.01, section: 'R-32' }, 715);
+    // **R-32's own bar is now one of the refused ones**, and the assertion that used to call it answerable is what §64
+    // overturned: 0.01 is inside the 0.0191 a second corpus of these rows moves the difference by.
+    const secondConcern = registrationResolvable({ registeredGain: 0.01, section: 'R-32' }, 715);
+    expect(secondConcern.resolvable).toBe(false);
+    expect(secondConcern.resolution).toBe(CORPUS_SAMPLING.deltaSd);
+
+    const above = registrationResolvable({ registeredGain: 0.02, section: 'R-31' }, 715);
     expect(above.resolvable).toBe(true);
-    expect(above.resolution).toBe(0.0017);
 
     // **An unregistered comparison has no bar to be under**, so the guard has nothing to say.
     expect(registrationResolvable(null, 715).resolvable).toBe(true);
     // **And a bar exactly at the resolution is resolvable**: the registration asks for the smallest thing the instrument
     // can see, which is a weak claim but a claim.
-    expect(registrationResolvable({ registeredGain: 0.0017 }, 715).resolvable).toBe(true);
+    expect(registrationResolvable({ registeredGain: CORPUS_SAMPLING.deltaSd }, 715).resolvable).toBe(true);
   });
 
-  it('holds every registration on file above the instrument it is judged by', () => {
+  it('holds every registration on file above the instrument it is judged by, or marked', () => {
     // **The corpus every registration is confirmed on is the hundred-pull-request slice**, 715 goldens on the repeat.
+    // **One entry is exempt and says so in its own record**: R-32 was dispatched against §60's 0.0017, before the corpus
+    // bar existed, and rewriting its bar after the fact would be the one thing worse than registering it too low. Its
+    // outcome may only be read as a point estimate, which is what `registeredBelowResolution` buys it - not a pass.
     for (const [key, registration] of Object.entries(REGISTRATIONS)) {
       if (typeof registration.registeredGain !== 'number') continue;
       const verdict = registrationResolvable(registration, 715);
+      if (registration.registeredBelowResolution === true) {
+        expect(verdict.resolvable, key).toBe(false);
+        expect(registration.registeredGain, key).toBeLessThan(CORPUS_SAMPLING.deltaSd);
+        continue;
+      }
       expect(verdict.resolvable, `${key}: ${String(verdict.reason)}`).toBe(true);
       expect(registration.registeredGain, key).toBeGreaterThanOrEqual(MINIMUM_REGISTERED_GAIN);
     }

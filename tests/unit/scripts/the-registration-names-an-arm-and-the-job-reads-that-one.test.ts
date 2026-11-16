@@ -52,9 +52,16 @@ interface ArmOptions {
  *
  * **`pullRequestTruePositives` is optional on purpose** - omitting it produces an artifact from before the block existed,
  * which is the artifact a registration that names that arm must refuse.
+ *
+ * **The corpus is 1000 goldens and every fixture below scales its counts to it**, because a fixture corpus too small to
+ * resolve the registration is a fixture that measures the resolution rather than the arm. This file's fixtures used to
+ * declare ten goldens, which resolve 0.1615 - so every assertion here about a 0.02 bar was answered by
+ * `unfalsifiable` before the arm was ever read, and it passed anyway because the resolution used to be 0.0017. **The
+ * numbers are unchanged on purpose**: 300 true positives out of 1000 is an F1 of 0.2 the same way 3 out of 10 is, so
+ * scaling the corpus tests the arm logic and nothing else.
  */
 function arm(options: ArmOptions): Record<string, unknown> {
-  const goldens = 10;
+  const goldens = 1000;
   const figures = (truePositives: number, falsePositives: number) => {
     const falseNegatives = goldens - truePositives;
     return {
@@ -144,18 +151,18 @@ describe('the arm a registration is a claim about', () => {
    */
   const fileArmOnly = arm({
     codeContext: true,
-    truePositives: 6,
-    falsePositives: 14,
-    pullRequestTruePositives: 2,
-    pullRequestFalsePositives: 18,
+    truePositives: 600,
+    falsePositives: 1400,
+    pullRequestTruePositives: 200,
+    pullRequestFalsePositives: 1800,
     found: [0, 1, 2, 3, 4],
   });
   const baseline = arm({
     codeContext: false,
-    truePositives: 3,
-    falsePositives: 17,
-    pullRequestTruePositives: 3,
-    pullRequestFalsePositives: 17,
+    truePositives: 300,
+    falsePositives: 1700,
+    pullRequestTruePositives: 300,
+    pullRequestFalsePositives: 1700,
     found: [0, 1],
   });
 
@@ -189,10 +196,10 @@ describe('the arm a registration is a claim about', () => {
   it('fails the registration when the arm it forbids lowering falls, even as the named one rises', () => {
     const risingButNarrowing = arm({
       codeContext: true,
-      truePositives: 2,
-      falsePositives: 18,
-      pullRequestTruePositives: 5,
-      pullRequestFalsePositives: 15,
+      truePositives: 200,
+      falsePositives: 1800,
+      pullRequestTruePositives: 500,
+      pullRequestFalsePositives: 1500,
       found: [0, 3],
     });
     const { artifact } = compare(risingButNarrowing, baseline);
@@ -209,8 +216,8 @@ describe('the arm a registration is a claim about', () => {
   it('refuses an artifact that does not carry the arm the registration names', () => {
     const withoutBlock = arm({
       codeContext: true,
-      truePositives: 6,
-      falsePositives: 14,
+      truePositives: 600,
+      falsePositives: 1400,
       found: [0, 1, 2],
     });
     const { status, artifact, stderr } = compare(withoutBlock, baseline);

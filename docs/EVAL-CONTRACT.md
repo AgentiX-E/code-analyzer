@@ -6683,3 +6683,101 @@ difference of 0.05, it does less than that to the distance between 0.2055 and 0.
 property of a whole system measured on 200 pull requests and the first is a property of this system on 100. The field is
 still the field; the error bar on our own number is now the width of our own corpus, and that is what the next
 registration has to be written against.
+
+## 64. The error bar was the error bar of one slice, and it was ten times too small
+
+### 64.1 Two corrections that walked past each other
+
+This document has now carried three error bars, and the sequence is worth more than any one of them:
+
+| # | Bar | Where it came from | What it actually measures |
+|---|---:|---|---|
+| 1 | 0.04 at 170 goldens | three runs over **five** pull requests | a runner's bad minute |
+| 2 | 0.0017 at 715 goldens | one configuration dispatched **twice** on one corpus (§60) | the reviewer, corpus held fixed |
+| 3 | **0.0191 at 98 pull requests** | **resampling the corpus from one artifact** (§64.2) | **the corpus** |
+
+Correction 2 was written against correction 1 and was right about the method: 0.04 was extrapolated from five pull
+requests where one true positive is four percent of the figure, and two dispatches of one configuration is a
+measurement. **It was wrong about the question.** A registration is not a claim about the reviewer - "this reviewer is
+stable" - it is a claim about a corpus - "this device raises F1 on review data" - and a two-run repeat holds the corpus
+*still*. The number it returns is the floor of the instrument, not its resolution.
+
+**And the arithmetic is a warning about which error is cheaper.** The old anchor resolves **0.0195** at 715 goldens -
+within three percent of the 0.0191 computed below. Its derivation was wrong and its number was right. The replacement's
+derivation was right and its number was **eleven times too small**. A number right for the wrong reason and a number
+wrong for the right reason are both wrong, and this document preferred the second for one iteration because it could
+point at a repeat.
+
+### 64.2 What the corpus is worth, computed rather than argued
+
+Every artifact carries its figure per pull request: goldens on the row, which of them were covered, how many comments
+were posted. Those are whole contingency-table rows, so they can be resampled - **with replacement, one pull request at
+a time, keeping its three numbers together** - and F1 recomputed from the resampled totals on each draw. The spread of
+that distribution is what a second corpus of the same size would move the figure by. `scripts/lib/corpus-resolution.mjs`
+does it; the reading on R-31's 98 rows is:
+
+| Quantity | Value |
+|---|---:|
+| Paired difference (reader − lanes) | **−0.0162** |
+| Standard deviation of that difference | **0.0191** |
+| 95 % interval, 4000 resamples, seed 20260816 | **[−0.0531, +0.0221]** |
+| Share of draws where the reader wins | **0.2008** |
+| Standard deviation of one arm alone | 0.0162 |
+| Seeds 20260816 / 1 / 2 / 99 | 0.0193 / 0.0189 / 0.0191 / 0.0188 |
+
+**The unit is the pull request and that is the whole point.** Goldens inside one row are not independent: a reviewer
+that understood a file covers several of them, one that missed it misses several. Resampling goldens would treat 715
+draws as 715 independent observations and return a bar about three times too small - **an error bar that flatters every
+device, which is the same defect as 0.0017 with better arithmetic behind it.**
+
+**Two instruments, one verdict.** The bootstrap says `P(reader ahead) = 0.20`; McNemar on the 63:82 golden-level pairs
+says `p = 0.135`. Neither signs the reader's deficit and neither calls it a win, which is what §63 recorded before the
+corpus bar existed. The bootstrap is the more conservative of the two and the one a bar has to clear.
+
+**And pairing bought almost nothing.** A paired design is supposed to shrink the difference's variance below the sum of
+the arms'; here one arm's spread is **0.0162** and the difference's is **0.0191** - the reviewer's errors on the two arms
+are nearly independent, so there is nothing to cancel. That is asserted in the self-test rather than left as a hope:
+`CORPUS_SAMPLING.armSd < CORPUS_SAMPLING.deltaSd`.
+
+### 64.3 A field called `emitted` that means "considered"
+
+The first version of this analysis read `emitted` from each row and produced **lanes 0.1523, reader 0.1752** - the arm
+that lost, winning. `emitted` is the full emission before the actionability gate and the per-pull-request budget (1110
+comments on the lanes arm); `shippedEmitted` is what was posted (638). Reading the first counts 472 comments the budget
+discarded as false positives, and it penalises the arm that emits more **for doing the thing the budget exists to
+control**.
+
+**A sign that flips on a field name is the most expensive kind of bug in this file**, because it looks like a finding.
+`perPullRequestOutcome` reads `shippedEmitted`, falls back to `emitted` only with `estimated: true`, and a test asserts
+both branches on a row where the two differ by a factor of twenty.
+
+### 64.4 What this does to the registrations on file
+
+| Registration | Bar | Against 0.0191 | Read as |
+|---|---:|---|---|
+| §8 languageChecklist | 0.04 | clears | answerable |
+| §45 adjudicate | 0.04 | clears | answerable |
+| §19 / §20 / §47 / §48 / §53 / §56 / §58 | 0.02 | clears by 5 % | answerable, and only just |
+| **§59 (R-32) secondConcern** | **0.01** | **inside** | **unfalsifiable — point estimate only** |
+
+`MINIMUM_REGISTERED_GAIN` moves from 0.0017 to **0.0191**, and `resolutionForPullRequests()` is the function to ask what a
+smaller bar would cost: **a 0.01 bar needs 358 pull requests**, which is 3.7 times the corpus this project buys for
+$1.46 an arm.
+
+**R-32 is not re-registered and not withdrawn.** It was dispatched on 2026-11-16 against §60's 0.0017, its two arms are
+running, and its artifact will arrive. Rewriting its bar upward after seeing the design is the one thing worse than
+registering it too low, so the entry carries `registeredBelowResolution: true`, `registrationResolvable` returns `false`
+for it, and its outcome may only be recorded as **a point estimate that no amount of evidence could confirm**. What the
+run still buys is the first measurement of `secondConcern` and a reading of `keptAsSecondConcern`, which is a question
+about whether the device ran rather than about how much it is worth.
+
+### 64.5 Answerable is not confirmable, and 0.02 clears by five percent
+
+A bar at 0.0191 sits one standard deviation from zero. **A device that truly does nothing reads past it about fifteen
+percent of the time** - `P(Z ≥ 1.05) = 0.147` - so "answerable" and "confirmable" are two different gates and this
+document had only the first. The seven 0.02 registrations clear the bar by five percent, which means a `confirmed` verdict
+on any of them is a coin-flip's cousin.
+
+**The gate that is missing is the one already in the artifact.** `pairedTest.pValue` is computed on every comparison and
+no branch reads it: a run can reach `magnitudeMet` with `p = 0.4` and be filed as `confirmed`. Closing that is §65, and
+it is the reason 64.4's table is a table of bars rather than of devices.
