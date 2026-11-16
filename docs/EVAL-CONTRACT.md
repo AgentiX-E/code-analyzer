@@ -6472,3 +6472,138 @@ against a comparator arm, and the comparator is what makes the difference the de
 anatomy tool - is the same kind of instrument and needs the same kind of control**, because the failure mode is identical:
 a second reading that agrees with us about one file and one pull request, and is reported as agreeing with us about one
 defect. The cross-pair control was invented here for a matcher and it belongs beside every readback in this document.
+
+## 62. The reader-only arm, read on the rows it shares with its own baseline (R-31)
+
+### 62.1 What was registered, and what the run costs
+
+R-29 produced one number that no run had asked for: **0.2504 against 0.2148** on 46 pull requests and 330 goldens, for a
+device that de-duplicates the reading reviewer's own list and cuts it to twelve per pull request. It was an accident of a
+different experiment - the lanes arm had been emptied by an upstream cost rule, so the run compared the reader against
+nothing and the comparison fell back to what the artifacts happened to hold.
+
+**A device reachable only through an accident cannot be registered, repeated or falsified**, so R-31 made it a switch with
+three states and registered the claim before dispatch:
+
+| field | value |
+| --- | --- |
+| claim | the reader's own list, de-duplicated and cut to twelve per pull request, raises the file arm F1 by **at least 0.02** over the five lanes alone |
+| bar | F1 ≥ **0.2272** |
+| recall floor | **0.1875** = the lanes' 0.1975 less one golden |
+| comparator | `{agent off, ensemble off}` - the same dispatch, corpus, judge and commit |
+| slice | `skip 50`, 100 pull requests, 715 goldens |
+
+**The recall floor is the part that matters.** A claim written as F1 alone licenses the most dangerous trade in this
+document - delete comments until precision rises - and a device that buys a tenth of a point of F1 with two goldens of
+recall has made the reviewer worse while the number went up.
+
+### 62.2 The two totals, and the reason they are not subtracted
+
+Run `43839753881`, both arms on `3f5bab58`, twenty-three minutes apart:
+
+| arm | reviewed | TP | FP | FN | precision | recall | F1 |
+| --- | ---: | ---: | ---: | ---: | ---: | ---: | ---: |
+| lanes (`agent off, ensemble off`) | 98 | 139 | 499 | 576 | 0.2179 | 0.1944 | **0.2055** |
+| reader (`agent on, ensemble reader`) | 100 | 122 | 443 | 602 | 0.2159 | 0.1685 | **0.1893** |
+
+**The lanes arm is the R-30 arm re-run, and the two figures differ by one error bar.** R-30 measured 0.2072 on the same
+configuration; this run measured 0.2055. The 0.0017 is the instrument's own resolution (§60), which is what makes the
+0.0162 gap between the arms four times something rather than one measurement of nothing.
+
+**The two arms did not read the same corpus, and the run is why.** The lanes arm lost two pull requests to `.diff`
+requests that returned **500 with 4 615 and 4 486 requests left in the hour** - `infiniflow/ragflow#5065` and
+`bitcoin/bitcoin#32425` - and the reader arm, dispatched twenty-three minutes later, lost none. The retry this document
+records in §60 landed in `f6ab5a58`, twelve hours after this run was dispatched, so the gap is a fossil of a defect that
+is already fixed rather than a difference between the devices.
+
+**So the totals are not a comparison and this document does not treat them as one.** An F1 over 98 rows cannot be
+subtracted from an F1 over 100, and the comparison job refused to do it - correctly, and for the first time in this
+repository, loudly.
+
+### 62.3 The paired reading on the 98 rows both arms read
+
+The refusal now prints what a corpus gap does not touch. A `(pull request, golden)` pair on a shared row is a pair: both
+arms were given the same code, the same goldens and the same judge there, so a golden one arm found and the other did not
+is a discordance the corpus cannot explain.
+
+| reading on the 98 shared rows | pairs |
+| --- | ---: |
+| covered by both arms | **57** |
+| covered by the reader only | **63** |
+| covered by the lanes only | **82** |
+| two-sided exact binomial | **p = 0.135** |
+
+**The point estimate favours the lanes and the test will not sign it.** 145 discordant pairs split 63:82 is a 19-pair
+edge, and the two-sided exact test puts it at p = 0.135 - inside the noise this instrument can see, and nowhere near the
++0.02 the registration asked for. The registration is falsified on its own bar, not on a technicality: **0.1893 against a
+floor of 0.2272, and 0.1685 recall against a floor of 0.1875.** Both halves of the claim fail, and they fail in the
+direction the paired test points.
+
+**The golden-level coverage says the same thing more directly**, because it needs no denominator: on the same 715 goldens
+the reader found **120** and the lanes found **139**.
+
+### 62.4 What this does and does not falsify
+
+**It does not falsify "de-duplication and a twelve-comment cut are worthless".** The arm that ran differs from its
+baseline in `agent` as well as `ensemble`, and it must: `CODE_CONTEXT` is `AGENT || AACR_CODE_CONTEXT`, so a reading
+reviewer is shown the code it reads (§44's entailment). The experiment this run bought is **the reader as a whole against
+the lanes**, one device with a switch, and that is the device that lost.
+
+**What it falsifies is the whole-device claim, and that is the one that was registered.** A later registration for the cut
+alone would need a baseline this matrix does not build - `agent on, ensemble off` - and that arm does not exist yet.
+Writing the claim down as "the cut is worthless" would be reading a two-key experiment as a one-key one, which is §44's
+defect wearing the opposite mask.
+
+### 62.5 Why 0.2504 was not evidence, in one line
+
+46 pull requests, 330 goldens, one arm, and an artifact that had already lost its comparator to an upstream rule. Against
+a resolution of 0.0017 (§60), R-29's +0.0356 is twenty times the instrument and was **still wrong by 0.016 in the
+direction of the device** - which is the cheapest possible demonstration that a number without a comparator is a rumour,
+and that the comparator is what costs the money.
+
+### 62.6 The instrument this run changed
+
+`aacr-ablation-compare.mjs` refused the pair and said one sentence. It still refuses - **the totals really are not
+comparable** - and it now computes `pairedOnCommonPullRequests` before refusing: the covered pairs restricted to the rows
+both arms read, the dropped keys named on both sides, and a line in the log that a reader can act on:
+
+```
+AACR-ABLATION paired on the 98 pull requests both arms read · +63/-82 · p=0.13468540318097638 · dropped 2 with, 0 without
+```
+
+Three tests hold it: a pair read the whole corpus is not turned into a paired-only comparison, a golden on a row only one
+arm read is not a discordant pair, and two goldens on one row are two pairs. **The failure this prevents is not a wrong
+number, it is a paid run that has to be paid for again** - because a job that answers "not the same experiment" and
+nothing else gets dispatched unchanged by whoever needs the answer.
+
+### 62.7 Where 0.2055 sits against what is published
+
+**These are not the same denominator and the table is not a leaderboard.** The corpus paper reports on the full 200 pull
+requests; this document reports a `skip 50` slice of 100. What the table is for is the width of the field:
+
+| system, as published | F1 | precision | recall |
+| --- | ---: | ---: | ---: |
+| AACR-Bench paper, Claude-4.5-Sonnet in agent mode | 0.1612 | 0.3990 | 0.1010 |
+| AACR-Bench paper, no context, GLM-4.7 | 0.1603 | 0.1130 | 0.2757 |
+| AACR-Bench paper, embedding retrieval, GLM-4.7 | 0.1563 | 0.1100 | 0.2698 |
+| **this repository, lanes, 100 pull requests** | **0.2055** | **0.2179** | **0.1944** |
+
+**The published field tops out at 0.1612 and every entry in it trades one of the two rates for the other.** The agent
+column is 0.3990 precision at 0.1010 recall - "contextual tunnel vision", in the paper's phrase - and the no-context
+column is the mirror. This repository's 0.2179 / 0.1944 is the only row in the table that holds both above 0.19, which is
+what a merge of lanes and a reader was supposed to buy and what §62.2 shows it did not.
+
+**And F1 is not the whole instrument.** CR-Bench's finding is that a reviewer's usefulness and its signal-to-noise ratio
+move apart as recall is pushed: their single-shot agent scores 0.2701 recall at SNR 5.11, and the same model under
+reflexion reaches 0.3276 recall at **SNR 1.95** - more defects found, at half the trust. That is the trade §62.1 wrote a
+recall floor against, measured on a different corpus by different people.
+
+### 62.8 The next device, and the number it must beat
+
+The reader is closed. The lane reviewer stands at **0.2055 ± 0.0017** on this slice, with 434 of its 715 goldens rejected
+on a path it had already commented on and **263 of those on the exact line** (§61). R-32 is in flight on that number, with
+its mechanism registered in advance: `F1 = 2TP/(C+G)`, so **an added comment raises F1 exactly when its own precision
+exceeds F1/2 = 0.1028**, and a second concern at a site draws from category base rates of 0.17 to 0.32.
+
+The bar R-32 has to clear is **0.2172**, and the field it has to beat is **0.1612**. Those are different numbers and only
+the first one decides whether the device is real.
