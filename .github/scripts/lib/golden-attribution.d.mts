@@ -1,7 +1,8 @@
-/** The five buckets, in the order they are decided. */
+/** The six buckets, in the order they are decided. */
 export declare const GOLDEN_BUCKETS: readonly [
   'hit',
   'noPath',
+  'pathNotInPull',
   'fileNotReviewed',
   'noFindingOnPath',
   'findingOnPathRejected',
@@ -90,6 +91,8 @@ export declare function nearestFindingDistance(
 export declare function attributeGoldens(input: {
   goldens: GoldenInput[];
   reviewedPaths: Array<string | undefined>;
+  /** The pull request's own file list, or `null` when it could not be read - never an empty list by accident. */
+  pullPaths?: Array<string> | null;
   findings: Array<
     | { path?: string; startLine?: number | null; endLine?: number | null }
     | {

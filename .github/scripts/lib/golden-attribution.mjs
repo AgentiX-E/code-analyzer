@@ -14,13 +14,23 @@
 // the note text out of each comment and discarding the `path` and `from_line` that travelled beside it. **A measurement
 // that keeps the answer but drops its coordinates cannot say where the answer was.**
 
-/** The five buckets, in the order they are decided. Each names a fix; none of them names a number. */
+/** The six buckets, in the order they are decided. Each names a fix; none of them names a number. */
 export const GOLDEN_BUCKETS = [
   /** A finding was emitted that the judge accepted as describing this issue. */
   'hit',
   /** The corpus row carries no path, so no attribution is possible. A corpus defect, not a review defect. */
   'noPath',
-  /** The path exists but was never handed to the engine - the diff split, the path filter, or the pull request's files. */
+  /**
+   * **The path is not one of the pull request's changed files, so nobody can answer this row today.**
+   *
+   * The corpus is a snapshot of a moving object, and this is the bucket that says so rather than blaming a filter that
+   * is working: `ClickHouse/ClickHouse#74070` carried fifteen goldens on `src/Functions/FunctionStrncmp.cpp` and the
+   * pull request now has five files and that is not among them. **No reviewer can comment on a line the pull request no
+   * longer has**, so a run that reports these as recall defects is a run that will spend an iteration looking for a
+   * path filter.
+   */
+  'pathNotInPull',
+  /** The path is in the pull request and was never handed to the engine - the diff split, or a path filter. */
   'fileNotReviewed',
   /** The file was read and the lanes emitted nothing on it. A recall defect in the reading. */
   'noFindingOnPath',
@@ -164,11 +174,19 @@ export function normalisePath(raw) {
  * judge returned it. **A golden is `hit` when any finding matched it**, which is deliberately not the maximum matching:
  * the question here is "did we say something accepted about this issue", and the matching is what the score uses.
  *
+ * **`pullPaths` is the pull request's own file list, and passing it is what separates a row nobody can answer from a
+ * file this run dropped.** `null` means *not known* and leaves the older reading in place - a classification that
+ * guesses when the evidence is missing is worse than one that says less - while an empty array means *the pull request
+ * has no files*, which is a fact and not an absence.
+ *
  * **The return value is a partition or an error.** `total` is `goldens.length` or the function throws, because a
  * bookkeeping table whose rows do not add up is a table that will silently lose a bucket one refactor from now.
  */
-export function attributeGoldens({ goldens, reviewedPaths, findings, matches }) {
+export function attributeGoldens({ goldens, reviewedPaths, pullPaths, findings, matches }) {
   const reviewed = new Set(Array.from(reviewedPaths ?? [], normalisePath).filter(Boolean));
+  const pull = Array.isArray(pullPaths)
+    ? new Set(Array.from(pullPaths, normalisePath).filter(Boolean))
+    : null;
 
   const hitBy = new Map();
   (matches ?? []).forEach((goldenIndices, finding) => {
@@ -186,6 +204,9 @@ export function attributeGoldens({ goldens, reviewedPaths, findings, matches }) 
     let bucket;
     if (hitBy.has(index)) bucket = 'hit';
     else if (path === '') bucket = 'noPath';
+    // **Ahead of `fileNotReviewed`, because the two answers send the next iteration to different places**: one says the
+    // corpus moved, the other says this run dropped a file it was given.
+    else if (pull !== null && !pull.has(path)) bucket = 'pathNotInPull';
     else if (!reviewed.has(path)) bucket = 'fileNotReviewed';
     else if (onPath.length === 0) bucket = 'noFindingOnPath';
     else bucket = 'findingOnPathRejected';

@@ -49,6 +49,26 @@ describe('the ensemble arm', () => {
     expect(BENCH).toContain('const laneLocated = lanes');
   });
 
+  it('runs the lanes under the merge, because a merge of one list and nothing is a sort', () => {
+    // **R-29's own defect, as a wiring assertion.** The registration named a merge of the five lanes and the reading
+    // reviewer; the lanes were emptied whenever the agent ran, so the arm merged the reader with nothing and the artifact
+    // could not say so. The condition below is the fix, and it is asserted here because **no figure in that run could
+    // have shown it**: 0.2504 is a plausible score for both devices.
+    expect(BENCH).toContain('const lanesRun = !AGENT || ENSEMBLE;');
+    expect(BENCH).toContain('for (const section of lanesRun ? sections : [])');
+    // **And what the merge received is published**, so the next reader can tell a union from a single list.
+    expect(BENCH).toContain('mergeCounters.sides.lanes += merged.sides.lanes;');
+    expect(BENCH).toContain('mergeCounters.unionPulls += 1;');
+  });
+
+  it('names the merge arm in the artifact it uploads, because a pair matches on names', () => {
+    // **Two devices publishing one artifact name** is how a paired comparison comes to compare an arm with itself: the
+    // merge run uploaded `...-adjudicate-off-idioms-off-agent-on-remarks-off`, which is the name an agent-only run uses.
+    expect(WORKFLOW).toContain('${{ matrix.ensemble }}-${{ matrix.remarks }}');
+    // And the pair that dispatches both configurations over the same rows, so the difference is the merge alone.
+    expect(WORKFLOW).toContain("(inputs.ensemble || 'off') == 'pair'");
+  });
+
   it('merges after ranking and before judging, because the judge is the half that costs money', () => {
     const merge = BENCH.indexOf('await mergeReviewers({');
     expect(merge, 'the merge is called').toBeGreaterThan(-1);

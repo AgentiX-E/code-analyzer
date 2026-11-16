@@ -62,7 +62,22 @@ export interface MergeOutcome {
   readonly detail: string;
   /** Completions bought by this merge. **Zero is the common case**, and a cost figure that assumed one would be wrong. */
   readonly calls: number;
+  /**
+   * **How many candidates each reviewer contributed, because a merge of one list and nothing is a sort.**
+   *
+   * R-29 was registered as a merge of the five lanes and the reading reviewer and ran with the lanes emptied upstream, so
+   * its artifact carried 394 candidates for 46 pull requests - one reviewer's worth - and no field that could say so.
+   * **A device whose input can be empty without the artifact noticing is a device that can be measured as something
+   * else**, so the two counts travel with the outcome and the harness sums them.
+   */
+  readonly sides: { readonly lanes: number; readonly reader: number };
 }
+
+/** How many candidates each reviewer contributed, which is the only field that says a union was a union. */
+const sidesOf = (candidates: readonly MergeCandidate[]) => ({
+  lanes: candidates.filter((entry) => entry.source === 'lanes').length,
+  reader: candidates.filter((entry) => entry.source === 'reader').length,
+});
 
 /** Twelve per pull request, which is the operating point §54 prices and the policy the product ships. */
 export const MERGE_BUDGET_PER_PULL_REQUEST = 12;
@@ -86,6 +101,9 @@ export function mergeCandidates(
   const kept = ordered.slice(0, Math.max(0, budget));
   const keptRefs = new Set(kept.map((entry) => entry.ref));
   return {
+    // **Counted from the candidates rather than passed in**, because a caller that passed the wrong numbers would publish
+    // a merge of two lists that never met, and the components are already labelled on every candidate.
+    sides: sidesOf(candidates),
     kept,
     dropped: ordered
       .filter((entry) => !keptRefs.has(entry.ref))
@@ -258,6 +276,9 @@ export async function mergeReviewers(request: MergeRequest): Promise<MergeOutcom
     else dropped.push({ ref: entry.ref, reason: 'not-kept' });
   }
   return {
+    // **The whole candidate list, not the kept subset**, or the artifact would report a union that shrank whenever the
+    // model kept few rows.
+    sides: sidesOf(ordered),
     kept: withinBudget,
     dropped,
     decidedBy: 'model',

@@ -5937,3 +5937,112 @@ what R-29 buys or does not.**
 candidates of 240 characters - and the second reviewer costs +31 % of a run (`$1.53` against `$1.17` on the pair above).
 **A device that needs two thirds more money to move F1 by a third of what §54 bought for nothing has to say so in its own
 registration**, which is why the number is in this paragraph rather than in a footnote after the result.
+
+## 57. The merge passed its bar, and the artifact proves it merged one reviewer
+
+### 57.1 The confirmation
+
+`43784019226`, one arm, `skip 150`, `max 100` - the same 46 pull requests and 330 goldens §56.1 priced the emission
+policy on, so the two tables are about the same rows and the same judge:
+
+| arm                                    | comments | goldens found | precision  | recall     | F1         |
+| -------------------------------------- | -------- | ------------- | ---------- | ---------- | ---------- |
+| the actionability gate                 | 361      | 69            | 0.1911     | 0.2091     | 0.1997     |
+| `drop test, budget 12` (single reader) | 331      | 71            | 0.2145     | 0.2152     | 0.2148     |
+| **the merge, same policy**             | **277**  | **76**        | **0.2744** | **0.2303** | **0.2504** |
+
+**+0.0356 F1, +0.0599 precision, +0.0151 recall and 54 fewer comments**, against a registered bar of `≥ +0.02` with a
+recall floor of −0.01. **Both halves of the registration are met, and they are met in the direction that matters**: the
+arm posted _fewer_ comments and found _more_ goldens, which is the one combination a cut cannot buy by itself.
+
+**The confirming mechanism is not the one registered**, and §57.2 is why that sentence is here rather than in a footnote.
+
+### 57.2 The lanes were empty, and no field in the artifact could say so
+
+`AACR_AGENT=on` empties the lane loop (§51: 1 245 lane calls bought and discarded, 0.46 of 0.79 USD), and the merge reads
+its two sides from that loop. **So the arm that ran merged the reading reviewer with nothing.** The artifact says it in
+arithmetic that was in hand and unread:
+
+| field                     | what it said                    | what it means                                                                             |
+| ------------------------- | ------------------------------- | ----------------------------------------------------------------------------------------- |
+| `merge.candidates`        | **394**                         | one reviewer's worth over 46 pull requests - the union was 1 920 on the pair §56.3 priced |
+| `merge.paths`             | budget 36, model 10, fallback 0 | on 36 pull requests there was nothing to choose between                                   |
+| `merge.dropped.duplicate` | **48**                          | the second reviewer's share of the work: restatements inside one reviewer's own list      |
+| `merge.sides`             | _absent_                        | **the field that would have said so, and did not exist**                                  |
+
+**A device whose input can be empty without the artifact noticing is a device that can be measured as something else**,
+and 0.2504 is a plausible score for either device - so no figure in that run could have caught it. Three things changed:
+
+1. **The lanes run when the merge does.** `for (const section of lanesRun ? sections : [])`, with
+   `lanesRun = !AGENT || ENSEMBLE`. The cost rule stays for every other agent arm, because it is right for every other
+   agent arm.
+2. **`merge.sides` and `merge.unionPulls` are published**, counted from the candidates the merge was handed rather than
+   from the harness's own arrays, and **`unionPulls` counts only the pull requests where both sides were non-empty** -
+   which is the only number in the artifact that says a merge happened at all.
+3. **The artifact name carries the dimension.** That run uploaded `...-adjudicate-off-idioms-off-agent-on-remarks-off`,
+   which is the name an agent-only run uses: **two devices, one name**, and a paired comparison that matched on names
+   would have compared an arm with itself. It also had no `pair` mode, so the arm could not be dispatched against a
+   comparator in one job.
+
+**What the run does establish, on the device it actually ran.** De-duplication plus a twelve-per-pull-request cut over
+the reader's own candidates is worth **+0.0356 F1 and −54 comments** over score order at the same budget, and the model
+decided only the ten pull requests where the list exceeded the budget. **That is a real gain from a device that costs
+0.35 of a call per pull request**, and it is not the gain the registration names.
+
+### 57.3 Two selectors priced on artifacts already paid for, and both rejected
+
+A cut is arithmetic, so the candidates the two arms already emitted can be re-scored with the bench's own assignment -
+maximum bipartite matching per pull request, rebuilt offline from `matchedGoldens`, which reproduces the published
+`drop test / 12` figure to four decimals (0.2121) and is therefore the same instrument.
+
+| rule over 1 920 candidates of `43676036390` | F1         |
+| ------------------------------------------- | ---------- |
+| score order, budget 12 (shipped shape)      | **0.2243** |
+| score order, budget 16                      | **0.2276** |
+| `bug` and `security` only, budget 12        | 0.2152     |
+| `bug` and `security` only, budget 16        | 0.2160     |
+| corroboration first, then score, budget 12  | 0.2181     |
+| corroboration first, then score, budget 16  | 0.2287     |
+
+- **A defect-only filter loses.** Category is real signal - `bug` plus `security` is 38 % of the candidates and 61 % of
+  the hits, at precision 0.2494 against 0.1560 for everything - and it still loses, because the 62 % it drops carries
+  39 % of the goldens. **The corpus's convention remarks are not noise to be filtered out; they are most of the answer
+  key**, which is the same lesson §48.1's category split taught from the other direction.
+- **Corroboration is a strong filter and a weak ordering.** A lanes finding with a reader finding within three lines and
+  a token overlap of at least 0.15 is **0.3206 precise against 0.1560** - a factor of 2.06 on 131 rows - so two
+  independent producers agreeing about one site is the strongest cheap signal this campaign has measured. As an ordering
+  it moves F1 by +0.006 at budget 8, −0.006 at 12 and +0.001 at 16, because **the rows it selects are already inside the
+  top twelve by score**. The signal is not weak; the ranker had most of it already, and the cheaper statement of the
+  same fact is the filter for a _future_ device that needs a precision prior, not an ordering for this one.
+
+### 57.4 Fifty-four goldens nobody can answer, which were filed as a path filter's fault
+
+The corpus is a snapshot of a moving object. `ClickHouse/ClickHouse#74070` carries **fifteen** goldens on
+`src/Functions/FunctionStrncmp.cpp`; the pull request today has **five** changed files and that is not one of them.
+`google-gemini/gemini-cli#4828` and `#5819` are the same shape, and the repair is not a path filter: **no reviewer,
+ours or the competitor's, can comment on a line the pull request no longer has.**
+
+`fileNotReviewed` used to hold all 54 of those rows beside the ones this run genuinely dropped, and the two answers send
+the next iteration to different places. The attribution now decides `pathNotInPull` first, from the pull request's own
+file list (`pulls/{n}/files`, one request, paginated), and `engineCounters.snapshot` publishes how many pull requests were
+asked, how many answered, and how many goldens moved. **The figure is not restated on a reduced denominator** - the
+competitor's number was measured on their snapshot, where those files existed - but a reader can now see that 7.5 % of
+the denominator is unanswerable today, which is the difference between a recall gap and a corpus that moved.
+
+### 57.5 R-30: the registration of §56.3, executed as written
+
+The claim does not change, because it was never tested: _"the emission policy `drop test, budget 12`, applied to a list
+merged from the five lanes and the reading reviewer by a selection-only model pass, lifts the file-arm F1 by at least
+0.02 over the five lanes alone with the same per-pull-request budget, without lowering recall."_
+
+- **The pair is `{agent off, ensemble off}` against `{agent on, ensemble on}`** - the five lanes alone against the merge -
+  which is the comparator the registration names, and the only pair in this table whose two arms are the claim's own two
+  arms rather than a proxy for them.
+- **On the discovery rows** (`skip 50`, 100 pull requests, 724 goldens), because that is where the lanes' 0.2121 was
+  measured and where the corpus leader's 25.1 % SEM-F1 is quoted. **The 330-golden confirmation slice cannot resolve
+  0.02**; the discovery slice resolves 0.0028.
+- **The falsifiers are R-29's**: F1 below 0.2321, or recall below 0.1917. **A pass that does not also exceed 0.2504**
+  would say the union added nothing to the de-duplication §57.2 already measured, and that is a result worth having: it
+  would price the five lanes' 198 covered goldens at zero contribution inside a merge.
+- **`merge.sides.lanes` and `merge.unionPulls` are part of the verdict**: an artifact whose `unionPulls` is not the
+  number of reviewed pull requests has not tested this claim, whatever its F1 says.

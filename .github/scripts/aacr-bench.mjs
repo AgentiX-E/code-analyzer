@@ -717,7 +717,12 @@ async function dryRun() {
         note: 'an issue the judge did not accept, on the line we did comment on',
         startLine: rejectedLine,
       },
+      // **And a fifth, on a path the pull request does not have**, which is the corpus moving rather than this run
+      // dropping a file. Without it the new bucket would be reachable only on the real corpus, which is the one place a
+      // mis-wired bucket cannot be told apart from a filter that works.
+      { path: 'src/gone.ts', note: 'an issue on a file the pull request no longer touches' },
     ],
+    pullPaths: ['src/kept.ts', 'src/quiet.ts', 'src/never.ts', rejectedPath],
     reviewedPaths: ['src/kept.ts', 'src/quiet.ts', rejectedPath],
     findings: ranked,
     // **A matrix of this fixture's own, written out rather than borrowed from the run above.** `matrix.matches` is
@@ -726,11 +731,16 @@ async function dryRun() {
     // a broken bucket rather than a borrowed table.
     matches: [[0], [], [], [], [], []],
   });
-  assert.equal(attributed.total, 4, 'every golden is attributed exactly once');
+  assert.equal(attributed.total, 5, 'every golden is attributed exactly once');
   assert.equal(
     attributed.counts.fileNotReviewed,
     1,
     'the golden on a file the engine was never handed is attributed to the filter, not to the lanes',
+  );
+  assert.equal(
+    attributed.counts.pathNotInPull,
+    1,
+    'a golden on a path the pull request no longer has is the corpus moving, not a filter to fix',
   );
   assert.equal(
     attributed.counts.noFindingOnPath,
@@ -1776,6 +1786,17 @@ async function main() {
       ? { enabled: true, requested: 0, read: 0, absent: 0, failed: 0, chars: 0, reasons: [] }
       : { enabled: false },
     /**
+     * **Whether each golden's file is still one the pull request touches**, which is a fact about the corpus and not
+     * about the review.
+     *
+     * `requested` counts the pull requests whose file list was asked for, `failed` the ones where no answer came and the
+     * older bucket therefore stands, and `moved` the goldens that landed in `pathNotInPull`. **The three numbers are
+     * published because the alternative is a recall figure whose denominator nobody can check**: a corpus pinned to
+     * snapshots of moving objects will always have some rows no reviewer can answer, and the honest artifact says how
+     * many rather than letting them read as findings we failed to make.
+     */
+    snapshot: { requested: 0, ok: 0, failed: 0, moved: 0, reasons: [] },
+    /**
      * **What the claim check did to the findings, summed over the corpus.**
      *
      * **Four counts and not one**, because they answer four different questions and only the split can say which device
@@ -1838,6 +1859,17 @@ async function main() {
     paths: { budget: 0, model: 0, fallback: 0 },
     kept: 0,
     candidates: 0,
+    /**
+     * **What each side of the union contributed, because "the merge ran" is not the claim the registration makes.**
+     *
+     * R-29 was registered as a merge of the five lanes and the reading reviewer, and it ran with the lanes emptied by an
+     * upstream cost rule - so the artifact could not be read to say whether the union existed, and `candidates` alone
+     * could not tell one reviewer's 394 from two reviewers' 800. **`unionPulls` counts the pull requests where both
+     * sides were non-empty**, which is the only number that says a merge happened at all: a merge of one list and
+     * nothing is a sort.
+     */
+    sides: { lanes: 0, reader: 0 },
+    unionPulls: 0,
     dropped: { duplicate: 0, 'over-budget': 0, 'not-kept': 0, 'unknown-ref': 0 },
     fallbackReasons: [],
     firstFailure: null,
@@ -2062,6 +2094,50 @@ async function main() {
       return {
         ok: false,
         reason: `the pull request request threw: ${String(error?.message ?? error)}`,
+      };
+    }
+  }
+
+  /**
+   * **The files the pull request has today, which is not the same set as the corpus's snapshot of it.**
+   *
+   * Fifty-four of the 724 goldens sit on paths the pull request no longer touches - `ClickHouse/ClickHouse#74070` has
+   * fifteen on a file that is not among its five changed files today, and two gemini-cli pulls are the same shape. **A
+   * golden there is not a missed finding; it is a row nobody can answer**, and until this call existed the attribution
+   * filed it under the bucket that names a path filter, which is a working path filter being blamed for the corpus
+   * moving. One request per pull request, paginated because a large pull request has more than a hundred files, and a
+   * refusal returns `null` rather than an empty list - **an empty list is the claim that the pull request changed
+   * nothing**, and a transport fault must not be able to make that claim.
+   */
+  async function fetchPullPaths(url) {
+    const m = /github\.com\/([^/]+)\/([^/]+)\/pull\/(\d+)/.exec(String(url ?? ''));
+    if (!m) return { ok: false, reason: `"${String(url ?? '')}" is not a pull request URL` };
+    const [, owner, repo, num] = m;
+    const token = process.env['GITHUB_TOKEN'] ?? process.env['GH_TOKEN'] ?? '';
+    const paths = [];
+    try {
+      for (let page = 1; page <= 30; page += 1) {
+        const res = await fetch(
+          `https://api.github.com/repos/${owner}/${repo}/pulls/${num}/files?per_page=100&page=${String(page)}`,
+          {
+            headers: {
+              accept: 'application/vnd.github+json',
+              'user-agent': 'agentix-e-aacr-bench',
+              ...(token ? { authorization: `token ${token}` } : {}),
+            },
+          },
+        );
+        if (!res.ok) return { ok: false, reason: `the file list returned ${String(res.status)}` };
+        const batch = await res.json();
+        if (!Array.isArray(batch)) return { ok: false, reason: 'the file list was not a list' };
+        for (const file of batch) paths.push(String(file?.filename ?? ''));
+        if (batch.length < 100) return { ok: true, paths };
+      }
+      return { ok: true, paths, truncated: true };
+    } catch (error) {
+      return {
+        ok: false,
+        reason: `the file list request threw: ${String(error?.message ?? error)}`,
       };
     }
   }
@@ -2682,13 +2758,22 @@ async function main() {
       }
     }
     const lanes = [];
-    // **The lanes do not run when the agent is the arm under test.** Its findings replace theirs a hundred lines below,
-    // so every lane call this loop makes under `AACR_AGENT=on` is bought and then discarded: the measured run spent
-    // 0.46 of its 0.79 USD on 1 245 lane calls whose findings were never scored, and most of its 41 minutes the same
-    // way. **An arm that pays for a second reviewer it does not use is an arm whose cost per iteration cannot come
-    // down**, and this one has to be iterated on. The loop is emptied rather than deleted, because the lane path is
-    // still what the other arms measure and the counters it writes are still reported when it runs.
-    for (const section of AGENT ? [] : sections) {
+    // **The lanes do not run when the agent is the arm under test, unless the arm is a merge of the two.**
+    //
+    // The agent's findings replace the lanes' a hundred lines below, so every lane call this loop makes under
+    // `AACR_AGENT=on` is bought and then discarded: the measured run spent 0.46 of its 0.79 USD on 1 245 lane calls
+    // whose findings were never scored, and most of its 41 minutes the same way. **An arm that pays for a second
+    // reviewer it does not use is an arm whose cost per iteration cannot come down.**
+    //
+    // **`AACR_ENSEMBLE=on` is the one arm that does use them, and the first run of it proved why the condition has to
+    // say so.** R-29 was registered as *a list merged from the five lanes and the reading reviewer*; with the lanes
+    // emptied it became a de-duplication and selection pass over the reader's own candidates. It still lifted the
+    // shipped point from 0.2148 to 0.2504, and **it did so as a different device from the one the registration names** -
+    // `merge.candidates` was 394 for 46 pull requests, which is one reviewer's worth. **A device that cannot be run
+    // because a cost optimisation upstream of it emptied one of its two inputs is not a device**, and the artifact now
+    // carries `merge.sides` so that the next reader can check the union was really a union.
+    const lanesRun = !AGENT || ENSEMBLE;
+    for (const section of lanesRun ? sections : []) {
       const sectionDiff = section.lines.join(String.fromCharCode(10));
       try {
         // **One file per call, and the file's own path** - **so neither the count nor the location depends on the
@@ -3080,10 +3165,13 @@ async function main() {
           score: entry.score.score,
           text: `${String(entry.finding.title)} :: ${String(entry.finding.description)}`,
         }));
+        const lanesSide = candidates.filter((entry) => entry.source === 'lanes');
+        const readerSide = candidates.filter((entry) => entry.source === 'reader');
+        if (lanesSide.length > 0 && readerSide.length > 0) mergeCounters.unionPulls += 1;
         const mergeProvider = new DeepSeekProvider({ ledger, ceilingUsd: MAX_USD });
         const merged = await mergeReviewers({
-          lanes: candidates.filter((entry) => entry.source === 'lanes'),
-          reader: candidates.filter((entry) => entry.source === 'reader'),
+          lanes: lanesSide,
+          reader: readerSide,
           provider: mergeProvider,
           budget: MERGE_BUDGET_PER_PULL_REQUEST,
           tag: 'aacr-merge',
@@ -3093,6 +3181,10 @@ async function main() {
         ranked = ranked.filter((_, at) => keep.has(`c${String(at)}`));
         mergeCounters.pulls += 1;
         mergeCounters.calls += merged.calls;
+        // **From the outcome rather than from the caller's two lists**, so the artifact's `sides` is what the merge itself
+        // was given - a harness that counted its own arrays could report a union the device never saw.
+        mergeCounters.sides.lanes += merged.sides.lanes;
+        mergeCounters.sides.reader += merged.sides.reader;
         mergeCounters.paths[merged.decidedBy] += 1;
         mergeCounters.kept += ranked.length;
         mergeCounters.candidates += before;
@@ -3132,12 +3224,26 @@ async function main() {
     // comparison between itself and itself. **The pull-request key is passed rather than implied**, because the budget
     // counts twelve per pull request and a run-wide count would be a different rule with a better score.
     const shippedKeepFlags = shippedRuleKeep(ranked, competitorKey, profileKept);
+    // **The pull request's own file list, one request before the attribution**, because the difference between *the
+    // corpus moved* and *this run dropped a file* is the difference between no work and a filter to fix. A refusal
+    // leaves the older reading in place rather than emptying the list.
+    engineCounters.snapshot.requested += 1;
+    const pullPaths = await fetchPullPaths(pr.githubPrUrl);
+    if (pullPaths.ok) engineCounters.snapshot.ok += 1;
+    else {
+      engineCounters.snapshot.failed += 1;
+      if (engineCounters.snapshot.reasons.length < 3) {
+        engineCounters.snapshot.reasons.push({ pr: competitorKey, reason: pullPaths.reason });
+      }
+    }
     const attribution = attributeGoldens({
       goldens,
+      pullPaths: pullPaths.ok ? pullPaths.paths : null,
       reviewedPaths: sections.map((section) => section.path),
       findings: ranked,
       matches: ourMatrix.matches,
     });
+    engineCounters.snapshot.moved += attribution.counts.pathNotInPull;
     attributed.push({ pr: competitorKey, ...attribution });
 
     // **Both arms, in the shape the corpus's arithmetic reads**, so the figure beside the headline is about the same

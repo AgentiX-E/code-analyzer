@@ -106,6 +106,35 @@ const reader = [
   }),
 ];
 
+describe('what the merge was given', () => {
+  // **R-29's own defect, priced as a field.** The registration named a merge of the five lanes and the reading reviewer;
+  // the dispatcher had the lanes emptied upstream, so the arm merged the reader with nothing and every figure in that
+  // artifact is a figure about a sort. **`decidedBy: 'budget'` cannot tell a small union from a single list**, so the two
+  // counts travel with the outcome and the artifact sums them.
+  it('counts each reviewer’s candidates, so a union can be told from one list', () => {
+    const outcome = mergeCandidates(
+      [candidate('l1', 'lanes'), candidate('r1', 'reader'), candidate('r2', 'reader')],
+      12,
+    );
+    expect(outcome.sides).toEqual({ lanes: 1, reader: 2 });
+    expect(outcome.decidedBy).toBe('budget');
+  });
+
+  it('says so when one side is empty, because a merge of one list and nothing is a sort', async () => {
+    const provider = new ScriptedProvider('{"keep": ["l1"]}');
+    const outcome = await mergeReviewers({
+      lanes,
+      reader: [],
+      provider,
+      budget: 1,
+    });
+    expect(outcome.sides).toEqual({ lanes: 2, reader: 0 });
+    expect(outcome.detail).toContain('one reviewer');
+    // And no call was bought, which is the cost half of the same claim.
+    expect(provider.prompts).toHaveLength(0);
+  });
+});
+
 describe('the merge of two reviewers', () => {
   it('keeps everything, and buys no call, when the candidates already fit the budget', async () => {
     const provider = new ScriptedProvider('{"keep":["l1"]}');

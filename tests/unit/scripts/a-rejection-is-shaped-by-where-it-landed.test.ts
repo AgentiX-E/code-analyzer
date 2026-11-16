@@ -154,6 +154,7 @@ describe('a rejection is shaped by its distance', () => {
           counts: {
             hit: 0,
             noPath: 0,
+            pathNotInPull: 0,
             fileNotReviewed: 0,
             noFindingOnPath: 0,
             findingOnPathRejected: 3,

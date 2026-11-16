@@ -29,7 +29,7 @@ const goldens = [
 ];
 
 describe('every golden lands in exactly one bucket', () => {
-  it('decides in the order hit, noPath, fileNotReviewed, noFindingOnPath, findingOnPathRejected', () => {
+  it('decides in the order hit, noPath, pathNotInPull, fileNotReviewed, noFindingOnPath, findingOnPathRejected', () => {
     const result = attributeGoldens({
       goldens,
       // `src/c.cpp` is in the diff and produced no finding; `src/d.cpp` produced one that matched nothing.
@@ -43,6 +43,8 @@ describe('every golden lands in exactly one bucket', () => {
       hit: 1,
       // `src/b.cpp` was never handed to the engine.
       noPath: 1,
+      // **Zero, because no pull request's file list was passed** - the older reading stands rather than guessing.
+      pathNotInPull: 0,
       fileNotReviewed: 1,
       // `src/c.cpp` was read and the lanes said nothing.
       noFindingOnPath: 1,
