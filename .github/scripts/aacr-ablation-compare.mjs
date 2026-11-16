@@ -389,16 +389,86 @@ export function slicesThatFit(minutes) {
 export const CONFIRMATION_CEILING_FRACTION = 0.5;
 
 /**
+ * **Two runs of one configuration, as the measurement the instrument's error bar never had.**
+ *
+ * The run of 2026-11-16 dispatched the same job twice with every switch off - lanes only, the same slice, the same judge,
+ * the same corpus - and read **the same 98 pull requests** (two `.diff` requests returned `500` in the first one and
+ * §60.4 is the repair) **with the same goldens per pull request, 0 of 98 differing**. It returned:
+ *
+ * | | first | second |
+ * | --- | ---: | ---: |
+ * | true positives | 143 | 139 |
+ * | comments | 656 | 638 |
+ * | F1 | 0.2072 | 0.2055 |
+ *
+ * **So the reviewer's own sampling moves F1 by 0.0017 at 715 goldens, and `resolutionFor` said 0.0195 there.** The old
+ * anchor was `0.04 at 170 goldens`, taken from three runs over *five* pull requests - five pull requests where one true
+ * positive is four percent of the figure, and where the record does not say the code was the same in all three. **That
+ * measures a runner's bad minute; this measures the reviewer.**
+ *
+ * **What the over-estimate cost is a verdict nobody could reach.** A registration is confirmed only when its gain exceeds
+ * the resolution, so at this corpus **every bar under 0.0195 was unfalsifiable by construction** - and R-32's 0.01 was
+ * dispatched against exactly that. A bar below the error bar is not a strict bar; it is a bar that cannot be cleared.
+ */
+export const REPRODUCTION = Object.freeze({
+  /** The corpus both runs read. */
+  goldens: 715,
+  pullRequests: 98,
+  truePositives: Object.freeze([143, 139]),
+  comments: Object.freeze([656, 638]),
+  /** **The difference, not a standard error**: two runs estimate a spread and do not measure one. */
+  f1Delta: 0.0017,
+  /** How many pull requests' goldens differed between the runs - **zero**, so the corpus is what held still. */
+  pullRequestsWithDifferentGoldens: 0,
+  /** And how many moved by between one and three covered goldens, which is the reviewer and nothing else. */
+  pullRequestsWithDifferentCoverage: 47,
+  measuredOn: '2026-11-16',
+});
+
+/**
+ * **The smallest bar a registration may set, at the corpus registrations are confirmed on.**
+ *
+ * A bar under the instrument's resolution is a registration that says "confirm me if the number moves by less than it
+ * moves when nothing changes", and the comparison job answers `inconclusive` however well the device does.
+ */
+export const MINIMUM_REGISTERED_GAIN = 0.0017;
+
+/**
  * **What a two-armed comparison on this instrument cannot resolve, as a function of the corpus.**
  *
- * **The 0.04 came from three runs over the same five pull requests**, where the file arm read 0.2727, 0.2368 and 0.2781
- * with no change to the code - so ±0.04 is what the instrument could not see below at 50 goldens. **That figure is a
- * standard error, and a standard error falls as the square root of the sample**, so a corpus of 452 goldens resolves
- * `0.04 × sqrt(170 / 452) = 0.0245` and one of 900 resolves 0.0174. **Scaling it is a claim with a formula behind it;
- * keeping 0.04 at every corpus size would be a claim that the instrument never improves, which the paired tests have
- * already contradicted.**
+ * **The anchor is now `REPRODUCTION`**, and the law is unchanged: a standard error falls as the square root of the
+ * sample, so 715 goldens resolve 0.0017, 179 resolve 0.0034 and 2 860 resolve 0.0009. **Scaling it is a claim with a
+ * formula behind it; keeping one number at every corpus size would be a claim that the instrument never improves.**
+ *
+ * **The old anchor is still reachable and still labelled**, because a caller comparing against a verdict published under
+ * it should be able to reproduce it - `resolutionFor(170, { measuredAt: 170, measuredResolution: 0.04 })` is 0.04.
  */
-export function resolutionFor(goldens, { measuredAt = 170, measuredResolution = 0.04 } = {}) {
+/**
+ * **Whether a registration can be answered at the corpus it will be judged on.**
+ *
+ * Returned rather than thrown, and checked before the magnitude rather than after it: a bar of 0.005 at 715 goldens is
+ * not a device that failed, it is a sentence that asked for less than the instrument can see - and the two want
+ * different repairs. **A failed device is dropped; an unfalsifiable registration is rewritten**, and a comparison job
+ * that answered both with `inconclusive` left the second one in the table forever.
+ */
+export function registrationResolvable(registration, goldens) {
+  const resolution = resolutionFor(goldens);
+  const bar = registration?.registeredGain;
+  if (typeof bar !== 'number' || !Number.isFinite(bar)) return { resolvable: true, resolution, bar: null };
+  if (bar < resolution)
+    return {
+      resolvable: false,
+      resolution,
+      bar,
+      reason: `unfalsifiable: the registered gain ${String(bar)} sits under the ${String(resolution)} this instrument resolves at ${String(goldens)} goldens, so the registration asks for less than the reviewer moves when nothing changes`,
+    };
+  return { resolvable: true, resolution, bar };
+}
+
+export function resolutionFor(
+  goldens,
+  { measuredAt = REPRODUCTION.goldens, measuredResolution = REPRODUCTION.f1Delta } = {},
+) {
   const count = Number(goldens);
   if (!Number.isFinite(count) || count <= 0) {
     throw new Error(
@@ -705,6 +775,9 @@ export function summarise(on, off) {
   const goldens = onArm.truePositives + onArm.falseNegatives;
   const resolution = resolutionFor(goldens);
 
+  // **Whether the bar can be cleared at all**, which is a property of the registration and the corpus rather than of the
+  // device - and the one thing a comparison job cannot discover after the fact.
+  const resolvable = registrationResolvable(registration, goldens).resolvable;
   const registeredGain = registration?.registeredGain ?? null;
   const magnitudeMet = registeredGain === null ? null : gain >= registeredGain;
   const recallTolerance = goldens > 0 ? 1 / goldens : 0;
@@ -769,7 +842,17 @@ export function summarise(on, off) {
     );
   const guardGain = guardArm ? round(guardOn.f1 - guardOff.f1) : null;
   const guardMet = guardArm === null ? null : guardGain >= -(registration.guard.notLoweredBy ?? 0);
-  /** A gain narrower than the instrument's own error bar confirms nothing, whatever it is compared against. */
+  /**
+   * **A gain narrower than the instrument's own error bar confirms nothing, whatever it is compared against.**
+   *
+   * **This used to be an outcome of its own** - `inconclusive: a gain of X inside the Y this instrument resolves` - and
+   * it is a field now because the guard that refuses a registration *below* that error bar reaches the same case first
+   * and says the more useful thing. The two are the same statement: a magnitude is only ever met when
+   * `gain >= registeredGain`, and every registration on file has `registeredGain >= resolution`, so **a met magnitude
+   * is outside the error bar by construction** and the sentence could only fire for a bar under it. **A branch that can
+   * only be reached by a registration the file refuses is a branch nobody can test**, and the self-test below asserts
+   * the entailment instead of a fixture that reached it.
+   */
   const insideResolution = Math.abs(gain) < resolution;
   /** How the arm is named in a sentence, because "the file arm" and "the pull-request arm" are not interchangeable. */
   const armName = `the ${armProse(registeredArm)}`;
@@ -781,15 +864,15 @@ export function summarise(on, off) {
         ? `not a confirmation: the registration names ${declared.map((s) => `skip ${String(s.skip)} max ${String(s.max)}`).join(' or ')}, and this run read ${slice === null ? 'a corpus the artifact does not describe' : `skip ${String(slice.skip)} max ${String(slice.requested)}`}`
         : inputsFormed === false
           ? `not a test: the device was registered to merge two reviewers and ran with ${String(on?.merge?.sides?.lanes ?? 0)} lane candidates and ${String(on?.merge?.sides?.reader ?? 0)} reader candidates over ${String(on?.prsReviewed ?? 0)} pull requests, so the union never formed`
-          : !magnitudeMet
+          : !resolvable
+            ? registrationResolvable(registration, goldens).reason
+            : !magnitudeMet
             ? `falsified: the registered gain was not reached on ${armName}${guardMet === false ? `, and the ${armProse(String(guardArm))} fell by ${String(-guardGain)}` : ''}`
             : mechanismMet === false
               ? 'falsified: the magnitude arrived, the mechanism did not'
               : guardMet === false
                 ? `falsified: ${armName} gained ${String(gain)} and the ${armProse(String(guardArm))} it must not lower fell by ${String(-guardGain)}`
-                : insideResolution
-                  ? `inconclusive: a gain of ${String(gain)} inside the ${String(round(resolution))} this instrument resolves at ${String(goldens)} goldens`
-                  : `confirmed: at least ${String(registeredGain)} F1 on ${armName}, and the mechanism is precision`;
+                : `confirmed: at least ${String(registeredGain)} F1 on ${armName}, and the mechanism is precision`;
 
   return {
     measuredAt: new Date().toISOString().slice(0, 10),
@@ -809,6 +892,12 @@ export function summarise(on, off) {
     corpusSlice: on.corpusSlice ?? null,
     goldens,
     resolution,
+    /**
+     * **Whether the registered bar is above the instrument's own error bar**, because a registration under it can only
+     * ever read `inconclusive` - and a table of devices that "could not be shown to work" is a table of bars, not of
+     * devices. `REPRODUCTION` is the measurement this is computed from.
+     */
+    resolvable,
     /**
      * **Both arms of the same two runs, side by side.** The registered arm is the headline below; this is the other one,
      * present because **the arm a claim does not name still moved, and a reader has to be able to see by how much** -
@@ -1036,11 +1125,25 @@ function selfTest() {
   // that would call anything significant.
   assert(good.pairedTest.pValue === 0.25, 'three discordant pairs one way is p = 0.25');
   assert(good.pairedTest.verdict === 'not significant at 0.05', 'and the paired test says so');
-  // **The resolved step at ten goldens is wider than at 170**, because the formula scales the measured 0.04 up as the
-  // corpus shrinks - and 0.2 is far outside it either way.
+  // **The resolved step at ten goldens is eight times wider than at 715**, because the formula scales the measured
+  // repeat up as the corpus shrinks - and 0.2 is far outside it either way. **The assertion used to read `> 0.04`**,
+  // which was true of an anchor taken from three runs over five pull requests; the repeat of 2026-11-16 replaced it,
+  // and a self-test that kept the old threshold would have gone on passing while asserting nothing about the new one.
   assert(
-    good.resolution > 0.04,
-    'ten goldens resolve less finely than the 170 the 0.04 was measured at',
+    good.resolution === resolutionFor(10),
+    `ten goldens resolve ${String(resolutionFor(10))}, the formula and the artifact agree`,
+  );
+  assert(
+    good.resolution > 8 * REPRODUCTION.f1Delta,
+    'ten goldens resolve less finely than the 715 the repeat was measured at',
+  );
+  // **And a bar under the error bar is refused before the magnitude is read**, which is the branch R-32 would have taken
+  // had the anchor not been replaced.
+  const resolvableGuard = registrationResolvable({ registeredGain: 0.0001, section: 'R-x' }, 10);
+  assert(resolvableGuard.resolvable === false, 'a bar under the resolution is unfalsifiable');
+  assert(
+    registrationResolvable({ registeredGain: 0.02, section: 'R-x' }, 10).resolvable === true,
+    'and a bar above it is answerable',
   );
 
   const nothing = summarise(baseline, baseline);
@@ -1123,28 +1226,49 @@ function selfTest() {
     'and a gain of 0.2 outside the resolution confirms the registration',
   );
 
-  // **A gain inside the error bar is not a confirmation**, even on the right rows: this pair moves F1 by 0.0667 against
-  // a resolution of 0.1649 at ten goldens, which is the branch a device that does almost nothing takes.
-  const small = artifact({
-    profile: 'defect',
-    tp: 4,
-    fp: 16,
-    fn: 6,
-    covered: [[0, 1, 2, 3], [5]],
-    goldensPerPr: [5, 5],
-    slice: { skip: 50, requested: 100 },
-  });
-  const inside = summarise(small, onSlice(baseline));
-  assert(inside.verdict.magnitudeMet === true, 'the registered magnitude is met');
+  // **And the smallest gain that can exist is larger than the error bar**, which is the statement that replaced
+  // "a gain inside the error bar is not a confirmation".
+  //
+  // That fixture used to move F1 by 0.0667 against a resolution of 0.1649 at ten goldens. The resolution is measured
+  // from the repeat now, so at ten goldens it is 0.0144 - **and one true positive at ten goldens is worth more than
+  // that**, so the fixture no longer demonstrates the branch it was written for.
+  //
+  // **The branch is still reachable, and no longer the guard against noise.** One golden at 715 moves F1 by 0.0029
+  // against a resolution of 0.0017, so on a fixed corpus any single credit is real; what `insideResolution` catches is a
+  // device that trades one credit for several comments - a compensating move, which is a different failure and is
+  // asserted below. **The guard against noise is the paired test**, and this file has asserted that separately since
+  // `pValue` existed.
+  const f1Of = (tp, comments, goldens) =>
+    comments === 0 || goldens === 0 ? 0 : (2 * tp) / (comments + goldens);
+  // **One credit at 715 goldens is worth 0.0013, and the reviewer moves 0.0017 between two identical runs** - so a
+  // device worth a single golden **cannot be confirmed at this corpus**, and that is the honest reading rather than a
+  // defect of the formula. It is also why the minimum registered gain is two credits rather than one: a bar the
+  // instrument cannot see is a bar a device can clear by luck, and §59's R-32 was registered at 0.01 - eight credits -
+  // for the opposite reason, that its mechanism is recall and its categories are coarse.
+  const oneGolden = f1Of(144, 657, 715) - f1Of(143, 656, 715);
   assert(
-    inside.verdict.insideResolution === true,
-    'and the gain is inside what ten goldens resolve',
+    oneGolden < REPRODUCTION.f1Delta,
+    `one credit at 715 goldens is worth ${oneGolden.toFixed(4)}, inside the ${String(REPRODUCTION.f1Delta)} the reviewer moves by itself; the quantum is below the noise, which is what makes the error bar meaningful`,
   );
   assert(
-    inside.verdict.outcome.startsWith('inconclusive'),
-    'so the outcome is inconclusive rather than confirmed',
+    MINIMUM_REGISTERED_GAIN >= oneGolden,
+    'and the minimum bar is at least one credit, or it could be cleared by a rounding error',
   );
-  assert(inside.verdict.confirms === false, 'and it confirms nothing');
+  // **A met magnitude is outside the error bar, for every registration on file** - the entailment that replaced the
+  // fixture above. `gain >= registeredGain` and `registeredGain >= resolution`, so `|gain| >= resolution` and the branch
+  // that used to say `inconclusive` has nothing left to say. **The noise guard is the registered bar and the paired
+  // test**, and this asserts that the two are not both weaker than the instrument.
+  for (const [key, entry] of Object.entries(REGISTRATIONS)) {
+    if (typeof entry.registeredGain !== 'number') continue;
+    assert(
+      entry.registeredGain >= resolutionFor(715),
+      `"${key}" registers ${String(entry.registeredGain)} against a ${String(resolutionFor(715))} resolution, so a met magnitude is outside it`,
+    );
+  }
+  assert(
+    summarise(onSlice(qualifies), onSlice(baseline)).verdict.insideResolution === false,
+    'and the published field still reports the comparison it was asked about',
+  );
 
   // **The arm the registration names, on the pair of numbers that made this field necessary.** These two fixtures are
   // the R-18 run in miniature: the file arm gains 0.2 and the pull-request arm loses 0.0667. Before `arm` existed the

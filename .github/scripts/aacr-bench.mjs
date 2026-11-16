@@ -57,6 +57,7 @@ import {
 } from './lib/competitor-baseline.mjs';
 import { operatingPointTable } from '../../scripts/lib/operating-point.mjs';
 import { locateLaneFindings } from '../../scripts/lib/lane-attribution.mjs';
+import { isTransientStatus, withRetry } from '../../scripts/lib/transient-fetch.mjs';
 
 const BENCH = process.env['AACR_DIR'] ?? '/tmp/aacr-bench';
 const MODEL = process.env['AACR_JUDGE_MODEL'] ?? process.env['MARTIAN_MODEL'] ?? 'deepseek-chat';
@@ -2098,28 +2099,42 @@ async function main() {
     // **a silently unauthenticated fetch is a sixty-request hour against a five-thousand one**. The run of 2026-11-11
     // lost twelve of fifty pull requests and this line is the reason it could not say why.
     const token = process.env['GITHUB_TOKEN'] ?? process.env['GH_TOKEN'] ?? '';
-    try {
-      const res = await fetch(`https://api.github.com/repos/${owner}/${repo}/pulls/${num}`, {
-        headers: {
-          accept: 'application/vnd.github.v3.diff',
-          'user-agent': 'agentix-e-aacr-bench',
-          ...(token ? { authorization: `token ${token}` } : {}),
-        },
-      });
-      if (res.ok) return { ok: true, diff: await res.text() };
-      // **The status and the remaining budget, because the two failures that look alike here are a typo in the corpus
-      // and a rate limit**, and only one of them is repaired by running again later.
-      const remaining = res.headers.get('x-ratelimit-remaining');
-      return {
-        ok: false,
-        reason:
-          `the diff request returned ${String(res.status)}` +
-          (remaining === null ? '' : ` with ${remaining} requests left in the hour`) +
-          (token ? '' : ' and the request was unauthenticated'),
-      };
-    } catch (error) {
-      return { ok: false, reason: `the diff request threw: ${String(error?.message ?? error)}` };
-    }
+    // **Four attempts, because the failure this exists for cost the corpus two pull requests and a dispatch.** The run
+    // of 2026-11-16 asked for 100 and read 98: two `.diff` requests returned `500` with 4 615 and 4 486 requests left in
+    // the hour, and the harness filed them under "the corpus could not supply it". **A 500 with budget left is a request
+    // that failed, and a request that failed is a request that is tried again** - while a 404 is a URL that is wrong,
+    // and four attempts at a wrong URL spend the hour's budget to learn what the first answer already said.
+    return withRetry(
+      async () => {
+        try {
+          const res = await fetch(`https://api.github.com/repos/${owner}/${repo}/pulls/${num}`, {
+            headers: {
+              accept: 'application/vnd.github.v3.diff',
+              'user-agent': 'agentix-e-aacr-bench',
+              ...(token ? { authorization: `token ${token}` } : {}),
+            },
+          });
+          if (res.ok) return { ok: true, diff: await res.text() };
+          // **The status and the remaining budget, because the two failures that look alike here are a typo in the
+          // corpus and a rate limit**, and only one of them is repaired by running again later.
+          const remaining = res.headers.get('x-ratelimit-remaining');
+          return {
+            ok: false,
+            // **Which of the two it was decides whether to try again, and the answer is the status.**
+            retryable: isTransientStatus(res.status),
+            reason:
+              `the diff request returned ${String(res.status)}` +
+              (remaining === null ? '' : ` with ${remaining} requests left in the hour`) +
+              (token ? '' : ' and the request was unauthenticated'),
+          };
+        } catch (error) {
+          // **A throw is the socket's failure rather than the corpus's**, so it is retried - and its own message is the
+          // reason, because `ECONNRESET` and `getaddrinfo ENOTFOUND` are two different repairs.
+          return { ok: false, retryable: true, reason: `the diff request threw: ${String(error?.message ?? error)}` };
+        }
+      },
+      { attempts: 4 },
+    );
   }
 
   /**

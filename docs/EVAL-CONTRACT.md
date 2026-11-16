@@ -6290,3 +6290,79 @@ while believing it was the second.
    question the run could not answer, and a lane-ablation was a dispatch rather than a query. `locateLaneFindings()` is
    the flattening now - a named function because it is where the attribute is lost and the only version a test can call -
    and it keeps a finding's own stamp when it has one, so the reading agent's rows are not relabelled as a lane's.
+
+## 60. The same run twice, and the two things it found that no single run could
+
+### 60.1 A repeat nobody asked for, on the corpus everyone quotes
+
+R-31 dispatched a paired runner arm, and its first arm was **the lanes as they ship** - the same configuration as R-30's
+lanes arm, the same slice (`skip 50`, `max 100`), the same judge, the same corpus. That is a repeat, and it is the first
+one this document has had on a corpus it quotes:
+
+| | R-30 (`43795692468`) | R-31 (`43839753881`) |
+| --- | ---: | ---: |
+| pull requests asked for | 100 | 100 |
+| pull requests read | **100** | **98** |
+| goldens | 724 | 715 |
+| true positives | 143 | 139 |
+| comments | 656 | 638 |
+| precision | 0.2180 | 0.2179 |
+| recall | 0.1975 | 0.1944 |
+| **F1** | **0.2072** | **0.2055** |
+
+**Per pull request the corpus did not move at all**: the 98 shared rows carry goldens that differ in **0** of 98. What
+moved is the reviewer - **47 of the 98 rows covered a different number of goldens, between one and three each way** - and
+that is sampling, because nothing else differs.
+
+So **the instrument's error bar at 715 goldens is 0.0017 in F1**, and one credit at that corpus is worth 0.0013. **A
+device worth a single golden is inside the noise, and a device worth eight is not.**
+
+### 60.2 The error bar was eleven times too wide, and it was hiding the verdicts
+
+`resolutionFor()` carried `0.04 measured at 170 goldens`, from three runs over **the same five pull requests**, where one
+true positive is four percent of the figure. Scaling that by `sqrt(170 / goldens)` predicted **0.0195 at 715 goldens**;
+the repeat measured **0.0017**. The old anchor priced a runner's bad minute over a corpus too small to price anything;
+the new one prices the reviewer with everything else held.
+
+**What the over-estimate cost is a class of registration that could never be confirmed.** A comparison is confirmed only
+when the gain exceeds the resolution, so at this corpus **every bar under 0.0195 was unfalsifiable by construction** - and
+R-32's 0.01 was dispatched against exactly that. A bar below the error bar is not a strict bar; it is a bar that cannot
+be cleared, and no amount of evidence repairs it.
+
+Three changes, and the third is the one that matters:
+
+1. **`REPRODUCTION` is the anchor**, exported with the two runs' figures, the golden count and the per-pull-request
+   comparison, so the number in the formula is the number in the table.
+2. **`MINIMUM_REGISTERED_GAIN`** is that error bar, and **`registrationResolvable()`** refuses a registration under it
+   with the sentence that says so - *unfalsifiable*, not *inconclusive*, because the two want different repairs: a failed
+   device is dropped, a meaningless bar is rewritten.
+3. **The `inconclusive` outcome is gone**, because it is entailed. A magnitude is met only when
+   `gain >= registeredGain`, and every registration now has `registeredGain >= resolution`, so **a met magnitude is
+   outside the error bar by construction**. A branch that can only be reached by a registration the file refuses is a
+   branch nobody can test; the self-test asserts the entailment instead of a fixture that reached it.
+
+**What this does not do.** It does not confirm anything retroactively: every published verdict was computed against its
+own registered bar, and the bar is what a device has to clear. It changes which *sentences* a comparison is allowed to
+print, and the noise guard it leaves in place is the **paired test** - `pValue` beside every row - which was always the
+stronger instrument and is unaffected by any of this.
+
+### 60.3 The two pull requests the corpus lost to a 500
+
+R-31 asked for 100 pull requests and read 98. The two it lost are named in `prsWithoutDiffReasons`:
+
+| pull request | what the diff request said |
+| --- | --- |
+| `infiniflow/ragflow#5065` | `500`, **4 615 requests left in the hour** |
+| `bitcoin/bitcoin#32425` | `500`, **4 486 requests left in the hour** |
+
+Neither is a corpus with a typo in it and neither is a rate limit. **They are requests that failed**, and the harness
+filed them under "the corpus could not supply it" - which moved the denominator from 724 goldens to 715, made two arms of
+a comparison non-comparable, and left a re-dispatch as the only repair. A 2.5-hour dispatch, 2.10 USD, to fetch two
+patches that a second attempt would have returned.
+
+`fetchPrDiff` now retries **only the statuses that are worth it** - 408, 425, 429 and the 5xx family - four times with a
+doubling wait capped at five seconds, and **not** 401/403/404/422, where four attempts spend the hour's budget to learn
+what the first response already said. The attempt brings its own verdict (`retryable`), because a socket error and a wrong
+URL are both `ok: false` here and only one of them is worth a second request; and **the last reason survives the
+attempts**, so a pull request that is finally lost still says why. **A retry costs four orders of magnitude less than the
+dispatch it replaces, and it is the same line of code either way.**
