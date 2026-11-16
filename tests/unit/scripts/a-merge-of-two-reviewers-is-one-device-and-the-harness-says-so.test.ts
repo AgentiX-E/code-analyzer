@@ -54,7 +54,9 @@ describe('the ensemble arm', () => {
     // reviewer; the lanes were emptied whenever the agent ran, so the arm merged the reader with nothing and the artifact
     // could not say so. The condition below is the fix, and it is asserted here because **no figure in that run could
     // have shown it**: 0.2504 is a plausible score for both devices.
-    expect(BENCH).toContain('const lanesRun = !AGENT || ENSEMBLE;');
+    // **Except for the one-sided merge, which is defined as one list** (§58): `ensemble: reader` is the arm R-29
+    // measured by accident, and emptying the lanes is what that device *is* rather than a defect in it.
+    expect(BENCH).toContain('const lanesRun = !AGENT || (ENSEMBLE && !ENSEMBLE_READER_ONLY);');
     expect(BENCH).toContain('for (const section of lanesRun ? sections : [])');
     // **And what the merge received is published**, so the next reader can tell a union from a single list.
     expect(BENCH).toContain('mergeCounters.sides.lanes += merged.sides.lanes;');
@@ -95,7 +97,7 @@ describe('the ensemble arm', () => {
   it('carries the key on every matrix row and passes it through', () => {
     const matrix = WORKFLOW.slice(WORKFLOW.indexOf('matrix:'), WORKFLOW.indexOf('steps:'));
     const rows = matrix.match(/\{&quot;|\{"profile"/gu) ?? [];
-    const keys = matrix.match(/"ensemble":"(?:on|off)"/gu) ?? [];
+    const keys = matrix.match(/"ensemble":"(?:on|off|reader)"/gu) ?? [];
     expect(rows.length, 'the matrix has rows').toBeGreaterThan(0);
     // **One `ensemble` per row.** A row that omitted it would be dispatched with the script's default while the matrix
     // recorded nothing, which is the arrangement where the artifact and the dispatch can disagree.

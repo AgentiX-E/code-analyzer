@@ -18,7 +18,7 @@
 // base model** - **two review systems, one model.** **Our engine is a third review system**, so **a row for us is a
 // third column and not a re-run of theirs**, and **the artifact says which columns were produced here.**
 
-import { existsSync, mkdirSync, readFileSync, readdirSync, writeFileSync } from 'node:fs';
+import { existsSync, mkdirSync, readFileSync, readdirSync, rmSync, writeFileSync } from 'node:fs';
 import { join, resolve } from 'node:path';
 
 import {
@@ -180,7 +180,24 @@ const AGENT = String(process.env['AACR_AGENT'] ?? 'off').toLowerCase() === 'on';
  * second field of view, and the reason it has never paid for itself is that it spends 1 920 comments to express one. **The
  * merge is the device; this flag is the arm that measures whether the device works.**
  */
-const ENSEMBLE = String(process.env['AACR_ENSEMBLE'] ?? 'off').toLowerCase() === 'on';
+const ENSEMBLE_MODE = String(process.env['AACR_ENSEMBLE'] ?? 'off').toLowerCase();
+/**
+ * **The flag has three states, and the third one exists because a device nobody chose was measured by accident.**
+ *
+ * `on` is the union of §56 - both reviewers, one merged list. `reader` is **one reviewer, de-duplicated and cut**: the
+ * same selection pass, run over the reading reviewer's candidates alone.
+ *
+ * **Why it is a state rather than a side effect.** R-29 was registered as the union and dispatched with the lanes emptied
+ * by the cost rule upstream (§57.2), so the run measured the one-sided device at **0.2504 F1 over 0.2148** and called it
+ * the union's. **A device that is reachable only by an accident of another device's configuration cannot be registered,
+ * re-run, or falsified** - and this one is not an accident: it is the cheapest arm that has ever beaten the shipped
+ * point on this corpus. `reader` names it, publishes `merge.sides.lanes: 0`, and is judged against its own registration.
+ */
+const ENSEMBLE = ENSEMBLE_MODE === 'on' || ENSEMBLE_MODE === 'reader';
+const ENSEMBLE_READER_ONLY = ENSEMBLE_MODE === 'reader';
+/** What the artifact records: `false`, `on`, or `reader`. The confound guard reads this value, and the registration is
+ * chosen by it - **two devices under one flag is how a pair comes to compare an arm with itself.** */
+const ENSEMBLE_SETTING = ENSEMBLE ? ENSEMBLE_MODE : false;
 // **A merge with nothing to merge is refused before a single call is bought.** `AACR_ENSEMBLE=on` with `AACR_AGENT=off`
 // leaves the arm reviewing with the five lanes and writing `ensemble: true` into its configuration - **an artifact that
 // says both reviewers ran when one did**, and a pair whose varied key is the flag rather than the device. There is no
@@ -1247,6 +1264,19 @@ async function main() {
     await dryRun();
     return;
   }
+  /**
+   * **A figure is written by the run that produced it, or it is not there at all.**
+   *
+   * `benchmarks/aacr-bench.json` is a tracked file: it is the figure this repository publishes. **So a run that dies
+   * before `write()` leaves the *previous* run's artefact at that path**, and the upload step - which is `always()`,
+   * because a skipped run still has something to say - copies it under the new arm's name. That happened on R-30: the
+   * merge arm hit the 340-minute job ceiling during the review step, and published `benchmarks/aacr-bench.json` as it
+   * stood in the checkout, **a figure from 2026-11-10 with F1 0.2026 that had been judged under a different device.**
+   * Nothing in the pipeline could tell it apart from a result: the name matched, the schema matched, the numbers added
+   * up. **A cancelled run publishing a number is worse than a cancelled run publishing nothing**, so the path is
+   * cleared here, before the first request, and an upload that finds no file is the honest report.
+   */
+  rmSync(resolve(process.cwd(), 'benchmarks', 'aacr-bench.json'), { force: true });
   // **The arm's definition, loaded once for the whole run.** The reviewer is built from these and the artifact records
   // them, so two separate loads could only ever disagree by being two - and a figure whose configuration was resolved
   // twice is a figure that can name a configuration it did not run. Loaded after the dry-run return on purpose: the dry
@@ -1268,6 +1298,18 @@ async function main() {
       'on their corpus, not runs reproduced here.**',
     ],
     measuredAt: new Date().toISOString().slice(0, 10),
+    /**
+     * **Which run wrote this file**, because a figure outlives the run that produced it and the file it lives in is
+     * tracked. §58.1 is the incident: a cancelled run uploaded the previous figure under its own arm's name, and the
+     * artifact had no field that could say the numbers were three weeks old. `finishedAt` is stamped by `write()` - it is
+     * the field that only a run which reached the end can carry.
+     */
+    provenance: {
+      runId: process.env['GITHUB_RUN_ID'] ?? null,
+      runAttempt: process.env['GITHUB_RUN_ATTEMPT'] ?? null,
+      sha: process.env['GITHUB_SHA'] ?? null,
+      startedAt: new Date().toISOString(),
+    },
     where: 'github-actions',
     corpus: 'Alibaba-Aone/aacr-bench (Apache-2.0, public on Hugging Face)',
     judge: { model: MODEL, endpoint: BASE },
@@ -1638,7 +1680,7 @@ async function main() {
     // decided, so a pair that varies it varies one device. **Spelled `AGENT && ENSEMBLE` rather than
     // `mergeCounters.enabled`** because this literal is built before the counters exist, and a value read from a binding
     // in its temporal dead zone is a crash rather than a figure.
-    ensemble: AGENT && ENSEMBLE,
+    ensemble: AGENT ? ENSEMBLE_SETTING : false,
   });
   // **The dedup threshold is a parameter now, and this run takes the next point on its curve.**
   //
@@ -2772,7 +2814,7 @@ async function main() {
     // `merge.candidates` was 394 for 46 pull requests, which is one reviewer's worth. **A device that cannot be run
     // because a cost optimisation upstream of it emptied one of its two inputs is not a device**, and the artifact now
     // carries `merge.sides` so that the next reader can check the union was really a union.
-    const lanesRun = !AGENT || ENSEMBLE;
+    const lanesRun = !AGENT || (ENSEMBLE && !ENSEMBLE_READER_ONLY);
     for (const section of lanesRun ? sections : []) {
       const sectionDiff = section.lines.join(String.fromCharCode(10));
       try {
@@ -4005,7 +4047,7 @@ async function main() {
       // decided, so a pair that varies it varies one device. **Spelled `AGENT && ENSEMBLE` rather than
       // `mergeCounters.enabled`** because this literal is built before the counters exist, and a value read from a binding
       // in its temporal dead zone is a crash rather than a figure.
-      ensemble: AGENT && ENSEMBLE,
+      ensemble: AGENT ? ENSEMBLE_SETTING : false,
       // **Whether a finding's claim was checked before it was filed**, because this is the arm under test and a figure
       // whose artifact does not name the side of the switch it came from is a figure a second run can disagree with
       // without either being wrong - the defect every other field in this block was added to prevent, one device later.
@@ -4441,9 +4483,15 @@ async function main() {
 
 function write(payload) {
   mkdirSync(join(process.cwd(), 'benchmarks'), { recursive: true });
+  // **`finishedAt` is added here rather than at the call sites**, so that every path out of this script - a result, a
+  // skip, a shutout - carries the stamp, and a file without one is a file this script did not finish writing.
+  const stamped = {
+    ...payload,
+    provenance: { ...(payload.provenance ?? {}), finishedAt: new Date().toISOString() },
+  };
   writeFileSync(
     resolve(process.cwd(), 'benchmarks', 'aacr-bench.json'),
-    JSON.stringify(payload, null, 2) + '\n',
+    JSON.stringify(stamped, null, 2) + '\n',
   );
 }
 

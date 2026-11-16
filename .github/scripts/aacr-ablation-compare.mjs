@@ -254,6 +254,39 @@ export const REGISTRATIONS = Object.freeze({
     mechanismRule: 'recall-holds',
     confirmation: [],
   },
+  /**
+   * **§58's registration (R-31): the one-sided merge, which is the arm R-29 measured without choosing to.**
+   *
+   * R-29's artifact is the evidence and it is unambiguous about the arithmetic: on 46 pull requests and 330 goldens, a
+   * selection pass over the reading reviewer's own candidates - de-duplicate, then twelve per pull request - reached
+   * **0.2504 F1 against 0.2148 for the same reader under score order at the same budget**, with 54 fewer comments. What
+   * it is not evidence about is the claim it was filed under, because the lanes were empty: the device that ran had one
+   * side, and every figure is a figure about that device.
+   *
+   * **So this is the same device, registered as itself, on rows it has never seen.** The comparator is the five lanes
+   * alone - the arm every published figure of this campaign is measured against - and the slice is the discovery rows
+   * (100 pull requests, 724 goldens) rather than the confirmation rows, because **0.02 cannot be resolved on 330 goldens
+   * and can be resolved on 724** (§57.5's own reason, reused unchanged).
+   *
+   * **The falsifiers are stated with the claim.** F1 below **0.2272** (the lanes' 0.2072 plus the registered 0.02) is a
+   * falsification, and so is a recall below **0.1875** (the lanes' 0.1975 less a golden's worth) - **because a selection
+   * pass that buys precision by deleting recall is the one failure mode this device is most exposed to**, and a
+   * registration that named only F1 would accept exactly that trade.
+   *
+   * **`inputsFormed` is deliberately null.** The union gate reads `merge.unionPulls` and fires when a merge was handed
+   * one side; **this device is defined as one side**, so the gate would refuse the run it is meant to measure. The lane
+   * count is still published in `merge.sides`, so a reader can tell the two apart without trusting this paragraph.
+   */
+  'ensemble:reader': {
+    section: '§58 (R-31)',
+    claim:
+      "the reading reviewer's own list, de-duplicated and cut to twelve per pull request, raises the file arm F1 by at least 0.02 over the five lanes alone on the hundred discovery pull requests, without lowering recall",
+    arm: 'file',
+    registeredGain: 0.02,
+    mechanism: 'precision rises and recall does not fall',
+    mechanismRule: 'recall-holds',
+    confirmation: [{ skip: 50, max: 100 }],
+  },
 });
 
 /**
@@ -601,7 +634,19 @@ export function confoundsBetween(on, off) {
  */
 export function summarise(on, off) {
   const varied = variedField(on, off);
-  const registration = REGISTRATIONS[varied.field ?? ''] ?? null;
+  /**
+   * **A field can carry two devices, so the value is part of the key.**
+   *
+   * `ensemble` is one input and two arms: `on` merges two lists, `reader` selects from one. A lookup keyed on the field
+   * alone would answer the second one with the first one's claim - **the same defect as `registeredGain` with no `arm`
+   * field, one level up**: a registration attached to the wrong device reads as a verdict about an experiment nobody
+   * registered. The value-specific key is tried first and the field is the fallback, so every existing entry keeps
+   * working and a new value has to name its own claim or inherit a field-wide one deliberately.
+   */
+  const registration =
+    REGISTRATIONS[`${varied.field ?? ''}:${String(varied.withValue)}`] ??
+    REGISTRATIONS[varied.field ?? ''] ??
+    null;
   const paired = pairedComparison(coverageSet(on), coverageSet(off));
   /**
    * **The arm the registration is a claim about, read from the registration and not chosen by this file.**
@@ -1153,6 +1198,50 @@ function selfTest() {
   assert(
     guarded.verdict.outcome.includes('must not lower'),
     'and the outcome names the clause that failed rather than the one that passed',
+  );
+
+  // **And a field with two devices answers each with its own claim.**
+  //
+  // `ensemble: on` merges two lists and `ensemble: reader` selects from one. A lookup keyed on the field alone answers
+  // the second with the first's claim - **and then the union gate fires on a device that is defined as one-sided**, so
+  // the run that was meant to measure it is refused as `not a test` instead of being measured. Both halves are asserted
+  // here because either one alone would leave a plausible way to get the wrong verdict.
+  const readerOnly = {
+    ...artifact({
+      tp: 6,
+      fp: 14,
+      fn: 4,
+      covered: [
+        [0, 1, 2],
+        [3, 4, 5],
+      ],
+      goldensPerPr: [5, 5],
+    }),
+  };
+  readerOnly.configuration = { ...readerOnly.configuration, agent: true, ensemble: 'reader' };
+  readerOnly.merge = { enabled: true, unionPulls: 0, sides: { lanes: 0, reader: 380 }, pulls: 46 };
+  const lanesOnlyArm = {
+    ...artifact({
+      tp: 3,
+      fp: 17,
+      fn: 7,
+      covered: [[0, 1], [3]],
+      goldensPerPr: [5, 5],
+    }),
+  };
+  lanesOnlyArm.configuration = { ...lanesOnlyArm.configuration, agent: false, ensemble: false };
+  const readerVerdict = summarise(readerOnly, lanesOnlyArm);
+  assert(
+    String(readerVerdict.registration?.section ?? '').includes('§58'),
+    'a one-sided merge is answered by the registration written for it, not by the union\u2019s',
+  );
+  assert(
+    readerVerdict.verdict.deviceInputs === null,
+    'and the union gate does not apply to a device that is defined as one side',
+  );
+  assert(
+    !readerVerdict.verdict.outcome.startsWith('not a test'),
+    'so the run is measured rather than refused',
   );
 
   // **And a registration whose device did not have its inputs is not a test, whatever the gain was.**

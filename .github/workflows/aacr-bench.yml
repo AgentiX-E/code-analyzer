@@ -130,9 +130,14 @@ on:
         # reading reviewer*, and the run that confirmed it had the lanes emptied by the cost rule above, so the artifact
         # carried one reviewer's candidates and no way to tell. `pair` dispatches both configurations over the same rows,
         # so the difference between the artifacts is the merge and the union it merges is checkable in `merge.sides`.
-        description: 'Merge both reviewers per pull request (requires agent: on), or both in one dispatch (pair)'
+        # **`reader` is the device R-29 measured by accident, named on purpose.** With `on` the merge has two lists;
+        # with `reader` it has one, and the selection pass - de-duplicate, then twelve per pull request - is what is being
+        # measured. That arm scored 0.2504 against the single reader's 0.2148 on the confirmation slice, and **a device
+        # reachable only through another device's upstream cost rule cannot be registered or falsified**.
+        # **`pair-reader`** dispatches both the lanes and that arm over the same rows, which is the pair R-31 needs.
+        description: 'Merge both reviewers (on), the reader alone (reader), or both sides of either in one dispatch (pair, pair-reader)'
         type: choice
-        options: ['off', 'on', 'pair']
+        options: ['off', 'on', 'reader', 'pair', 'pair-reader']
         default: 'off'
       idioms:
         # **Whether the deterministic idiom lane runs beside the five model lanes, and it is the arm the sample bought.**
@@ -303,7 +308,7 @@ jobs:
       # reference and `idioms` is the arm R-21 registered, and a matrix that varied both would answer neither - which is
       # the refusal `aacr-ablation-compare.mjs` already encodes as `variedField`.
       matrix:
-        include: '${{ fromJSON((inputs.window || ''off'') == ''pair'' && ''[{"profile":"advisory","code_context":"off","adjudicate":"off","idioms":"off","agent":"off","remarks":"off","ensemble":"off"},{"profile":"advisory","code_context":"on","adjudicate":"off","idioms":"off","agent":"off","remarks":"off","ensemble":"off"}]'' || (inputs.agent || ''off'') == ''pair'' && ''[{"profile":"advisory","code_context":"off","adjudicate":"off","idioms":"off","agent":"off","remarks":"off","ensemble":"off"},{"profile":"advisory","code_context":"off","adjudicate":"off","idioms":"off","agent":"on","remarks":"off","ensemble":"off"}]'' || (inputs.agent || ''off'') == ''on'' && ''[{"profile":"advisory","code_context":"off","adjudicate":"off","idioms":"off","agent":"on","remarks":"off","ensemble":"off"}]'' || (inputs.idioms || ''off'') == ''pair'' && ''[{"profile":"advisory","code_context":"off","adjudicate":"off","idioms":"off","agent":"off","remarks":"off","ensemble":"off"},{"profile":"advisory","code_context":"off","adjudicate":"off","idioms":"on","agent":"off","remarks":"off","ensemble":"off"}]'' || (inputs.idioms || ''off'') == ''on'' && ''[{"profile":"advisory","code_context":"off","adjudicate":"off","idioms":"on","agent":"off","remarks":"off","ensemble":"off"}]'' || (inputs.remarks || ''off'') == ''pair'' && ''[{"profile":"advisory","code_context":"off","adjudicate":"off","idioms":"off","agent":"off","remarks":"off","ensemble":"off"},{"profile":"advisory","code_context":"off","adjudicate":"off","idioms":"off","agent":"off","remarks":"on","ensemble":"off"}]'' || (inputs.remarks || ''off'') == ''on'' && ''[{"profile":"advisory","code_context":"off","adjudicate":"off","idioms":"off","agent":"off","remarks":"on","ensemble":"off"}]'' || (inputs.pair || ''off'') == ''on'' && ''[{"profile":"advisory","code_context":"off","adjudicate":"on","idioms":"off","agent":"off","remarks":"off","ensemble":"off"},{"profile":"advisory","code_context":"off","adjudicate":"off","idioms":"off","agent":"off","remarks":"off","ensemble":"off"}]'' || (inputs.ensemble || ''off'') == ''pair'' && ''[{"profile":"advisory","code_context":"off","adjudicate":"off","idioms":"off","agent":"off","remarks":"off","ensemble":"off"},{"profile":"advisory","code_context":"off","adjudicate":"off","idioms":"off","agent":"on","remarks":"off","ensemble":"on"}]'' || (inputs.ensemble || ''off'') == ''on'' && ''[{"profile":"advisory","code_context":"off","adjudicate":"off","idioms":"off","agent":"on","remarks":"off","ensemble":"on"}]'' || ''[{"profile":"advisory","code_context":"off","adjudicate":"off","idioms":"off","agent":"off","remarks":"off","ensemble":"off"}]'') }}'
+        include: '${{ fromJSON((inputs.window || ''off'') == ''pair'' && ''[{"profile":"advisory","code_context":"off","adjudicate":"off","idioms":"off","agent":"off","remarks":"off","ensemble":"off"},{"profile":"advisory","code_context":"on","adjudicate":"off","idioms":"off","agent":"off","remarks":"off","ensemble":"off"}]'' || (inputs.agent || ''off'') == ''pair'' && ''[{"profile":"advisory","code_context":"off","adjudicate":"off","idioms":"off","agent":"off","remarks":"off","ensemble":"off"},{"profile":"advisory","code_context":"off","adjudicate":"off","idioms":"off","agent":"on","remarks":"off","ensemble":"off"}]'' || (inputs.agent || ''off'') == ''on'' && ''[{"profile":"advisory","code_context":"off","adjudicate":"off","idioms":"off","agent":"on","remarks":"off","ensemble":"off"}]'' || (inputs.idioms || ''off'') == ''pair'' && ''[{"profile":"advisory","code_context":"off","adjudicate":"off","idioms":"off","agent":"off","remarks":"off","ensemble":"off"},{"profile":"advisory","code_context":"off","adjudicate":"off","idioms":"on","agent":"off","remarks":"off","ensemble":"off"}]'' || (inputs.idioms || ''off'') == ''on'' && ''[{"profile":"advisory","code_context":"off","adjudicate":"off","idioms":"on","agent":"off","remarks":"off","ensemble":"off"}]'' || (inputs.remarks || ''off'') == ''pair'' && ''[{"profile":"advisory","code_context":"off","adjudicate":"off","idioms":"off","agent":"off","remarks":"off","ensemble":"off"},{"profile":"advisory","code_context":"off","adjudicate":"off","idioms":"off","agent":"off","remarks":"on","ensemble":"off"}]'' || (inputs.remarks || ''off'') == ''on'' && ''[{"profile":"advisory","code_context":"off","adjudicate":"off","idioms":"off","agent":"off","remarks":"on","ensemble":"off"}]'' || (inputs.pair || ''off'') == ''on'' && ''[{"profile":"advisory","code_context":"off","adjudicate":"on","idioms":"off","agent":"off","remarks":"off","ensemble":"off"},{"profile":"advisory","code_context":"off","adjudicate":"off","idioms":"off","agent":"off","remarks":"off","ensemble":"off"}]'' || (inputs.ensemble || ''off'') == ''pair-reader'' && ''[{"profile":"advisory","code_context":"off","adjudicate":"off","idioms":"off","agent":"off","remarks":"off","ensemble":"off"},{"profile":"advisory","code_context":"off","adjudicate":"off","idioms":"off","agent":"on","remarks":"off","ensemble":"reader"}]'' || (inputs.ensemble || ''off'') == ''reader'' && ''[{"profile":"advisory","code_context":"off","adjudicate":"off","idioms":"off","agent":"on","remarks":"off","ensemble":"reader"}]'' || (inputs.ensemble || ''off'') == ''pair'' && ''[{"profile":"advisory","code_context":"off","adjudicate":"off","idioms":"off","agent":"off","remarks":"off","ensemble":"off"},{"profile":"advisory","code_context":"off","adjudicate":"off","idioms":"off","agent":"on","remarks":"off","ensemble":"on"}]'' || (inputs.ensemble || ''off'') == ''on'' && ''[{"profile":"advisory","code_context":"off","adjudicate":"off","idioms":"off","agent":"on","remarks":"off","ensemble":"on"}]'' || ''[{"profile":"advisory","code_context":"off","adjudicate":"off","idioms":"off","agent":"off","remarks":"off","ensemble":"off"}]'') }}'
 
     steps:
       - name: Checkout
@@ -499,8 +504,13 @@ jobs:
       # **The ensemble dimension is in the name, and the first run of the merge is why.** That run published
       # `...-adjudicate-off-idioms-off-agent-on-ensemble-off-remarks-off`, the name an agent-only run uses - **two
       # devices, one artifact name**, and a paired comparison matching on names would have compared an arm with itself.
+      # **Only a run that reached the end publishes a figure.** `always()` was here so that a skipped run - no corpus, no
+      # credential - would still upload its marker, and that part is still true: those runs exit zero. What it also did
+      # was copy `benchmarks/aacr-bench.json` on a run that died mid-review, **and that path is a tracked file**, so the
+      # artifact it published was the previous run's figure under this run's arm name (§58.1). The script now clears the
+      # path before the first request; this condition is the second half of the same guarantee.
       - name: Upload the figure
-        if: always()
+        if: success()
         uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7
         with:
           # **Every matrix key is in the name**, because a pair of artifacts whose names differ in one segment is a pair
@@ -531,7 +541,11 @@ jobs:
     # reports a comparison is not the job that should discover there is nothing to compare**: a dispatch whose whole
     # purpose is one arm should end green with its figure, and a run of this job over one row would compute a
     # difference between an arm and nothing.
-    if: (inputs.window || 'off') == 'pair' || (inputs.agent || 'off') == 'pair' || (inputs.remarks || 'off') == 'pair' || ((inputs.agent || 'off') != 'on' && ((inputs.pair || 'off') == 'on' || (inputs.idioms || 'off') == 'pair'))
+    #
+    # **And it must fire for the merge arms, which it did not.** The gate listed four inputs and `ensemble` was not one
+    # of them, so R-30's dispatch bought two arms and would have ended without a comparison - **the job whose output is
+    # the thing the run was dispatched for was skipped, and the run still looked complete.**
+    if: (inputs.window || 'off') == 'pair' || (inputs.agent || 'off') == 'pair' || (inputs.remarks || 'off') == 'pair' || (inputs.ensemble || 'off') == 'pair' || (inputs.ensemble || 'off') == 'pair-reader' || ((inputs.agent || 'off') != 'on' && ((inputs.pair || 'off') == 'on' || (inputs.idioms || 'off') == 'pair'))
     timeout-minutes: 10
     steps:
       - name: Checkout
@@ -557,7 +571,9 @@ jobs:
       # which input chose the arm would be a name no test can expand and no reader can check against the matrix; two
       # steps with literal names and complementary conditions are checkable by both, and only one of them ever runs.
       - name: Download the run with the claim check
-        if: (inputs.idioms || 'off') != 'pair' && (inputs.agent || 'off') != 'pair' && (inputs.window || 'off') != 'pair' && (inputs.remarks || 'off') != 'pair'
+        # **And not on a merge dispatch either.** This step downloads the code-window arm's name, and a merge dispatch's
+        # matrix does not produce it - so the comparison would have failed here, after both arms had been paid for.
+        if: (inputs.idioms || 'off') != 'pair' && (inputs.agent || 'off') != 'pair' && (inputs.window || 'off') != 'pair' && (inputs.remarks || 'off') != 'pair' && (inputs.ensemble || 'off') != 'pair' && (inputs.ensemble || 'off') != 'pair-reader'
         uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8
         with:
           name: aacr-bench-advisory-off-on-off-off-off-off
@@ -622,6 +638,15 @@ jobs:
         uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8
         with:
           name: aacr-bench-advisory-off-off-off-on-on-off
+          path: /tmp/with
+
+      # **And the reader's own arm for `pair-reader`**, which is the one-sided device with its own name. The lanes side is
+      # the unconditional download below: it is the same artifact every other pair compares against.
+      - name: Download the reader-only merge
+        if: (inputs.ensemble || 'off') == 'pair-reader'
+        uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8
+        with:
+          name: aacr-bench-advisory-off-off-off-on-reader-off
           path: /tmp/with
 
       # **No `|| true` and no fallback**: the script refuses to compare two artifacts that are not the same experiment,

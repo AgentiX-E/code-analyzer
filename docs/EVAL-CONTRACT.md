@@ -6064,3 +6064,79 @@ uploaded an artifact name that an agent-only run also uses (so a name-matched pa
 workflow's `pair` input carried an unquoted `off` (so **the workflow could not be dispatched with its own defaults** -
 `422: Provided value 'false' for input 'pair' not in the list of allowed values`). The name now carries the ensemble
 dimension, and `ensemble: pair` dispatches both configurations over the same rows.
+
+## 58. The run that was cancelled, and the figure it published
+
+### 58.1 R-30 did not produce a measurement, and the artifact could not say so
+
+`43795692468` dispatched the pair §57.5 registered: `{agent off, ensemble off}` against `{agent on, ensemble on}`, 100
+discovery pull requests, 724 goldens. The lanes arm finished in 2 h 10 min. **The merge arm hit the job's 340-minute
+ceiling at 5 h 39 min inside the review step and was cancelled**, its two verification steps were skipped, and then:
+
+| what happened                              | consequence                                                                           |
+| ------------------------------------------ | ------------------------------------------------------------------------------------- |
+| the upload step is `always()`              | it copied **`benchmarks/aacr-bench.json` as it stood in the checkout**                |
+| that path is a tracked file                | the file is the figure of **2026-11-10**, `F1 0.2026`, produced by a different device |
+| the artifact name is built from the matrix | it published under `...-adjudicate-off-idioms-off-agent-on-ensemble-on-remarks-off`   |
+| the compare job's `if:` lists four inputs  | **`ensemble` was not one of them, so the comparison never ran**                       |
+
+**Three defects, and the first is the one that matters**: a cancelled run published a number, under the right name, with
+a schema a reader has no reason to doubt, and **nothing in the artifact was false**. It was the previous run's truth.
+**A cancellation is not a result, and the difference has to be in the file rather than in the API.**
+
+The repair is three lines and one deletion:
+
+1. **The script clears the path before its first request** (`rmSync(..., { force: true })`), so a run that dies mid-flight
+   publishes nothing. An upload that finds no file is the honest report.
+2. **The figure is uploaded on `success()` rather than `always()`.** The old condition existed for _skipped_ runs - no
+   corpus, no credential - and those still exit zero and still publish their marker; only a run that died loses its
+   upload.
+3. **Every artifact carries `provenance: { runId, sha, startedAt, finishedAt }`**, stamped at the single point of writing,
+   so a file that lacks `finishedAt` is a file this script did not finish - and the committed figure from 2026-11-10 is
+   now identifiable as one by inspection.
+4. **The paired job fires for the merge arms**, which it did not: the run would have ended complete, with both arms paid
+   for and no comparison - **the job whose output is the reason the run exists was skipped, and the run still looked
+   green.** The code-window download step carried the same omission in the other direction: its guard was "not any pair
+   except the ones I name", `ensemble` was not among them, so a merge dispatch would have failed at the download, after
+   the bill.
+
+### 58.2 The union cannot be measured in one job at this size, and that is a fact about the runner
+
+The lanes alone cost **5 785 model calls, $1.67 and 2 h 10 min** for 100 pull requests; the reader adds its own calls and
+doubles the judging; the merge adds one call per pull request that exceeds twelve candidates. **GitHub's ceiling for a
+job is six hours**, and the workflow's own is 340 minutes. The union therefore needs ~2.5× the lanes' cost and lands
+outside it - which is not a reason to register it differently, it is a reason to **shard it or to stop claiming it can be
+measured in one dispatch**.
+
+**What the same run does establish, and it is the more useful half: the lanes' own number on the discovery rows.**
+`...-off-off-off-off-off-off`, completed, 100 pull requests, 724 goldens:
+
+| arm                                | comments | TP  | FP  | FN  | precision | recall | F1         |
+| ---------------------------------- | -------- | --- | --- | --- | --------- | ------ | ---------- |
+| five lanes, `drop test, budget 12` | 656      | 143 | 513 | 581 | 0.2180    | 0.1975 | **0.2072** |
+
+### 58.3 R-31: the one-sided merge, registered before its run
+
+R-29's artifact is unambiguous about one device and says nothing about the one it was filed under (§57.2): a selection
+pass over **the reading reviewer's own candidates** - de-duplicate, then twelve per pull request - reached **0.2504 F1
+against 0.2148** for the same reader under score order at the same budget, with 54 fewer comments, on 46 pull requests and
+330 goldens. **That device was reachable only by an accident of another device's upstream cost rule**, which is a
+sentence no registration can be written against.
+
+So the flag has a third state. `AACR_ENSEMBLE=reader` runs the reader, skips the lanes **by definition rather than by
+bug**, and merges one list; the artifact records `ensemble: "reader"`, and `merge.sides.lanes: 0` says the same thing in
+arithmetic. `ensemble: pair-reader` dispatches it against the lanes in one job, over the same rows, the same judge and the
+same corpus, so the difference between the two artifacts is the device.
+
+**The registration, written before the dispatch:**
+
+- **Claim.** The reading reviewer's own list, de-duplicated and cut to twelve per pull request, raises the file-arm F1 by
+  at least **0.02** over the five lanes alone on the hundred discovery pull requests, **without lowering recall**.
+- **Comparator.** `{agent off, ensemble off}` - the lanes' 0.2072, measured on these rows in one run.
+- **Falsifiers.** F1 below **0.2272**, or recall below **0.1875** (the lanes' 0.1975 less a golden's worth). **A
+  selection pass that buys precision by deleting recall is the failure mode this device is most exposed to**, and a
+  registration naming only F1 would accept exactly that trade.
+- **Slice.** `skip 50`, 100 pull requests, 724 goldens - the discovery rows, because **0.02 cannot be resolved on 330
+  goldens and can be resolved on 724** (§57.5's reason, reused unchanged).
+- **What it does not claim.** That the union of the two reviewers is worth anything. That claim stays open and its price
+  is §58.2.

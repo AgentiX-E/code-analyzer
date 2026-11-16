@@ -244,6 +244,15 @@ describe('the artifact names of the benchmark workflow', () => {
           .find((matrix) => matrix.some((arm) => arm['ensemble'] === 'on'))!
           .find((arm) => arm['ensemble'] === 'on')!,
       ),
+      // **And the one-sided merge's arm**, which is a different name for a different device (§58): `pair-reader` buys
+      // the lanes and the reader-only selection pass in one dispatch, and the comparison downloads the second by name.
+      expand(
+        uploaded[0]!,
+        alternatives()
+          .filter((matrix) => matrix.length === 2)
+          .find((matrix) => matrix.some((arm) => arm['ensemble'] === 'reader'))!
+          .find((arm) => arm['ensemble'] === 'reader')!,
+      ),
     ]);
     expect(new Set(downloads)).toEqual(expected);
   });
@@ -309,13 +318,20 @@ describe('the matrix is one experiment', () => {
     // **And a single row for the merge**, because §56's device is both reviewers under one arm: `ensemble: on` implies
     // `agent: on` - the script refuses the combination where it does not - so a second row would buy the same merge
     // twice. Five singles and four pairs, enumerated rather than bounded for the reason above.
+    //
+    // **Six singles and seven pairs now, and the two new entries are one device counted twice by accident.** R-29's
+    // dispatch emptied the lanes, so the arm it measured was a selection pass over the reader's candidates alone -
+    // 0.2504 against 0.2148 on the confirmation slice. `ensemble: reader` is that device with a name: a single row when
+    // it is the only arm asked for, and a pair when it is compared with the lanes. **Every entry here is a dispatch
+    // somebody pays for**, so the shape is enumerated rather than bounded - an alternative that appeared by accident
+    // would be a dispatch nobody chose, which is exactly what the arm itself was.
     expect(
       alternatives()
         .map((matrix) => matrix.length)
         .sort(),
       // **And a sixth pair for the merge**, dispatched by `ensemble: pair` on §57.5's registration: it is the pair whose
       // two arms are the claim's own two arms rather than a proxy, and R-29 could not be dispatched as one.
-    ).toEqual([1, 1, 1, 1, 1, 2, 2, 2, 2, 2, 2]);
+    ).toEqual([1, 1, 1, 1, 1, 1, 2, 2, 2, 2, 2, 2, 2]);
   });
 
   it('varies exactly one key, so that a difference between the arms is the device', () => {
