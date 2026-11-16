@@ -1024,8 +1024,64 @@ function refuse(reason, detail) {
   // Iteration 102 of this repository was about a gate that printed `nothing published` and exited 0 for weeks, and **a
   // comparison job that declines to compare and turns the workflow green is the same defect with a better excuse.** The
   // artifact is still written and still uploaded, so a reader can see why; the job is red, so a reader knows to look.
+  //
+  // **And the refusal says what is still readable.** A pair whose arms lost different pull requests has no comparable
+  // totals and does have comparable pairs, so the line below prints the paired reading on the rows both arms read -
+  // because a job that says only "not the same experiment" gets dispatched again unchanged, at the same price, by
+  // whoever needs the answer, which is how a measurement defect becomes a budget defect.
+  const paired = detail?.pairedOnCommonPullRequests;
+  if (paired) console.log(pairedReading(paired));
   process.exitCode = 1;
   return artifact;
+}
+
+/**
+ * **The reading a corpus gap does not touch: one pair per golden, on the rows both arms read.**
+ *
+ * A total over 98 rows cannot be subtracted from a total over 100 - that is the whole reason this file refuses - but a
+ * `(pull request, golden)` pair is either covered by an arm or not, and on the rows both arms read the two arms saw the
+ * same code, the same goldens and the same judge. **Dropping the rows one arm never reached is what makes the remaining
+ * pairs comparable, and naming them is what makes the drop auditable.**
+ *
+ * The count is of pairs and not of pull requests, so two goldens on one row are two pairs; `commonPullRequests` is
+ * reported beside it because a paired test over one shared row and a paired test over ninety-eight are not the same
+ * evidence, and only the number of rows distinguishes them.
+ */
+export function pairedOnCommonPullRequests(on, off) {
+  const rowsOf = (artifact) =>
+    new Set((artifact.coverage?.byPullRequest ?? []).map((pull) => String(pull.pr)).filter(Boolean));
+  const onRows = rowsOf(on);
+  const offRows = rowsOf(off);
+  const common = new Set([...onRows].filter((pr) => offRows.has(pr)));
+  const pairsOf = (artifact) => {
+    const pairs = new Set();
+    for (const pull of artifact.coverage?.byPullRequest ?? []) {
+      const pr = String(pull.pr);
+      if (!common.has(pr)) continue;
+      for (const at of pull.covered ?? []) pairs.add(`${pr}#${String(at)}`);
+    }
+    return pairs;
+  };
+  const paired = pairedComparison(pairsOf(on), pairsOf(off));
+  return {
+    commonPullRequests: common.size,
+    both: paired.both,
+    withOnly: paired.oursOnly,
+    withoutOnly: paired.theirsOnly,
+    pValue: paired.pValue,
+    verdict: paired.verdict,
+    dropped: {
+      with: [...onRows].filter((pr) => !common.has(pr)).slice(0, 10),
+      without: [...offRows].filter((pr) => !common.has(pr)).slice(0, 10),
+    },
+    counts: 'golden pairs on the rows both arms read; no total is compared and no F1 difference is implied',
+  };
+}
+
+/** The line, so the job's log and the artifact say the same thing about the same pairs. */
+export function pairedReading(paired) {
+  const rows = paired.commonPullRequests === 1 ? 'pull request' : 'pull requests';
+  return `AACR-ABLATION paired on the ${paired.commonPullRequests} ${rows} both arms read · +${paired.withOnly}/-${paired.withoutOnly} · p=${paired.pValue} · dropped ${paired.dropped.with.length} with, ${paired.dropped.without.length} without`;
 }
 
 /**
@@ -1763,8 +1819,20 @@ function main() {
     // **A refusal that says what each arm lost, not only that the numbers differ.** The four pull requests the `with`
     // arm could not read in the last run were four lines in the other artifact's `prsWithoutDiffReasons`, and the
     // comparison that ignored them could not have said which repair to make - a token, a URL, or a corpus.
+    //
+    // **And it says what is still readable**, which is the paired reading on the rows both arms read. The totals are
+    // refused because two denominators built from different rows are not a difference; the pairs are not, because on a
+    // shared row the two arms were given the same code and the same goldens. R-31 - two arms, seven hours, and a
+    // comparison job that answered with one sentence - is why this is computed rather than deferred.
+    let paired = null;
+    try {
+      paired = pairedOnCommonPullRequests(on, off);
+    } catch {
+      paired = null;
+    }
     refuse('the two artifacts are not the same experiment', {
       confounds,
+      ...(paired ? { pairedOnCommonPullRequests: paired } : {}),
       corpus: {
         with: {
           requested: on.prsInDataset ?? null,
