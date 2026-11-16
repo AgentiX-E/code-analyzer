@@ -496,16 +496,16 @@ jobs:
           set -e
           node scripts/aacr-bench-audit.mjs --check
 
+      # **The ensemble dimension is in the name, and the first run of the merge is why.** That run published
+      # `...-adjudicate-off-idioms-off-agent-on-ensemble-off-remarks-off`, the name an agent-only run uses - **two
+      # devices, one artifact name**, and a paired comparison matching on names would have compared an arm with itself.
       - name: Upload the figure
         if: always()
         uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7
         with:
-          # **Both matrix keys are in the name**, because a pair of artifacts whose names differ in one segment is a pair
+          # **Every matrix key is in the name**, because a pair of artifacts whose names differ in one segment is a pair
           # a reader can match to the arms without opening either - and because `an-artifact-that-is-never-uploaded-is-
           # never-downloaded.test.ts` expands this name from the matrix and refuses a download nothing uploads.
-          # **The ensemble dimension is in the name, and the first run of the merge is why.** That run published
-          # `...-adjudicate-off-idioms-off-agent-on-ensemble-off-remarks-off`, which is the name the merge run published - **two devices, one
-          # artifact name**, and a paired comparison that matched on names would have compared an arm with itself.
           name: aacr-bench-${{ matrix.profile }}-${{ matrix.code_context }}-${{ matrix.adjudicate }}-${{ matrix.idioms }}-${{ matrix.agent }}-${{ matrix.ensemble }}-${{ matrix.remarks }}
           # **The figure and the competitor's whole output**, because **that output's format is what the next
           # iteration has to read** and **a field cannot hold a document**.
@@ -613,19 +613,16 @@ jobs:
       # reviewer's worth and the union was never formed. This pair dispatches both configurations over the same rows -
       # same slice, same judge, same model - so the difference between the artifacts is the merge, and `merge.sides`
       # says whether the union it merged was really a union.
+      # **The merge's comparator is the lanes, and it is the same artifact every other pair compares against**, so it is
+      # downloaded once by the unconditional step below rather than a second time here with a duplicate name - **two
+      # downloads of one name is how `downloads` and `uploads` came to disagree**, which is the failure this file's
+      # sibling test exists for.
       - name: Download the run with the merge
         if: (inputs.ensemble || 'off') == 'pair'
         uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8
         with:
           name: aacr-bench-advisory-off-off-off-on-on-off
           path: /tmp/with
-
-      - name: Download the five lanes alone, which is the comparator the registration names
-        if: (inputs.ensemble || 'off') == 'pair'
-        uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8
-        with:
-          name: aacr-bench-advisory-off-off-off-off-off-off
-          path: /tmp/without
 
       # **No `|| true` and no fallback**: the script refuses to compare two artifacts that are not the same experiment,
       # and a refusal is written into the artifact rather than swallowed. A missing artifact fails the job here, which

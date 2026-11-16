@@ -238,6 +238,14 @@ export const REGISTRATIONS = Object.freeze({
    */
   ensemble: {
     section: '§56 (R-29)',
+    /**
+     * **The two lists are the device, so a run without both is not a test of this claim.**
+     *
+     * §57.2 found the first dispatch of this arm merging the reader with nothing and reporting a confirmation; the gate
+     * that reads `merge.unionPulls` is what turns that into `not a test` on the next dispatch rather than into a second
+     * confirmation of a device that has never been run.
+     */
+    inputsFormed: 'union',
     claim:
       'merging both reviewers into twelve comments per pull request raises the file arm F1 by at least 0.02 over the five lanes alone, without lowering recall',
     arm: 'file',
@@ -651,6 +659,19 @@ export function summarise(on, off) {
    * `null` means the registration declares no slice, which is what a closed registration looks like - §8's checklist is
    * falsified and has nothing left to confirm, so anything that varies it is reported without a slice gate.
    */
+  /**
+   * **Whether the device had the inputs its registration names, before its gain is read.**
+   *
+   * R-29 is the case: registered as *a list merged from the five lanes and the reading reviewer*, dispatched with the
+   * lanes emptied by a cost rule three hundred lines upstream, and reported at **+0.0356, `confirmed`** - **a plausible
+   * figure for a device that never ran.** No field in that artifact could contradict it, which is why the merge now
+   * publishes `unionPulls` and why this gate reads it. **A threshold met by the wrong device is not a threshold met**,
+   * so the check sits above the magnitude rather than beside it.
+   */
+  const unionRequired = registration?.inputsFormed === 'union';
+  const unionPulls = Number(on?.merge?.unionPulls ?? 0);
+  const inputsFormed = unionRequired ? unionPulls > 0 : null;
+
   const declared = registration?.confirmation ?? [];
   const slice = on.corpusSlice ?? null;
   const sliceMatches =
@@ -684,15 +705,17 @@ export function summarise(on, off) {
       ? 'unregistered: no expectation was written before this run'
       : sliceMatches === false
         ? `not a confirmation: the registration names ${declared.map((s) => `skip ${String(s.skip)} max ${String(s.max)}`).join(' or ')}, and this run read ${slice === null ? 'a corpus the artifact does not describe' : `skip ${String(slice.skip)} max ${String(slice.requested)}`}`
-        : !magnitudeMet
-          ? `falsified: the registered gain was not reached on ${armName}${guardMet === false ? `, and the ${armProse(String(guardArm))} fell by ${String(-guardGain)}` : ''}`
-          : mechanismMet === false
-            ? 'falsified: the magnitude arrived, the mechanism did not'
-            : guardMet === false
-              ? `falsified: ${armName} gained ${String(gain)} and the ${armProse(String(guardArm))} it must not lower fell by ${String(-guardGain)}`
-              : insideResolution
-                ? `inconclusive: a gain of ${String(gain)} inside the ${String(round(resolution))} this instrument resolves at ${String(goldens)} goldens`
-                : `confirmed: at least ${String(registeredGain)} F1 on ${armName}, and the mechanism is precision`;
+        : inputsFormed === false
+          ? `not a test: the device was registered to merge two reviewers and ran with ${String(on?.merge?.sides?.lanes ?? 0)} lane candidates and ${String(on?.merge?.sides?.reader ?? 0)} reader candidates over ${String(on?.prsReviewed ?? 0)} pull requests, so the union never formed`
+          : !magnitudeMet
+            ? `falsified: the registered gain was not reached on ${armName}${guardMet === false ? `, and the ${armProse(String(guardArm))} fell by ${String(-guardGain)}` : ''}`
+            : mechanismMet === false
+              ? 'falsified: the magnitude arrived, the mechanism did not'
+              : guardMet === false
+                ? `falsified: ${armName} gained ${String(gain)} and the ${armProse(String(guardArm))} it must not lower fell by ${String(-guardGain)}`
+                : insideResolution
+                  ? `inconclusive: a gain of ${String(gain)} inside the ${String(round(resolution))} this instrument resolves at ${String(goldens)} goldens`
+                  : `confirmed: at least ${String(registeredGain)} F1 on ${armName}, and the mechanism is precision`;
 
   return {
     measuredAt: new Date().toISOString().slice(0, 10),
@@ -788,6 +811,18 @@ export function summarise(on, off) {
       mechanismMet,
       /** Whether this run read the rows the registration names, or `null` when it names none. */
       sliceMatches,
+      /**
+       * **Whether the device had the inputs it was registered with**, or `null` when the registration names none.
+       * `unionFormed: false` means the merge ran with one side empty, and every figure below is about a different device.
+       */
+      deviceInputs: unionRequired
+        ? {
+            unionFormed: inputsFormed,
+            unionPulls,
+            lanesCandidates: Number(on?.merge?.sides?.lanes ?? 0),
+            readerCandidates: Number(on?.merge?.sides?.reader ?? 0),
+          }
+        : null,
       /**
        * **The registration's other clause, when it has one.** `null` for a registration that names no guard, and
        * otherwise whether the guarded arm stayed at or above `notLoweredBy`. R-18's sentence requires both at once, so a
@@ -1118,6 +1153,54 @@ function selfTest() {
   assert(
     guarded.verdict.outcome.includes('must not lower'),
     'and the outcome names the clause that failed rather than the one that passed',
+  );
+
+  // **And a registration whose device did not have its inputs is not a test, whatever the gain was.**
+  //
+  // R-29 is the case this exists for: it was registered as a merge of the five lanes and the reading reviewer, it ran
+  // with the lanes emptied upstream, and it reported `confirmed` at +0.0356 - **a plausible figure for a device that was
+  // never run.** The gate reads `merge.unionPulls`, which the merge publishes from the candidates it was handed, and it
+  // fires before the magnitude is read, because a threshold met by the wrong device is not a threshold met.
+  const oneSided = {
+    ...artifact({
+      tp: 6,
+      fp: 14,
+      fn: 4,
+      covered: [
+        [0, 1, 2],
+        [3, 4, 5],
+      ],
+      goldensPerPr: [5, 5],
+    }),
+  };
+  oneSided.configuration = { ...oneSided.configuration, agent: true, ensemble: true };
+  oneSided.merge = { enabled: true, unionPulls: 0, sides: { lanes: 0, reader: 394 }, pulls: 46 };
+  const oneSidedWithout = {
+    ...artifact({
+      tp: 3,
+      fp: 17,
+      fn: 7,
+      covered: [[0, 1], [3]],
+      goldensPerPr: [5, 5],
+    }),
+  };
+  oneSidedWithout.configuration = {
+    ...oneSidedWithout.configuration,
+    agent: false,
+    ensemble: false,
+  };
+  const notATest = summarise(oneSided, oneSidedWithout);
+  assert(
+    notATest.verdict.deviceInputs?.unionFormed === false,
+    'a merge that received no lane candidates did not form the union it was registered to merge',
+  );
+  assert(
+    notATest.verdict.confirms === false,
+    'and a run whose device had no inputs confirms nothing',
+  );
+  assert(
+    notATest.verdict.outcome.startsWith('not a test'),
+    'and the outcome says so rather than reporting the gain',
   );
 
   // **A registration about an arm the artifact does not carry is refused**, rather than answered by the nearest number.

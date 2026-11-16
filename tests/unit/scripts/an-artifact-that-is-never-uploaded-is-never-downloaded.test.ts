@@ -100,10 +100,17 @@ function arms(): Arm[] {
  * against `arms()`: a single-row matrix has no second arm to differ from, and reading one row as a pair would compare an
  * arm with itself and call the difference zero. Exactly one alternative is expected to be a pair - the default run.
  */
-function pair(varied: 'adjudicate' | 'idioms' | 'agent' | 'code_context' | 'remarks'): Arm[] {
-  const pairs = alternatives().filter(
-    (matrix) => matrix.length === 2 && matrix[0]![varied] !== matrix[1]![varied],
-  );
+function pair(
+  varied: 'adjudicate' | 'idioms' | 'agent' | 'code_context' | 'remarks' | 'ensemble',
+): Arm[] {
+  const pairs = alternatives().filter((matrix) => {
+    if (matrix.length !== 2 || matrix[0]![varied] === matrix[1]![varied]) return false;
+    // **The only difference, not merely a difference.** The merge's pair moves `agent` and `code_context` as well - both
+    // entailed by `ensemble` in `aacr-ablation-compare.mjs` - so a helper that matched on "differs in this key" would
+    // hand that pair to the reading agent's assertions and report a device that was never varied.
+    const keys = new Set([...Object.keys(matrix[0]!), ...Object.keys(matrix[1]!)]);
+    return [...keys].filter((key) => matrix[0]![key] !== matrix[1]![key]).length === 1;
+  });
   expect(
     pairs,
     `the workflow declares no two-arm matrix varying ${varied}, so nothing is being compared`,
@@ -195,6 +202,7 @@ describe('the artifact names of the benchmark workflow', () => {
       adjudicate: 'off',
       idioms: 'off',
       agent: 'off',
+      ensemble: 'off',
       remarks: 'off',
     };
     const expected = new Set([
@@ -226,6 +234,15 @@ describe('the artifact names of the benchmark workflow', () => {
       expand(
         uploaded[0]!,
         pair('remarks').find((arm) => arm['remarks'] === 'on')!,
+      ),
+      // **And the merge's arm**, because §56's device is dispatched by `ensemble: pair` and the comparison job is the
+      // only thing that reads it: an arm that is paid for and never downloaded is the failure this file exists for.
+      expand(
+        uploaded[0]!,
+        alternatives()
+          .filter((matrix) => matrix.length === 2)
+          .find((matrix) => matrix.some((arm) => arm['ensemble'] === 'on'))!
+          .find((arm) => arm['ensemble'] === 'on')!,
       ),
     ]);
     expect(new Set(downloads)).toEqual(expected);
@@ -296,7 +313,9 @@ describe('the matrix is one experiment', () => {
       alternatives()
         .map((matrix) => matrix.length)
         .sort(),
-    ).toEqual([1, 1, 1, 1, 1, 2, 2, 2, 2, 2]);
+      // **And a sixth pair for the merge**, dispatched by `ensemble: pair` on §57.5's registration: it is the pair whose
+      // two arms are the claim's own two arms rather than a proxy, and R-29 could not be dispatched as one.
+    ).toEqual([1, 1, 1, 1, 1, 2, 2, 2, 2, 2, 2]);
   });
 
   it('varies exactly one key, so that a difference between the arms is the device', () => {

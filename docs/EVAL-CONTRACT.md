@@ -6046,3 +6046,21 @@ merged from the five lanes and the reading reviewer by a selection-only model pa
   would price the five lanes' 198 covered goldens at zero contribution inside a merge.
 - **`merge.sides.lanes` and `merge.unionPulls` are part of the verdict**: an artifact whose `unionPulls` is not the
   number of reviewed pull requests has not tested this claim, whatever its F1 says.
+
+### 57.6 The gate, because a sentence in a document is not a gate
+
+§57.5 wrote the condition as prose and `aacr-ablation-compare.mjs` now enforces it: the `ensemble` registration carries
+`inputsFormed: 'union'`, and the comparator reads `merge.unionPulls` **before** it reads the gain. An artifact whose merge
+received one side publishes `verdict.deviceInputs.unionFormed: false` and an outcome that starts `not a test:` - so the
+next dispatch of this arm cannot report a confirmation of a device that did not run, whatever its F1 says.
+
+**And the reason it is a gate rather than a note is the shape of R-29's failure.** Its artifact was internally
+consistent, its arithmetic replayed, its bar was met, and every field it carried was true; **the only false statement was
+in a document**, which is the kind of false statement no run can catch and no test can fail. A claim whose device has
+prerequisites has to publish those prerequisites as numbers, and something has to read them.
+
+**Two smaller wiring defects came out of the same dispatch**, and both are the same defect one level down: the merge arm
+uploaded an artifact name that an agent-only run also uses (so a name-matched pair compares an arm with itself), and the
+workflow's `pair` input carried an unquoted `off` (so **the workflow could not be dispatched with its own defaults** -
+`422: Provided value 'false' for input 'pair' not in the list of allowed values`). The name now carries the ensemble
+dimension, and `ensemble: pair` dispatches both configurations over the same rows.
