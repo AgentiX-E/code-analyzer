@@ -932,10 +932,27 @@ export function summarise(on, off) {
 
   const declared = registration?.confirmation ?? [];
   const slice = on.corpusSlice ?? null;
+  /**
+   * **Which rows the artifact read, as a set.**
+   *
+   * A single dispatch carries one slice; a merge of two dispatches carries both, in `corpusSlice.slices`, and is the
+   * only artifact in this project that can turn two hundred-pull-request halves into one corpus with half the standard
+   * deviation. **The gate asks whether every slice the registration names was read**, not whether the artifact read
+   * nothing else: more data bearing on the same sentence is not a confound, and the run that reads both halves has read
+   * the half the sentence was about.
+   */
+  const readSlices =
+    Array.isArray(slice?.slices) && slice.slices.length > 0
+      ? slice.slices.map((entry) => ({ skip: Number(entry.skip), max: Number(entry.max) }))
+      : slice === null
+        ? null
+        : [{ skip: Number(slice.skip), max: Number(slice.requested) }];
   const sliceMatches =
     declared.length === 0
       ? null
-      : slice !== null && declared.some((s) => s.skip === slice.skip && s.max === slice.requested);
+      : readSlices === null
+        ? false
+        : declared.every((want) => readSlices.some((got) => got.skip === want.skip && got.max === want.max));
   /**
    * **The second clause of a registration that has one, computed whether or not the first one passed.**
    *
@@ -1040,7 +1057,7 @@ export function summarise(on, off) {
     magnitudeMet === null
       ? 'unregistered: no expectation was written before this run'
       : sliceMatches === false
-        ? `not a confirmation: the registration names ${declared.map((s) => `skip ${String(s.skip)} max ${String(s.max)}`).join(' or ')}, and this run read ${slice === null ? 'a corpus the artifact does not describe' : `skip ${String(slice.skip)} max ${String(slice.requested)}`}`
+        ? `not a confirmation: the registration names ${declared.map((s) => `skip ${String(s.skip)} max ${String(s.max)}`).join(' and ')}, and this run read ${readSlices === null ? 'a corpus the artifact does not describe' : readSlices.map((s) => `skip ${String(s.skip)} max ${String(s.max)}`).join(' and ')}`
         : inputsFormed === false
           ? `not a test: the device was registered to merge two reviewers and ran with ${String(on?.merge?.sides?.lanes ?? 0)} lane candidates and ${String(on?.merge?.sides?.reader ?? 0)} reader candidates over ${String(on?.prsReviewed ?? 0)} pull requests, so the union never formed`
           : !resolvable

@@ -6906,3 +6906,60 @@ and above every published figure on it.
 3. **A confirmation of this device needs a corpus, not a bar.** At 100 pull requests a 0.03 effect is a 1.97-sigma
    effect; the same effect on 358 pull requests would be 3.7 sigma. The next dispatch after R-33 should buy rows, not
    switches.
+
+## 67. Two hundred pull requests were always available and the instrument could only read a hundred
+
+### 67.1 The corpus this project already owns
+
+§63 requires a device to be confirmed on two slices, because one slice moved the sign of a device by 0.0518. That rule
+buys a second reading and, until this section, threw away its arithmetic: **`skip 50 max 100` and `skip 150 max 100` are
+disjoint halves of one two-hundred-pull-request corpus**, the registration names both, and the effect measured on either
+half estimates the same effect.
+
+**The consequence is arithmetic, not opinion.** A standard error falls with the square root of the sample:
+
+| Corpus | Rows | Standard deviation at R-32's spread | +0.0296 is |
+|---|---:|---:|---|
+| one slice | 100 | 0.0150 | 1.97 sigma, p = 0.0485 |
+| **both slices** | **200** | **0.0106** | **2.8 sigma, p = 0.005** |
+
+**So the second slice is not only a direction check. It is 100 more rows of the same experiment**, and the corpus this
+project can afford is already twice the corpus it has been testing on. Nothing in the instrument could say so, because
+`sliceMatches` read one artifact's single slice and there was no way to hand the job two.
+
+### 67.2 What merging has to refuse
+
+`mergeSlices` in `scripts/lib/slice-merge.mjs` concatenates the coverage rows, **re-derives the totals from the rows
+rather than adding the two totals**, and records which dispatches the corpus came from. Three refusals, each naming what
+failed, because each wants a different repair:
+
+| Refusal | Why |
+|---|---|
+| a pull request appears in both slices | a row counted twice is a corpus that weighs it twice |
+| the configurations differ | two arms of two devices summed is a device that never ran |
+| a slice does not say where it started | a merge of unrecorded slices is a merge into one anonymous corpus |
+
+**Totals are re-derived and not added** for the reason §65 found in the self-test: an artifact can publish a total that
+its rows do not support, and a merge that added the totals would carry both errors into the corpus the bar is computed
+on.
+
+### 67.3 The slice gate, restated
+
+`sliceMatches` asked whether **any** declared slice was the one this artifact read. It now asks whether **every** slice
+the registration names **is among the rows the artifact read**, which is the same answer for a single dispatch and the
+only sensible one for a merge: more data bearing on the same sentence is not a confound, and the run that read both
+halves has read the half the sentence was about.
+
+A merged artifact carries `corpusSlice.slices`, `prsReviewed` equal to the sum, and `mergedFrom` naming each input's
+slice, row count and totals - because a corpus assembled from two dispatches has to be able to say which two.
+
+### 67.4 What this changes about the next result
+
+Nothing is re-registered on the strength of R-32's +0.0296, and the merge does not make a 0.01 bar resolvable. **What it
+does is make the effect signable without buying another experiment**: R-33 is already dispatched on `skip 150` with the
+same two arms, and merging its artifacts with R-32's gives 200 rows, one device, one configuration, and a standard
+deviation of 0.0106 instead of 0.0150.
+
+**The registration that merge can answer has to be written before R-33's number is read** - which is the only thing that
+keeps this from being a threshold fitted to a result. It is written in §68 when R-33 lands, against 0.0106 and not
+against whatever the second slice happens to show.
