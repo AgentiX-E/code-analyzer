@@ -6663,6 +6663,19 @@ against the same comparator §57.1 used - and it is the cheapest 0.02 this docum
 selector scores 0.2504 there again, the device is real and slice-dependent, and if it scores 0.19 the two implementations
 differ and §57.1's number belongs to a device that no longer exists.
 
+> **The confound is excluded, and the artifact excluded it.** `merge.sides` - the field §57.2 added for exactly this
+> question - reads **`{lanes: 0, reader: 802}`** on R-31's reader arm: the merge was handed one reviewer's candidates
+> and nothing else, which is the shape R-29's empty-lane arm ran. 802 candidates became 666 after the duplicate rule and
+> the twelve-per-pull-request cut (104 duplicates, 32 not kept, 79 pull requests decided by budget and 21 by the model),
+> and that is the whole of the device. **The two arms are the same selector, and the sign changed with the rows.**
+
+**And the same arm was 25 % more expensive than the one it lost to.** R-31's reader arm spent **1.83 USD against 1.46** -
+2 980 calls against 5 730, at a cache-hit ratio of 0.74 against 0.91 - of which **0.65 was 500 lane calls whose findings
+never reached the merge**, because reader mode still ran the lane loop and then discarded it. `lanesRun` is
+`!AGENT || (ENSEMBLE && !ENSEMBLE_READER_ONLY)` in the tree today, so that half is already fixed; the run bought it at the
+old price. **A device that costs more and scores lower is not a device to iterate on**, which is the second reason the
+reader is closed rather than repaired.
+
 ### 63.4 What the field publishes, and why the comparison is still worth making
 
 The published systems in §62.7 sit between 0.1563 and 0.1612 on the full corpus. **Whatever the slice does to a
