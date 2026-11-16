@@ -1,0 +1,113 @@
+name: AACR Re-read
+
+# **A rejected golden is not a missed defect, and the artifact cannot tell you which it is.**
+#
+# The lanes run of 2026-11-16 rejected **434 goldens in files it had commented on**, 263 of them on the exact line. Read
+# by hand, those pairs are three different things - the same defect said in other words, a different defect at the same
+# line, and a nit this reviewer does not write - and **the three want three different devices**. The artifact reports one
+# number.
+#
+# **So this job re-reads the pairs, and it is the cheapest experiment in the repository**: the reviews are paid for, the
+# goldens are in the artifact, the comments are in the artifact. About 530 judge calls, two minutes, no review pass.
+#
+# **And it is controlled.** Every real pair is read beside a crossed pair whose golden comes from another pull request.
+# A reader that accepts both earns nothing, and `beyondControl` in the report is the only number that may be quoted as
+# recovery - because the failure this job could cause is a looser matcher reported as a better reviewer, and that is the
+# one direction no gate in `aacr-bench.yml` can see.
+
+on:
+  workflow_dispatch:
+    inputs:
+      run_id:
+        # **The run whose artifact is being re-read**, and it is required: the artifact name alone does not identify a
+        # run, and a re-read of the wrong one would produce a rate about a different corpus.
+        description: 'Run id of the bench run whose artifact is re-read'
+        required: true
+        type: string
+      artifact:
+        description: 'Artifact name inside that run'
+        required: false
+        type: string
+        default: 'aacr-bench-advisory-off-off-off-off-off-off'
+      limit:
+        # **A cap, because the first reading of a new instrument should be cheap.** Zero reads every pair; a positive
+        # number reads that many from the front, which is enough to see whether the three-way split is real before
+        # paying for all 263.
+        description: 'How many pairs to read (0 = all)'
+        required: false
+        type: string
+        default: '0'
+
+permissions:
+  # **`actions: read` is the permission this job exists on**: the artifact belongs to another run, and reading it across
+  # runs is what makes re-reading cheaper than dispatching again.
+  actions: read
+  contents: read
+
+concurrency:
+  # One re-read per run, and a second dispatch replaces the first: two readers spending the same judge budget on the
+  # same pairs produce one answer and two bills.
+  group: aacr-rejudge-${{ inputs.run_id }}
+  cancel-in-progress: true
+
+jobs:
+  rejudge:
+    name: Re-read the rejected pairs (${{ inputs.artifact }} of run ${{ inputs.run_id }})
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - name: Checkout
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+
+      # **No pnpm, no install.** The reader uses `node:` built-ins and one fetch, which is why it can be run on a laptop
+      # against a downloaded artifact without a workspace at all.
+      - name: Setup Node.js
+        uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7
+        with:
+          node-version-file: .nvmrc
+
+      - name: Download the artifact being re-read
+        uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8
+        with:
+          name: ${{ inputs.artifact }}
+          path: /tmp/artifact
+          run-id: ${{ inputs.run_id }}
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+
+      # **The arithmetic before the calls**, because a bug in the summary would be discovered after 530 of them.
+      - name: Prove the summary arithmetic on written-out answers
+        run: node scripts/aacr-rejudge.mjs --self-test
+
+      - name: Re-read the pairs
+        env:
+          AACR_JUDGE_KEY: ${{ secrets.DEEPSEEK_API_KEY }}
+          AACR_REJUDGE_CONCURRENCY: '6'
+        run: |
+          node scripts/aacr-rejudge.mjs \
+            --bench /tmp/artifact \
+            --limit "${{ inputs.limit }}" \
+            --out /tmp/rejudge/report.json | tee /tmp/rejudge.log
+
+      - name: Put the reading on the run page
+        if: always()
+        run: |
+          {
+            echo '## The rejected pairs, read again'
+            echo
+            echo 'Every real pair is read beside a crossed pair whose golden comes from another pull request.'
+            echo '**The recovery is the difference between the two rates**, never the first rate.'
+            echo
+            sed -n '/| reading |/,$p' /tmp/rejudge.log || true
+          } >> "$GITHUB_STEP_SUMMARY"
+
+      # **Uploaded even when the reading failed**, because a partial report is what says whether a failure was the
+      # endpoint or the pairs - and an artifact that only exists on success is an artifact that cannot answer that.
+      - name: Upload the reading
+        if: always()
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7
+        with:
+          name: aacr-rejudge-${{ inputs.run_id }}
+          path: |
+            /tmp/rejudge/report.json
+            /tmp/rejudge.log
+          if-no-files-found: warn

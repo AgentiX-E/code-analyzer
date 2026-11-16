@@ -6366,3 +6366,56 @@ what the first response already said. The attempt brings its own verdict (`retry
 URL are both `ok: false` here and only one of them is worth a second request; and **the last reason survives the
 attempts**, so a pull request that is finally lost still says why. **A retry costs four orders of magnitude less than the
 dispatch it replaces, and it is the same line of code either way.**
+
+## 61. A rejected golden is not a missed defect, and the judge was never asked to say what it rejected
+
+### 61.1 The largest block, read by hand
+
+On R-31's lanes arm, of 715 goldens: **195 hit, 434 rejected on a file we commented on, 30 on a file we commented on
+without touching the line, 56 in a file the pull request does not change.** So **60.7 % of what the reviewer misses is a
+golden it stood in front of and was not credited for**, and 263 of those are on the exact line its comment sits on.
+
+Eight of the 263, read against our own comment at the same line:
+
+| pull request · file | the golden's concern | our comment's concern | what the pair is |
+| --- | --- | --- | --- |
+| `browser-use#857` `docs/customize/agent-settings.mdx` | the doc still says Playwright after the import moved to patchright | the example imports from patchright but builds the context through Playwright | **the same defect**, said from the other end |
+| `electron#46982` `persistent_dictionary.h` | `ValueOrDefault` is surprising: it needs `T{}`, it copies, `Get()` wants a pointer | `ValueOrDefault` returns the default when conversion fails, masking a type error | **the same defect**, ours sharper |
+| `electron#47361` `electron_api_session.cc` | direct `delete this` bypasses normal destruction; use `CleanedUpAtExit` | `ClearDataTask` deletes itself while `operations_` still holds live observers | **the same defect**, ours about the consequence |
+| `electron#47361` `electron_api_session.cc` | `OnOperationFinished` erases with `remove_if` per completion, so O(n²) | a use-after-free: the erase destroys the operation while its method runs | **different defects on one line** - §59's case |
+| `electron#46982` `electron_api_web_contents.cc` | `scaleFactor`, `copies`, margins are unvalidated user input | the chained `Set` on a temporary may not compile | **different defects on one block** |
+| `cline#5524` `gemini.ts` | adjust the deprecation warning's wording to name both terms | the telemetry call site couples the handler to a concrete service | different concerns |
+| `cline#5524` `BrowserSession.ts` | the doc comment says "task ID", rename it to ULID | a public API break: `setTaskId` renamed without a shim | different concerns |
+| `electron#46982` `blink_converter.cc` | inline the `ValueOrDefault` call for conciseness | `canScroll=false` no longer overrides `delta_units` | different concerns |
+
+**Three of eight are the same concern in two vocabularies, two are a second defect at one site, three are a nit this
+reviewer does not write** - and a reviewer that emitted the three nits would buy two credits at the price of 263 comments.
+The split is the whole question: **the first row set is a matcher repair, the second is §59's device, the third is
+nothing.**
+
+### 61.2 The instrument, registered before its run
+
+`scripts/aacr-rejudge.mjs` reads a **downloaded artifact** and re-reads its rejected same-line pairs. It costs judge calls
+(~530) and no review pass, which is why it runs against a run that already happened rather than as a dispatch of its own.
+
+- **The question is different from the judge's.** The run's judge is asked for `{"match": true|false}` and answers in four
+  tokens. This reader is asked **to write the shared claim first, then decide**, and to reject in three named cases: the
+  two are about different things, one is about *how something is written* rather than what the code does, or the shared
+  sentence would be equally true of any two comments on the same function.
+- **Every real pair is read beside a crossed pair** whose golden comes from another pull request of the same artifact.
+  The donor is chosen by a fixed stride, so two readings of one artifact produce comparable rates.
+- **`beyondControl` is the only number that may be quoted as recovery**: the real acceptance share minus the crossed one,
+  times the pairs. **A reader that accepts everything has a lift of zero and recovers nothing**, however many pairs it
+  says yes to.
+- **`null` is not a rejection.** A call that did not answer is counted as unanswered, and the share is computed over the
+  answered pairs - the same distinction the judge loop makes, one instrument further out.
+
+**Stopping rule, written before the reading.** If the lift is below 0.10 - the reader is not distinguishing its own
+controls from real paraphrase by more than a tenth - then **the matcher is not the repair**, the 434 stay as missed
+defects, and the next dispatch is §59's device. If the lift is above 0.30, the instrument has been understating recall by
+more than a quarter of the goldens and the next dispatch is a wording device that states the defect in the vocabulary the
+corpus uses - **not a looser matcher**, because a looser matcher raises recall by definition and precision only on paper.
+
+**What this cannot decide.** Whether a *human* would call the pair the same defect. The reader is a model with a prompt,
+the same kind of instrument as the judge it is checking, and **the control is what keeps it from being a second opinion
+that agrees with us.**
