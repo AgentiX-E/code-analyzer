@@ -127,7 +127,7 @@ async function mapBounded(items, limit, apply) {
     for (;;) {
       const index = next++;
       if (index >= items.length) return;
-      results[index] = await apply(items[index], index);
+      results[index] = await apply(items[index]);
     }
   };
   await Promise.all(Array.from({ length: Math.max(1, Math.min(limit, items.length)) }, worker));
