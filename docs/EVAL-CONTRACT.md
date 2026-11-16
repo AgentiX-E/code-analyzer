@@ -6191,7 +6191,6 @@ credits **22** goldens with them, **0.0486 against the 0.1036 line** - which is 
 arithmetic never needed to be told 0.30 to reach the same conclusion. It does rescue the version that has a mechanism:
 **a second concern at a site where the reviewer has already located a defect**, which is §59.
 
-
 ## 59. The merge that removed two thousand findings without reading a word
 
 ### 59.1 Two findings on one line are not one finding
@@ -6199,21 +6198,21 @@ arithmetic never needed to be told 0.30 to reach the same conclusion. It does re
 §58.4 put the failures on the site rather than at a distance: **276 of the lanes' 455 rejected goldens sit on the line
 the reviewer commented on**, and 125 of those sit beside a comment the judge accepted for something else. The corpus
 names the case - `electron#47361` carries a use-after-free and an O(n²) erase on one line - and the engine's range rule
-merges exactly that pair, because *"the same defect has one location"* is a claim about defects that was being applied
+merges exactly that pair, because _"the same defect has one location"_ is a claim about defects that was being applied
 to findings.
 
 The artifact already records every removal with the rule that made it (§46.8), so the size of the question is arithmetic
 rather than a reading: `43795692468`'s lanes artifact, 100 discovery pull requests.
 
-| what the dedup did | count | what it means |
-| ------------------ | ----: | ------------- |
-| findings merged | **2 295** | of the 1 109 that survived and the ones the per-file cap had already refused |
-| merged under `rangeOnly` | **2 273** | **overlapping ranges, sentences disagreeing, no evidence the two are about one defect** |
-| merged under `rangeAndWords` | 16 | the ranges overlap *and* the words agree: earned |
-| merged under `wordsNearby` | 6 | the same sentence within thirty lines: earned |
-| content-word overlap with the survivor, median | 0.25 | half the removed findings share a quarter of their vocabulary with the finding that ate them |
-| removed findings sharing under a fifth of their words | 848 | the population a *second concern* would come from |
-| sites where the removed finding's **category** differs from the survivor's | **602** | across 404 files, one per file at the median, sixteen in the worst file |
+| what the dedup did                                                         |     count | what it means                                                                                |
+| -------------------------------------------------------------------------- | --------: | -------------------------------------------------------------------------------------------- |
+| findings merged                                                            | **2 295** | of the 1 109 that survived and the ones the per-file cap had already refused                 |
+| merged under `rangeOnly`                                                   | **2 273** | **overlapping ranges, sentences disagreeing, no evidence the two are about one defect**      |
+| merged under `rangeAndWords`                                               |        16 | the ranges overlap _and_ the words agree: earned                                             |
+| merged under `wordsNearby`                                                 |         6 | the same sentence within thirty lines: earned                                                |
+| content-word overlap with the survivor, median                             |      0.25 | half the removed findings share a quarter of their vocabulary with the finding that ate them |
+| removed findings sharing under a fifth of their words                      |       848 | the population a _second concern_ would come from                                            |
+| sites where the removed finding's **category** differs from the survivor's |   **602** | across 404 files, one per file at the median, sixteen in the worst file                      |
 
 **So the rule that removed 99 % of everything was the rule that never looked at a word**, and the report could not say so
 until §46.8 taught it to record the removals as pairs. The three rules are not three ways of saying the same thing: two
@@ -6235,14 +6234,14 @@ having had its second.
 - **It does not touch the other two rules.** `rangeAndWords` and `wordsNearby` read the text, so a pair they merged has
   textual evidence behind the merge and the switch leaves them alone.
 
-The engine publishes **`keptAsSecondConcern`** beside `mergedBy`, because a run with the switch on has a *smaller*
+The engine publishes **`keptAsSecondConcern`** beside `mergedBy`, because a run with the switch on has a _smaller_
 `dropped` than the run it is compared with, and **a device whose only trace is a number that fell in a different column
 cannot be told from a corpus that produced fewer duplicates.**
 
 ### 59.2b What the field does with a second comment, and what it does not
 
 The noise policies the shipped reviewers publish are **per concern, not per line**. CodeRabbit's stated behaviour is one
-summary comment and inline comments "only on actual issues", with no filler of the *consider adding a comment here* kind
+summary comment and inline comments "only on actual issues", with no filler of the _consider adding a comment here_ kind
 ([review of seven tools on 14 planted bugs](https://vibecodemeta.com/blog/best-ai-code-review-tools-2026)); the same
 comparison article that recommends running two reviewers warns that two of them commenting on one line is worse than
 either alone, because **"a duplicate doubles the reading cost of a finding you have already dismissed"**
@@ -6256,8 +6255,8 @@ exactly one tool, 6 % by two, none by all four, and the four never once flagged 
 overlapping range is therefore a rule about a coincidence - **and the only place the coincidence is systematic is inside
 one reviewer, where five lanes read the same diff and mark the same block.**
 
-Which is the distinction the range rule lost: *one comment per site* is a noise policy, *one comment per concern per
-site* is a precision policy, and the run's 2 273 `rangeOnly` removals are the price of having implemented the first
+Which is the distinction the range rule lost: _one comment per site_ is a noise policy, _one comment per concern per
+site_ is a precision policy, and the run's 2 273 `rangeOnly` removals are the price of having implemented the first
 while believing it was the second.
 
 ### 59.3 R-32, registered before its dispatch
@@ -6278,15 +6277,15 @@ while believing it was the second.
 
 ### 59.4 The three instruments this round had to add before the device could be priced
 
-1. **`F1 = 2·TP/(C+G)` as the arithmetic**, with `breakEvenPrecision()` published beside it, so *"is one more comment
-   worth writing"* is `p > F1/2` rather than an estimate. The estimate this document carried said 0.30.
+1. **`F1 = 2·TP/(C+G)` as the arithmetic**, with `breakEvenPrecision()` published beside it, so _"is one more comment
+   worth writing"_ is `p > F1/2` rather than an estimate. The estimate this document carried said 0.30.
 2. **`configuration.secondConcern` in the artifact, and its own matrix arm** - the §58.1 lesson applied before it costs
    anything: a flag that reaches the engine and not the artifact is a comparison between two arms that look identical.
 3. **`keptAsSecondConcern` in the dedup report**, because the switch's effect is a merge that did not happen, and a
    report that only counts merges cannot show one being withheld.
 4. **`lane` on every finding, which the artifact had never carried.** The lane's result named its lane and its findings
    did not, so the flattening that builds the judged list dropped the attribute: **`lane: null` on all 1 109 rows of the
-   discovery run**, in the artifact that paid 5 785 calls for five lanes. *Which lane earns its calls* was therefore a
+   discovery run**, in the artifact that paid 5 785 calls for five lanes. _Which lane earns its calls_ was therefore a
    question the run could not answer, and a lane-ablation was a dispatch rather than a query. `locateLaneFindings()` is
    the flattening now - a named function because it is where the attribute is lost and the only version a test can call -
    and it keeps a finding's own stamp when it has one, so the reading agent's rows are not relabelled as a lane's.
@@ -6299,16 +6298,16 @@ R-31 dispatched a paired runner arm, and its first arm was **the lanes as they s
 lanes arm, the same slice (`skip 50`, `max 100`), the same judge, the same corpus. That is a repeat, and it is the first
 one this document has had on a corpus it quotes:
 
-| | R-30 (`43795692468`) | R-31 (`43839753881`) |
-| --- | ---: | ---: |
-| pull requests asked for | 100 | 100 |
-| pull requests read | **100** | **98** |
-| goldens | 724 | 715 |
-| true positives | 143 | 139 |
-| comments | 656 | 638 |
-| precision | 0.2180 | 0.2179 |
-| recall | 0.1975 | 0.1944 |
-| **F1** | **0.2072** | **0.2055** |
+|                         | R-30 (`43795692468`) | R-31 (`43839753881`) |
+| ----------------------- | -------------------: | -------------------: |
+| pull requests asked for |                  100 |                  100 |
+| pull requests read      |              **100** |               **98** |
+| goldens                 |                  724 |                  715 |
+| true positives          |                  143 |                  139 |
+| comments                |                  656 |                  638 |
+| precision               |               0.2180 |               0.2179 |
+| recall                  |               0.1975 |               0.1944 |
+| **F1**                  |           **0.2072** |           **0.2055** |
 
 **Per pull request the corpus did not move at all**: the 98 shared rows carry goldens that differ in **0** of 98. What
 moved is the reviewer - **47 of the 98 rows covered a different number of goldens, between one and three each way** - and
@@ -6334,7 +6333,7 @@ Three changes, and the third is the one that matters:
 1. **`REPRODUCTION` is the anchor**, exported with the two runs' figures, the golden count and the per-pull-request
    comparison, so the number in the formula is the number in the table.
 2. **`MINIMUM_REGISTERED_GAIN`** is that error bar, and **`registrationResolvable()`** refuses a registration under it
-   with the sentence that says so - *unfalsifiable*, not *inconclusive*, because the two want different repairs: a failed
+   with the sentence that says so - _unfalsifiable_, not _inconclusive_, because the two want different repairs: a failed
    device is dropped, a meaningless bar is rewritten.
 3. **The `inconclusive` outcome is gone**, because it is entailed. A magnitude is met only when
    `gain >= registeredGain`, and every registration now has `registeredGain >= resolution`, so **a met magnitude is
@@ -6342,7 +6341,7 @@ Three changes, and the third is the one that matters:
    branch nobody can test; the self-test asserts the entailment instead of a fixture that reached it.
 
 **What this does not do.** It does not confirm anything retroactively: every published verdict was computed against its
-own registered bar, and the bar is what a device has to clear. It changes which *sentences* a comparison is allowed to
+own registered bar, and the bar is what a device has to clear. It changes which _sentences_ a comparison is allowed to
 print, and the noise guard it leaves in place is the **paired test** - `pValue` beside every row - which was always the
 stronger instrument and is unaffected by any of this.
 
@@ -6350,10 +6349,10 @@ stronger instrument and is unaffected by any of this.
 
 R-31 asked for 100 pull requests and read 98. The two it lost are named in `prsWithoutDiffReasons`:
 
-| pull request | what the diff request said |
-| --- | --- |
+| pull request              | what the diff request said                 |
+| ------------------------- | ------------------------------------------ |
 | `infiniflow/ragflow#5065` | `500`, **4 615 requests left in the hour** |
-| `bitcoin/bitcoin#32425` | `500`, **4 486 requests left in the hour** |
+| `bitcoin/bitcoin#32425`   | `500`, **4 486 requests left in the hour** |
 
 Neither is a corpus with a typo in it and neither is a rate limit. **They are requests that failed**, and the harness
 filed them under "the corpus could not supply it" - which moved the denominator from 724 goldens to 715, made two arms of
@@ -6377,16 +6376,16 @@ golden it stood in front of and was not credited for**, and 263 of those are on 
 
 Eight of the 263, read against our own comment at the same line:
 
-| pull request · file | the golden's concern | our comment's concern | what the pair is |
-| --- | --- | --- | --- |
-| `browser-use#857` `docs/customize/agent-settings.mdx` | the doc still says Playwright after the import moved to patchright | the example imports from patchright but builds the context through Playwright | **the same defect**, said from the other end |
-| `electron#46982` `persistent_dictionary.h` | `ValueOrDefault` is surprising: it needs `T{}`, it copies, `Get()` wants a pointer | `ValueOrDefault` returns the default when conversion fails, masking a type error | **the same defect**, ours sharper |
-| `electron#47361` `electron_api_session.cc` | direct `delete this` bypasses normal destruction; use `CleanedUpAtExit` | `ClearDataTask` deletes itself while `operations_` still holds live observers | **the same defect**, ours about the consequence |
-| `electron#47361` `electron_api_session.cc` | `OnOperationFinished` erases with `remove_if` per completion, so O(n²) | a use-after-free: the erase destroys the operation while its method runs | **different defects on one line** - §59's case |
-| `electron#46982` `electron_api_web_contents.cc` | `scaleFactor`, `copies`, margins are unvalidated user input | the chained `Set` on a temporary may not compile | **different defects on one block** |
-| `cline#5524` `gemini.ts` | adjust the deprecation warning's wording to name both terms | the telemetry call site couples the handler to a concrete service | different concerns |
-| `cline#5524` `BrowserSession.ts` | the doc comment says "task ID", rename it to ULID | a public API break: `setTaskId` renamed without a shim | different concerns |
-| `electron#46982` `blink_converter.cc` | inline the `ValueOrDefault` call for conciseness | `canScroll=false` no longer overrides `delta_units` | different concerns |
+| pull request · file                                   | the golden's concern                                                               | our comment's concern                                                            | what the pair is                                |
+| ----------------------------------------------------- | ---------------------------------------------------------------------------------- | -------------------------------------------------------------------------------- | ----------------------------------------------- |
+| `browser-use#857` `docs/customize/agent-settings.mdx` | the doc still says Playwright after the import moved to patchright                 | the example imports from patchright but builds the context through Playwright    | **the same defect**, said from the other end    |
+| `electron#46982` `persistent_dictionary.h`            | `ValueOrDefault` is surprising: it needs `T{}`, it copies, `Get()` wants a pointer | `ValueOrDefault` returns the default when conversion fails, masking a type error | **the same defect**, ours sharper               |
+| `electron#47361` `electron_api_session.cc`            | direct `delete this` bypasses normal destruction; use `CleanedUpAtExit`            | `ClearDataTask` deletes itself while `operations_` still holds live observers    | **the same defect**, ours about the consequence |
+| `electron#47361` `electron_api_session.cc`            | `OnOperationFinished` erases with `remove_if` per completion, so O(n²)             | a use-after-free: the erase destroys the operation while its method runs         | **different defects on one line** - §59's case  |
+| `electron#46982` `electron_api_web_contents.cc`       | `scaleFactor`, `copies`, margins are unvalidated user input                        | the chained `Set` on a temporary may not compile                                 | **different defects on one block**              |
+| `cline#5524` `gemini.ts`                              | adjust the deprecation warning's wording to name both terms                        | the telemetry call site couples the handler to a concrete service                | different concerns                              |
+| `cline#5524` `BrowserSession.ts`                      | the doc comment says "task ID", rename it to ULID                                  | a public API break: `setTaskId` renamed without a shim                           | different concerns                              |
+| `electron#46982` `blink_converter.cc`                 | inline the `ValueOrDefault` call for conciseness                                   | `canScroll=false` no longer overrides `delta_units`                              | different concerns                              |
 
 **Three of eight are the same concern in two vocabularies, two are a second defect at one site, three are a nit this
 reviewer does not write** - and a reviewer that emitted the three nits would buy two credits at the price of 263 comments.
@@ -6400,7 +6399,7 @@ nothing.**
 
 - **The question is different from the judge's.** The run's judge is asked for `{"match": true|false}` and answers in four
   tokens. This reader is asked **to write the shared claim first, then decide**, and to reject in three named cases: the
-  two are about different things, one is about *how something is written* rather than what the code does, or the shared
+  two are about different things, one is about _how something is written_ rather than what the code does, or the shared
   sentence would be equally true of any two comments on the same function.
 - **Every real pair is read beside three controls, and the first is the weakest.** A crossed pair - our comment against
   a golden from another pull request - **can be rejected from the file extension alone**, so a zero there is not evidence
@@ -6424,7 +6423,7 @@ tenth - then **the matcher is not the repair**, the 434 stay as missed defects, 
 more than a quarter of the goldens and the next dispatch is a wording device that states the defect in the vocabulary the
 corpus uses - **not a looser matcher**, because a looser matcher raises recall by definition and precision only on paper.
 
-**What this cannot decide.** Whether a *human* would call the pair the same defect. The reader is a model with a prompt,
+**What this cannot decide.** Whether a _human_ would call the pair the same defect. The reader is a model with a prompt,
 the same kind of instrument as the judge it is checking, and **the control is what keeps it from being a second opinion
 that agrees with us.**
 
@@ -6432,25 +6431,25 @@ that agrees with us.**
 
 The re-read ran on R-31's lanes artifact - 263 pairs, four readings each:
 
-| reading | pairs | accepted | share |
-| --- | ---: | ---: | ---: |
-| the pairs the run rejected | 263 | 49 | **18.6 %** |
-| crossed: golden from another pull request | 263 | 1 | 0.4 % |
-| **same file, same pull request, another line** | 219 | **35** | **16.0 %** |
-| same pull request, another file | 222 | 12 | 5.4 % |
+| reading                                        | pairs | accepted |      share |
+| ---------------------------------------------- | ----: | -------: | ---------: |
+| the pairs the run rejected                     |   263 |       49 | **18.6 %** |
+| crossed: golden from another pull request      |   263 |        1 |      0.4 % |
+| **same file, same pull request, another line** |   219 |   **35** | **16.0 %** |
+| same pull request, another file                |   222 |       12 |      5.4 % |
 
-**A reader that accepts 18.6 % of the real pairs and 16.0 % of pairs made of our comment and a *different* golden from the
+**A reader that accepts 18.6 % of the real pairs and 16.0 % of pairs made of our comment and a _different_ golden from the
 same file is not detecting a shared concern. It is detecting a shared file.** The crossed control was 0.4 % because it
 could be passed without reading either sentence, and the first reading's "48 recovered" was the instrument's bias, not
 the judge's conservatism.
 
 The paired form is the one to quote, because both readings exist on the same 219 pairs:
 
-| discordance | count |
-| --- | ---: |
-| accepted the real pair, rejected the same-file pairing | **28** |
-| rejected the real pair, accepted the same-file pairing | **28** |
-| two-sided exact binomial | **p = 1.00** |
+| discordance                                            |        count |
+| ------------------------------------------------------ | -----------: |
+| accepted the real pair, rejected the same-file pairing |       **28** |
+| rejected the real pair, accepted the same-file pairing |       **28** |
+| two-sided exact binomial                               | **p = 1.00** |
 
 **Exactly balanced.** On the pairs where both readings exist, this reader is as likely to call a deliberately wrong
 pairing a shared concern as the real one, and **the two-sided test cannot distinguish the split from a coin.**
@@ -6485,13 +6484,13 @@ nothing and the comparison fell back to what the artifacts happened to hold.
 **A device reachable only through an accident cannot be registered, repeated or falsified**, so R-31 made it a switch with
 three states and registered the claim before dispatch:
 
-| field | value |
-| --- | --- |
-| claim | the reader's own list, de-duplicated and cut to twelve per pull request, raises the file arm F1 by **at least 0.02** over the five lanes alone |
-| bar | F1 ≥ **0.2272** |
-| recall floor | **0.1875** = the lanes' 0.1975 less one golden |
-| comparator | `{agent off, ensemble off}` - the same dispatch, corpus, judge and commit |
-| slice | `skip 50`, 100 pull requests, 715 goldens |
+| field        | value                                                                                                                                          |
+| ------------ | ---------------------------------------------------------------------------------------------------------------------------------------------- |
+| claim        | the reader's own list, de-duplicated and cut to twelve per pull request, raises the file arm F1 by **at least 0.02** over the five lanes alone |
+| bar          | F1 ≥ **0.2272**                                                                                                                                |
+| recall floor | **0.1875** = the lanes' 0.1975 less one golden                                                                                                 |
+| comparator   | `{agent off, ensemble off}` - the same dispatch, corpus, judge and commit                                                                      |
+| slice        | `skip 50`, 100 pull requests, 715 goldens                                                                                                      |
 
 **The recall floor is the part that matters.** A claim written as F1 alone licenses the most dangerous trade in this
 document - delete comments until precision rises - and a device that buys a tenth of a point of F1 with two goldens of
@@ -6501,10 +6500,10 @@ recall has made the reviewer worse while the number went up.
 
 Run `43839753881`, both arms on `3f5bab58`, twenty-three minutes apart:
 
-| arm | reviewed | TP | FP | FN | precision | recall | F1 |
-| --- | ---: | ---: | ---: | ---: | ---: | ---: | ---: |
-| lanes (`agent off, ensemble off`) | 98 | 139 | 499 | 576 | 0.2179 | 0.1944 | **0.2055** |
-| reader (`agent on, ensemble reader`) | 100 | 122 | 443 | 602 | 0.2159 | 0.1685 | **0.1893** |
+| arm                                  | reviewed |  TP |  FP |  FN | precision | recall |         F1 |
+| ------------------------------------ | -------: | --: | --: | --: | --------: | -----: | ---------: |
+| lanes (`agent off, ensemble off`)    |       98 | 139 | 499 | 576 |    0.2179 | 0.1944 | **0.2055** |
+| reader (`agent on, ensemble reader`) |      100 | 122 | 443 | 602 |    0.2159 | 0.1685 | **0.1893** |
 
 **The lanes arm is the R-30 arm re-run, and the two figures differ by one error bar.** R-30 measured 0.2072 on the same
 configuration; this run measured 0.2055. The 0.0017 is the instrument's own resolution (§60), which is what makes the
@@ -6526,12 +6525,12 @@ The refusal now prints what a corpus gap does not touch. A `(pull request, golde
 arms were given the same code, the same goldens and the same judge there, so a golden one arm found and the other did not
 is a discordance the corpus cannot explain.
 
-| reading on the 98 shared rows | pairs |
-| --- | ---: |
-| covered by both arms | **57** |
-| covered by the reader only | **63** |
-| covered by the lanes only | **82** |
-| two-sided exact binomial | **p = 0.135** |
+| reading on the 98 shared rows |         pairs |
+| ----------------------------- | ------------: |
+| covered by both arms          |        **57** |
+| covered by the reader only    |        **63** |
+| covered by the lanes only     |        **82** |
+| two-sided exact binomial      | **p = 0.135** |
 
 **The point estimate favours the lanes and the test will not sign it.** 145 discordant pairs split 63:82 is a 19-pair
 edge, and the two-sided exact test puts it at p = 0.135 - inside the noise this instrument can see, and nowhere near the
@@ -6581,12 +6580,12 @@ nothing else gets dispatched unchanged by whoever needs the answer.
 **These are not the same denominator and the table is not a leaderboard.** The corpus paper reports on the full 200 pull
 requests; this document reports a `skip 50` slice of 100. What the table is for is the width of the field:
 
-| system, as published | F1 | precision | recall |
-| --- | ---: | ---: | ---: |
-| AACR-Bench paper, Claude-4.5-Sonnet in agent mode | 0.1612 | 0.3990 | 0.1010 |
-| AACR-Bench paper, no context, GLM-4.7 | 0.1603 | 0.1130 | 0.2757 |
-| AACR-Bench paper, embedding retrieval, GLM-4.7 | 0.1563 | 0.1100 | 0.2698 |
-| **this repository, lanes, 100 pull requests** | **0.2055** | **0.2179** | **0.1944** |
+| system, as published                              |         F1 |  precision |     recall |
+| ------------------------------------------------- | ---------: | ---------: | ---------: |
+| AACR-Bench paper, Claude-4.5-Sonnet in agent mode |     0.1612 |     0.3990 |     0.1010 |
+| AACR-Bench paper, no context, GLM-4.7             |     0.1603 |     0.1130 |     0.2757 |
+| AACR-Bench paper, embedding retrieval, GLM-4.7    |     0.1563 |     0.1100 |     0.2698 |
+| **this repository, lanes, 100 pull requests**     | **0.2055** | **0.2179** | **0.1944** |
 
 **The published field tops out at 0.1612 and every entry in it trades one of the two rates for the other.** The agent
 column is 0.3990 precision at 0.1010 recall - "contextual tunnel vision", in the paper's phrase - and the no-context
@@ -6616,10 +6615,10 @@ R-29 measured the reader's de-duplicated, twelve-per-pull-request list at **0.25
 pull requests, 330 goldens, `+0.0356` F1, and §57.1 confirmed it against a registered bar of 0.02. R-31 measured the same
 selector on `skip 50` - 100 pull requests, 715 goldens - at **0.1893 against 0.2055**, `-0.0162`.
 
-| slice | rows | goldens | comparator | device | delta |
-| --- | ---: | ---: | ---: | ---: | ---: |
-| `skip 150` (§57.1, R-29) | 46 | 330 | 0.2148 | **0.2504** | **+0.0356** |
-| `skip 50` (§62.2, R-31) | 100 | 715 | 0.2055 | **0.1893** | **-0.0162** |
+| slice                    | rows | goldens | comparator |     device |       delta |
+| ------------------------ | ---: | ------: | ---------: | ---------: | ----------: |
+| `skip 150` (§57.1, R-29) |   46 |     330 |     0.2148 | **0.2504** | **+0.0356** |
+| `skip 50` (§62.2, R-31)  |  100 |     715 |     0.2055 | **0.1893** | **-0.0162** |
 
 **Both figures are real readings of their own rows, and they disagree about the sign of the device.** The gap between them
 is 0.0518, which is **thirty times the 0.0017 this instrument resolves when the same configuration is run twice** (§60).
@@ -6629,7 +6628,7 @@ between two corpora drawn from the same dataset.
 ### 63.2 What that does to the error bar, and to every confirmation in this document
 
 **The error bar in §60 is sampling noise on one slice, and it is not the error bar of a claim.** A claim in this document
-is a sentence about *this corpus*, and the corpus has two halves that do not agree. So a confirmation measured on one
+is a sentence about _this corpus_, and the corpus has two halves that do not agree. So a confirmation measured on one
 slice is a verdict about that slice - which is what every registration here already says in its `confirmation` field, and
 what none of them was read as until these two numbers sat beside each other.
 
@@ -6640,7 +6639,7 @@ That has three consequences, and they are all expensive:
   the same arithmetic gave.
 - **A falsified device has to be falsified twice as well**, for the same reason in the other direction. R-31's verdict on
   `skip 50` does not overrule §57.1's reading on `skip 150`; **it makes the slice part of the finding**, and the reader is
-  therefore closed as *unstable* rather than as *harmful*.
+  therefore closed as _unstable_ rather than as _harmful_.
 - **The comparison job cannot see any of this**, because it compares one pair at a time and has no field for "the same
   device disagreed with itself across corpora". That field is a table in this document and nothing else, which is a
   weaker instrument than the one §62.6 built - and naming the gap is the first step to closing it.
@@ -6690,17 +6689,17 @@ registration has to be written against.
 
 This document has now carried three error bars, and the sequence is worth more than any one of them:
 
-| # | Bar | Where it came from | What it actually measures |
-|---|---:|---|---|
-| 1 | 0.04 at 170 goldens | three runs over **five** pull requests | a runner's bad minute |
-| 2 | 0.0017 at 715 goldens | one configuration dispatched **twice** on one corpus (§60) | the reviewer, corpus held fixed |
-| 3 | **0.0191 at 98 pull requests** | **resampling the corpus from one artifact** (§64.2) | **the corpus** |
+| #   |                            Bar | Where it came from                                         | What it actually measures       |
+| --- | -----------------------------: | ---------------------------------------------------------- | ------------------------------- |
+| 1   |            0.04 at 170 goldens | three runs over **five** pull requests                     | a runner's bad minute           |
+| 2   |          0.0017 at 715 goldens | one configuration dispatched **twice** on one corpus (§60) | the reviewer, corpus held fixed |
+| 3   | **0.0191 at 98 pull requests** | **resampling the corpus from one artifact** (§64.2)        | **the corpus**                  |
 
 Correction 2 was written against correction 1 and was right about the method: 0.04 was extrapolated from five pull
 requests where one true positive is four percent of the figure, and two dispatches of one configuration is a
 measurement. **It was wrong about the question.** A registration is not a claim about the reviewer - "this reviewer is
 stable" - it is a claim about a corpus - "this device raises F1 on review data" - and a two-run repeat holds the corpus
-*still*. The number it returns is the floor of the instrument, not its resolution.
+_still_. The number it returns is the floor of the instrument, not its resolution.
 
 **And the arithmetic is a warning about which error is cheaper.** The old anchor resolves **0.0195** at 715 goldens -
 within three percent of the 0.0191 computed below. Its derivation was wrong and its number was right. The replacement's
@@ -6716,14 +6715,14 @@ a time, keeping its three numbers together** - and F1 recomputed from the resamp
 that distribution is what a second corpus of the same size would move the figure by. `scripts/lib/corpus-resolution.mjs`
 does it; the reading on R-31's 98 rows is:
 
-| Quantity | Value |
-|---|---:|
-| Paired difference (reader − lanes) | **−0.0162** |
-| Standard deviation of that difference | **0.0191** |
-| 95 % interval, 4000 resamples, seed 20260816 | **[−0.0531, +0.0221]** |
-| Share of draws where the reader wins | **0.2008** |
-| Standard deviation of one arm alone | 0.0162 |
-| Seeds 20260816 / 1 / 2 / 99 | 0.0193 / 0.0189 / 0.0191 / 0.0188 |
+| Quantity                                     |                             Value |
+| -------------------------------------------- | --------------------------------: |
+| Paired difference (reader − lanes)           |                       **−0.0162** |
+| Standard deviation of that difference        |                        **0.0191** |
+| 95 % interval, 4000 resamples, seed 20260816 |            **[−0.0531, +0.0221]** |
+| Share of draws where the reader wins         |                        **0.2008** |
+| Standard deviation of one arm alone          |                            0.0162 |
+| Seeds 20260816 / 1 / 2 / 99                  | 0.0193 / 0.0189 / 0.0191 / 0.0188 |
 
 **The unit is the pull request and that is the whole point.** Goldens inside one row are not independent: a reviewer
 that understood a file covers several of them, one that missed it misses several. Resampling goldens would treat 715
@@ -6753,12 +6752,12 @@ both branches on a row where the two differ by a factor of twenty.
 
 ### 64.4 What this does to the registrations on file
 
-| Registration | Bar | Against 0.0191 | Read as |
-|---|---:|---|---|
-| §8 languageChecklist | 0.04 | clears | answerable |
-| §45 adjudicate | 0.04 | clears | answerable |
-| §19 / §20 / §47 / §48 / §53 / §56 / §58 | 0.02 | clears by 5 % | answerable, and only just |
-| **§59 (R-32) secondConcern** | **0.01** | **inside** | **unfalsifiable — point estimate only** |
+| Registration                            |      Bar | Against 0.0191 | Read as                                 |
+| --------------------------------------- | -------: | -------------- | --------------------------------------- |
+| §8 languageChecklist                    |     0.04 | clears         | answerable                              |
+| §45 adjudicate                          |     0.04 | clears         | answerable                              |
+| §19 / §20 / §47 / §48 / §53 / §56 / §58 |     0.02 | clears by 5 %  | answerable, and only just               |
+| **§59 (R-32) secondConcern**            | **0.01** | **inside**     | **unfalsifiable — point estimate only** |
 
 `MINIMUM_REGISTERED_GAIN` moves from 0.0017 to **0.0191**, and `resolutionForPullRequests()` is the function to ask what a
 smaller bar would cost: **a 0.01 bar needs 358 pull requests**, which is 3.7 times the corpus this project buys for
@@ -6804,11 +6803,11 @@ So `significance` resamples **pull requests**, with replacement, keeping each ro
 together, and reports the standard deviation, the interval and the z of the paired difference. Both numbers are published
 because they disagree and the disagreement is informative:
 
-| Instrument | R-32 | Reads |
-|---|---|---|
-| McNemar, 84 : 48 goldens | p = 0.0022 | significant |
-| Clustered bootstrap, 100 rows | z = 1.97, p = 0.0485, CI [−0.0005, +0.0582] | signed, on the boundary |
-| Share of resamples where the device wins | 0.9728 | 97 % |
+| Instrument                               | R-32                                        | Reads                   |
+| ---------------------------------------- | ------------------------------------------- | ----------------------- |
+| McNemar, 84 : 48 goldens                 | p = 0.0022                                  | significant             |
+| Clustered bootstrap, 100 rows            | z = 1.97, p = 0.0485, CI [−0.0005, +0.0582] | signed, on the boundary |
+| Share of resamples where the device wins | 0.9728                                      | 97 %                    |
 
 **The clustered one is the one a bar has to clear**, and it is 45 times less impressed by the same evidence.
 
@@ -6823,7 +6822,7 @@ because they disagree and the disagreement is informative:
 - **A corpus of width zero is signed on its point estimate**, because a distribution that never moves does not change
   sign under resampling - `sd: 0` is published for a reader to weigh rather than hidden.
 
-`confirmable` is the *ex ante* version and belongs in the registration: **a bar needs 1.96 standard deviations of the
+`confirmable` is the _ex ante_ version and belongs in the registration: **a bar needs 1.96 standard deviations of the
 corpus it will be judged on**, which is 0.0372 on R-31's 98 rows and 0.0294 on R-32's. Every 0.02 registration on file
 clears `resolvable` and cannot clear `confirmable`, and **that is the sentence that should have been written before the
 dispatch rather than after it.**
@@ -6847,11 +6846,11 @@ for the state this project will be in whenever a device is smaller than the corp
 Run `43854378420`, both arms on `skip 50 max 100`, 100 pull requests, **724 goldens** (R-31 read 715 because two diffs
 returned 500; §60's retry fixed that, so this run read the whole slice), same judge, same configuration except the switch:
 
-| Arm | TP | FP | FN | P | R | F1 | Cost |
-|---|---:|---:|---:|---:|---:|---:|---:|
-| `secondConcern: false` | 140 | 514 | 584 | 0.2141 | 0.1934 | **0.2032** | $1.17 |
-| `secondConcern: true` | 176 | 612 | 548 | 0.2234 | 0.2431 | **0.2328** | $1.15 |
-| **Δ** | **+36** | +98 | **−36** | +0.0093 | **+0.0497** | **+0.0296** | −$0.02 |
+| Arm                    |      TP |  FP |      FN |       P |           R |          F1 |   Cost |
+| ---------------------- | ------: | --: | ------: | ------: | ----------: | ----------: | -----: |
+| `secondConcern: false` |     140 | 514 |     584 |  0.2141 |      0.1934 |  **0.2032** |  $1.17 |
+| `secondConcern: true`  |     176 | 612 |     548 |  0.2234 |      0.2431 |  **0.2328** |  $1.15 |
+| **Δ**                  | **+36** | +98 | **−36** | +0.0093 | **+0.0497** | **+0.0296** | −$0.02 |
 
 **The mechanism is the registered one and it is recall.** 36 more goldens found, 98 more comments paid for them, and
 precision rose anyway - because the second concern is kept only at a range the reviewer already reported, so it costs one
@@ -6864,15 +6863,15 @@ same rule removed 2 306 of 3 401 and kept none.
 
 ### 66.2 The verdict, and the two gates that disagree
 
-| Gate | Value | Reads |
-|---|---|---|
-| Magnitude (≥ 0.01) | +0.0296 | met |
-| Mechanism (recall rises, precision not lowered) | +0.0497 / +0.0093 | met |
-| Slice (`skip 50 max 100`) | matches | met |
-| Device inputs | not required | — |
-| **Signed (clustered, p ≤ 0.05)** | **z = 1.97, p = 0.0485** | **met, on the boundary** |
-| **Answerable (bar ≥ corpus resolution 0.019)** | **0.01 < 0.019** | **not met** |
-| `confirms` | **false** | **unfalsifiable** |
+| Gate                                            | Value                    | Reads                    |
+| ----------------------------------------------- | ------------------------ | ------------------------ |
+| Magnitude (≥ 0.01)                              | +0.0296                  | met                      |
+| Mechanism (recall rises, precision not lowered) | +0.0497 / +0.0093        | met                      |
+| Slice (`skip 50 max 100`)                       | matches                  | met                      |
+| Device inputs                                   | not required             | —                        |
+| **Signed (clustered, p ≤ 0.05)**                | **z = 1.97, p = 0.0485** | **met, on the boundary** |
+| **Answerable (bar ≥ corpus resolution 0.019)**  | **0.01 < 0.019**         | **not met**              |
+| `confirms`                                      | **false**                | **unfalsifiable**        |
 
 **So the artifact says something no earlier artifact in this document could say: the device works and the registration
 was written too low to say so.** §60 replaced a 0.0195 anchor with 0.0017 and R-32 was registered at 0.01 against the
@@ -6886,11 +6885,11 @@ not establish is that a gain of that size would be found again on a corpus this 
 
 ### 66.3 Where 0.2328 stands
 
-| System | F1 | Note |
-|---|---:|---|
-| Claude-4.5-Sonnet, agent, no context (§62.7) | 0.1612 | the published leader |
-| this project, `secondConcern: false` | 0.2032 | the same slice, the same day |
-| **this project, `secondConcern: true`** | **0.2328** | **+44 % over the leader** |
+| System                                       |         F1 | Note                         |
+| -------------------------------------------- | ---------: | ---------------------------- |
+| Claude-4.5-Sonnet, agent, no context (§62.7) |     0.1612 | the published leader         |
+| this project, `secondConcern: false`         |     0.2032 | the same slice, the same day |
+| **this project, `secondConcern: true`**      | **0.2328** | **+44 % over the leader**    |
 
 The comparison is not a like-for-like benchmark - the leader's number is over the full 200-pull-request corpus and ours
 over the hundred starting at fifty - and it is the only number this project has that is both measured on a public corpus
@@ -6918,10 +6917,10 @@ half estimates the same effect.
 
 **The consequence is arithmetic, not opinion.** A standard error falls with the square root of the sample:
 
-| Corpus | Rows | Standard deviation at R-32's spread | +0.0296 is |
-|---|---:|---:|---|
-| one slice | 100 | 0.0150 | 1.97 sigma, p = 0.0485 |
-| **both slices** | **200** | **0.0106** | **2.8 sigma, p = 0.005** |
+| Corpus          |    Rows | Standard deviation at R-32's spread | +0.0296 is               |
+| --------------- | ------: | ----------------------------------: | ------------------------ |
+| one slice       |     100 |                              0.0150 | 1.97 sigma, p = 0.0485   |
+| **both slices** | **200** |                          **0.0106** | **2.8 sigma, p = 0.005** |
 
 **So the second slice is not only a direction check. It is 100 more rows of the same experiment**, and the corpus this
 project can afford is already twice the corpus it has been testing on. Nothing in the instrument could say so, because
@@ -6933,10 +6932,10 @@ project can afford is already twice the corpus it has been testing on. Nothing i
 rather than adding the two totals**, and records which dispatches the corpus came from. Three refusals, each naming what
 failed, because each wants a different repair:
 
-| Refusal | Why |
-|---|---|
-| a pull request appears in both slices | a row counted twice is a corpus that weighs it twice |
-| the configurations differ | two arms of two devices summed is a device that never ran |
+| Refusal                               | Why                                                               |
+| ------------------------------------- | ----------------------------------------------------------------- |
+| a pull request appears in both slices | a row counted twice is a corpus that weighs it twice              |
+| the configurations differ             | two arms of two devices summed is a device that never ran         |
 | a slice does not say where it started | a merge of unrecorded slices is a merge into one anonymous corpus |
 
 **Totals are re-derived and not added** for the reason §65 found in the self-test: an artifact can publish a total that
@@ -6972,12 +6971,12 @@ R-33 is running on `skip 150` with the same two arms. Its number will be a gain,
 gain is a description of that gain**. §67 puts the standard deviation of a 200-row corpus at 0.0106; signing needs 1.96 of
 them; the bar is therefore **0.021**, and it is arithmetic rather than an observation:
 
-| Quantity | Value | Source |
-|---|---:|---|
-| Standard deviation, one slice of 100 rows | 0.0150 | R-32's own rows, resampled |
-| Standard deviation, two slices of 200 rows | **0.0106** | √(100/200) × 0.0150 |
-| Smallest signable gain | **0.0208** | 1.96 × 0.0106 |
-| **R-34's registered bar** | **0.021** | this table, written before the result |
+| Quantity                                   |      Value | Source                                |
+| ------------------------------------------ | ---------: | ------------------------------------- |
+| Standard deviation, one slice of 100 rows  |     0.0150 | R-32's own rows, resampled            |
+| Standard deviation, two slices of 200 rows | **0.0106** | √(100/200) × 0.0150                   |
+| Smallest signable gain                     | **0.0208** | 1.96 × 0.0106                         |
+| **R-34's registered bar**                  |  **0.021** | this table, written before the result |
 
 If R-33's gain lands under 0.021 the registration is falsified and that is the answer. If it lands above it, the corpus
 is signed - and **the reading will be one sentence about 200 pull requests rather than two sentences about 100 each**,
@@ -7009,3 +7008,145 @@ Three things, and each has a test rather than a sentence:
 3. **Reading a merge whose inputs disagree.** `mergeSlices` refuses overlapping pull requests, differing configurations
    and unrecorded slices; a merge that let any of those through would produce a corpus whose error bar is computed on rows
    that are not an experiment.
+
+## 69. The second slice reversed the sign, and the pairs were read again
+
+### 69.1 R-33, and the corpus it was merged into
+
+R-33 (`43902714209`) ran the same two arms on `skip 150` and read **46 pull requests**, not the hundred the slice
+asked for, because the dataset holds 196 and the first 150 have already been spent. Its own reading is negative:
+
+| reading          | rows | goldens | device off | device on |       delta |
+| ---------------- | ---: | ------: | ---------: | --------: | ----------: |
+| R-32, `skip 50`  |  100 |     724 |     0.2032 |    0.2328 | **+0.0296** |
+| R-33, `skip 150` |   46 |     330 |     0.2319 |    0.1975 | **−0.0344** |
+
+**Two slices, two signs, and each is a real reading of its own rows.** The gap between them is 0.0640 across a device whose
+whole claim was 0.01, which is §63's rule arriving at the device §59 registered: a confirmation on one slice is a sentence
+about that slice. §68 was written before R-33 landed precisely so that the answer would be this table and not a bar chosen
+from it.
+
+`scripts/aacr-merge-slices.mjs` then joined them into one corpus of **146 pull requests and 1 054 goldens**, and the
+comparison job was asked the question §68 was written for:
+
+| quantity                       |                value |
+| ------------------------------ | -------------------: |
+| file arm, device off           |               0.2125 |
+| file arm, device on            |               0.2214 |
+| **delta**                      |          **+0.0089** |
+| cluster bootstrap sd, 146 rows |               0.0130 |
+| 95 % interval                  |   −0.0167 to +0.0346 |
+| paired, exact McNemar          | +105/−75, p = 0.0304 |
+| z against zero                 |                 0.68 |
+| **registered bar (§68)**       |            **0.021** |
+| outcome                        |        **falsified** |
+
+**The paired test and the bootstrap disagree, and the bootstrap is the one the registration named.** The exact McNemar
+counts _which_ goldens changed hands and calls 180 discordant pairs 0.03; the bootstrap resamples the _pull requests_ and
+asks how much the figure would move if the corpus were drawn again, and 146 rows cannot distinguish +0.0089 from zero. A
+golden inside a pull request is not an independent observation, and a test that counts goldens counts one pull request's
+twelve findings twelve times.
+
+### 69.2 The arithmetic in §67 assumed rows that do not exist
+
+§67 projected 200 rows and a standard deviation of 0.0106. **The corpus is 196 pull requests and the second slice could
+only supply 46**, so the merged reading is 146 rows and 0.0130 - not 0.0106:
+
+|    rows |         sd | smallest signable gain | §68's 0.021 bar is   |
+| ------: | ---------: | ---------------------: | -------------------- |
+|     100 |     0.0150 |                 0.0294 | unusable             |
+| **146** | **0.0130** |             **0.0255** | **below resolution** |
+|     196 |     0.0113 |                 0.0221 | signable             |
+
+**So §68's bar was written under the resolution of the corpus that would judge it**, which is the defect
+`registrationResolvable` was written to refuse and which the artifact now reports on its own verdict as
+`insideResolution: true` and `confirmable.needs: 0.0255`. The prediction was falsified on the magnitude it named _and_ it
+could not have been confirmed at 146 rows whatever the device did. **Both sentences are true and only one of them is the
+finding**: the device is not real, and the bar was unreachable.
+
+**The repair is arithmetic rather than a new threshold.** A registration's bar has to be the larger of the effect it
+claims and the smallest gain the corpus it will be judged on can sign - `MINIMUM_REGISTERED_GAIN` is 0.0191 for that
+reason, and 0.021 should have been 0.026. Writing 0.026 now, having seen +0.0089, is not the defect §68.1 guarded
+against: the number is a function of 146 rows, not of this reading.
+
+### 69.3 The cut space is closed, and that is a measurement rather than an opinion
+
+Every device that only reshuffles or subtracts has now been priced on the merged corpus. Per-category precision over the
+shipped rows of both slices:
+
+| category        | shipped | goldens credited | precision |
+| --------------- | ------: | ---------------: | --------: |
+| bug             |     510 |              134 |     0.263 |
+| architecture    |     307 |               50 |     0.163 |
+| maintainability |      58 |                7 |     0.121 |
+| documentation   |      43 |                9 |     0.209 |
+| security        |      44 |               10 |     0.227 |
+| performance     |      15 |                5 |     0.333 |
+| style           |      11 |                2 |     0.182 |
+
+and the best single cut is the arithmetic no reader wants:
+
+| cut                    |     F1 | delta against 0.2125 |
+| ---------------------- | -----: | -------------------: |
+| drop `style`           | 0.2117 |              −0.0008 |
+| drop `maintainability` | 0.2117 |              −0.0008 |
+| drop `performance`     | 0.2092 |              −0.0034 |
+| drop `architecture`    | 0.1925 |              −0.0200 |
+| drop `bug`             | 0.1084 |              −0.1042 |
+
+**Nothing to drop.** `test` is already dropped by the emission rule, the smallest categories cost more than they save,
+and the two that carry 85 % of the credits carry 85 % of the volume with them. This closes §19.3's question with the
+corpus rather than with a slice: a device that can only subtract cannot win the trade, and there is no cut in the
+artifact that wins it either.
+
+### 69.4 The rejected pairs were read again, and the matcher is not the bottleneck
+
+The largest bucket in the miss anatomy is not a miss at all: **449 goldens sat in a file we had commented on and the judge
+rejected the comment**, 263 of them on the golden's exact line. If those are the same defect said in other words, the
+repair is a better matcher and the finder is fine. `aacr-rejudge.yml` reads each pair beside three controls, and its run
+(`43869953158`, over the artifact of `43839753881`) answered:
+
+| reading                                   | pairs | accepted |  share |
+| ----------------------------------------- | ----: | -------: | -----: |
+| the pairs the run rejected                |   263 |       49 | 18.6 % |
+| crossed: golden from another pull request |   263 |        1 |  0.4 % |
+| same file, same pull request, other line  |   219 |       35 | 16.0 % |
+| same pull request, another file           |   222 |       12 |  5.4 % |
+
+**The crossed control accepts 0.4 %, which says the reader is reading the code rather than the vocabulary.** And the
+floor is the other number: a reader shown a comment on one line and a golden from **another line of the same file** accepts
+16.0 % of them. So **18.6 % against a 16.0 % floor is 6.97 pairs of evidence** - seven goldens, out of 263, that a perfect
+matcher could recover.
+
+**That is the end of the matcher hypothesis for this corpus.** The 449 rejections are, by this reading, mostly what they
+look like: a comment on the right file about a different defect. **The finder is the bottleneck**, and no matcher, judge
+prompt or threshold in this repository recovers more than seven goldens from it.
+
+### 69.5 What is left, and the number it has to beat
+
+Three devices are closed and each was closed by its own artifact: the window (negative at 22 of 23 cuts, §51), the claim
+check (§45), the reader (§63, unstable across slices), and now the second concern (+0.0089 on 146 rows against a bar it
+could not reach). **What every one of them changed was the cut, the matcher or the second pass. Not one of them changed
+what a lane is asked to say.**
+
+So the next device is a finder device, and it is registered here against the corpus that will judge it:
+
+> **R-35: a lane asked a different question about the same diff raises the file arm F1 by at least 0.026 on the 146 pull
+> requests R-32 and R-33 read, without lowering precision by more than a golden is worth.**
+
+- **0.026 rather than 0.021**, because 0.0255 is what 146 rows can sign (§69.2). A bar under its own resolution is a
+  sentence that cannot be true.
+- **`recall-rises`**, because §69.4 says the losses are defects never claimed rather than claims that were refused, and a
+  device registered under `recall-holds` would be answered by a rule that cannot see its own mechanism.
+- **The falsifier is §69.4's number**: a companion reading of the same run's rejected pairs must show the floor moving. If
+  the seven recoverable pairs stay at seven, the device did not find new defects, it found new sentences about old ones.
+
+### 69.6 What would make this section wrong
+
+1. **Reading the merged corpus as if it were 200 rows.** It is 146, the sd is 0.0130, and any projection from 0.0106 is
+   arithmetic about a corpus this project does not have. The table in 69.2 exists so that the next projection starts from
+   rows.
+2. **Quoting the McNemar p-value as a confirmation.** +105/−75, p = 0.0304 is a real reading of the goldens and it is not
+   the reading the registration named. §69.1 puts them side by side rather than choosing.
+3. **Treating 6.97 pairs as zero.** The lift is small and it is not nothing: it is the size of the prize a matcher could
+   win, and the reason the next registration pays for a finder instead.
