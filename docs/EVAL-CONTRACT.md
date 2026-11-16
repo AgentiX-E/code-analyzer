@@ -6284,3 +6284,9 @@ while believing it was the second.
    anything: a flag that reaches the engine and not the artifact is a comparison between two arms that look identical.
 3. **`keptAsSecondConcern` in the dedup report**, because the switch's effect is a merge that did not happen, and a
    report that only counts merges cannot show one being withheld.
+4. **`lane` on every finding, which the artifact had never carried.** The lane's result named its lane and its findings
+   did not, so the flattening that builds the judged list dropped the attribute: **`lane: null` on all 1 109 rows of the
+   discovery run**, in the artifact that paid 5 785 calls for five lanes. *Which lane earns its calls* was therefore a
+   question the run could not answer, and a lane-ablation was a dispatch rather than a query. `locateLaneFindings()` is
+   the flattening now - a named function because it is where the attribute is lost and the only version a test can call -
+   and it keeps a finding's own stamp when it has one, so the reading agent's rows are not relabelled as a lane's.

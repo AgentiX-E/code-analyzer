@@ -56,6 +56,7 @@ import {
   writeBaseline,
 } from './lib/competitor-baseline.mjs';
 import { operatingPointTable } from '../../scripts/lib/operating-point.mjs';
+import { locateLaneFindings } from '../../scripts/lib/lane-attribution.mjs';
 
 const BENCH = process.env['AACR_DIR'] ?? '/tmp/aacr-bench';
 const MODEL = process.env['AACR_JUDGE_MODEL'] ?? process.env['MARTIAN_MODEL'] ?? 'deepseek-chat';
@@ -3186,9 +3187,12 @@ async function main() {
     // numbers in that file; **the path lived on the result rather than on the finding**, so a flattened list of findings
     // could not be grounded against any diff - which is the same shape of loss as the golden path that was handed to
     // the engine three runs ago.
-    const laneLocated = lanes
-      .filter((l) => l.success)
-      .flatMap((l) => (l.findings ?? []).map((finding) => ({ finding, path: l.filePath })));
+    // **And the lane each finding came from, which this expression dropped until iteration 145.** The result carried
+    // `lane`, the finding did not, so every row of the artifact's `rankedFindings` published `lane: null` - 1 109 of
+    // them on the discovery run - and *"which lane earns its 5 785 calls"* was unanswerable from the artifact that paid
+    // for them. The flattening is a named function now, because it is where the attribute was lost and a named function
+    // is the only version of it a test can call.
+    const laneLocated = locateLaneFindings(lanes);
     let located = laneLocated;
     // **The agent's findings, when the arm ran.** Replaced rather than merged: a figure over two reviewers at once is a
     // figure about neither. **`AACR_ENSEMBLE=on` is the exception that gets measured**, and it is an exception precisely

@@ -45,8 +45,10 @@ describe('the ensemble arm', () => {
     expect(BENCH).toContain(
       'ENSEMBLE ? [...laneLocated, ...agentResult.findings] : agentResult.findings',
     );
-    // **And the lanes are captured before the reader replaces them**, or the merge has one list to merge.
-    expect(BENCH).toContain('const laneLocated = lanes');
+    // **And the lanes are captured before the reader replaces them**, or the merge has one list to merge. The capture
+    // is a named function rather than a spread since §59.5, because the flattening was where each finding lost the lane
+    // that produced it - so the assertion is the call, and the attribution is asserted where it is computed.
+    expect(BENCH).toContain('const laneLocated = locateLaneFindings(lanes)');
   });
 
   it('runs the lanes under the merge, because a merge of one list and nothing is a sort', () => {
