@@ -42,7 +42,9 @@ describe('the ensemble arm', () => {
   it('keeps both reviewers\u2019 findings, and only when the arm is on', () => {
     // **The fragments, not the line**, because the formatter reflows a conditional this long and a test pinned to its
     // whitespace fails for a change that moved no logic.
-    expect(BENCH).toContain('ENSEMBLE ? [...laneLocated, ...agentResult.findings] : agentResult.findings');
+    expect(BENCH).toContain(
+      'ENSEMBLE ? [...laneLocated, ...agentResult.findings] : agentResult.findings',
+    );
     // **And the lanes are captured before the reader replaces them**, or the merge has one list to merge.
     expect(BENCH).toContain('const laneLocated = lanes');
   });

@@ -200,6 +200,22 @@ describe('the merge of two reviewers', () => {
     expect(outcome.dropped).toEqual([{ ref: 'r1', reason: 'over-budget' }]);
   });
 
+  it('sorts a lane above a reader whichever way round the comparator is asked', () => {
+    // **Both directions of the tie-break, because a sort calls the comparator both ways** and a comparator that answers
+    // only one of them is a comparator whose order depends on the input order. The two candidates are otherwise
+    // identical: same score, same pull request, same line.
+    const lanesFirst = mergeCandidates(
+      [candidate('l1', 'lanes', { score: 0.5 }), candidate('r1', 'reader', { score: 0.5 })],
+      2,
+    );
+    const readerFirst = mergeCandidates(
+      [candidate('r1', 'reader', { score: 0.5 }), candidate('l1', 'lanes', { score: 0.5 })],
+      2,
+    );
+    expect(lanesFirst.kept.map((entry) => entry.ref)).toEqual(['l1', 'r1']);
+    expect(readerFirst.kept.map((entry) => entry.ref)).toEqual(['l1', 'r1']);
+  });
+
   it('states the budget and numbers the candidates, so the answer is about refs rather than about order', () => {
     const prompt = mergePrompt([...lanes, ...reader], 3);
     expect(prompt).toContain('at most 3');
@@ -209,6 +225,55 @@ describe('the merge of two reviewers', () => {
     // model cannot make from a sentence alone.
     expect(prompt).toContain('lanes');
     expect(prompt).toContain('reader');
+  });
+
+  it('refuses an answer with no object in it, or one whose keep is not a list', () => {
+    // **Three shapes of refusal**, because each is a different defect in the prompt's contract: no JSON at all, a brace
+    // that opens and never closes, and JSON whose `keep` is a string. A parser that accepted the third would iterate its
+    // characters and keep nothing, and the caller would record an empty merge rather than an unparseable answer.
+    expect(parseMergeAnswer('the merge is fine')).toBeNull();
+    expect(parseMergeAnswer('{')).toBeNull();
+    // **A brace at each end and no JSON between them**, which is the only input that reaches the parser and fails there:
+    // `{` alone is refused by the slice, so a test that stopped there would leave the `catch` unexercised.
+    expect(parseMergeAnswer('{ keep: l1 }')).toBeNull();
+    expect(parseMergeAnswer('{"keep":"l1"}')).toBeNull();
+    // And one that parses: the difference has to be visible in the same test.
+    expect(parseMergeAnswer('{"keep":[]}')).toEqual({ keep: [], duplicates: [] });
+  });
+
+  it('keeps only the strings of a keep list, and only the well-formed duplicates', () => {
+    // **The model is asked for strings and returns what it returns.** A `1` in the list is not a ref, and a duplicate
+    // entry missing its `of` cannot be used to explain a drop - both are filtered rather than trusted.
+    expect(
+      parseMergeAnswer(
+        '{"keep":[1,"l1",null],"duplicates":[{"drop":"r1"},"nonsense",{"drop":"r2","of":"l1"}]}',
+      ),
+    ).toEqual({ keep: ['l1'], duplicates: [{ drop: 'r2', of: 'l1' }] });
+    expect(parseMergeAnswer('{"keep":["l1"],"duplicates":"none"}')).toEqual({
+      keep: ['l1'],
+      duplicates: [],
+    });
+  });
+
+  it('cuts to a budget of zero rather than treating it as no budget', () => {
+    // **`Math.max(0, budget)` is a guard with a meaning**: a caller that asks for no comments gets none, and a negative
+    // budget is not a licence to post everything.
+    const outcome = mergeCandidates([candidate('l1', 'lanes')], 0);
+    expect(outcome.kept).toEqual([]);
+    expect(outcome.dropped).toEqual([{ ref: 'l1', reason: 'over-budget' }]);
+  });
+
+  it('defaults to the shipped budget and the shipped tag when the caller names neither', async () => {
+    const provider = new ScriptedProvider('{"keep":["l1"]}');
+    // Thirteen candidates, so the default budget of twelve binds and a call is bought - which is the only way to see
+    // that the default was read rather than a caller's value.
+    const many = Array.from({ length: 13 }, (_, at) =>
+      candidate(`r${String(at)}`, 'reader', { score: 0.1 + at / 100 }),
+    );
+    const outcome = await mergeReviewers({ lanes, reader: many, provider });
+    expect(outcome.decidedBy).toBe('model');
+    expect(outcome.kept.length).toBeLessThanOrEqual(MERGE_BUDGET_PER_PULL_REQUEST);
+    expect(provider.prompts[0]).toContain(`at most ${String(MERGE_BUDGET_PER_PULL_REQUEST)}`);
   });
 
   it('ships a budget of twelve per pull request, which is the point §54 priced', () => {
