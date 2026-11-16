@@ -7122,6 +7122,20 @@ matcher could recover.
 look like: a comment on the right file about a different defect. **The finder is the bottleneck**, and no matcher, judge
 prompt or threshold in this repository recovers more than seven goldens from it.
 
+**And it replicated on a second artifact, which is the only reason it is written as a finding rather than as a reading.**
+The same job over R-32's control arm (`43972526272`, artifact of `43854378420`) read 273 pairs:
+
+| reading                                   | pairs | accepted |  share |
+| ----------------------------------------- | ----: | -------: | -----: |
+| the pairs the run rejected                |   273 |       64 | 23.4 % |
+| crossed: golden from another pull request |   273 |        0 |  0.0 % |
+| same file, same pull request, other line  |   230 |       48 | 20.9 % |
+| same pull request, another file           |   225 |       15 |  6.7 % |
+
+**Two artifacts, two slices, 6.97 and 7.03 pairs.** The lift is 2.6 % in both, the floor comes from the same control in
+both, and the whole difference between them is inside what one pair is worth. That is what a device that does not exist
+looks like when it is measured twice.
+
 ### 69.5 What is left, and the number it has to beat
 
 Three devices are closed and each was closed by its own artifact: the window (negative at 22 of 23 cuts, §51), the claim
