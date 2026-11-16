@@ -123,16 +123,25 @@ describe('a verdict that cannot be signed is not a verdict', () => {
   const spread = (shortfall: number) =>
     Array.from({ length: 100 }, (_, at) => {
       const goldens = 6 + (at % 3);
-      return { goldens, covered: Array.from({ length: goldens - shortfall }, (_, k) => k), shippedEmitted: 9 };
+      return {
+        goldens,
+        covered: Array.from({ length: goldens - shortfall }, (_, k) => k),
+        shippedEmitted: 9,
+      };
     });
 
   it('signs a gain that is larger than the corpus can move it', () => {
-    const artifact = compare(arm({ profile: 'defect', rows: spread(2) }), arm({ profile: 'advisory', rows: spread(3) }));
+    const artifact = compare(
+      arm({ profile: 'defect', rows: spread(2) }),
+      arm({ profile: 'advisory', rows: spread(3) }),
+    );
     const significance = artifact['significance'] as Record<string, number | string>;
     expect(significance['pullRequests']).toBe(100);
     expect(Number(significance['sd'])).toBeGreaterThan(0);
     expect(Number(significance['z'])).toBeGreaterThan(1.96);
-    expect(String((artifact['verdict'] as Record<string, unknown>)['outcome'])).toMatch(/^confirmed/);
+    expect(String((artifact['verdict'] as Record<string, unknown>)['outcome'])).toMatch(
+      /^confirmed/,
+    );
   });
 
   it('refuses to sign a gain that five rows carried by themselves', () => {
@@ -140,13 +149,20 @@ describe('a verdict that cannot be signed is not a verdict', () => {
     // seven goldens on five rows and nothing on the other ninety-five. Resampling that corpus drops the five rows
     // three times in four, so the difference is zero on most draws - and a job that reported the point estimate would
     // be reporting the five rows rather than the device.
-    const without = Array.from({ length: 100 }, () => ({ goldens: 7, covered: [] as number[], shippedEmitted: 1 }));
+    const without = Array.from({ length: 100 }, () => ({
+      goldens: 7,
+      covered: [] as number[],
+      shippedEmitted: 1,
+    }));
     const withRows = Array.from({ length: 100 }, (_, at) =>
       at < 2
         ? { goldens: 7, covered: [0, 1, 2, 3, 4, 5, 6], shippedEmitted: 9 }
         : { goldens: 7, covered: [] as number[], shippedEmitted: 1 },
     );
-    const artifact = compare(arm({ profile: 'defect', rows: withRows }), arm({ profile: 'advisory', rows: without }));
+    const artifact = compare(
+      arm({ profile: 'defect', rows: withRows }),
+      arm({ profile: 'advisory', rows: without }),
+    );
     const verdict = artifact['verdict'] as Record<string, unknown>;
     expect(verdict['magnitudeMet']).toBe(true);
     expect(verdict['confirms']).toBe(false);
@@ -159,14 +175,32 @@ describe('a verdict that cannot be signed is not a verdict', () => {
     // **`resolvable` and `confirmable` are different**, and the second is the one that decides whether a paid dispatch
     // can produce a signed verdict: a bar at one standard deviation clears the first and cannot clear the second.
     const artifact = compare(
-      arm({ profile: 'defect', rows: Array.from({ length: 100 }, () => ({ goldens: 7, covered: [0, 1, 2, 3], shippedEmitted: 9 })) }),
-      arm({ profile: 'advisory', rows: Array.from({ length: 100 }, () => ({ goldens: 7, covered: [0, 1, 2], shippedEmitted: 9 })) }),
+      arm({
+        profile: 'defect',
+        rows: Array.from({ length: 100 }, () => ({
+          goldens: 7,
+          covered: [0, 1, 2, 3],
+          shippedEmitted: 9,
+        })),
+      }),
+      arm({
+        profile: 'advisory',
+        rows: Array.from({ length: 100 }, () => ({
+          goldens: 7,
+          covered: [0, 1, 2],
+          shippedEmitted: 9,
+        })),
+      }),
     );
     const verdict = artifact['verdict'] as Record<string, unknown>;
     expect(artifact['resolvable']).toBe(true);
     // R-32's 0.01 is under the corpus bar and was refused before the run; a 0.0191 bar clears it and still cannot be
     // signed, because signing needs 1.96 standard deviations rather than one.
-    const confirmable = verdict['confirmable'] as { bar: number; needs: number; confirmed: boolean };
+    const confirmable = verdict['confirmable'] as {
+      bar: number;
+      needs: number;
+      confirmed: boolean;
+    };
     expect(confirmable.confirmed).toBe(false);
     expect(confirmable.needs).toBeGreaterThan(confirmable.bar);
   });
@@ -175,9 +209,16 @@ describe('a verdict that cannot be signed is not a verdict', () => {
     const sixty = (shortfall: number) =>
       Array.from({ length: 60 }, (_, at) => {
         const goldens = 6 + (at % 3);
-        return { goldens, covered: Array.from({ length: goldens - shortfall }, (_, k) => k), shippedEmitted: 9 };
+        return {
+          goldens,
+          covered: Array.from({ length: goldens - shortfall }, (_, k) => k),
+          shippedEmitted: 9,
+        };
       });
-    const artifact = compare(arm({ profile: 'defect', rows: sixty(2) }), arm({ profile: 'advisory', rows: sixty(3) }));
+    const artifact = compare(
+      arm({ profile: 'defect', rows: sixty(2) }),
+      arm({ profile: 'advisory', rows: sixty(3) }),
+    );
     const significance = artifact['significance'] as Record<string, number | string>;
     expect(significance['resamples']).toBe(4000);
     expect(significance['unit']).toBe('pull request');

@@ -15,7 +15,8 @@
 
 const deepEqual = (left, right) => {
   if (left === right) return true;
-  if (typeof left !== 'object' || typeof right !== 'object' || left === null || right === null) return false;
+  if (typeof left !== 'object' || typeof right !== 'object' || left === null || right === null)
+    return false;
   if (Array.isArray(left) !== Array.isArray(right)) return false;
   const leftKeys = Object.keys(left);
   const rightKeys = Object.keys(right);
@@ -35,7 +36,9 @@ const rowsOf = (artifact) =>
  */
 export function mergeSlices(artifacts) {
   if (!Array.isArray(artifacts) || artifacts.length < 2) {
-    throw new TypeError('merging slices needs at least two artifacts; one slice is a run, not a merge');
+    throw new TypeError(
+      'merging slices needs at least two artifacts; one slice is a run, not a merge',
+    );
   }
 
   const seen = new Map();

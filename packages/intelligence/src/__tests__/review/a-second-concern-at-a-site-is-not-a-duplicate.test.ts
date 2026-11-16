@@ -51,7 +51,12 @@ class LaneScript implements LLMProvider {
   }
 
   private result(content: string): CompletionResult {
-    return { content, model: this.model, createdAt: new Date().toISOString(), finishReason: 'stop' };
+    return {
+      content,
+      model: this.model,
+      createdAt: new Date().toISOString(),
+      finishReason: 'stop',
+    };
   }
 }
 
@@ -106,7 +111,10 @@ async function twoConcerns(secondConcern: boolean) {
     { lanes: ['security', 'performance'] as const, secondConcern },
   );
   const results = await engine.reviewDiff(diff());
-  return { findings: results.flatMap((result) => result.findings), report: engine.lastDeduplication };
+  return {
+    findings: results.flatMap((result) => result.findings),
+    report: engine.lastDeduplication,
+  };
 }
 
 describe('a second concern at a site is not a duplicate of the first', () => {
@@ -132,7 +140,13 @@ describe('a second concern at a site is not a duplicate of the first', () => {
     const engine = new LLMReviewEngine(
       new LaneScript({
         'expert security reviewer': [
-          finding({ startLine: 3022, endLine: 3030, severity: 'high', category: 'bug', title: 'a' }),
+          finding({
+            startLine: 3022,
+            endLine: 3030,
+            severity: 'high',
+            category: 'bug',
+            title: 'a',
+          }),
         ],
         'expert performance engineer': [
           finding({

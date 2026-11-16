@@ -57,8 +57,13 @@ describe('the second-concern switch is wired end to end', () => {
 
 describe('the registration is the one the switch is measured against', () => {
   it('exists, and asks for recall rather than for precision', () => {
-    const registration = (REGISTRATIONS as Record<string, Record<string, unknown>>)['secondConcern'];
-    expect(registration, 'the switch has no registration, so its run is a diagnostic').toBeDefined();
+    const registration = (REGISTRATIONS as unknown as Record<string, Record<string, unknown>>)[
+      'secondConcern'
+    ];
+    expect(
+      registration,
+      'the switch has no registration, so its run is a diagnostic',
+    ).toBeDefined();
     // **The mechanism is the mirror of every other entry**, and that is the point: this device adds comments and cannot
     // raise precision, so a registration that asked it to would be asking a filter to behave like a merge.
     expect(registration!['mechanismRule']).toBe('recall-rises');
@@ -68,7 +73,9 @@ describe('the registration is the one the switch is measured against', () => {
   });
 
   it('names the slice the dispatch will read, so the run can be a confirmation rather than a surprise', () => {
-    const registration = (REGISTRATIONS as Record<string, Record<string, unknown>>)['secondConcern'];
+    const registration = (REGISTRATIONS as unknown as Record<string, Record<string, unknown>>)[
+      'secondConcern'
+    ];
     expect(registration!['confirmation']).toEqual([{ skip: 50, max: 100 }]);
   });
 });

@@ -40,8 +40,12 @@ import { pairedComparison } from './lib/paired-test.mjs';
  * one side only are dropped and counted, so a verdict never claims to have resampled a corpus it only half read.
  */
 function pairedCoverageRows(onArtifact, offArtifact) {
-  const onRows = Array.isArray(onArtifact?.coverage?.byPullRequest) ? onArtifact.coverage.byPullRequest : [];
-  const offRows = Array.isArray(offArtifact?.coverage?.byPullRequest) ? offArtifact.coverage.byPullRequest : [];
+  const onRows = Array.isArray(onArtifact?.coverage?.byPullRequest)
+    ? onArtifact.coverage.byPullRequest
+    : [];
+  const offRows = Array.isArray(offArtifact?.coverage?.byPullRequest)
+    ? offArtifact.coverage.byPullRequest
+    : [];
   const offByKey = new Map();
   for (const [at, row] of offRows.entries()) offByKey.set(String(row?.pr ?? at), row);
   const withRows = [];
@@ -115,14 +119,18 @@ export function registrationFor(field, readSlices) {
       return (
         declared.length > 0 &&
         readSlices !== null &&
-        declared.every((want) => readSlices.some((got) => got.skip === want.skip && got.max === want.max))
+        declared.every((want) =>
+          readSlices.some((got) => got.skip === want.skip && got.max === want.max),
+        )
       );
     })
-    .sort((left, right) => (right.entry.confirmation?.length ?? 0) - (left.entry.confirmation?.length ?? 0));
+    .sort(
+      (left, right) =>
+        (right.entry.confirmation?.length ?? 0) - (left.entry.confirmation?.length ?? 0),
+    );
   if (matches.length > 0) return matches[0].entry;
   return REGISTRATIONS[field] ?? null;
 }
-
 
 /**
  * **The registrations this job knows how to read a verdict against, keyed by the configuration field they vary.**
@@ -620,7 +628,8 @@ export const MINIMUM_REGISTERED_GAIN = 0.0191;
 export function registrationResolvable(registration, goldens) {
   const resolution = resolutionFor(goldens);
   const bar = registration?.registeredGain;
-  if (typeof bar !== 'number' || !Number.isFinite(bar)) return { resolvable: true, resolution, bar: null };
+  if (typeof bar !== 'number' || !Number.isFinite(bar))
+    return { resolvable: true, resolution, bar: null };
   if (bar < resolution)
     return {
       resolvable: false,
@@ -652,13 +661,19 @@ export function resolutionFor(
  * `resolutionForPullRequests(358) = 0.0100`, so 358 rows, and §59's R-32 was registered at 0.01 against the 98 rows
  * this project buys.
  */
-export function resolutionForPullRequests(pullRequests, { measuredResolution = CORPUS_SAMPLING.deltaSd } = {}) {
+export function resolutionForPullRequests(
+  pullRequests,
+  { measuredResolution = CORPUS_SAMPLING.deltaSd } = {},
+) {
   const count = Number(pullRequests);
   if (!Number.isFinite(count) || count <= 0) {
-    throw new Error(`resolution needs a positive pull-request count, received ${JSON.stringify(pullRequests)}`);
+    throw new Error(
+      `resolution needs a positive pull-request count, received ${JSON.stringify(pullRequests)}`,
+    );
   }
   return (
-    Math.round(measuredResolution * Math.sqrt(CORPUS_SAMPLING.pullRequests / count) * 10_000) / 10_000
+    Math.round(measuredResolution * Math.sqrt(CORPUS_SAMPLING.pullRequests / count) * 10_000) /
+    10_000
   );
 }
 
@@ -1020,7 +1035,9 @@ export function summarise(on, off) {
       ? null
       : readSlices === null
         ? false
-        : declared.every((want) => readSlices.some((got) => got.skip === want.skip && got.max === want.max));
+        : declared.every((want) =>
+            readSlices.some((got) => got.skip === want.skip && got.max === want.max),
+          );
   /**
    * **The second clause of a registration that has one, computed whether or not the first one passed.**
    *
@@ -1131,18 +1148,18 @@ export function summarise(on, off) {
           : !resolvable
             ? registrationResolvable(registration, goldens).reason
             : !magnitudeMet
-            ? `falsified: the registered gain was not reached on ${armName}${guardMet === false ? `, and the ${armProse(String(guardArm))} fell by ${String(-guardGain)}` : ''}`
-            : mechanismMet === false
-              ? 'falsified: the magnitude arrived, the mechanism did not'
-              : guardMet === false
-                ? `falsified: ${armName} gained ${String(gain)} and the ${armProse(String(guardArm))} it must not lower fell by ${String(-guardGain)}`
-                : signed === false
-                  ? significance?.inconsistent
-                    ? `met but not signed: ${String(gain)} F1 on ${armName} clears the ${String(registeredGain)} registered, and the ${String(significance?.pullRequests)} pull-request rows resample to ${String(significance?.mean)}, which is ${String(significance?.sd)} wide against a published delta of ${String(gain)} - the rows and the totals are about two different corpora, so there is nothing to sign`
-                    : `met but not signed: ${String(gain)} F1 on ${armName} clears the ${String(registeredGain)} registered, and over ${String(significance?.pullRequests)} pull requests the paired difference is ${String(significance?.sd)} wide, so the gain is ${String(significance?.z)} standard deviations (p = ${String(significance?.pValue)})`
-                  : signed === null
-                    ? `met but unverifiable: ${String(gain)} F1 on ${armName} clears the ${String(registeredGain)} registered, and the artifacts carry ${String(pairedRows.withRows.length)} paired pull-request rows, which is too few to resample a corpus from`
-                    : `confirmed: at least ${String(registeredGain)} F1 on ${armName}, and the mechanism is precision`;
+              ? `falsified: the registered gain was not reached on ${armName}${guardMet === false ? `, and the ${armProse(String(guardArm))} fell by ${String(-guardGain)}` : ''}`
+              : mechanismMet === false
+                ? 'falsified: the magnitude arrived, the mechanism did not'
+                : guardMet === false
+                  ? `falsified: ${armName} gained ${String(gain)} and the ${armProse(String(guardArm))} it must not lower fell by ${String(-guardGain)}`
+                  : signed === false
+                    ? significance?.inconsistent
+                      ? `met but not signed: ${String(gain)} F1 on ${armName} clears the ${String(registeredGain)} registered, and the ${String(significance?.pullRequests)} pull-request rows resample to ${String(significance?.mean)}, which is ${String(significance?.sd)} wide against a published delta of ${String(gain)} - the rows and the totals are about two different corpora, so there is nothing to sign`
+                      : `met but not signed: ${String(gain)} F1 on ${armName} clears the ${String(registeredGain)} registered, and over ${String(significance?.pullRequests)} pull requests the paired difference is ${String(significance?.sd)} wide, so the gain is ${String(significance?.z)} standard deviations (p = ${String(significance?.pValue)})`
+                    : signed === null
+                      ? `met but unverifiable: ${String(gain)} F1 on ${armName} clears the ${String(registeredGain)} registered, and the artifacts carry ${String(pairedRows.withRows.length)} paired pull-request rows, which is too few to resample a corpus from`
+                      : `confirmed: at least ${String(registeredGain)} F1 on ${armName}, and the mechanism is precision`;
 
   return {
     measuredAt: new Date().toISOString().slice(0, 10),
@@ -1278,7 +1295,9 @@ export function summarise(on, off) {
         // not: R-32's rows resample to 0.0150 where the R-31 constant predicts 0.0190, so a bar judged against the
         // constant is judged against a corpus that is not this one. **A width of zero falls back to the constant**, because
         // a degenerate corpus would otherwise make every bar signable.
-        needs: round(1.96 * (significance !== null && significance.sd > 0 ? significance.sd : resolution)),
+        needs: round(
+          1.96 * (significance !== null && significance.sd > 0 ? significance.sd : resolution),
+        ),
         confirmed:
           registeredGain === null
             ? null
@@ -1344,7 +1363,9 @@ function refuse(reason, detail) {
  */
 export function pairedOnCommonPullRequests(on, off) {
   const rowsOf = (artifact) =>
-    new Set((artifact.coverage?.byPullRequest ?? []).map((pull) => String(pull.pr)).filter(Boolean));
+    new Set(
+      (artifact.coverage?.byPullRequest ?? []).map((pull) => String(pull.pr)).filter(Boolean),
+    );
   const onRows = rowsOf(on);
   const offRows = rowsOf(off);
   const common = new Set([...onRows].filter((pr) => offRows.has(pr)));
@@ -1369,7 +1390,8 @@ export function pairedOnCommonPullRequests(on, off) {
       with: [...onRows].filter((pr) => !common.has(pr)).slice(0, 10),
       without: [...offRows].filter((pr) => !common.has(pr)).slice(0, 10),
     },
-    counts: 'golden pairs on the rows both arms read; no total is compared and no F1 difference is implied',
+    counts:
+      'golden pairs on the rows both arms read; no total is compared and no F1 difference is implied',
   };
 }
 
@@ -1478,14 +1500,23 @@ function selfTest() {
   );
   assert(good.verdict.magnitudeMet === true, 'the magnitude branch, against the 0.02 R-17 claim');
   assert(good.verdict.mechanismMet === true, 'precision rose and recall rose');
-  assert(good.pairedTest.withOnly === 450, 'four hundred and fifty goldens the device found and the baseline did not');
-  assert(good.pairedTest.withoutOnly === 150, 'and a hundred and fifty the other way, because the fixture baseline reads rows the device reads too');
+  assert(
+    good.pairedTest.withOnly === 450,
+    'four hundred and fifty goldens the device found and the baseline did not',
+  );
+  assert(
+    good.pairedTest.withoutOnly === 150,
+    'and a hundred and fifty the other way, because the fixture baseline reads rows the device reads too',
+  );
   // **These three assertions used to read 3:0 and `p = 0.25`**, on a fixture of ten goldens where the honest note was
   // that a device worth 0.2 F1 was not significant. The fixture is a corpus now, because the signature gate resamples it
   // and two rows cannot be resampled into anything; at this size the same device is significant, and the note the old
   // assertions made is carried by the tests that build a corpus whose gain is concentrated or whose rows disagree with
   // its totals.
-  assert(good.pairedTest.pValue < 0.05, `three hundred discordant pairs one way is p = ${String(good.pairedTest.pValue)}`);
+  assert(
+    good.pairedTest.pValue < 0.05,
+    `three hundred discordant pairs one way is p = ${String(good.pairedTest.pValue)}`,
+  );
   assert(good.pairedTest.verdict === 'significant at 0.05', 'and the paired test says so');
   // **Signed, and still not a bar that could have been signed had the gain been small**: 0.02 needs 1.96 standard
   // deviations of a corpus this size, which is 0.0318, so a device that cleared its bar by a hair would be `met but not
@@ -1522,7 +1553,10 @@ function selfTest() {
     'one arm is tighter than the paired difference, so pairing did not buy the variance reduction it is credited with',
   );
   assert(MINIMUM_REGISTERED_GAIN === CORPUS_SAMPLING.deltaSd, 'the floor is the corpus bar');
-  assert(resolutionFor(715) === CORPUS_SAMPLING.deltaSd, 'and the formula lands on it at 715 goldens');
+  assert(
+    resolutionFor(715) === CORPUS_SAMPLING.deltaSd,
+    'and the formula lands on it at 715 goldens',
+  );
   assert(
     resolutionForPullRequests(98) === CORPUS_SAMPLING.deltaSd,
     'and in the unit the corpus is sampled in: 98 pull requests',

@@ -101,7 +101,8 @@ function arms(): Arm[] {
  * arm with itself and call the difference zero. Exactly one alternative is expected to be a pair - the default run.
  */
 function pair(
-  varied: 'adjudicate' | 'idioms' | 'agent' | 'code_context' | 'remarks' | 'ensemble' | 'second_concern',
+  varied:
+    'adjudicate' | 'idioms' | 'agent' | 'code_context' | 'remarks' | 'ensemble' | 'second_concern',
 ): Arm[] {
   const pairs = alternatives().filter((matrix) => {
     if (matrix.length !== 2 || matrix[0]![varied] === matrix[1]![varied]) return false;

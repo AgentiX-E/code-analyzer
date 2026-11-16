@@ -52,7 +52,10 @@ function slice(options: {
   const goldensPerRow = 7;
   const rows = Array.from({ length: options.rows }, (_, at) => {
     const covered = at < options.tp ? [0, 1] : [];
-    const shipped = at < options.tp ? 2 + Math.round(options.fp / options.rows) : Math.round(options.fp / options.rows);
+    const shipped =
+      at < options.tp
+        ? 2 + Math.round(options.fp / options.rows)
+        : Math.round(options.fp / options.rows);
     return {
       pr: `https://github.com/example/repo/pull/${String((options.prOffset ?? 0) + at)}`,
       goldens: goldensPerRow,
@@ -93,15 +96,18 @@ function slice(options: {
   };
 }
 
-function compare(
-  withArtifact: Record<string, unknown>,
-  withoutArtifact: Record<string, unknown>,
-): Record<string, unknown> {
+// **`object` rather than `Record<string, unknown>`**, because the two inputs are a merged artifact and a slice and only
+// the first has an index signature - and a helper that demands one makes the test serialize a copy of the thing it is
+// testing before it can be written to disk. What this function does with them is `JSON.stringify`.
+function compare(withArtifact: object, withoutArtifact: object): Record<string, unknown> {
   const dir = mkdtempSync(join(tmpdir(), 'aacr-reg-'));
   writeFileSync(join(dir, 'with.json'), JSON.stringify(withArtifact));
   writeFileSync(join(dir, 'without.json'), JSON.stringify(withoutArtifact));
   try {
-    execFileSync(process.execPath, [script, 'with.json', 'without.json'], { cwd: dir, stdio: 'pipe' });
+    execFileSync(process.execPath, [script, 'with.json', 'without.json'], {
+      cwd: dir,
+      stdio: 'pipe',
+    });
   } catch {
     /* refusals write an artifact and exit non-zero; the artifact is what this file reads */
   }
@@ -135,7 +141,9 @@ describe('a registration is about rows, so a merged corpus can answer a wider on
 
   it('falls back to the field the device varies rather than answering with nothing', () => {
     // A field with one entry keeps working, and a field with two keeps working for a slice neither of them names.
-    expect(registrationFor('emissionProfile', [{ skip: 50, max: 100 }])?.section).toBe('§19 (R-17)');
+    expect(registrationFor('emissionProfile', [{ skip: 50, max: 100 }])?.section).toBe(
+      '§19 (R-17)',
+    );
     expect(registrationFor('secondConcern', [{ skip: 0, max: 40 }])?.registeredGain).toBe(0.01);
     expect(registrationFor('noSuchField', [{ skip: 50, max: 100 }])).toBeNull();
   });
@@ -169,8 +177,13 @@ describe('a registration is about rows, so a merged corpus can answer a wider on
     const off = slice({ skip: 50, rows: 100, tp: 30, fp: 130, secondConcern: false });
     const artifact = compare(on, off);
     expect((artifact['registration'] as Record<string, unknown>)['registeredGain']).toBe(0.01);
-    expect(String((artifact['verdict'] as Record<string, unknown>)['outcome'])).toMatch(/^unfalsifiable/);
+    expect(String((artifact['verdict'] as Record<string, unknown>)['outcome'])).toMatch(
+      /^unfalsifiable/,
+    );
     // And the wider sentence is not silently applied to a corpus that never read its second slice.
-    expect((REGISTRATIONS.secondConcern200 as Record<string, unknown>)['registeredGain']).toBe(0.021);
+    // **Read off the typed registry rather than through a cast to `Record<string, unknown>`**, which the compiler refuses
+    // for exactly the right reason: an interface with named fields is not an index signature, and the cast was hiding the
+    // fact that this assertion had been written against a shape the declaration did not have.
+    expect(REGISTRATIONS.secondConcern200.registeredGain).toBe(0.021);
   });
 });

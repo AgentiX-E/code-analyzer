@@ -27,9 +27,22 @@ import {
  * the control exists and is genuinely crossed, and a reader that agrees with everything is worth zero however many
  * pairs it "recovers".
  */
-const artifact = (records) => ({ missedGoldens: { records } });
+// **The fixture is typed at its two seams**, because a record whose `note` is `any` cannot be shown to be the golden's
+// sentence and a `records` list of `any` would let a string through the branch that refuses exactly that.
+const artifact = (records: unknown) => ({ missedGoldens: { records } });
 
-const record = (over = {}) => ({
+interface RecordFixture extends Record<string, unknown> {
+  pr: string;
+  goldenIndex: number;
+  bucket: string;
+  path: string;
+  note: string;
+  proximity: number | null;
+  matchedFindings: unknown[];
+  nearestFinding: { startLine?: number; endLine?: number; text: string };
+}
+
+const record = (over: Partial<RecordFixture> = {}): RecordFixture => ({
   pr: 'https://github.com/o/r/pull/1',
   goldenIndex: 0,
   bucket: 'findingOnPathRejected',
@@ -37,7 +50,11 @@ const record = (over = {}) => ({
   note: 'the erase in the loop is quadratic',
   proximity: 0,
   matchedFindings: [],
-  nearestFinding: { startLine: 10, endLine: 14, text: 'erase inside the loop shifts the tail, so this is O(n squared)' },
+  nearestFinding: {
+    startLine: 10,
+    endLine: 14,
+    text: 'erase inside the loop shifts the tail, so this is O(n squared)',
+  },
   ...over,
 });
 
@@ -48,16 +65,20 @@ describe('a second reading of a rejected pair is only evidence if it is controll
         record(),
         record({ proximity: 4, note: 'four lines away, a different question' }),
         record({ bucket: 'hit', note: 'accepted, so there is nothing to re-read' }),
-        record({ bucket: 'noFindingOnPath', proximity: null, note: 'we said nothing on this file' }),
+        record({
+          bucket: 'noFindingOnPath',
+          proximity: null,
+          note: 'we said nothing on this file',
+        }),
         record({ goldenIndex: 1, note: '   ', nearestFinding: { text: 'x' } }),
         record({ goldenIndex: 2, nearestFinding: { startLine: 10, endLine: 10, text: '' } }),
       ]),
     );
 
     expect(pairs).toHaveLength(1);
-    expect(pairs[0].note).toContain('quadratic');
-    expect(pairs[0].comment).toContain('O(n squared)');
-    expect(pairs[0].id).toBe('https://github.com/o/r/pull/1#0');
+    expect(pairs[0]?.note).toContain('quadratic');
+    expect(pairs[0]?.comment).toContain('O(n squared)');
+    expect(pairs[0]?.id).toBe('https://github.com/o/r/pull/1#0');
   });
 
   it('survives an artifact that predates the records', () => {
@@ -68,7 +89,11 @@ describe('a second reading of a rejected pair is only evidence if it is controll
 
   it('crosses the golden onto another pull request, and never onto its own', () => {
     const pairs = Array.from({ length: 9 }, (_, i) =>
-      record({ pr: `https://github.com/o/r/pull/${String(i)}`, goldenIndex: i, note: `claim ${String(i)}` }),
+      record({
+        pr: `https://github.com/o/r/pull/${String(i)}`,
+        goldenIndex: i,
+        note: `claim ${String(i)}`,
+      }),
     );
     const controls = crossPairControl(sameLineRejects(artifact(pairs)));
 
@@ -76,8 +101,8 @@ describe('a second reading of a rejected pair is only evidence if it is controll
     for (const [i, control] of controls.entries()) {
       // **The pairing is broken and the question is kept**: the comment stays where it was said, the note comes from
       // somewhere else, and that is what makes an acceptance evidence of agreement rather than of adjacency.
-      expect(control.comment).toBe(pairs[i].nearestFinding.text);
-      expect(control.note).not.toBe(pairs[i].note);
+      expect(control.comment).toBe(pairs[i]?.nearestFinding.text);
+      expect(control.note).not.toBe(pairs[i]?.note);
       expect(control.donorId).not.toBe(control.id);
     }
     // **Deterministic**, so two readings of one artifact produce comparable rates.
@@ -88,12 +113,17 @@ describe('a second reading of a rejected pair is only evidence if it is controll
     expect(crossPairControl(sameLineRejects(artifact([record()])))).toEqual([]);
     // **And a corpus where every pair is from one pull request has no crossed pair either** - the honest answer is an
     // empty control, which the summary then reports as an unmeasured lift rather than as a zero.
-    const onePull = Array.from({ length: 4 }, (_, i) => record({ goldenIndex: i, note: `claim ${String(i)}` }));
+    const onePull = Array.from({ length: 4 }, (_, i) =>
+      record({ goldenIndex: i, note: `claim ${String(i)}` }),
+    );
     expect(crossPairControl(sameLineRejects(artifact(onePull)))).toEqual([]);
   });
 
   it('asks for the shared claim before the verdict, and names the ways of saying no', () => {
-    const prompt = claimsPrompt({ note: 'the erase is quadratic', comment: 'erase in a loop shifts the tail' });
+    const prompt = claimsPrompt({
+      note: 'the erase is quadratic',
+      comment: 'erase in a loop shifts the tail',
+    });
 
     expect(prompt).toContain('"shared"');
     expect(prompt).toContain('"verdict"');
@@ -103,13 +133,25 @@ describe('a second reading of a rejected pair is only evidence if it is controll
     // **The sentence that keeps "semantic" from meaning "adjacent"**: a claim true of any two comments on one function
     // is not a shared concern, and without it the matcher has no way to reject a neighbouring remark.
     expect(prompt).toContain('equally true of any two comments');
-    expect(prompt.indexOf('the erase is quadratic')).toBeLessThan(prompt.indexOf('erase in a loop shifts the tail'));
+    expect(prompt.indexOf('the erase is quadratic')).toBeLessThan(
+      prompt.indexOf('erase in a loop shifts the tail'),
+    );
   });
 
   it('prices the recovery against the hardest control, not against zero', () => {
     const rows = [
-      ...Array.from({ length: 10 }, () => ({ real: 'same', crossed: 'different', sameFile: 'different', samePull: 'different' })),
-      ...Array.from({ length: 9 }, () => ({ real: 'different', crossed: 'different', sameFile: 'different', samePull: 'different' })),
+      ...Array.from({ length: 10 }, () => ({
+        real: 'same',
+        crossed: 'different',
+        sameFile: 'different',
+        samePull: 'different',
+      })),
+      ...Array.from({ length: 9 }, () => ({
+        real: 'different',
+        crossed: 'different',
+        sameFile: 'different',
+        samePull: 'different',
+      })),
       // **One crossed pair the reader accepted**, which is the whole point of having a control: a reader with any
       // willingness to agree shows it here, and the recovery is what survives the subtraction.
       { real: 'different', crossed: 'same', sameFile: 'different', samePull: 'different' },
@@ -156,7 +198,12 @@ describe('a second reading of a rejected pair is only evidence if it is controll
   it('is worth nothing when the reader agrees with everything', () => {
     // **The failure mode a looser matcher takes.** Every real pair accepted and every control too, a lift of zero and an
     // evidence count of zero - which is what a reader with no discrimination looks like once it is measured.
-    const rows = Array.from({ length: 20 }, () => ({ real: 'same', crossed: 'same', sameFile: 'same', samePull: 'same' }));
+    const rows = Array.from({ length: 20 }, () => ({
+      real: 'same',
+      crossed: 'same',
+      sameFile: 'same',
+      samePull: 'same',
+    }));
     const summary = summariseRejudge(rows);
 
     expect(summary.realShare).toBe(1);
@@ -180,28 +227,44 @@ describe('a second reading of a rejected pair is only evidence if it is controll
   it('builds the hard controls inside one pull request', () => {
     const records = [
       record({ goldenIndex: 0, path: 'src/a.ts', note: 'the erase in the loop is quadratic' }),
-      record({ goldenIndex: 1, path: 'src/a.ts', note: 'the mutex is not held around the write', nearestFinding: { startLine: 12, endLine: 12, text: 'x' } }),
-      record({ goldenIndex: 2, path: 'src/b.ts', note: 'the retry has no backoff', nearestFinding: { startLine: 90, endLine: 90, text: 'x' } }),
+      record({
+        goldenIndex: 1,
+        path: 'src/a.ts',
+        note: 'the mutex is not held around the write',
+        nearestFinding: { startLine: 12, endLine: 12, text: 'x' },
+      }),
+      record({
+        goldenIndex: 2,
+        path: 'src/b.ts',
+        note: 'the retry has no backoff',
+        nearestFinding: { startLine: 90, endLine: 90, text: 'x' },
+      }),
     ];
     const pairs = sameLineRejects(artifact(records));
     const one = pairs.slice(0, 1);
 
     const sameFile = samePullRequestControl(artifact(records), one, { samePath: true });
     expect(sameFile).toHaveLength(1);
-    expect(sameFile[0].path).toBe('src/a.ts');
+    expect(sameFile[0]?.path).toBe('src/a.ts');
     // **The nearest golden, because distance is the difficulty being tested.** `src/b.ts` is ninety lines away and
     // `src/a.ts` is two; a control that took whichever came first would vary with the corpus's ordering.
-    expect(sameFile[0].note).toContain('mutex');
+    expect(sameFile[0]?.note).toContain('mutex');
 
     const samePull = samePullRequestControl(artifact(records), one, { samePath: false });
-    expect(samePull[0].note).toContain('retry has no backoff');
-    expect(samePull[0].donorPath).toBe('src/b.ts');
+    expect(samePull[0]?.note).toContain('retry has no backoff');
+    expect(samePull[0]?.donorPath).toBe('src/b.ts');
   });
 
   it('contributes no hard control when a pull request carries one golden', () => {
     const alone = [record()];
-    expect(samePullRequestControl(artifact(alone), sameLineRejects(artifact(alone)), { samePath: true })).toEqual([]);
-    expect(samePullRequestControl(artifact(alone), sameLineRejects(artifact(alone)), { samePath: false })).toEqual([]);
+    expect(
+      samePullRequestControl(artifact(alone), sameLineRejects(artifact(alone)), { samePath: true }),
+    ).toEqual([]);
+    expect(
+      samePullRequestControl(artifact(alone), sameLineRejects(artifact(alone)), {
+        samePath: false,
+      }),
+    ).toEqual([]);
   });
 
   it('refuses an artifact with nothing to re-read, before asking for a key', () => {
@@ -221,7 +284,9 @@ describe('a second reading of a rejected pair is only evidence if it is controll
         env: { ...process.env, AACR_JUDGE_KEY: '', MARTIAN_API_KEY: '', DEEPSEEK_API_KEY: '' },
       });
     } catch (error) {
-      message = String(error.stderr ?? '');
+      // **The `stderr` of a failed spawn is the sentence this test asserts on**, and `catch` binds `unknown`: the cast
+      // names why the property exists rather than asserting the whole value away.
+      message = String((error as { stderr?: string }).stderr ?? '');
     }
     expect(message).toContain('no rejected same-line pairs');
     expect(message).not.toContain('no judge key');

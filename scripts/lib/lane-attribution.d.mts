@@ -20,4 +20,6 @@ export interface LocatedFinding {
  * **Each finding, attributed to the lane that produced it.** A finding that already names a lane keeps it, and a lane
  * that failed contributes nothing.
  */
-export function locateLaneFindings(lanes: readonly LaneResult[] | null | undefined): LocatedFinding[];
+export function locateLaneFindings(
+  lanes: readonly LaneResult[] | null | undefined,
+): LocatedFinding[];

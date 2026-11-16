@@ -81,7 +81,9 @@ function main() {
   for (const arm of ['with', 'without']) {
     const artifact = merged[arm];
     writeFileSync(resolve(directory, `${arm}.json`), `${JSON.stringify(artifact, null, 2)}\n`);
-    const slices = artifact.corpusSlice.slices.map((slice) => `skip ${String(slice.skip)} max ${String(slice.max)}`);
+    const slices = artifact.corpusSlice.slices.map(
+      (slice) => `skip ${String(slice.skip)} max ${String(slice.max)}`,
+    );
     console.log(
       `AACR-MERGE ${arm.padEnd(7)} · ${String(artifact.prsReviewed)} pull requests · ${slices.join(' + ')} · F1 ${artifact.f1.toFixed(4)} · TP ${String(artifact.truePositives)} FP ${String(artifact.falsePositives)} FN ${String(artifact.falseNegatives)}`,
     );

@@ -24,9 +24,18 @@ describe('the flattening keeps the lane a finding came from', () => {
   it('stamps every finding with the lane that produced it', () => {
     const located = locateLaneFindings([
       { lane: 'security', filePath: 'a.ts', success: true, findings: [finding('one')] },
-      { lane: 'performance', filePath: 'a.ts', success: true, findings: [finding('two'), finding('three')] },
+      {
+        lane: 'performance',
+        filePath: 'a.ts',
+        success: true,
+        findings: [finding('two'), finding('three')],
+      },
     ]);
-    expect(located.map((entry) => entry.finding.lane)).toEqual(['security', 'performance', 'performance']);
+    expect(located.map((entry) => entry.finding.lane)).toEqual([
+      'security',
+      'performance',
+      'performance',
+    ]);
     // **And the path comes from the result**, because a finding's line numbers are in the file the lane was given.
     expect(located.map((entry) => entry.path)).toEqual(['a.ts', 'a.ts', 'a.ts']);
   });
@@ -35,7 +44,12 @@ describe('the flattening keeps the lane a finding came from', () => {
     // A merge arm runs both reviewers; relabelling the reader's rows as whichever lane was flattened last is the defect
     // that would make a per-lane table describe a reviewer nobody ran.
     const located = locateLaneFindings([
-      { lane: 'security', filePath: 'a.ts', success: true, findings: [finding('mine', { lane: 'agent' })] },
+      {
+        lane: 'security',
+        filePath: 'a.ts',
+        success: true,
+        findings: [finding('mine', { lane: 'agent' })],
+      },
     ]);
     expect(located[0]!.finding.lane).toBe('agent');
   });
@@ -46,7 +60,7 @@ describe('the flattening keeps the lane a finding came from', () => {
       { lane: 'performance', filePath: 'a.ts', success: true, findings: [finding('real')] },
     ]);
     expect(located).toHaveLength(1);
-    expect(located[0]!.finding.title).toBe('real');
+    expect(located[0]!.finding['title']).toBe('real');
   });
 
   it('survives a lane that returned no findings and a list that is not there', () => {
@@ -57,7 +71,9 @@ describe('the flattening keeps the lane a finding came from', () => {
 
   it('does not mutate the finding it was handed, because the caller still owns it', () => {
     const original = finding('one');
-    locateLaneFindings([{ lane: 'security', filePath: 'a.ts', success: true, findings: [original] }]);
+    locateLaneFindings([
+      { lane: 'security', filePath: 'a.ts', success: true, findings: [original] },
+    ]);
     expect(original).not.toHaveProperty('lane');
   });
 });

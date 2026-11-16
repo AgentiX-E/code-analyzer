@@ -29,7 +29,6 @@ import { describe, expect, it } from 'vitest';
 
 import { mergeSlices } from '../../../scripts/lib/slice-merge.mjs';
 
-
 interface SliceOptions {
   readonly skip: number;
   readonly rows: number;
@@ -49,7 +48,8 @@ function slice(options: SliceOptions): Record<string, unknown> {
       pr: `https://github.com/example/repo/pull/${String((options.prOffset ?? 0) + at)}`,
       goldens: goldensPerRow,
       covered: covered ? [0] : [],
-      shippedEmitted: covered + Math.floor(options.fp / options.rows) + (at < options.fp % options.rows ? 1 : 0),
+      shippedEmitted:
+        covered + Math.floor(options.fp / options.rows) + (at < options.fp % options.rows ? 1 : 0),
     };
   });
   const totals = rows.reduce(
@@ -95,15 +95,17 @@ const script = join(
   'aacr-ablation-compare.mjs',
 );
 
-function compare(
-  withArtifact: Record<string, unknown>,
-  withoutArtifact: Record<string, unknown>,
-): Record<string, unknown> {
+// **`object` rather than `Record<string, unknown>`**: the arms are merged artifacts, whose declaration names the fields
+// it has and therefore has no index signature - and what this helper does with them is `JSON.stringify`.
+function compare(withArtifact: object, withoutArtifact: object): Record<string, unknown> {
   const dir = mkdtempSync(join(tmpdir(), 'aacr-merge-'));
   writeFileSync(join(dir, 'with.json'), JSON.stringify(withArtifact));
   writeFileSync(join(dir, 'without.json'), JSON.stringify(withoutArtifact));
   try {
-    execFileSync(process.execPath, [script, 'with.json', 'without.json'], { cwd: dir, stdio: 'pipe' });
+    execFileSync(process.execPath, [script, 'with.json', 'without.json'], {
+      cwd: dir,
+      stdio: 'pipe',
+    });
   } catch {
     /* the refusal path writes an artifact and exits non-zero; the artifact is what this file reads */
   }
@@ -114,7 +116,10 @@ function compare(
 
 describe('two slices of one registration are one corpus', () => {
   it('adds the rows and re-derives the totals from them', () => {
-    const merged = mergeSlices([slice({ skip: 50, rows: 100, tp: 30, fp: 200 }), slice({ skip: 150, rows: 100, tp: 40, fp: 260, prOffset: 100 })]);
+    const merged = mergeSlices([
+      slice({ skip: 50, rows: 100, tp: 30, fp: 200 }),
+      slice({ skip: 150, rows: 100, tp: 40, fp: 260, prOffset: 100 }),
+    ]);
     expect(merged.prsReviewed).toBe(200);
     expect((merged.coverage as { byPullRequest: unknown[] }).byPullRequest).toHaveLength(200);
     // **Summed from the rows rather than from the two totals**, because the two can disagree and the rows are what the
@@ -125,8 +130,11 @@ describe('two slices of one registration are one corpus', () => {
   });
 
   it('records where the rows came from, because a merged corpus without its slices is anonymous', () => {
-    const merged = mergeSlices([slice({ skip: 50, rows: 100, tp: 30, fp: 200 }), slice({ skip: 150, rows: 100, tp: 40, fp: 260, prOffset: 100 })]);
-    expect((merged.corpusSlice as { slices: unknown[] }).slices).toEqual([
+    const merged = mergeSlices([
+      slice({ skip: 50, rows: 100, tp: 30, fp: 200 }),
+      slice({ skip: 150, rows: 100, tp: 40, fp: 260, prOffset: 100 }),
+    ]);
+    expect((merged.corpusSlice as unknown as { slices: unknown[] }).slices).toEqual([
       { skip: 50, max: 100 },
       { skip: 150, max: 100 },
     ]);
@@ -142,15 +150,22 @@ describe('two slices of one registration are one corpus', () => {
 
   it('refuses two arms of two different devices', () => {
     const withSwitch = slice({ skip: 50, rows: 100, tp: 30, fp: 200, secondConcern: true });
-    const without = slice({ skip: 150, rows: 100, tp: 40, fp: 260, secondConcern: false, prOffset: 100 });
+    const without = slice({
+      skip: 150,
+      rows: 100,
+      tp: 40,
+      fp: 260,
+      secondConcern: false,
+      prOffset: 100,
+    });
     expect(() => mergeSlices([withSwitch, without])).toThrow(/configuration/);
   });
 
   it('refuses a run that does not say which rows it read', () => {
     const silent = slice({ skip: 0, rows: 100, tp: 30, fp: 200, omitSlice: true });
-    expect(() => mergeSlices([silent, slice({ skip: 150, rows: 100, tp: 40, fp: 260, prOffset: 100 })])).toThrow(
-      /corpusSlice/,
-    );
+    expect(() =>
+      mergeSlices([silent, slice({ skip: 150, rows: 100, tp: 40, fp: 260, prOffset: 100 })]),
+    ).toThrow(/corpusSlice/);
   });
 
   it('is accepted by the job as a confirmation of a registration that names both slices', () => {
@@ -200,8 +215,14 @@ describe('the merge command', () => {
       writeFileSync(path, JSON.stringify(artifact));
       return path;
     };
-    const onA = write('on-a.json', slice({ skip: 50, rows: 10, tp: 4, fp: 20, secondConcern: true }));
-    const onB = write('on-b.json', slice({ skip: 150, rows: 10, tp: 5, fp: 22, secondConcern: true, prOffset: 100 }));
+    const onA = write(
+      'on-a.json',
+      slice({ skip: 50, rows: 10, tp: 4, fp: 20, secondConcern: true }),
+    );
+    const onB = write(
+      'on-b.json',
+      slice({ skip: 150, rows: 10, tp: 5, fp: 22, secondConcern: true, prOffset: 100 }),
+    );
     const offA = write('off-a.json', slice({ skip: 50, rows: 10, tp: 3, fp: 21 }));
     const offB = write('off-b.json', slice({ skip: 150, rows: 10, tp: 3, fp: 21, prOffset: 100 }));
     const out = join(dir, 'merged');
@@ -209,8 +230,11 @@ describe('the merge command', () => {
     const result = runCli(['--with', onA, onB, '--without', offA, offB, '--out', out]);
     expect(result.status).toBe(0);
     expect(result.stdout).toContain('20 pull requests');
-    const merged = JSON.parse(readFileSync(join(out, 'with.json'), 'utf8')) as Record<string, unknown>;
-    expect((merged.coverage as { byPullRequest: unknown[] }).byPullRequest).toHaveLength(20);
+    const merged = JSON.parse(readFileSync(join(out, 'with.json'), 'utf8')) as Record<
+      string,
+      unknown
+    >;
+    expect((merged['coverage'] as { byPullRequest: unknown[] }).byPullRequest).toHaveLength(20);
     // **The inputs are still one slice each**, which is what a merge that wrote over them would have destroyed.
     const original = JSON.parse(readFileSync(onA, 'utf8')) as Record<string, unknown>;
     expect(original['prsReviewed']).toBe(10);
@@ -223,9 +247,24 @@ describe('the merge command', () => {
       writeFileSync(path, JSON.stringify(artifact));
       return path;
     };
-    const first = write('a.json', slice({ skip: 50, rows: 10, tp: 4, fp: 20, secondConcern: true }));
-    const second = write('b.json', slice({ skip: 55, rows: 10, tp: 4, fp: 20, secondConcern: true, prOffset: 5 }));
-    const result = runCli(['--with', first, second, '--without', first, second, '--out', join(dir, 'merged')]);
+    const first = write(
+      'a.json',
+      slice({ skip: 50, rows: 10, tp: 4, fp: 20, secondConcern: true }),
+    );
+    const second = write(
+      'b.json',
+      slice({ skip: 55, rows: 10, tp: 4, fp: 20, secondConcern: true, prOffset: 5 }),
+    );
+    const result = runCli([
+      '--with',
+      first,
+      second,
+      '--without',
+      first,
+      second,
+      '--out',
+      join(dir, 'merged'),
+    ]);
     expect(result.status).not.toBe(0);
     expect(result.stderr).toContain('appears in both');
   });

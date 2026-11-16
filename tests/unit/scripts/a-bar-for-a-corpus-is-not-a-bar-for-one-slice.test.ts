@@ -62,34 +62,43 @@ const R31_ROWS =
   '11,1,12,0,10 1,0,0,0,0 6,0,3,0,4 2,0,4,1,3 8,2,4,3,11 4,1,3,1,6 1,0,1,0,2 19,7,12,3,12 ' +
   '5,1,12,1,11 14,0,12,0,12 ';
 
-function parse(table: string): {
+interface CoverageRow {
   goldens: number;
   covered: number[];
   shippedEmitted: number;
-}[][] {
-  return table
-    .trim()
-    .split(/\s+/)
-    .map((cell) => {
-      const [goldens, coveredA, commentsA, coveredB, commentsB] = cell.split(',').map(Number);
-      const row = (goldens_, covered_, shipped_) => ({
-        goldens: goldens_,
-        covered: Array.from({ length: covered_ }, (_, index) => index),
-        shippedEmitted: shipped_,
-      });
-      return [
-        row(goldens, coveredA, commentsA),
-        row(goldens, coveredB, commentsB),
-      ];
-    })
-    .reduce<{ goldens: number; covered: number[]; shippedEmitted: number }[][]>(
-      (pairs, [a, b]) => {
-        pairs[0].push(a);
-        pairs[1].push(b);
-        return pairs;
-      },
-      [[], []],
-    );
+}
+
+/**
+ * **One cell is one pull request read by two arms**, so the parse returns two lists rather than a list of pairs.
+ *
+ * The first version built the pairs inside a `reduce` over `[[], []]` and indexed the accumulator, which under
+ * `noUncheckedIndexedAccess` is `undefined`-able - and the assertion operator that silences it would have silenced the
+ * next real bug in the same expression. **Two `map`s over one parsed cell say the same thing with no index at all**, and
+ * a malformed cell is refused rather than averaged: `Number(undefined)` is `NaN`, and a `NaN` reaching the bootstrap
+ * would be read as a row and reported as a standard deviation.
+ */
+function readCell(cell: string): { lanes: CoverageRow; reader: CoverageRow } {
+  const cells = cell.split(',').map(Number);
+  if (cells.length !== 5 || cells.some((value) => !Number.isFinite(value)))
+    throw new Error(`the fixture cell ${JSON.stringify(cell)} is not five counts`);
+  const [goldens, coveredA, commentsA, coveredB, commentsB] = cells as [
+    number,
+    number,
+    number,
+    number,
+    number,
+  ];
+  const row = (covered: number, shipped: number): CoverageRow => ({
+    goldens,
+    covered: Array.from({ length: covered }, (_, index) => index),
+    shippedEmitted: shipped,
+  });
+  return { lanes: row(coveredA, commentsA), reader: row(coveredB, commentsB) };
+}
+
+function parse(table: string): [CoverageRow[], CoverageRow[]] {
+  const cells = table.trim().split(/\s+/).map(readCell);
+  return [cells.map((cell) => cell.lanes), cells.map((cell) => cell.reader)];
 }
 
 const [LANES, READER] = parse(R31_ROWS);
@@ -98,7 +107,12 @@ describe('a bar for a corpus is not a bar for one slice of it', () => {
   it('reads the comments that were posted, not the ones the budget discarded', () => {
     // `emitted` is the full emission before the cut; `shippedEmitted` is what reached the pull request. A row that
     // carries both, with a budget that threw most of it away, is the only fixture that can tell them apart.
-    const outcome = perPullRequestOutcome({ goldens: 4, covered: [0, 1], emitted: 100, shippedEmitted: 5 });
+    const outcome = perPullRequestOutcome({
+      goldens: 4,
+      covered: [0, 1],
+      emitted: 100,
+      shippedEmitted: 5,
+    });
     expect(outcome).toEqual({ tp: 2, fp: 3, fn: 2 });
     // **And the wrong field is not a rounding error, it is a different verdict**: 98 of 100 comments counted as false
     // positives make the arm that posted fewer comments look precise.
@@ -152,7 +166,11 @@ describe('a bar for a corpus is not a bar for one slice of it', () => {
   it('has no noise to report on a corpus where nothing varies', () => {
     // A bootstrap that returns a positive spread on identical rows would be reporting its own generator, and every
     // number in this file would then be a property of the seed.
-    const flat = Array.from({ length: 20 }, () => ({ goldens: 4, covered: [0, 1], shippedEmitted: 3 }));
+    const flat = Array.from({ length: 20 }, () => ({
+      goldens: 4,
+      covered: [0, 1],
+      shippedEmitted: 3,
+    }));
     const delta = clusterBootstrapDelta(flat, flat, { resamples: 200, seed: 7 });
     expect(delta.sd).toBe(0);
     expect(delta.lower).toBe(0);

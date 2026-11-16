@@ -48,7 +48,6 @@ export function sameLineRejects(artifact) {
   return pairs;
 }
 
-
 /**
  * **The harder negative: the golden comes from the same pull request.**
  *
@@ -81,7 +80,9 @@ export function samePullRequestControl(artifact, pairs, { samePath = true } = {}
   for (const pair of pairs) {
     const candidates = (byPull.get(pair.pr) ?? []).filter((record) => {
       if (Number(record.goldenIndex) === pair.goldenIndex) return false;
-      return samePath ? String(record.path ?? '') === pair.path && String(record.path ?? '') !== '' : String(record.path ?? '') !== pair.path;
+      return samePath
+        ? String(record.path ?? '') === pair.path && String(record.path ?? '') !== ''
+        : String(record.path ?? '') !== pair.path;
     });
     if (candidates.length === 0) continue;
     // **The nearest one by line, because a distance is the difficulty being tested.** A golden two hundred lines away is
@@ -189,7 +190,10 @@ export function summariseRejudge(rows) {
    * control could be built is measured against the crossed control and **says so**, rather than against a zero it never
    * measured.
    */
-  const ceiling = controls.reduce((worst, control) => (worst === null || control.share > worst.share ? control : worst), null);
+  const ceiling = controls.reduce(
+    (worst, control) => (worst === null || control.share > worst.share ? control : worst),
+    null,
+  );
   const ceilingShare = ceiling === null ? 0 : ceiling.share;
   return {
     pairs: list.length,

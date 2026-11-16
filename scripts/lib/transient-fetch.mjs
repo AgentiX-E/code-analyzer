@@ -30,7 +30,8 @@ export function isTransientStatus(status) {
  */
 export function retryDelays({ attempts = 4, baseMs = 400, capMs = 5_000 } = {}) {
   const delays = [];
-  for (let i = 0; i < Math.max(0, attempts - 1); i += 1) delays.push(Math.min(baseMs * 2 ** i, capMs));
+  for (let i = 0; i < Math.max(0, attempts - 1); i += 1)
+    delays.push(Math.min(baseMs * 2 ** i, capMs));
   return delays;
 }
 
@@ -47,7 +48,10 @@ export function retryDelays({ attempts = 4, baseMs = 400, capMs = 5_000 } = {}) 
  *
  * `sleep` is injected so a test can assert the schedule without waiting it.
  */
-export async function withRetry(attempt, { attempts = 4, baseMs = 400, capMs = 5_000, sleep } = {}) {
+export async function withRetry(
+  attempt,
+  { attempts = 4, baseMs = 400, capMs = 5_000, sleep } = {},
+) {
   const delays = retryDelays({ attempts, baseMs, capMs });
   const wait = sleep ?? ((ms) => new Promise((resolve) => setTimeout(resolve, ms)));
   let last = { ok: false, reason: 'no attempt was made' };

@@ -7,7 +7,11 @@ export const TRANSIENT_STATUSES: readonly number[];
 export function isTransientStatus(status: number | string | undefined | null): boolean;
 
 /** The waits, in order, doubling from `baseMs` and capped. */
-export function retryDelays(options?: { attempts?: number; baseMs?: number; capMs?: number }): number[];
+export function retryDelays(options?: {
+  attempts?: number;
+  baseMs?: number;
+  capMs?: number;
+}): number[];
 
 /** One attempt's answer: a success carrying its value, or a failure carrying its reason and its own judgement. */
 export interface AttemptResult {

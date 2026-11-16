@@ -4,6 +4,7 @@ import {
   isTransientStatus,
   retryDelays,
   withRetry,
+  type AttemptResult,
 } from '../../../scripts/lib/transient-fetch.mjs';
 
 /**
@@ -41,23 +42,39 @@ describe('a diff that failed once is not a pull request that does not exist', ()
     expect(retryDelays({ attempts: 1 })).toEqual([]);
     expect(retryDelays({ attempts: 0 })).toEqual([]);
     // **The cap is the step's patience**, so a long schedule is three waits rather than a minute of them.
-    expect(retryDelays({ attempts: 6, baseMs: 400, capMs: 1_000 })).toEqual([400, 800, 1_000, 1_000, 1_000]);
+    expect(retryDelays({ attempts: 6, baseMs: 400, capMs: 1_000 })).toEqual([
+      400, 800, 1_000, 1_000, 1_000,
+    ]);
   });
 
   it('succeeds on the second attempt when the first one failed temporarily', async () => {
-    const waits = [];
-    const answers = [
-      { ok: false, reason: 'the diff request returned 500 with 4615 requests left in the hour', retryable: true },
+    const waits: number[] = [];
+    // **The answers are typed as what the retry loop is promised**, because a `calls++` index is `undefined`-able and the
+    // failure mode of an exhausted list is a test that reads `undefined.ok` rather than a test that says the third
+    // attempt was never made.
+    const answers: AttemptResult[] = [
+      {
+        ok: false,
+        reason: 'the diff request returned 500 with 4615 requests left in the hour',
+        retryable: true,
+      },
       { ok: true, diff: 'diff --git a/x b/x' },
     ];
     let calls = 0;
     const result = await withRetry(
-      () => answers[calls++],
+      () =>
+        answers[calls++] ?? {
+          ok: false,
+          reason: 'the fixture ran out of answers',
+          retryable: false,
+        },
       { attempts: 4, baseMs: 400, sleep: async (ms) => void waits.push(ms) },
     );
 
     expect(result.ok).toBe(true);
-    expect(result.diff).toBe('diff --git a/x b/x');
+    // **Through the index signature the value actually arrives on**, which is the declaration's honest shape: an attempt
+    // carries `ok`, its reason and whatever value the caller's own success puts beside them.
+    expect(result['diff']).toBe('diff --git a/x b/x');
     expect(result.attempts).toBe(2);
     expect(calls).toBe(2);
     expect(waits).toEqual([400]);
@@ -110,7 +127,7 @@ describe('a diff that failed once is not a pull request that does not exist', ()
 
   it('is bounded even when the attempt never stops failing', async () => {
     let calls = 0;
-    const waits = [];
+    const waits: number[] = [];
     await withRetry(
       () => {
         calls += 1;

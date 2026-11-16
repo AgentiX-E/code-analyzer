@@ -37,7 +37,11 @@ function pointFrom(truePositives: number, emitted: number, goldens: number) {
     pr: 'p',
     matchedGoldens: at < truePositives ? [at] : [],
   }));
-  return score(findings, (finding: { matchedGoldens?: readonly number[] }) => finding.matchedGoldens ?? [], goldens);
+  return score(
+    findings,
+    (finding: { matchedGoldens?: readonly number[] }) => finding.matchedGoldens ?? [],
+    goldens,
+  );
 }
 
 describe('the F1 of a point is its credit over the sum of its denominators', () => {
@@ -82,6 +86,12 @@ describe('the threshold for adding a comment is half the F1 it would join', () =
   it('does not depend on how many comments are added', () => {
     const shipped = pointFrom(143, 656, 724);
     const threshold = breakEvenPrecision(shipped);
+    // **`null` is the arithmetic's way of saying no number of further comments pays for itself**, so the assertion is
+    // part of the test rather than a `?? 1` default: a default would run the loop below against a threshold that does
+    // not exist and pass on a point that cannot break even at any precision.
+    expect(threshold).not.toBeNull();
+    if (threshold === null)
+      throw new Error('a shipped point with 143 credited goldens has a break-even precision');
     // **The credit is a count, so the line is crossed between two integers** - the question a projection answers is
     // "how many of the N new comments have to be credited", and that answer is `floor(threshold·N) + 1` for every N.
     for (const n of [24, 226, 656, 2295]) {

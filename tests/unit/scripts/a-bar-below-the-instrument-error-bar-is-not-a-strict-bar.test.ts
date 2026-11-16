@@ -45,7 +45,9 @@ describe('a bar below the instrument error bar is not a strict bar', () => {
     // **This file's original assertion was `toBe(0.0017)`, and §64 replaced it.** The repeat is a real measurement of
     // the reviewer with the corpus held fixed; a registration is a claim about a corpus, and a corpus the same size moved
     // the paired difference by 0.0191 when its 98 rows were resampled. The repeat is still reachable - by asking for it.
-    expect(resolutionFor(715, { measuredAt: 715, measuredResolution: REPRODUCTION.f1Delta })).toBe(0.0017);
+    expect(resolutionFor(715, { measuredAt: 715, measuredResolution: REPRODUCTION.f1Delta })).toBe(
+      0.0017,
+    );
     expect(resolutionFor(715)).toBe(CORPUS_SAMPLING.deltaSd);
     // **The law is unchanged**, because a standard error that does not fall with the sample would be a claim that the
     // instrument never improves - which the paired tests have already contradicted.
@@ -86,7 +88,9 @@ describe('a bar below the instrument error bar is not a strict bar', () => {
     expect(registrationResolvable(null, 715).resolvable).toBe(true);
     // **And a bar exactly at the resolution is resolvable**: the registration asks for the smallest thing the instrument
     // can see, which is a weak claim but a claim.
-    expect(registrationResolvable({ registeredGain: CORPUS_SAMPLING.deltaSd }, 715).resolvable).toBe(true);
+    expect(
+      registrationResolvable({ registeredGain: CORPUS_SAMPLING.deltaSd }, 715).resolvable,
+    ).toBe(true);
   });
 
   it('holds every registration on file above the instrument it is judged by, or marked', () => {

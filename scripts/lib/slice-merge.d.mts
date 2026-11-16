@@ -8,7 +8,11 @@ import type { CoverageRow } from './corpus-resolution.mjs';
 export interface SliceArtifact {
   readonly corpus?: string;
   readonly configuration?: Readonly<Record<string, unknown>>;
-  readonly corpusSlice?: { readonly skip?: number; readonly requested?: number; readonly slices?: readonly { skip: number; max: number }[] };
+  readonly corpusSlice?: {
+    readonly skip?: number;
+    readonly requested?: number;
+    readonly slices?: readonly { skip: number; max: number }[];
+  };
   readonly prsReviewed?: number;
   readonly truePositives?: number;
   readonly falsePositives?: number;
@@ -20,7 +24,11 @@ export interface SliceArtifact {
 }
 
 export interface MergedArtifact extends SliceArtifact {
-  readonly corpusSlice: { readonly slices: readonly { skip: number; max: number }[]; readonly skip: number; readonly requested: number };
+  readonly corpusSlice: {
+    readonly slices: readonly { skip: number; max: number }[];
+    readonly skip: number;
+    readonly requested: number;
+  };
   readonly mergedFrom: readonly {
     readonly slice: { skip: number; max: number };
     readonly pullRequests: number;

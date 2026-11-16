@@ -2130,7 +2130,11 @@ async function main() {
         } catch (error) {
           // **A throw is the socket's failure rather than the corpus's**, so it is retried - and its own message is the
           // reason, because `ECONNRESET` and `getaddrinfo ENOTFOUND` are two different repairs.
-          return { ok: false, retryable: true, reason: `the diff request threw: ${String(error?.message ?? error)}` };
+          return {
+            ok: false,
+            retryable: true,
+            reason: `the diff request threw: ${String(error?.message ?? error)}`,
+          };
         }
       },
       { attempts: 4 },
@@ -2921,7 +2925,8 @@ async function main() {
             // **And how many the range rule would have removed and did not (§59)**, because a run with the switch on has
             // a *smaller* `dropped` than the run it is compared with, and **a device whose only trace is a number that
             // went down in a different column cannot be told from a corpus that produced fewer duplicates.**
-            acc.keptAsSecondConcern = (acc.keptAsSecondConcern ?? 0) + (dd.keptAsSecondConcern ?? 0);
+            acc.keptAsSecondConcern =
+              (acc.keptAsSecondConcern ?? 0) + (dd.keptAsSecondConcern ?? 0);
           } else {
             engineCounters.dedup = {
               before: dd.before,

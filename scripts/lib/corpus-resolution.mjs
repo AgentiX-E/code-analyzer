@@ -84,7 +84,11 @@ const round = (value) => Math.round(value * 10_000) / 10_000;
  * lengths are refused rather than truncated, because a paired test over the shorter of two corpora is a test that has
  * already decided which rows it can lose.
  */
-export function clusterBootstrapDelta(withRows, withoutRows, { resamples = 2000, seed = 20_260_816 } = {}) {
+export function clusterBootstrapDelta(
+  withRows,
+  withoutRows,
+  { resamples = 2000, seed = 20_260_816 } = {},
+) {
   if (!Array.isArray(withRows) || !Array.isArray(withoutRows)) {
     throw new TypeError('a paired bootstrap needs two arrays of coverage rows');
   }
@@ -93,14 +97,16 @@ export function clusterBootstrapDelta(withRows, withoutRows, { resamples = 2000,
       `a paired bootstrap needs one row per pull request on both sides, received ${String(withRows.length)} and ${String(withoutRows.length)}`,
     );
   }
-  if (withRows.length === 0) throw new Error('a paired bootstrap over zero pull requests is not a measurement');
+  if (withRows.length === 0)
+    throw new Error('a paired bootstrap over zero pull requests is not a measurement');
   if (!Number.isInteger(resamples) || resamples < 1) {
     throw new Error(`resamples must be a positive integer, received ${JSON.stringify(resamples)}`);
   }
 
   const withOutcomes = withRows.map(perPullRequestOutcome);
   const withoutOutcomes = withoutRows.map(perPullRequestOutcome);
-  const estimated = withOutcomes.some((row) => row.estimated) || withoutOutcomes.some((row) => row.estimated);
+  const estimated =
+    withOutcomes.some((row) => row.estimated) || withoutOutcomes.some((row) => row.estimated);
   const count = withOutcomes.length;
   const next = mulberry32(seed);
   const deltas = new Array(resamples);
@@ -129,7 +135,8 @@ export function clusterBootstrapDelta(withRows, withoutRows, { resamples = 2000,
   const mean = deltas.reduce((sum, value) => sum + value, 0) / resamples;
   const variance = deltas.reduce((sum, value) => sum + (value - mean) ** 2, 0) / resamples;
   const sorted = [...deltas].sort((left, right) => left - right);
-  const at = (fraction) => sorted[Math.min(sorted.length - 1, Math.max(0, Math.floor(fraction * sorted.length)))];
+  const at = (fraction) =>
+    sorted[Math.min(sorted.length - 1, Math.max(0, Math.floor(fraction * sorted.length)))];
 
   const result = {
     sd: round(Math.sqrt(variance)),

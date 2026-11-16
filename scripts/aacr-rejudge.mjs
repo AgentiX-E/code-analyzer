@@ -50,7 +50,9 @@ function parse(argv) {
     else if (arg === '--limit') options.limit = Number(argv[++i]);
     else if (arg === '--self-test') options.selfTest = true;
     else if (arg === '--help' || arg === '-h') {
-      process.stdout.write('usage: aacr-rejudge.mjs --bench <artifact dir or file> [--out file] [--limit n]\n');
+      process.stdout.write(
+        'usage: aacr-rejudge.mjs --bench <artifact dir or file> [--out file] [--limit n]\n',
+      );
       process.exit(0);
     } else throw new Error(`unknown argument ${arg}`);
   }
@@ -92,7 +94,11 @@ async function read(pair, { model = MODEL, base = BASE, key = KEY, fetchImpl = f
     // the half of the bill that arrives on the days the model explains itself at length.
     max_tokens: 160,
     messages: [
-      { role: 'system', content: 'You compare two code review statements about one place in a diff. Reply with JSON only.' },
+      {
+        role: 'system',
+        content:
+          'You compare two code review statements about one place in a diff. Reply with JSON only.',
+      },
       { role: 'user', content: claimsPrompt(pair) },
     ],
   };
@@ -149,7 +155,10 @@ async function rejudge(pairs, artifact, options) {
     samePull: samePullRequestControl(artifact, pairs, { samePath: false }),
   };
   const index = Object.fromEntries(
-    Object.entries(build).map(([name, controls]) => [name, new Map(controls.map((c) => [c.id, c]))]),
+    Object.entries(build).map(([name, controls]) => [
+      name,
+      new Map(controls.map((c) => [c.id, c])),
+    ]),
   );
   const rows = await mapBounded(pairs, CONCURRENCY, async (pair) => {
     const real = await read(pair, options);
@@ -169,7 +178,10 @@ async function rejudge(pairs, artifact, options) {
       samePull: await control('samePull'),
     };
   });
-  return { rows, controls: Object.fromEntries(Object.entries(build).map(([k, v]) => [k, v.length])) };
+  return {
+    rows,
+    controls: Object.fromEntries(Object.entries(build).map(([k, v]) => [k, v.length])),
+  };
 }
 
 /**
@@ -185,22 +197,45 @@ function selfTest() {
   // **The failure the controls exist for**: a reader that accepts the hard pairings as readily as the real ones has no
   // discrimination, whatever it says about the pairs we care about.
   const generous = summariseRejudge(
-    Array.from({ length: 8 }, () => ({ real: 'same', crossed: 'different', sameFile: 'same', samePull: 'same' })),
+    Array.from({ length: 8 }, () => ({
+      real: 'same',
+      crossed: 'different',
+      sameFile: 'same',
+      samePull: 'same',
+    })),
   );
   assert(generous.lift === 0, 'a reader that accepts the same-file control too earns nothing');
   assert(generous.beyondControl === 0, 'and its evidence count is zero');
-  assert(generous.floorFrom === 'sameFile' || generous.floorFrom === 'samePull', 'the floor is named');
+  assert(
+    generous.floorFrom === 'sameFile' || generous.floorFrom === 'samePull',
+    'the floor is named',
+  );
 
   const discriminating = summariseRejudge([
-    ...Array.from({ length: 6 }, () => ({ real: 'same', crossed: 'different', sameFile: 'different', samePull: 'different' })),
-    ...Array.from({ length: 4 }, () => ({ real: 'different', crossed: 'different', sameFile: 'different', samePull: 'different' })),
+    ...Array.from({ length: 6 }, () => ({
+      real: 'same',
+      crossed: 'different',
+      sameFile: 'different',
+      samePull: 'different',
+    })),
+    ...Array.from({ length: 4 }, () => ({
+      real: 'different',
+      crossed: 'different',
+      sameFile: 'different',
+      samePull: 'different',
+    })),
   ]);
   assert(discriminating.realShare === 0.6, 'six of ten real pairs accepted');
-  assert(discriminating.beyondControl === 6, 'and all six are evidence, because the controls earned none');
+  assert(
+    discriminating.beyondControl === 6,
+    'and all six are evidence, because the controls earned none',
+  );
 
   // **And a control that could not be built is not a zero.** The artifact of a run whose pull requests carry one golden
   // each has no same-file pair to cross, and the summary must say the floor came from the control it did measure.
-  const onlyCrossed = summariseRejudge([{ real: 'same', crossed: 'different', sameFile: null, samePull: null }]);
+  const onlyCrossed = summariseRejudge([
+    { real: 'same', crossed: 'different', sameFile: null, samePull: null },
+  ]);
   assert(onlyCrossed.floorFrom === 'crossed', 'the floor names the control that answered');
   assert(onlyCrossed.sameFile.answered === 0, 'and the one that did not is reported as unanswered');
 
@@ -223,7 +258,10 @@ function selfTest() {
       },
     }),
   );
-  assert(crossed.length === 5, 'every pair gets a crossed partner when the corpus has more than one pull request');
+  assert(
+    crossed.length === 5,
+    'every pair gets a crossed partner when the corpus has more than one pull request',
+  );
   assert(
     crossed.every((control) => control.donorId !== control.id),
     'and no pair is crossed with itself',
@@ -246,7 +284,8 @@ async function main() {
   const all = sameLineRejects(artifact);
   const pairs = options.limit > 0 ? all.slice(0, options.limit) : all;
   if (pairs.length === 0) throw new Error(`${file} holds no rejected same-line pairs to re-read`);
-  if (KEY === '') throw new Error('no judge key: set AACR_JUDGE_KEY, MARTIAN_API_KEY or DEEPSEEK_API_KEY');
+  if (KEY === '')
+    throw new Error('no judge key: set AACR_JUDGE_KEY, MARTIAN_API_KEY or DEEPSEEK_API_KEY');
 
   process.stdout.write(
     `AACR-REJUDGE ${String(pairs.length)} of ${String(all.length)} rejected same-line pairs · judge ${MODEL} · ${String(CONCURRENCY)} in flight\n`,
@@ -276,7 +315,11 @@ async function main() {
       '',
       '| reading | pairs | accepted | share |',
       '| ------- | ----: | -------: | ----: |',
-      line('the pairs the run rejected', { answered: summary.answered, same: summary.same, share: summary.realShare }),
+      line('the pairs the run rejected', {
+        answered: summary.answered,
+        same: summary.same,
+        share: summary.realShare,
+      }),
       line('crossed: golden from another pull request', summary.crossed),
       line('same file, same pull request, other line', summary.sameFile),
       line('same pull request, another file', summary.samePull),

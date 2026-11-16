@@ -100,7 +100,11 @@ function arm(options: {
 function compare(
   withArtifact: Record<string, unknown>,
   withoutArtifact: Record<string, unknown>,
-): { readonly status: number; readonly artifact: Record<string, unknown>; readonly stdout: string } {
+): {
+  readonly status: number;
+  readonly artifact: Record<string, unknown>;
+  readonly stdout: string;
+} {
   const dir = mkdtempSync(join(tmpdir(), 'aacr-compare-gap-'));
   const onPath = join(dir, 'with.json');
   const offPath = join(dir, 'without.json');
@@ -195,7 +199,11 @@ describe('a pair whose arms read different rows', () => {
   });
 
   it('counts each golden on a shared row as its own pair', () => {
-    const withArm = arm({ variant: 'reader', reviewed: [SHARED, ONLY_WITH], covered: { [SHARED]: [0] } });
+    const withArm = arm({
+      variant: 'reader',
+      reviewed: [SHARED, ONLY_WITH],
+      covered: { [SHARED]: [0] },
+    });
     const withoutArm = arm({ variant: 'lane', reviewed: [SHARED], covered: { [SHARED]: [1, 2] } });
 
     const { artifact } = compare(withArm, withoutArm);
@@ -209,14 +217,25 @@ describe('a pair whose arms read different rows', () => {
 
   it('leaves a pair that read the whole corpus alone', () => {
     // **The repair must not turn every comparison into a paired-only one**, or the guard stops being able to refuse.
-    const withArm = arm({ variant: 'reader', reviewed: [SHARED], covered: { [SHARED]: [0] }, requested: 1 });
-    const withoutArm = arm({ variant: 'lane', reviewed: [SHARED], covered: { [SHARED]: [1] }, requested: 1 });
+    const withArm = arm({
+      variant: 'reader',
+      reviewed: [SHARED],
+      covered: { [SHARED]: [0] },
+      requested: 1,
+    });
+    const withoutArm = arm({
+      variant: 'lane',
+      reviewed: [SHARED],
+      covered: { [SHARED]: [1] },
+      requested: 1,
+    });
 
     const { status, artifact } = compare(withArm, withoutArm);
 
     expect(status).toBe(0);
     expect(artifact['compared']).toBe(true);
-    expect((artifact['detail'] as { pairedOnCommonPullRequests?: unknown })?.pairedOnCommonPullRequests)
-      .toBeUndefined();
+    expect(
+      (artifact['detail'] as { pairedOnCommonPullRequests?: unknown })?.pairedOnCommonPullRequests,
+    ).toBeUndefined();
   });
 });
