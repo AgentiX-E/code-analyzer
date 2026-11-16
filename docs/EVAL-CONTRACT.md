@@ -6140,3 +6140,32 @@ same corpus, so the difference between the two artifacts is the device.
   goldens and can be resolved on 724** (§57.5's reason, reused unchanged).
 - **What it does not claim.** That the union of the two reviewers is worth anything. That claim stays open and its price
   is §58.2.
+
+### 58.4 The failures are on the site, not at a distance, and one table now says which kind
+
+The largest bucket in every run of this campaign is `findingOnPathRejected` - **we commented on the golden's own path and
+the judge did not accept the comment** - and until now the answer to "what should the next device be" was read by hand
+from fifty records. `scripts/aacr-miss-anatomy.mjs` makes the first pass arithmetic: a golden is placed by how close our
+nearest comment was, and by **whether that comment was itself accepted for a different golden**. The two cells ask for
+different repairs and cost the same: one false negative and one false positive each.
+
+| arm (`43795692468`)             | rejects | on our own line | beside an accepted comment | beside one nothing accepted | silence on a path we read | on a file we never read | on a file the PR no longer has |
+| ------------------------------- | ------- | --------------- | -------------------------- | --------------------------- | ------------------------- | ----------------------- | ------------------------------ |
+| five lanes, 724 goldens         | 455     | **276**         | 79 (27.5 %)                | **197**                     | 24                        | 0                       | 53                             |
+| reader + selection, 330 goldens | 182     | 31              | 6 (25.8 %)                 | 25                          | **39**                    | 17                      | 0                              |
+
+- **The failure is not distance.** 276 of the lanes' 455 rejects sit on **the line we commented on**, and 125 of them are
+  beside a comment of ours that the judge accepted for something else: **the site was right and the concern was a
+  different one.** A reviewer that says one true thing per site, on a site with two problems, loses the second - and the
+  corpus has those sites (`electron#47361` carries a use-after-free and an O(n²) erase on one line).
+- **The reader trades sites for sentences.** It is silent on **39 of 330** goldens whose path it read - 12 %, against
+  the lanes' 3 % - and its rejects sit _further_ from its own comments (63 beyond fifty lines against the lanes' 74 of a
+  larger 455). **It speaks less and more precisely, and it misses more sites**: which is why the selection pass alone
+  (§58.3) cannot be the end of the story, whatever R-31 says.
+- **`pathNotInPull` is the corpus moving**, 53 goldens on files the pull request no longer has, and it is not in the
+  matrix because no reviewer can reach it.
+
+**What this rules in for the next iteration, and what it rules out.** It rules out a volume device: the lanes emit 656
+comments over 100 pull requests - **6.6 per pull request against a budget of twelve that never binds** - so the cut is
+not what is costing recall. It rules in a **second sentence at a site we already comment on**, which is the only device
+in this table whose target is a cell rather than a rate.
