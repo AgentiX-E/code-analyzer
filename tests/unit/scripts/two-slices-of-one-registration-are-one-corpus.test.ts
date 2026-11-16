@@ -174,3 +174,59 @@ describe('two slices of one registration are one corpus', () => {
     expect((artifact['verdict'] as Record<string, unknown>)['signed']).toBe(true);
   });
 });
+
+describe('the merge command', () => {
+  const cli = join(import.meta.dirname, '..', '..', '..', 'scripts', 'aacr-merge-slices.mjs');
+
+  const runCli = (args: readonly string[]) => {
+    let status = 0;
+    let stdout = '';
+    let stderr = '';
+    try {
+      stdout = execFileSync(process.execPath, [cli, ...args], { stdio: 'pipe' }).toString();
+    } catch (error) {
+      const failure = error as { status?: number; stdout?: Buffer; stderr?: Buffer };
+      status = failure.status ?? -1;
+      stdout = failure.stdout?.toString() ?? '';
+      stderr = failure.stderr?.toString() ?? '';
+    }
+    return { status, stdout, stderr };
+  };
+
+  it('writes two merged artifacts and never overwrites its inputs', () => {
+    const dir = mkdtempSync(join(tmpdir(), 'aacr-merge-cli-'));
+    const write = (name: string, artifact: Record<string, unknown>) => {
+      const path = join(dir, name);
+      writeFileSync(path, JSON.stringify(artifact));
+      return path;
+    };
+    const onA = write('on-a.json', slice({ skip: 50, rows: 10, tp: 4, fp: 20, secondConcern: true }));
+    const onB = write('on-b.json', slice({ skip: 150, rows: 10, tp: 5, fp: 22, secondConcern: true, prOffset: 100 }));
+    const offA = write('off-a.json', slice({ skip: 50, rows: 10, tp: 3, fp: 21 }));
+    const offB = write('off-b.json', slice({ skip: 150, rows: 10, tp: 3, fp: 21, prOffset: 100 }));
+    const out = join(dir, 'merged');
+
+    const result = runCli(['--with', onA, onB, '--without', offA, offB, '--out', out]);
+    expect(result.status).toBe(0);
+    expect(result.stdout).toContain('20 pull requests');
+    const merged = JSON.parse(readFileSync(join(out, 'with.json'), 'utf8')) as Record<string, unknown>;
+    expect((merged.coverage as { byPullRequest: unknown[] }).byPullRequest).toHaveLength(20);
+    // **The inputs are still one slice each**, which is what a merge that wrote over them would have destroyed.
+    const original = JSON.parse(readFileSync(onA, 'utf8')) as Record<string, unknown>;
+    expect(original['prsReviewed']).toBe(10);
+  });
+
+  it('exits non-zero and names the row when two slices overlap', () => {
+    const dir = mkdtempSync(join(tmpdir(), 'aacr-merge-cli-'));
+    const write = (name: string, artifact: Record<string, unknown>) => {
+      const path = join(dir, name);
+      writeFileSync(path, JSON.stringify(artifact));
+      return path;
+    };
+    const first = write('a.json', slice({ skip: 50, rows: 10, tp: 4, fp: 20, secondConcern: true }));
+    const second = write('b.json', slice({ skip: 55, rows: 10, tp: 4, fp: 20, secondConcern: true, prOffset: 5 }));
+    const result = runCli(['--with', first, second, '--without', first, second, '--out', join(dir, 'merged')]);
+    expect(result.status).not.toBe(0);
+    expect(result.stderr).toContain('appears in both');
+  });
+});
