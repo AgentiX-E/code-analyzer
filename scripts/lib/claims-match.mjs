@@ -48,6 +48,60 @@ export function sameLineRejects(artifact) {
   return pairs;
 }
 
+
+/**
+ * **The harder negative: the golden comes from the same pull request.**
+ *
+ * The crossed control is easy and its zero is not evidence on its own. A reader given a comment about a Dart file and a
+ * golden about a C++ file can reject the pair without reading either - **and a control that can be passed without
+ * reading the thing under test measures nothing.** Two harder controls are available inside every pull request:
+ *
+ * - **`sameFile`**: a different golden from the *same file of the same pull request*. This is the pair §58.4 found 276
+ *   of, and it is the hardest negative that exists in the artifact - the vocabulary, the module and the change are all
+ *   shared, and only the defect differs.
+ * - **`samePull`**: a golden from another file of the same pull request. A reader that keys on the feature's vocabulary
+ *   rather than on the defect accepts these.
+ *
+ * **The rate that matters is the highest of the three**, because the three differ in difficulty and the easiest one that
+ * still accepts something is the floor under the real rate. A real rate of 18 % against a `sameFile` rate of 15 % is
+ * three points of evidence, not eighteen.
+ */
+export function samePullRequestControl(artifact, pairs, { samePath = true } = {}) {
+  const records = artifact?.missedGoldens?.records;
+  if (!Array.isArray(records) || !Array.isArray(pairs)) return [];
+  const byPull = new Map();
+  for (const record of records) {
+    const note = String(record?.note ?? '').trim();
+    if (note === '') continue;
+    const key = String(record?.pr ?? '');
+    if (!byPull.has(key)) byPull.set(key, []);
+    byPull.get(key).push(record);
+  }
+  const controls = [];
+  for (const pair of pairs) {
+    const candidates = (byPull.get(pair.pr) ?? []).filter((record) => {
+      if (Number(record.goldenIndex) === pair.goldenIndex) return false;
+      return samePath ? String(record.path ?? '') === pair.path && String(record.path ?? '') !== '' : String(record.path ?? '') !== pair.path;
+    });
+    if (candidates.length === 0) continue;
+    // **The nearest one by line, because a distance is the difficulty being tested.** A golden two hundred lines away is
+    // a weaker negative than one twenty lines away, and a control that takes whichever came first would vary with the
+    // corpus's ordering rather than with the question.
+    const nearest = candidates.reduce((best, record) => {
+      const distance = Math.abs(Number(record?.nearestFinding?.startLine ?? 0) - pair.startLine);
+      return best === null || distance < best.distance ? { record, distance } : best;
+    }, null);
+    const record = nearest.record;
+    controls.push({
+      ...pair,
+      note: String(record.note ?? '').trim(),
+      donorId: `${pair.pr}#${String(record.goldenIndex)}`,
+      donorPath: String(record.path ?? ''),
+    });
+  }
+  return controls;
+}
+
 /**
  * **The same pairs with the golden taken from a different pull request.**
  *
@@ -118,31 +172,56 @@ export function claimsPrompt({ note, comment }) {
  */
 export function summariseRejudge(rows) {
   const answered = (value) => value === 'same' || value === 'different' || value === 'wording';
-  const real = (rows ?? []).filter((row) => answered(row?.real));
-  const control = (rows ?? []).filter((row) => answered(row?.control));
-  const realSame = real.filter((row) => row.real === 'same').length;
-  const controlSame = control.filter((row) => row.control === 'same').length;
-  const realShare = real.length === 0 ? 0 : realSame / real.length;
-  const controlShare = control.length === 0 ? 0 : controlSame / control.length;
-  const wording = real.filter((row) => row.real === 'wording').length;
-  const different = real.filter((row) => row.real === 'different').length;
+  const list = Array.isArray(rows) ? rows : [];
+  const rate = (field) => {
+    const seen = list.filter((row) => answered(row?.[field]));
+    const same = seen.filter((row) => row[field] === 'same').length;
+    return { answered: seen.length, same, share: seen.length === 0 ? 0 : same / seen.length };
+  };
+  const real = rate('real');
+  const crossed = rate('crossed');
+  const sameFile = rate('sameFile');
+  const samePull = rate('samePull');
+  const controls = [crossed, sameFile, samePull].filter((control) => control.answered > 0);
+  /**
+   * **The floor, taken as the highest control that answered**, because the controls differ in difficulty and the one that
+   * accepts the most is the one a real acceptance has to be distinguished from. An artifact where only the crossed
+   * control could be built is measured against the crossed control and **says so**, rather than against a zero it never
+   * measured.
+   */
+  const ceiling = controls.reduce((worst, control) => (worst === null || control.share > worst.share ? control : worst), null);
+  const ceilingShare = ceiling === null ? 0 : ceiling.share;
   return {
-    pairs: Array.isArray(rows) ? rows.length : 0,
-    answered: real.length,
-    unanswered: (Array.isArray(rows) ? rows.length : 0) - real.length,
-    same: realSame,
-    different,
-    wording,
-    realShare: round(realShare),
-    controlAnswered: control.length,
-    controlSame,
-    controlShare: round(controlShare),
+    pairs: list.length,
+    answered: real.answered,
+    unanswered: list.length - real.answered,
+    same: real.same,
+    different: list.filter((row) => row?.real === 'different').length,
+    wording: list.filter((row) => row?.real === 'wording').length,
+    realShare: round(real.share),
+    crossed: { answered: crossed.answered, same: crossed.same, share: round(crossed.share) },
+    sameFile: { answered: sameFile.answered, same: sameFile.same, share: round(sameFile.share) },
+    samePull: { answered: samePull.answered, same: samePull.same, share: round(samePull.share) },
     /**
-     * **The evidence, in pairs.** `realShare - controlShare` of the answered pairs is the part of the recovery that the
-     * same reader would not have produced from two unrelated sentences.
+     * **Which control the floor came from**, because "against a control" without naming it is the sentence that lets a
+     * reader assume the hard one.
      */
-    lift: round(realShare - controlShare),
-    beyondControl: Math.max(0, Math.round((realSame - controlShare * real.length) * 100) / 100),
+    floorFrom:
+      ceiling === null
+        ? 'none'
+        : ceiling === sameFile
+          ? 'sameFile'
+          : ceiling === samePull
+            ? 'samePull'
+            : 'crossed',
+    floorShare: round(ceilingShare),
+    /**
+     * **The evidence, in pairs.** The real acceptance share minus the highest control share, times the answered pairs -
+     * the part of the recovery the same reader would not have produced from a pairing that shares everything but the
+     * defect.
+     */
+    lift: round(real.share - ceilingShare),
+    beyondControl: Math.max(0, Math.round((real.same - ceilingShare * real.answered) * 100) / 100),
   };
 }
 

@@ -6402,17 +6402,25 @@ nothing.**
   tokens. This reader is asked **to write the shared claim first, then decide**, and to reject in three named cases: the
   two are about different things, one is about *how something is written* rather than what the code does, or the shared
   sentence would be equally true of any two comments on the same function.
-- **Every real pair is read beside a crossed pair** whose golden comes from another pull request of the same artifact.
-  The donor is chosen by a fixed stride, so two readings of one artifact produce comparable rates.
-- **`beyondControl` is the only number that may be quoted as recovery**: the real acceptance share minus the crossed one,
-  times the pairs. **A reader that accepts everything has a lift of zero and recovers nothing**, however many pairs it
-  says yes to.
+- **Every real pair is read beside three controls, and the first is the weakest.** A crossed pair - our comment against
+  a golden from another pull request - **can be rejected from the file extension alone**, so a zero there is not evidence
+  that the reader read anything. The two hard controls live inside the pull request: **`sameFile`** is another golden from
+  the same file of the same pull request - the pair §58.4 found 276 of, sharing the vocabulary, the module and the change
+  and differing only in the defect - and **`samePull`** is a golden from another file of the same pull request, which a
+  reader keying on the feature rather than the defect will accept.
+- **`beyondControl` is the only number that may be quoted as recovery**: the real acceptance share minus **the highest
+  control share**, times the pairs. **A reader that says yes to any two statements about one file has a lift of zero and
+  recovers nothing**, however many real pairs it accepts; and because the controls differ in difficulty, the floor is the
+  one that accepts the most, **named in the report** rather than assumed to be the hard one.
 - **`null` is not a rejection.** A call that did not answer is counted as unanswered, and the share is computed over the
   answered pairs - the same distinction the judge loop makes, one instrument further out.
 
-**Stopping rule, written before the reading.** If the lift is below 0.10 - the reader is not distinguishing its own
-controls from real paraphrase by more than a tenth - then **the matcher is not the repair**, the 434 stay as missed
-defects, and the next dispatch is §59's device. If the lift is above 0.30, the instrument has been understating recall by
+**Stopping rule, written before the reading.** The first reading, on the crossed control alone, returned **48 of 263
+accepted against 0 of 263 crossed** - and that zero is exactly the number a reader should distrust, because the crossed
+pair can be rejected without reading either sentence. **So the rule is stated against the hardest control that can be
+built**, and the instrument was extended before anything was concluded from it. If the lift against `sameFile` is below
+0.10 - the reader is not distinguishing two statements about one file from two statements about one defect by more than a
+tenth - then **the matcher is not the repair**, the 434 stay as missed defects, and the next dispatch is §59's device. If the lift is above 0.30, the instrument has been understating recall by
 more than a quarter of the goldens and the next dispatch is a wording device that states the defect in the vocabulary the
 corpus uses - **not a looser matcher**, because a looser matcher raises recall by definition and precision only on paper.
 

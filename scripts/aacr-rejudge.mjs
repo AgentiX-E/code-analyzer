@@ -25,6 +25,7 @@ import {
   claimsPrompt,
   crossPairControl,
   sameLineRejects,
+  samePullRequestControl,
   summariseRejudge,
 } from './lib/claims-match.mjs';
 
@@ -133,13 +134,29 @@ async function mapBounded(items, limit, apply) {
   return results;
 }
 
-async function rejudge(pairs, options) {
-  const controls = crossPairControl(pairs);
-  const controlOf = new Map(controls.map((control) => [control.id, control]));
+async function rejudge(pairs, artifact, options) {
+  /**
+   * **Three controls, because the easiest one is not evidence.**
+   *
+   * A crossed pair - our comment against a golden from another pull request - can be rejected from the file extension
+   * alone, so its zero says nothing about the reader. The two same-pull-request controls are the hard ones: `sameFile`
+   * shares the vocabulary, the module and the change and differs only in the defect, and `samePull` tests whether the
+   * reader is keying on the feature rather than on the defect.
+   */
+  const build = {
+    crossed: crossPairControl(pairs),
+    sameFile: samePullRequestControl(artifact, pairs, { samePath: true }),
+    samePull: samePullRequestControl(artifact, pairs, { samePath: false }),
+  };
+  const index = Object.fromEntries(
+    Object.entries(build).map(([name, controls]) => [name, new Map(controls.map((c) => [c.id, c]))]),
+  );
   const rows = await mapBounded(pairs, CONCURRENCY, async (pair) => {
-    const control = controlOf.get(pair.id);
     const real = await read(pair, options);
-    const crossed = control ? await read(control, options) : null;
+    const control = async (name) => {
+      const pairing = index[name].get(pair.id);
+      return pairing ? ((await read(pairing, options))?.verdict ?? null) : null;
+    };
     return {
       id: pair.id,
       pr: pair.pr,
@@ -147,11 +164,12 @@ async function rejudge(pairs, options) {
       startLine: pair.startLine,
       real: real?.verdict ?? null,
       shared: real?.shared ?? null,
-      control: crossed?.verdict ?? null,
-      controlShared: crossed?.shared ?? null,
+      crossed: await control('crossed'),
+      sameFile: await control('sameFile'),
+      samePull: await control('samePull'),
     };
   });
-  return { rows, controls: controls.length };
+  return { rows, controls: Object.fromEntries(Object.entries(build).map(([k, v]) => [k, v.length])) };
 }
 
 /**
@@ -164,16 +182,27 @@ function selfTest() {
     if (!condition) throw new Error(`self-test failed: ${message}`);
   };
 
-  const generous = summariseRejudge(Array.from({ length: 8 }, () => ({ real: 'same', control: 'same' })));
-  assert(generous.lift === 0, 'a reader that accepts the crossed pairs too earns nothing');
+  // **The failure the controls exist for**: a reader that accepts the hard pairings as readily as the real ones has no
+  // discrimination, whatever it says about the pairs we care about.
+  const generous = summariseRejudge(
+    Array.from({ length: 8 }, () => ({ real: 'same', crossed: 'different', sameFile: 'same', samePull: 'same' })),
+  );
+  assert(generous.lift === 0, 'a reader that accepts the same-file control too earns nothing');
   assert(generous.beyondControl === 0, 'and its evidence count is zero');
+  assert(generous.floorFrom === 'sameFile' || generous.floorFrom === 'samePull', 'the floor is named');
 
   const discriminating = summariseRejudge([
-    ...Array.from({ length: 6 }, () => ({ real: 'same', control: 'different' })),
-    ...Array.from({ length: 4 }, () => ({ real: 'different', control: 'different' })),
+    ...Array.from({ length: 6 }, () => ({ real: 'same', crossed: 'different', sameFile: 'different', samePull: 'different' })),
+    ...Array.from({ length: 4 }, () => ({ real: 'different', crossed: 'different', sameFile: 'different', samePull: 'different' })),
   ]);
   assert(discriminating.realShare === 0.6, 'six of ten real pairs accepted');
-  assert(discriminating.beyondControl === 6, 'and all six are evidence, because the control earned none');
+  assert(discriminating.beyondControl === 6, 'and all six are evidence, because the controls earned none');
+
+  // **And a control that could not be built is not a zero.** The artifact of a run whose pull requests carry one golden
+  // each has no same-file pair to cross, and the summary must say the floor came from the control it did measure.
+  const onlyCrossed = summariseRejudge([{ real: 'same', crossed: 'different', sameFile: null, samePull: null }]);
+  assert(onlyCrossed.floorFrom === 'crossed', 'the floor names the control that answered');
+  assert(onlyCrossed.sameFile.answered === 0, 'and the one that did not is reported as unanswered');
 
   const silent = summariseRejudge([{ real: null, control: null }]);
   assert(silent.answered === 0, 'a call that did not answer is not a rejection');
@@ -222,7 +251,7 @@ async function main() {
   process.stdout.write(
     `AACR-REJUDGE ${String(pairs.length)} of ${String(all.length)} rejected same-line pairs · judge ${MODEL} · ${String(CONCURRENCY)} in flight\n`,
   );
-  const { rows, controls } = await rejudge(pairs, {});
+  const { rows, controls } = await rejudge(pairs, artifact, {});
   const summary = summariseRejudge(rows);
 
   const report = {
@@ -240,16 +269,21 @@ async function main() {
   }
 
   const pct = (value) => `${(Number(value) * 100).toFixed(1)} %`;
+  const line = (label, reading) =>
+    `| ${label} | ${String(reading.answered)} | ${String(reading.same)} | ${pct(reading.share)} |`;
   process.stdout.write(
     [
       '',
       '| reading | pairs | accepted | share |',
       '| ------- | ----: | -------: | ----: |',
-      `| the pairs the run rejected | ${String(summary.answered)} | ${String(summary.same)} | ${pct(summary.realShare)} |`,
-      `| the same reader on crossed pairs | ${String(summary.controlAnswered)} | ${String(summary.controlSame)} | ${pct(summary.controlShare)} |`,
+      line('the pairs the run rejected', { answered: summary.answered, same: summary.same, share: summary.realShare }),
+      line('crossed: golden from another pull request', summary.crossed),
+      line('same file, same pull request, other line', summary.sameFile),
+      line('same pull request, another file', summary.samePull),
       '',
       `verdicts: same ${String(summary.same)} · different ${String(summary.different)} · wording ${String(summary.wording)} · unanswered ${String(summary.unanswered)}`,
-      `recovery beyond the control: ${String(summary.beyondControl)} pairs (lift ${pct(summary.lift)})`,
+      `floor: the ${summary.floorFrom} control at ${pct(summary.floorShare)}`,
+      `recovery beyond the floor: ${String(summary.beyondControl)} pairs (lift ${pct(summary.lift)})`,
       '',
     ].join('\n'),
   );
