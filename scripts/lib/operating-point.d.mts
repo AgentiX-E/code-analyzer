@@ -49,6 +49,22 @@ export function score(
   goldens: number,
 ): Point;
 
+/**
+ * **F1 as credit over the sum of its denominators** - the cancelled form of `2PR/(P+R)`, and the form that prices an
+ * added comment: one more comment earns its place when its own precision exceeds `TP/(C+G)`, which is half the F1 it
+ * joins. Published rather than private so a reader can check a threshold against the figure it came from.
+ */
+export function f1FromCounts(truePositives: number, emitted: number, goldens: number): number;
+
+/** **Half the point's F1**, the precision an added comment needs to raise F1 rather than lower it. */
+export function breakEvenPrecision(point: Point | undefined): number | null;
+
+/** **One point projected onto a run that wrote `comments` more comments**, `truePositives` of them credited. */
+export function projectAddition(
+  point: Point | undefined,
+  added: { readonly comments: number; readonly truePositives: number },
+): Point & { readonly delta: number };
+
 export function applyCut(
   findings: readonly EmittedFinding[],
   steps: readonly CutStep[],

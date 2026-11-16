@@ -287,6 +287,35 @@ export const REGISTRATIONS = Object.freeze({
     mechanismRule: 'recall-holds',
     confirmation: [{ skip: 50, max: 100 }],
   },
+  /**
+   * **§59's registration (R-32): a second concern at a site is a comment, not a duplicate.**
+   *
+   * The run of 2026-11-16 removed **2 273 of its 2 295 merged findings under the range rule alone** - overlapping ranges,
+   * no textual agreement, and therefore no evidence that the two sentences are about one defect - and **276 of its 455
+   * rejected goldens sat on a line it had commented on**. `electron#47361` is the case in the corpus: a use-after-free and
+   * an O(n^2) erase on one line, and a reviewer that says one true thing per site loses the second every time.
+   *
+   * **The claim is arithmetic before it is a hope.** With `TP` credited goldens, `C` comments and `G` goldens,
+   * `F1 = 2TP/(C+G)`, so **an added comment raises F1 exactly when its own precision exceeds `F1/2`** - 0.1036 on the
+   * lanes' 0.2072, and not the 0.30 that §58.4 published. The device adds at most one comment per site on the 602
+   * cross-category sites the round recorded, and the category base rates it draws from run from 0.17 to 0.32, **so the
+   * registered bar is the house 0.01 rather than the 0.02 the device could reach if those rates transfer** - the rates
+   * were measured on survivors, and a survivor is not a discarded restatement.
+   *
+   * **The mechanism is `recall-rises`, and it is the mirror of every other entry here.** This device adds comments; it
+   * cannot raise precision, and a registration that asked it to would be asking a filter to behave like a merge. What it
+   * must not do is buy recall with precision beyond a golden's worth, and that is the tolerance the rule reads.
+   */
+  secondConcern: {
+    section: '§59 (R-32)',
+    claim:
+      'keeping one finding of a different category at a range the reviewer already reported raises the file arm F1 by at least 0.01 and recall, without lowering precision by more than a golden is worth',
+    arm: 'file',
+    registeredGain: 0.01,
+    mechanism: 'recall rises and precision does not fall by more than a golden is worth',
+    mechanismRule: 'recall-rises',
+    confirmation: [{ skip: 50, max: 100 }],
+  },
 });
 
 /**

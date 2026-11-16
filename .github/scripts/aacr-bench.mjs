@@ -1728,6 +1728,18 @@ async function main() {
    */
   const REMARKS = String(process.env['AACR_REMARKS'] ?? 'off').toLowerCase() === 'on';
   /**
+   * **Whether a finding of a different category is a second concern at a site rather than a duplicate of it (§59).**
+   *
+   * The run of 2026-11-16 merged **2 273 of its 2 295 removals under the range rule alone** - overlapping ranges with no
+   * textual agreement behind the merge - and **276 of its 455 rejected goldens sat on a line it had commented on**.
+   * `electron#47361` carries two defects on one line, and **a reviewer that says one true thing per site loses the
+   * second every time.** The switch keeps one extra finding per site when the category differs, and nothing else.
+   *
+   * **Off by default**, because every published lane figure was measured with the range rule merging unconditionally -
+   * and **a device that cannot be switched off cannot be compared with them.**
+   */
+  const SECOND_CONCERN = String(process.env['AACR_SECOND_CONCERN'] ?? 'off').toLowerCase() === 'on';
+  /**
    * **How many refusals the artifact carries, and why it is not all of them.**
    *
    * A corpus of fifty pull requests refuses about five hundred comments, and five hundred rows in one field would make
@@ -1752,9 +1764,10 @@ async function main() {
     adjudicate: ADJUDICATE,
     idioms: IDIOMS,
     remarks: REMARKS,
+    secondConcern: SECOND_CONCERN,
   });
   console.log(
-    `AACR-BENCH dedup threshold ${DEDUP_THRESHOLD} · prompt order ${PROMPT_ORDER} · adjudicate ${ADJUDICATE} · idioms ${IDIOMS} · remarks ${REMARKS}`,
+    `AACR-BENCH dedup threshold ${DEDUP_THRESHOLD} · prompt order ${PROMPT_ORDER} · adjudicate ${ADJUDICATE} · idioms ${IDIOMS} · remarks ${REMARKS} · second concern ${SECOND_CONCERN}`,
   );
 
   /**
@@ -2889,12 +2902,17 @@ async function main() {
               else acc.droppedFindingsBeyondRunCeiling += 1;
             }
             acc.droppedFindingsBeyondCeiling += dd.droppedFindingsBeyondCeiling ?? 0;
+            // **And how many the range rule would have removed and did not (§59)**, because a run with the switch on has
+            // a *smaller* `dropped` than the run it is compared with, and **a device whose only trace is a number that
+            // went down in a different column cannot be told from a corpus that produced fewer duplicates.**
+            acc.keptAsSecondConcern = (acc.keptAsSecondConcern ?? 0) + (dd.keptAsSecondConcern ?? 0);
           } else {
             engineCounters.dedup = {
               before: dd.before,
               after: dd.after,
               dropped: dd.dropped,
               mergedBy: { ...dd.mergedBy },
+              keptAsSecondConcern: dd.keptAsSecondConcern ?? 0,
               droppedFindings: [...(dd.droppedFindings ?? [])].slice(0, 4000),
               droppedFindingsBeyondCeiling: dd.droppedFindingsBeyondCeiling ?? 0,
               droppedFindingsBeyondRunCeiling: Math.max(
@@ -4064,6 +4082,10 @@ async function main() {
       // **Whether a model was asked for the rest of that bucket**, and the families it was asked for rather than "some
       // remarks": **a figure from a run with this on and one with it off are two reviewers**, and a family list that is
       // not in the artifact is a prompt nobody can reproduce.
+      // **§59's switch, named in the artifact because a figure from a run with it on and one with it off are two
+      // reviewers**: the second keeps a finding whose category differs from the survivor's at the same range, and the
+      // arm that publishes reviews differs from the arm behind every earlier figure in exactly this key.
+      secondConcern: SECOND_CONCERN,
       remarks: {
         enabled: REMARKS,
         families: REMARK_FAMILY_IDS,

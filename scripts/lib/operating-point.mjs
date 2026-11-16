@@ -74,6 +74,24 @@ export function scoreOf(finding) {
 }
 
 /**
+ * **F1 as credit over the sum of the two denominators, which is the same number and a checkable one.**
+ *
+ * `2PR/(P+R)` with `P = TP/C` and `R = TP/G` cancels to `2·TP/(C+G)`. **This is not a third formula, it is the shortest
+ * form of the second** - and it is the form that answers the question every remaining device asks, because it makes the
+ * marginal value of one more comment `2p/(C+G)` against a cost of `1/(C+G)`: **an added comment earns its place exactly
+ * when its own precision exceeds `TP/(C+G)`, which is half the F1 it joins.**
+ *
+ * The cancelled form is what `score` publishes, so the threshold in `breakEvenPrecision` cannot drift from the figure it
+ * is derived from. A run that computed F1 one way and priced a device the other would be two arithmetics about one
+ * number, which is the defect this file exists to remove.
+ */
+export function f1FromCounts(truePositives, emitted, goldens) {
+  const denominators = emitted + goldens;
+  if (denominators === 0) return 0;
+  return (2 * truePositives) / denominators;
+}
+
+/**
  * **One operating point, scored the way the artifact scored its own.**
  *
  * `goldens` is the run's denominator, passed in rather than counted from the cut: **a cut does not change how many
@@ -86,8 +104,49 @@ export function score(findings, creditOf, goldens) {
   const falseNegatives = Math.max(0, goldens - truePositives);
   const precision = emitted === 0 ? 0 : truePositives / emitted;
   const recall = goldens === 0 ? 0 : truePositives / goldens;
-  const f1 = precision + recall === 0 ? 0 : (2 * precision * recall) / (precision + recall);
+  const f1 = f1FromCounts(truePositives, emitted, goldens);
   return { emitted, truePositives, falsePositives, falseNegatives, precision, recall, f1 };
+}
+
+/**
+ * **The precision an added comment needs to be worth adding, which is half the F1 it joins.**
+ *
+ * §58.4 published **0.30** for this and the arithmetic says **0.104** on the same run. The difference is not a rounding
+ * of the same caution: at 0.30 every device that adds a comment is ruled out by construction, and at 0.104 the two
+ * candidates the same paragraph was arguing against become measurable questions. **A threshold is a claim, and this one
+ * is cheap enough to derive that it should never have been estimated.**
+ *
+ * It is `null` when the point credits nothing, because a run with no F1 has no line to cross and a caller that reads a
+ * fabricated `0` would accept every comment ever written.
+ */
+export function breakEvenPrecision(point) {
+  const f1 = Number(point?.f1 ?? 0);
+  return Number.isFinite(f1) ? f1 / 2 : null;
+}
+
+/**
+ * **What a run would have scored with `comments` more comments, `truePositives` of them credited.**
+ *
+ * The goldens are read back from the point as `TP + FN`, because **a projection may not change the corpus** - and a
+ * caller that passed its own denominator could quietly compare two runs on two different corpora and call the
+ * difference a device.
+ *
+ * `delta` is against the point **as it stands**, so a row of a table built from this function cannot show a projection
+ * that improves F1 while the threshold says it should not: both read the same cancellation.
+ */
+export function projectAddition(point, { comments, truePositives }) {
+  const goldens = Number(point?.truePositives ?? 0) + Number(point?.falseNegatives ?? 0);
+  const projected = score(
+    Array.from({ length: Number(point?.emitted ?? 0) + comments }, (_, at) => ({
+      // **The credit is handed over as rows rather than as a count**, because the count is the projection's input and the
+      // matching is the scorer's job - a shortcut here would be a second implementation of the number under test.
+      pr: 'projected',
+      matchedGoldens: at < Number(point?.truePositives ?? 0) + truePositives ? [at] : [],
+    })),
+    (finding) => finding.matchedGoldens ?? [],
+    goldens,
+  );
+  return { ...projected, delta: projected.f1 - Number(point?.f1 ?? 0) };
 }
 
 /**

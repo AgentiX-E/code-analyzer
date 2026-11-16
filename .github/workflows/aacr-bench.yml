@@ -180,6 +180,23 @@ on:
         options: ['off', 'on', 'pair']
         default: 'off'
 
+      second_concern:
+        # **The arm R-32 registers: a defect at a site is a second comment, not a duplicate of the remark already there.**
+        #
+        # The run of 2026-11-16 removed **2 273 of its 2 295 merged findings under the range rule alone** - overlapping
+        # ranges with no textual agreement behind the merge - and **276 of its 455 rejected goldens sat on a line it had
+        # commented on**. The corpus names the case: `electron#47361` carries a use-after-free and an O(n^2) erase on one
+        # line, and **a reviewer that says one true thing per site loses the second every time.**
+        #
+        # **Why this is a dispatch and not a paragraph.** The switch changes what the engine emits, so no cut of an
+        # existing artifact can price it - `aacr-operating-point.mjs` prices cuts, and a device needs a run. `pair`
+        # dispatches both sides over the same rows, the same judge and the same corpus, so the difference between the two
+        # artifacts is the device and nothing else.
+        description: 'Second concern at a site: merge cross-category overlaps (off), keep one (on), or both arms (pair)'
+        type: choice
+        options: ['off', 'on', 'pair']
+        default: 'off'
+
       max_findings_per_file:
         # **The cap that turned out to be a ceiling on the work rather than a rail on the noise.** §23.7 measured 25 of
         # one run's 225 drafts refused a slot, and 74 of that run's missed goldens sitting on files it had read - so the
@@ -245,7 +262,7 @@ jobs:
     # **Both matrix keys are in the job's own name**, because a run page that shows two identical titles for two
     # different arms is a page a reader has to open artifacts to disambiguate - and the whole point of the pair is that
     # the difference is legible before anything is downloaded.
-    name: Our reviews on a direct competitor's corpus (${{ matrix.profile }} profile, code context ${{ matrix.code_context }}, adjudicate ${{ matrix.adjudicate }}, idioms ${{ matrix.idioms }}, agent ${{ matrix.agent }}, remarks ${{ matrix.remarks }}, ensemble ${{ matrix.ensemble }})
+    name: Our reviews on a direct competitor's corpus (${{ matrix.profile }} profile, code context ${{ matrix.code_context }}, adjudicate ${{ matrix.adjudicate }}, idioms ${{ matrix.idioms }}, agent ${{ matrix.agent }}, remarks ${{ matrix.remarks }}, ensemble ${{ matrix.ensemble }}, second concern ${{ matrix.second_concern }})
     runs-on: ubuntu-latest
     # **Raised from 180 when the corpus went from five pull requests to fourteen**, which is the size at which a 0.04
     # move stops being a coin toss. The previous corpus took 29 minutes; the arithmetic that expects roughly three times
@@ -308,7 +325,7 @@ jobs:
       # reference and `idioms` is the arm R-21 registered, and a matrix that varied both would answer neither - which is
       # the refusal `aacr-ablation-compare.mjs` already encodes as `variedField`.
       matrix:
-        include: '${{ fromJSON((inputs.window || ''off'') == ''pair'' && ''[{"profile":"advisory","code_context":"off","adjudicate":"off","idioms":"off","agent":"off","remarks":"off","ensemble":"off"},{"profile":"advisory","code_context":"on","adjudicate":"off","idioms":"off","agent":"off","remarks":"off","ensemble":"off"}]'' || (inputs.agent || ''off'') == ''pair'' && ''[{"profile":"advisory","code_context":"off","adjudicate":"off","idioms":"off","agent":"off","remarks":"off","ensemble":"off"},{"profile":"advisory","code_context":"off","adjudicate":"off","idioms":"off","agent":"on","remarks":"off","ensemble":"off"}]'' || (inputs.agent || ''off'') == ''on'' && ''[{"profile":"advisory","code_context":"off","adjudicate":"off","idioms":"off","agent":"on","remarks":"off","ensemble":"off"}]'' || (inputs.idioms || ''off'') == ''pair'' && ''[{"profile":"advisory","code_context":"off","adjudicate":"off","idioms":"off","agent":"off","remarks":"off","ensemble":"off"},{"profile":"advisory","code_context":"off","adjudicate":"off","idioms":"on","agent":"off","remarks":"off","ensemble":"off"}]'' || (inputs.idioms || ''off'') == ''on'' && ''[{"profile":"advisory","code_context":"off","adjudicate":"off","idioms":"on","agent":"off","remarks":"off","ensemble":"off"}]'' || (inputs.remarks || ''off'') == ''pair'' && ''[{"profile":"advisory","code_context":"off","adjudicate":"off","idioms":"off","agent":"off","remarks":"off","ensemble":"off"},{"profile":"advisory","code_context":"off","adjudicate":"off","idioms":"off","agent":"off","remarks":"on","ensemble":"off"}]'' || (inputs.remarks || ''off'') == ''on'' && ''[{"profile":"advisory","code_context":"off","adjudicate":"off","idioms":"off","agent":"off","remarks":"on","ensemble":"off"}]'' || (inputs.pair || ''off'') == ''on'' && ''[{"profile":"advisory","code_context":"off","adjudicate":"on","idioms":"off","agent":"off","remarks":"off","ensemble":"off"},{"profile":"advisory","code_context":"off","adjudicate":"off","idioms":"off","agent":"off","remarks":"off","ensemble":"off"}]'' || (inputs.ensemble || ''off'') == ''pair-reader'' && ''[{"profile":"advisory","code_context":"off","adjudicate":"off","idioms":"off","agent":"off","remarks":"off","ensemble":"off"},{"profile":"advisory","code_context":"off","adjudicate":"off","idioms":"off","agent":"on","remarks":"off","ensemble":"reader"}]'' || (inputs.ensemble || ''off'') == ''reader'' && ''[{"profile":"advisory","code_context":"off","adjudicate":"off","idioms":"off","agent":"on","remarks":"off","ensemble":"reader"}]'' || (inputs.ensemble || ''off'') == ''pair'' && ''[{"profile":"advisory","code_context":"off","adjudicate":"off","idioms":"off","agent":"off","remarks":"off","ensemble":"off"},{"profile":"advisory","code_context":"off","adjudicate":"off","idioms":"off","agent":"on","remarks":"off","ensemble":"on"}]'' || (inputs.ensemble || ''off'') == ''on'' && ''[{"profile":"advisory","code_context":"off","adjudicate":"off","idioms":"off","agent":"on","remarks":"off","ensemble":"on"}]'' || ''[{"profile":"advisory","code_context":"off","adjudicate":"off","idioms":"off","agent":"off","remarks":"off","ensemble":"off"}]'') }}'
+        include: '${{ fromJSON((inputs.window || ''off'') == ''pair'' && ''[{"profile":"advisory","code_context":"off","adjudicate":"off","idioms":"off","agent":"off","remarks":"off","ensemble":"off","second_concern":"off"},{"profile":"advisory","code_context":"on","adjudicate":"off","idioms":"off","agent":"off","remarks":"off","ensemble":"off","second_concern":"off"}]'' || (inputs.agent || ''off'') == ''pair'' && ''[{"profile":"advisory","code_context":"off","adjudicate":"off","idioms":"off","agent":"off","remarks":"off","ensemble":"off","second_concern":"off"},{"profile":"advisory","code_context":"off","adjudicate":"off","idioms":"off","agent":"on","remarks":"off","ensemble":"off","second_concern":"off"}]'' || (inputs.agent || ''off'') == ''on'' && ''[{"profile":"advisory","code_context":"off","adjudicate":"off","idioms":"off","agent":"on","remarks":"off","ensemble":"off","second_concern":"off"}]'' || (inputs.idioms || ''off'') == ''pair'' && ''[{"profile":"advisory","code_context":"off","adjudicate":"off","idioms":"off","agent":"off","remarks":"off","ensemble":"off","second_concern":"off"},{"profile":"advisory","code_context":"off","adjudicate":"off","idioms":"on","agent":"off","remarks":"off","ensemble":"off","second_concern":"off"}]'' || (inputs.idioms || ''off'') == ''on'' && ''[{"profile":"advisory","code_context":"off","adjudicate":"off","idioms":"on","agent":"off","remarks":"off","ensemble":"off","second_concern":"off"}]'' || (inputs.remarks || ''off'') == ''pair'' && ''[{"profile":"advisory","code_context":"off","adjudicate":"off","idioms":"off","agent":"off","remarks":"off","ensemble":"off","second_concern":"off"},{"profile":"advisory","code_context":"off","adjudicate":"off","idioms":"off","agent":"off","remarks":"on","ensemble":"off","second_concern":"off"}]'' || (inputs.remarks || ''off'') == ''on'' && ''[{"profile":"advisory","code_context":"off","adjudicate":"off","idioms":"off","agent":"off","remarks":"on","ensemble":"off","second_concern":"off"}]'' || (inputs.pair || ''off'') == ''on'' && ''[{"profile":"advisory","code_context":"off","adjudicate":"on","idioms":"off","agent":"off","remarks":"off","ensemble":"off","second_concern":"off"},{"profile":"advisory","code_context":"off","adjudicate":"off","idioms":"off","agent":"off","remarks":"off","ensemble":"off","second_concern":"off"}]'' || (inputs.ensemble || ''off'') == ''pair-reader'' && ''[{"profile":"advisory","code_context":"off","adjudicate":"off","idioms":"off","agent":"off","remarks":"off","ensemble":"off","second_concern":"off"},{"profile":"advisory","code_context":"off","adjudicate":"off","idioms":"off","agent":"on","remarks":"off","ensemble":"reader","second_concern":"off"}]'' || (inputs.ensemble || ''off'') == ''reader'' && ''[{"profile":"advisory","code_context":"off","adjudicate":"off","idioms":"off","agent":"on","remarks":"off","ensemble":"reader","second_concern":"off"}]'' || (inputs.ensemble || ''off'') == ''pair'' && ''[{"profile":"advisory","code_context":"off","adjudicate":"off","idioms":"off","agent":"off","remarks":"off","ensemble":"off","second_concern":"off"},{"profile":"advisory","code_context":"off","adjudicate":"off","idioms":"off","agent":"on","remarks":"off","ensemble":"on","second_concern":"off"}]'' || (inputs.ensemble || ''off'') == ''on'' && ''[{"profile":"advisory","code_context":"off","adjudicate":"off","idioms":"off","agent":"on","remarks":"off","ensemble":"on","second_concern":"off"}]'' || (inputs.second_concern || ''off'') == ''pair'' && ''[{"profile":"advisory","code_context":"off","adjudicate":"off","idioms":"off","agent":"off","remarks":"off","ensemble":"off","second_concern":"off"},{"profile":"advisory","code_context":"off","adjudicate":"off","idioms":"off","agent":"off","remarks":"off","ensemble":"off","second_concern":"on"}]'' || (inputs.second_concern || ''off'') == ''on'' && ''[{"profile":"advisory","code_context":"off","adjudicate":"off","idioms":"off","agent":"off","remarks":"off","ensemble":"off","second_concern":"on"}]'' || ''[{"profile":"advisory","code_context":"off","adjudicate":"off","idioms":"off","agent":"off","remarks":"off","ensemble":"off","second_concern":"off"}]'') }}'
 
     steps:
       - name: Checkout
@@ -441,6 +458,7 @@ jobs:
           # added lines as the only place it may speak - and it is read from the matrix for the same reason every other
           # arm is, so the artifact and the workflow cannot disagree about which reviewer produced the figure.
           AACR_REMARKS: ${{ matrix.remarks }}
+          AACR_SECOND_CONCERN: ${{ matrix.second_concern }}
           # **The merge of the two reviewers**, read from the matrix for the same reason as every other arm: the artifact
           # and the workflow cannot disagree about which reviewer produced the figure. Off means the arm reviewed with one
           # reviewer, which is what every figure before §56 was measured under.
@@ -516,7 +534,7 @@ jobs:
           # **Every matrix key is in the name**, because a pair of artifacts whose names differ in one segment is a pair
           # a reader can match to the arms without opening either - and because `an-artifact-that-is-never-uploaded-is-
           # never-downloaded.test.ts` expands this name from the matrix and refuses a download nothing uploads.
-          name: aacr-bench-${{ matrix.profile }}-${{ matrix.code_context }}-${{ matrix.adjudicate }}-${{ matrix.idioms }}-${{ matrix.agent }}-${{ matrix.ensemble }}-${{ matrix.remarks }}
+          name: aacr-bench-${{ matrix.profile }}-${{ matrix.code_context }}-${{ matrix.adjudicate }}-${{ matrix.idioms }}-${{ matrix.agent }}-${{ matrix.ensemble }}-${{ matrix.remarks }}-${{ matrix.second_concern }}
           # **The figure and the competitor's whole output**, because **that output's format is what the next
           # iteration has to read** and **a field cannot hold a document**.
           path: |
@@ -545,7 +563,7 @@ jobs:
     # **And it must fire for the merge arms, which it did not.** The gate listed four inputs and `ensemble` was not one
     # of them, so R-30's dispatch bought two arms and would have ended without a comparison - **the job whose output is
     # the thing the run was dispatched for was skipped, and the run still looked complete.**
-    if: (inputs.window || 'off') == 'pair' || (inputs.agent || 'off') == 'pair' || (inputs.remarks || 'off') == 'pair' || (inputs.ensemble || 'off') == 'pair' || (inputs.ensemble || 'off') == 'pair-reader' || ((inputs.agent || 'off') != 'on' && ((inputs.pair || 'off') == 'on' || (inputs.idioms || 'off') == 'pair'))
+    if: (inputs.window || 'off') == 'pair' || (inputs.agent || 'off') == 'pair' || (inputs.remarks || 'off') == 'pair' || (inputs.ensemble || 'off') == 'pair' || (inputs.ensemble || 'off') == 'pair-reader' || (inputs.second_concern || 'off') == 'pair' || ((inputs.agent || 'off') != 'on' && ((inputs.pair || 'off') == 'on' || (inputs.idioms || 'off') == 'pair'))
     timeout-minutes: 10
     steps:
       - name: Checkout
@@ -573,17 +591,17 @@ jobs:
       - name: Download the run with the claim check
         # **And not on a merge dispatch either.** This step downloads the code-window arm's name, and a merge dispatch's
         # matrix does not produce it - so the comparison would have failed here, after both arms had been paid for.
-        if: (inputs.idioms || 'off') != 'pair' && (inputs.agent || 'off') != 'pair' && (inputs.window || 'off') != 'pair' && (inputs.remarks || 'off') != 'pair' && (inputs.ensemble || 'off') != 'pair' && (inputs.ensemble || 'off') != 'pair-reader'
+        if: (inputs.idioms || 'off') != 'pair' && (inputs.agent || 'off') != 'pair' && (inputs.window || 'off') != 'pair' && (inputs.remarks || 'off') != 'pair' && (inputs.ensemble || 'off') != 'pair' && (inputs.ensemble || 'off') != 'pair-reader' && (inputs.second_concern || 'off') != 'pair'
         uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8
         with:
-          name: aacr-bench-advisory-off-on-off-off-off-off
+          name: aacr-bench-advisory-off-on-off-off-off-off-off
           path: /tmp/with
 
       - name: Download the run with the idiom lane
         if: (inputs.idioms || 'off') == 'pair'
         uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8
         with:
-          name: aacr-bench-advisory-off-off-on-off-off-off
+          name: aacr-bench-advisory-off-off-on-off-off-off-off
           path: /tmp/with
 
       # **Every artifact name here is produced by the matrix above, and a job that downloads a name the matrix does not
@@ -598,14 +616,14 @@ jobs:
         if: (inputs.window || 'off') == 'pair'
         uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8
         with:
-          name: aacr-bench-advisory-on-off-off-off-off-off
+          name: aacr-bench-advisory-on-off-off-off-off-off-off
           path: /tmp/with
 
       - name: Download the reading agent's run
         if: (inputs.agent || 'off') == 'pair'
         uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8
         with:
-          name: aacr-bench-advisory-off-off-off-on-off-off
+          name: aacr-bench-advisory-off-off-off-on-off-off-off
           path: /tmp/with
 
       # **And the remark pass's own arm, R-25's device side.** It is the arm that answers §47.1's bucket - 386 of 724
@@ -615,13 +633,24 @@ jobs:
         if: (inputs.remarks || 'off') == 'pair'
         uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8
         with:
-          name: aacr-bench-advisory-off-off-off-off-off-on
+          name: aacr-bench-advisory-off-off-off-off-off-on-off
+          path: /tmp/with
+
+      # **And the second-concern arm, which is §59's device side and the only arm whose two sides differ in one key.**
+      # A `second_concern: pair` dispatch uploads the lanes as they ship and the lanes with the range rule's
+      # cross-category overlap kept; this step takes the second as the device side, so the comparison's sign is the one
+      # the registration states - **F1 has to rise**.
+      - name: Download the run with the second concern
+        if: (inputs.second_concern || 'off') == 'pair'
+        uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8
+        with:
+          name: aacr-bench-advisory-off-off-off-off-off-off-on
           path: /tmp/with
 
       - name: Download the run without it
         uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8
         with:
-          name: aacr-bench-advisory-off-off-off-off-off-off
+          name: aacr-bench-advisory-off-off-off-off-off-off-off
           path: /tmp/without
 
       # **And the merge's own arm, which is the one R-29 could not be.** The registration named a merge of the five lanes
@@ -637,7 +666,7 @@ jobs:
         if: (inputs.ensemble || 'off') == 'pair'
         uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8
         with:
-          name: aacr-bench-advisory-off-off-off-on-on-off
+          name: aacr-bench-advisory-off-off-off-on-on-off-off
           path: /tmp/with
 
       # **And the reader's own arm for `pair-reader`**, which is the one-sided device with its own name. The lanes side is
@@ -646,7 +675,7 @@ jobs:
         if: (inputs.ensemble || 'off') == 'pair-reader'
         uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8
         with:
-          name: aacr-bench-advisory-off-off-off-on-reader-off
+          name: aacr-bench-advisory-off-off-off-on-reader-off-off
           path: /tmp/with
 
       # **No `|| true` and no fallback**: the script refuses to compare two artifacts that are not the same experiment,

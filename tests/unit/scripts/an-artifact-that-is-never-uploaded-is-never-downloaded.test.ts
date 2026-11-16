@@ -101,7 +101,7 @@ function arms(): Arm[] {
  * arm with itself and call the difference zero. Exactly one alternative is expected to be a pair - the default run.
  */
 function pair(
-  varied: 'adjudicate' | 'idioms' | 'agent' | 'code_context' | 'remarks' | 'ensemble',
+  varied: 'adjudicate' | 'idioms' | 'agent' | 'code_context' | 'remarks' | 'ensemble' | 'second_concern',
 ): Arm[] {
   const pairs = alternatives().filter((matrix) => {
     if (matrix.length !== 2 || matrix[0]![varied] === matrix[1]![varied]) return false;
@@ -204,6 +204,7 @@ describe('the artifact names of the benchmark workflow', () => {
       agent: 'off',
       ensemble: 'off',
       remarks: 'off',
+      second_concern: 'off',
     };
     const expected = new Set([
       expand(uploaded[0]!, baseline),
@@ -252,6 +253,13 @@ describe('the artifact names of the benchmark workflow', () => {
           .filter((matrix) => matrix.length === 2)
           .find((matrix) => matrix.some((arm) => arm['ensemble'] === 'reader'))!
           .find((arm) => arm['ensemble'] === 'reader')!,
+      ),
+      // **And the second concern's arm**, which is §59's device side: `second_concern: pair` buys the lanes as they
+      // ship and the lanes with the range rule's cross-category overlap kept, and the comparison downloads the second
+      // by name. An arm paid for and never downloaded is the failure this file exists for, one device later.
+      expand(
+        uploaded[0]!,
+        pair('second_concern').find((arm) => arm['second_concern'] === 'on')!,
       ),
     ]);
     expect(new Set(downloads)).toEqual(expected);
@@ -331,7 +339,7 @@ describe('the matrix is one experiment', () => {
         .sort(),
       // **And a sixth pair for the merge**, dispatched by `ensemble: pair` on §57.5's registration: it is the pair whose
       // two arms are the claim's own two arms rather than a proxy, and R-29 could not be dispatched as one.
-    ).toEqual([1, 1, 1, 1, 1, 1, 2, 2, 2, 2, 2, 2, 2]);
+    ).toEqual([1, 1, 1, 1, 1, 1, 1, 2, 2, 2, 2, 2, 2, 2, 2]);
   });
 
   it('varies exactly one key, so that a difference between the arms is the device', () => {
@@ -339,7 +347,7 @@ describe('the matrix is one experiment', () => {
     // in more than one configuration key, and that refusal happens in the job that runs *after* both arms have been
     // paid for - so the only place this can be caught for free is here, before the dispatch. **Every pair**, because
     // the workflow now declares two experiments and a second pair that moved two keys would be refused after the bill.
-    for (const varied of ['adjudicate', 'idioms', 'agent'] as const) {
+    for (const varied of ['adjudicate', 'idioms', 'agent', 'second_concern'] as const) {
       const [withArm, withoutArm] = pair(varied);
       const keys = new Set([...Object.keys(withArm!), ...Object.keys(withoutArm!)]);
       const differ = [...keys].filter((key) => withArm![key] !== withoutArm![key]);

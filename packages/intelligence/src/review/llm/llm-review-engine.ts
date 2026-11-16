@@ -58,6 +58,22 @@ export interface LLMReviewOptions {
   /** **Content-word overlap at which two findings are the same one.** */
   dedupThreshold?: number;
   /**
+   * **Whether a finding of a different category is a second concern at a site rather than a duplicate of it.** Defaults
+   * to **false**, because every published figure was measured with the range rule merging unconditionally.
+   *
+   * **The range rule is a claim about defects and it was being applied to categories.** Two findings whose ranges
+   * overlap are one finding "because the same defect has one location" - and the rule never read a word of either, which
+   * on the discovery rows merged **2 273 of 2 295** removals. The corpus carries the case the rule loses:
+   * `electron#47361` has a use-after-free and an O(n²) erase on one line, and **a reviewer that says one true thing per
+   * site loses the second every time.**
+   *
+   * **What the switch does not do.** It keeps one extra finding per site and only when the category differs, so two
+   * findings of one category in one range are still one finding - a lane that marks a twelve-line block for one problem
+   * has made every other finding of its own kind inside that block a duplicate of it, and keeping those files the same
+   * remark twice. See `docs/EVAL-CONTRACT.md` §59.
+   */
+  secondConcern?: boolean;
+  /**
    * **Whether every lane prompt carries the per-language defect checklist.** Defaults to **false**, on measurement.
    *
    * The switch exists because the checklist is a **claim about precision**, and the only way to settle a claim about a
@@ -301,6 +317,10 @@ const DEFAULT_OPTIONS: Required<LLMReviewOptions> = {
   // a run that turns it on says so in its artifact, and a default of `true` would silently re-price every published
   // lane figure by one call per file.
   remarks: false,
+  // **Off, because the range rule has merged unconditionally since the first run and every published figure was measured
+  // under it.** The switch is §59's device: a finding of a *different category* whose range overlaps a survivor's is a
+  // second concern at the site rather than a duplicate of it, and the run that turns it on says so in its artifact.
+  secondConcern: false,
 };
 
 /**
@@ -681,6 +701,14 @@ export class LLMReviewEngine {
     dropped: number;
     mergedBy: { rangeAndWords: number; rangeOnly: number; wordsNearby: number };
     /**
+     * **How many findings the range rule would have removed and did not, because they were a different category.**
+     *
+     * **The number the switch has to publish, because the switch's effect is invisible in `dropped`.** A run with it on
+     * removes fewer findings, which reads as a quieter dedup rather than as a decision - and a device whose only trace is
+     * a smaller number in a different column cannot be told from a run that happened to produce fewer duplicates.
+     */
+    keptAsSecondConcern: number;
+    /**
      * **The findings the merge removed, one record each, because the total cannot be read.**
      *
      * `dropped: 2 301` is compatible with two opposite readings and §46.8 says so: a merge that removed restatements is
@@ -807,8 +835,9 @@ export class LLMReviewEngine {
     // **a stable tie-break is what makes the output reproducible.**
     all.sort((x, y) => rank[y.finding.severity] - rank[x.finding.severity]);
 
-    const survivors: Array<Entry & { absorbed: number }> = [];
+    const survivors: Array<Entry & { absorbed: number; secondKept?: boolean }> = [];
     const mergedBy = { rangeAndWords: 0, rangeOnly: 0, wordsNearby: 0 };
+    let keptAsSecondConcern = 0;
     const droppedFindings: DroppedFinding[] = [];
     let droppedFindingsBeyondCeiling = 0;
     /**
@@ -856,6 +885,30 @@ export class LLMReviewEngine {
         survivors.push({ ...entry, absorbed: 1 });
         continue;
       }
+      // **A different category in the same range is a second concern rather than a restatement**, when the switch is on.
+      //
+      // **Why the range rule is the wrong evidence and the other two are not.** `rangeOnly` means the ranges overlap and
+      // the sentences do not: **that is the definition of two findings that happened to be marked on the same lines**,
+      // and it was the reason 2 273 of the run's 2 295 removals happened. The other two rules read the words. So the
+      // switch is scoped to the rule that never did.
+      //
+      // **One per site, and the cap is the corpus's own shape.** A site with three findings of three categories is a
+      // lane marking a block, and the third is a third comment on one line; **the round's own records put one
+      // cross-category second concern at 602 sites across 404 files**, with a median of one per file.
+      const secondConcernHere =
+        this.options.secondConcern === true &&
+        sameLocation !== -1 &&
+        survivor.secondKept !== true &&
+        shares(survivor.words, entry.words) < this.options.dedupThreshold &&
+        String(entry.finding.category) !== String(survivor.finding.category);
+      if (secondConcernHere) {
+        // **The survivor is marked rather than the new finding**, because the mark says *this site has had its second
+        // concern*, which is a fact about the site and not about the sentence that filled it.
+        survivor.secondKept = true;
+        survivors.push({ ...entry, absorbed: 1, secondKept: true });
+        keptAsSecondConcern += 1;
+        continue;
+      }
       survivor.absorbed += 1;
       // **Which rule absorbed it**, and the distinction the report needs: a merge under the range rule alone has no
       // textual evidence, so it is the one that can remove a second defect.
@@ -897,6 +950,7 @@ export class LLMReviewEngine {
       after: survivors.length,
       dropped: all.length - survivors.length,
       mergedBy,
+      keptAsSecondConcern,
       droppedFindings,
       droppedFindingsBeyondCeiling,
     };

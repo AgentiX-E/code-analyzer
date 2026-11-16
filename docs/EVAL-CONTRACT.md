@@ -6171,9 +6171,95 @@ ceiling**, with a mean of 6.6 comments per pull request and a tail that reaches 
 factor of five at the top of the distribution, and a volume device has to raise `k` before it can say anything: §57.3
 already priced that on the union arm (0.2243 at 12, 0.2276 at 16, **+0.003 inside the noise**).
 
-**And it rules out the one device the table seemed to ask for.** _A second sentence at every site we already comment on_
-would add 6.6 comments per pull request, and at the shipped 1.43 true positives and 5.13 false positives per pull
-request it needs a **precision above 0.30** on the new sentences merely to break even - against 0.218 for the comments it
-would be appended to. **Finding a defect nobody has found yet is not a more accurate operation than finding the first
-one**, so the cheaper direction is the one the reader already proved: fewer, better-aimed comments (§58.3), and then its
-own 12 % silence.
+**And the threshold that paragraph used was wrong by a factor of three.** It said _a second sentence at every site we
+already comment on_ needs a **precision above 0.30** merely to break even. The arithmetic says **0.1036**, and the
+difference is not a rounding of the same caution - at 0.30 every device that adds a comment is refused by construction,
+and this document had been refusing one of them on that number.
+
+With `TP` credited goldens, `C` comments and `G` goldens, `2PR/(P+R)` cancels to
+
+> **F1 = 2·TP / (C + G)**
+
+so one more comment raises F1 exactly when its own precision exceeds `TP/(C+G)` - **half the F1 it joins**, and
+independent of how many are added. The line on this run is **0.2072 / 2 = 0.1036**. `score()` in
+`scripts/lib/operating-point.mjs` now publishes the cancelled form and `breakEvenPrecision()` the line, so a device
+cannot be priced against one arithmetic and scored by another.
+
+**What the corrected line does, and does not, rescue.** It does not rescue a second sentence at _every_ site: the budget's
+own tail measures that device's marginal precision exactly - `no rule` emits the 453 comments `budget 12` deletes and
+credits **22** goldens with them, **0.0486 against the 0.1036 line** - which is why the budget is right and why the
+arithmetic never needed to be told 0.30 to reach the same conclusion. It does rescue the version that has a mechanism:
+**a second concern at a site where the reviewer has already located a defect**, which is §59.
+
+
+## 59. The merge that removed two thousand findings without reading a word
+
+### 59.1 Two findings on one line are not one finding
+
+§58.4 put the failures on the site rather than at a distance: **276 of the lanes' 455 rejected goldens sit on the line
+the reviewer commented on**, and 125 of those sit beside a comment the judge accepted for something else. The corpus
+names the case - `electron#47361` carries a use-after-free and an O(n²) erase on one line - and the engine's range rule
+merges exactly that pair, because *"the same defect has one location"* is a claim about defects that was being applied
+to findings.
+
+The artifact already records every removal with the rule that made it (§46.8), so the size of the question is arithmetic
+rather than a reading: `43795692468`'s lanes artifact, 100 discovery pull requests.
+
+| what the dedup did | count | what it means |
+| ------------------ | ----: | ------------- |
+| findings merged | **2 295** | of the 1 109 that survived and the ones the per-file cap had already refused |
+| merged under `rangeOnly` | **2 273** | **overlapping ranges, sentences disagreeing, no evidence the two are about one defect** |
+| merged under `rangeAndWords` | 16 | the ranges overlap *and* the words agree: earned |
+| merged under `wordsNearby` | 6 | the same sentence within thirty lines: earned |
+| content-word overlap with the survivor, median | 0.25 | half the removed findings share a quarter of their vocabulary with the finding that ate them |
+| removed findings sharing under a fifth of their words | 848 | the population a *second concern* would come from |
+| sites where the removed finding's **category** differs from the survivor's | **602** | across 404 files, one per file at the median, sixteen in the worst file |
+
+**So the rule that removed 99 % of everything was the rule that never looked at a word**, and the report could not say so
+until §46.8 taught it to record the removals as pairs. The three rules are not three ways of saying the same thing: two
+of them read the sentences and one of them reads a range.
+
+**And the removal is not free.** Of the 276 same-line rejects, **226 had a rangeOnly removal at their own site** (245 of
+the 276 join exactly; 31 sit on a path two pull requests share and were excluded rather than guessed). That is not proof
+the removed finding was the golden's concern - it is the reason the question is worth a dispatch rather than a paragraph.
+
+### 59.2 The device, and the two things it deliberately does not do
+
+`AACR_SECOND_CONCERN=on` changes one predicate. A finding whose range overlaps a survivor's is a duplicate unless **its
+category differs from the survivor's**, in which case the site keeps it as a **second concern** and the site is marked as
+having had its second.
+
+- **It does not keep more than one per site.** A lane that marks a twelve-line block for one problem has made every other
+  finding of its own kind inside that block a duplicate of it; keeping the whole block is how a review becomes a list of
+  the same remark at four line numbers.
+- **It does not touch the other two rules.** `rangeAndWords` and `wordsNearby` read the text, so a pair they merged has
+  textual evidence behind the merge and the switch leaves them alone.
+
+The engine publishes **`keptAsSecondConcern`** beside `mergedBy`, because a run with the switch on has a *smaller*
+`dropped` than the run it is compared with, and **a device whose only trace is a number that fell in a different column
+cannot be told from a corpus that produced fewer duplicates.**
+
+### 59.3 R-32, registered before its dispatch
+
+- **Claim.** Keeping one finding of a different category at a range the reviewer already reported raises the file-arm F1
+  by at least **0.01** and recall, without lowering precision by more than a golden is worth.
+- **Comparator.** `{agent off, ensemble off, secondConcern off}` - the lanes as they ship - over the same rows, the same
+  judge and the same corpus, in **one dispatch** (`second_concern: pair`), so the difference between the two artifacts is
+  the device.
+- **Falsifiers.** F1 below **0.2172**; or precision below the comparator's less one comment's worth; or
+  `keptAsSecondConcern` of zero, which is the device not running rather than the device failing.
+- **Why 0.01 and not the house 0.02.** The device adds at most one comment per site; 396 of the 602 sites survive
+  `drop test`; and the category base rates it draws from run from 0.17 (architecture) to 0.32 (security). Those rates
+  were measured on **survivors**, and a survivor is not a discarded restatement - so the registration takes the lower bar
+  and states why, rather than raising the number the table would need.
+- **What it does not claim.** That the union of the two reviewers is worth anything (§58.2's price), or that the reader's
+  12 % silence is repaired by it.
+
+### 59.4 The three instruments this round had to add before the device could be priced
+
+1. **`F1 = 2·TP/(C+G)` as the arithmetic**, with `breakEvenPrecision()` published beside it, so *"is one more comment
+   worth writing"* is `p > F1/2` rather than an estimate. The estimate this document carried said 0.30.
+2. **`configuration.secondConcern` in the artifact, and its own matrix arm** - the §58.1 lesson applied before it costs
+   anything: a flag that reaches the engine and not the artifact is a comparison between two arms that look identical.
+3. **`keptAsSecondConcern` in the dedup report**, because the switch's effect is a merge that did not happen, and a
+   report that only counts merges cannot show one being withheld.
