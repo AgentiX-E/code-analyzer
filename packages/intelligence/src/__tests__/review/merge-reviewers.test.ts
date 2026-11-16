@@ -135,6 +135,35 @@ describe('what the merge was given', () => {
   });
 });
 
+describe('the one-sided merge, which is an arm and not an accident', () => {
+  // **R-31's device** (§58.3): the reader's own candidates, de-duplicated and cut. It is reachable through
+  // `AACR_ENSEMBLE=reader`, where the lanes are empty *by definition* - and the artifact has to be able to say so,
+  // which is why `sides.lanes` is counted from the candidates rather than taken from the caller.
+  it('selects from one list and reports the other side as zero', () => {
+    const outcome = mergeCandidates(
+      [candidate('r1', 'reader'), candidate('r2', 'reader'), candidate('r3', 'reader')],
+      2,
+    );
+    expect(outcome.sides).toEqual({ lanes: 0, reader: 3 });
+    expect(outcome.kept).toHaveLength(2);
+    expect(outcome.decidedBy).toBe('budget');
+  });
+
+  it('does not buy a call when the one list already fits the budget', async () => {
+    const provider = new ScriptedProvider('{"keep": ["r1"]}');
+    const outcome = await mergeReviewers({
+      lanes: [],
+      reader: [candidate('r1', 'reader')],
+      provider,
+      budget: 12,
+    });
+    expect(outcome.sides.lanes).toBe(0);
+    expect(outcome.decidedBy).toBe('budget');
+    // **Zero cost is the common case for this device**, and a cost figure that assumed a call would be wrong.
+    expect(provider.prompts).toHaveLength(0);
+  });
+});
+
 describe('the merge of two reviewers', () => {
   it('keeps everything, and buys no call, when the candidates already fit the budget', async () => {
     const provider = new ScriptedProvider('{"keep":["l1"]}');
