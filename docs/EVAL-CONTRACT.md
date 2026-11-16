@@ -6165,7 +6165,15 @@ different repairs and cost the same: one false negative and one false positive e
 - **`pathNotInPull` is the corpus moving**, 53 goldens on files the pull request no longer has, and it is not in the
   matrix because no reviewer can reach it.
 
-**What this rules in for the next iteration, and what it rules out.** It rules out a volume device: the lanes emit 656
-comments over 100 pull requests - **6.6 per pull request against a budget of twelve that never binds** - so the cut is
-not what is costing recall. It rules in a **second sentence at a site we already comment on**, which is the only device
-in this table whose target is a cell rather than a rate.
+**What this rules in for the next iteration, and what it rules out.** The shipped policy is not inert: **1 109
+candidates are cut to 656** by `drop test, budget 12` - 41 % deleted, and **24 of the 100 pull requests truncated at the
+ceiling**, with a mean of 6.6 comments per pull request and a tail that reaches 46. So the mean understates the cut by a
+factor of five at the top of the distribution, and a volume device has to raise `k` before it can say anything: §57.3
+already priced that on the union arm (0.2243 at 12, 0.2276 at 16, **+0.003 inside the noise**).
+
+**And it rules out the one device the table seemed to ask for.** _A second sentence at every site we already comment on_
+would add 6.6 comments per pull request, and at the shipped 1.43 true positives and 5.13 false positives per pull
+request it needs a **precision above 0.30** on the new sentences merely to break even - against 0.218 for the comments it
+would be appended to. **Finding a defect nobody has found yet is not a more accurate operation than finding the first
+one**, so the cheaper direction is the one the reader already proved: fewer, better-aimed comments (§58.3), and then its
+own 12 % silence.
