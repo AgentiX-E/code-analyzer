@@ -343,3 +343,52 @@ describe('`review pr --agent` — the reviewer that reads, from the command', ()
     }
   });
 });
+
+// ---------------------------------------------------------------------------
+
+describe('`review pr --ensemble` — both reviewers, one list', () => {
+  /**
+   * **The flag has to reach the merge from the command line, and the report has to say what the merge did.**
+   *
+   * The fixture produces fewer candidates than the twelve-comment budget, so this run takes the path that buys no call at
+   * all - which is the common case on a small pull request and the one a reader will meet first. **The assertion that
+   * matters is that the two reviewers' findings are both in the list**: the reading arm's comment on the dead guard and
+   * whatever the lanes said about the same diff, in one report, with the merge's own count beside them.
+   */
+  it('merges the two reviewers into one list and reports which path decided', async () => {
+    const { dir } = pullRequestWithAGuard();
+    const run = await runPrReview({
+      repo: dir,
+      targetBranch: 'main',
+      sourceBranch: 'feature',
+      agent: true,
+      ensemble: true,
+      provider: new ScriptedReviewer(),
+    });
+    if (!run.ok) throw new Error(run.error);
+
+    const merged = run.report.summary.ensemble;
+    expect(merged).toBeDefined();
+    expect(merged?.rule).toContain('merged at twelve comments per pull request');
+    // **Every candidate is either kept or accounted for**: a report whose two numbers disagreed would be a merge that
+    // lost a comment without saying so.
+    expect(merged?.candidates).toBeGreaterThanOrEqual(merged?.kept ?? 0);
+    expect(merged?.kept).toBe(run.report.findings.length);
+    expect(['budget', 'model', 'fallback']).toContain(merged?.decidedBy);
+    // **And the reader's finding survived the merge**, which is the whole point of paying for a second reviewer.
+    expect(run.report.findings.some((finding) => finding.source === 'agent')).toBe(true);
+  });
+
+  it('refuses --ensemble without --agent, rather than merging one reviewer with itself', async () => {
+    const { dir } = pullRequestWithAGuard();
+    const run = await runPrReview({
+      repo: dir,
+      targetBranch: 'main',
+      sourceBranch: 'feature',
+      ensemble: true,
+    });
+    expect(run.ok).toBe(false);
+    if (run.ok) return;
+    expect(run.error).toContain('--ensemble needs --agent');
+  });
+});

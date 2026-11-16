@@ -147,8 +147,11 @@ describe('the artifact names the arm it published', () => {
     expect(source).toContain('publishedArm:');
     expect(source).toContain("'everything-filtered'");
     const script = readFileSync('scripts/aacr-paired-replay.mjs', 'utf8');
+    // **`shipped` first, because since §54 that is the arm the lanes publish**: `drop test, budget 12`, which is not a
+    // predicate over one finding and therefore is not one of the four below. A printer that still led with `everything`
+    // would show a reader the arm nobody runs before the arm the artifact is about.
     expect(script).toContain(
-      "const OUR_ARMS = ['everything', 'gate', 'profile', 'everything-filtered']",
+      "const OUR_ARMS = ['shipped', 'everything', 'gate', 'profile', 'everything-filtered']",
     );
   });
 });

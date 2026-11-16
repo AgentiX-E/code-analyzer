@@ -79,10 +79,15 @@ describe('the emission rule, per reviewer', () => {
     // calls would let the two figures be about two operating points while both looked right. **The pull-request key is
     // part of the call**, because a budget counts twelve per pull request and a run-wide count is a different rule with a
     // better score.
-    const declared = [...SOURCE.matchAll(/shippedRuleKeep\(ranked, competitorKey\)/g)];
+    //
+    // **And the profile is the third argument**, because a `defect` run's policy must run on what the floor left rather
+    // than on everything: a policy applied to the unfiltered list would publish a point that posted the categories its own
+    // profile dropped. The advisory profile removes nothing, which is why the excursion was invisible in every dispatch
+    // so far and is fixed here instead of after a `defect` run had quoted a figure about two rules.
+    const declared = [...SOURCE.matchAll(/shippedRuleKeep\(ranked, competitorKey, profileKept\)/g)];
     expect(declared).toHaveLength(1);
     const declarationAt = SOURCE.indexOf(
-      'const shippedKeepFlags = shippedRuleKeep(ranked, competitorKey)',
+      'const shippedKeepFlags = shippedRuleKeep(ranked, competitorKey, profileKept)',
     );
     expect(declarationAt).toBeGreaterThan(-1);
     const uses = [...SOURCE.matchAll(/keep: shippedKeepFlags/g)];

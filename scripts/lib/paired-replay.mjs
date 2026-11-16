@@ -99,6 +99,54 @@ function scoredPullRequests(bench) {
 }
 
 /** One row per pull request: which goldens each of the caller's arms covers, and how many findings it emitted. */
+/**
+ * **The arm that ships, read from the rows the artifact published for it.**
+ *
+ * Since §54 the headline is an emission policy - `drop test, budget 12` - and not a predicate over a single finding, so
+ * it cannot be reconstructed by `armOf`: **the budget is a function of the pull request, not of the finding.** The
+ * artifact therefore publishes one row per pull request with the goldens the rule covered (`covered`) and how many
+ * comments it posted (`shippedEmitted`), and this reads them back.
+ *
+ * **`null` for an artifact that predates the field**, so an old artifact is replayed under the arm it recorded rather
+ * than under an arm reconstructed from fields it does not have.
+ */
+function shippedArmOf(bench) {
+  const rows = bench?.coverage?.byPullRequest;
+  if (!Array.isArray(rows) || rows.length === 0) return null;
+  if (!rows.every((row) => Number.isInteger(row?.shippedEmitted))) return null;
+  const byPull = new Map();
+  for (const row of rows) {
+    const key = String(row.pr);
+    const covered = Array.isArray(row.covered) ? row.covered : [];
+    const goldens = Math.max(0, Math.trunc(Number(row.goldens ?? 0)));
+    const truePositives = covered.length;
+    byPull.set(key, {
+      truePositives,
+      falsePositives: Math.max(0, row.shippedEmitted - truePositives),
+      falseNegatives: Math.max(0, goldens - truePositives),
+      covered: new Set(covered.map((golden) => `${key}#${String(golden)}`)),
+    });
+  }
+  return byPull;
+}
+
+/** The sums of `shippedArmOf` over a corpus, in the shape every other arm is returned in. */
+function scoreShipped(shippedByPull, corpus) {
+  let truePositives = 0;
+  let falsePositives = 0;
+  let falseNegatives = 0;
+  const covered = new Set();
+  for (const pull of corpus) {
+    const row = shippedByPull.get(String(pull.key));
+    if (row === undefined) continue;
+    truePositives += row.truePositives;
+    falsePositives += row.falsePositives;
+    falseNegatives += row.falseNegatives;
+    for (const golden of row.covered) covered.add(golden);
+  }
+  return { point: point(truePositives, falsePositives, falseNegatives), covered };
+}
+
 function armOf(findings, keep) {
   const kept = [];
   for (const finding of findings) {
@@ -258,6 +306,24 @@ export function replayHeadToHead({ bench, baseline, dropCategories = [] } = {}) 
     applyTheirGate: false,
   });
 
+  /**
+   * **And the arm that ships, from the rows rather than from a predicate**, because a budget is a property of the pull
+   * request and `keep(finding)` cannot express it. Absent from an artifact written before §54, in which case nothing is
+   * added and a `publishedArm` of `shipped` finds no arm - which is why the checker only asks for it when it exists.
+   */
+  const shippedByPull = shippedArmOf(bench);
+  if (shippedByPull !== null) {
+    const overWhole = scoreShipped(shippedByPull, corpus);
+    const overPaired = scoreShipped(shippedByPull, pairedCorpus);
+    whole.shipped = overWhole.point;
+    paired.shipped = {
+      ...overPaired.point,
+      against: theirsPaired.point,
+      discordance: discordance(overPaired.covered, theirsPaired.covered),
+      byCategory: {},
+    };
+  }
+
   for (const [name, keep] of Object.entries(arms)) {
     const overWhole = scoreArm({ corpus, findingsByPr, keep });
     const overPaired = scoreArm({ corpus: pairedCorpus, findingsByPr, keep });
@@ -320,6 +386,29 @@ export function compareReplayToArtifact(replay, bench) {
   const arm = publishedArmOf(bench);
   const actual = replay?.whole?.[arm] ?? null;
   const mismatches = [];
+  /**
+   * **An arm the artifact names and the rows cannot reproduce is a failure, not a skip.**
+   *
+   * The three fields below are skipped when the artifact publishes no figure for them, which is correct - an artifact
+   * from a run that stopped early has nothing to check. **But an artifact that publishes a figure and names an arm the
+   * replay has no rows for would have skipped all three and passed**, which is a check that reports success by not
+   * running. That is the shape of the defect §54 introduced into `scoring.publishedArm`, caught one level down.
+   */
+  if (actual === null && expected.precision !== null) {
+    return {
+      arm,
+      ok: false,
+      mismatches: [
+        {
+          field: 'arm',
+          published: arm,
+          replayed: null,
+          arm,
+          reason: 'the artifact names an arm its own rows cannot reproduce',
+        },
+      ],
+    };
+  }
   for (const field of ['precision', 'recall', 'f1']) {
     if (expected[field] === null || actual === null) continue;
     if (expected[field] !== actual[field]) {

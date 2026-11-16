@@ -485,6 +485,23 @@ export {
 } from './review/emission-policy.js';
 export type { EmissionOutcome, EmissionStep, EmissionSubject } from './review/emission-policy.js';
 
+// Merging two reviewers — the second field of view, at the comment budget one review may spend (§56)
+export {
+  MERGE_BUDGET_PER_PULL_REQUEST,
+  mergeCandidates,
+  mergePrompt,
+  mergeReviewers,
+  parseMergeAnswer,
+} from './review/merge-reviewers.js';
+export type {
+  MergeAnswer,
+  MergeCandidate,
+  MergeDropped,
+  MergeDropReason,
+  MergeOutcome,
+  MergeRequest,
+} from './review/merge-reviewers.js';
+
 // Idiom rules — the remarks a reviewer makes that are not about a defect, each derived from a golden
 export { detectIdioms, IDIOM_RULES } from './review/idiom-rules.js';
 export type { IdiomInput } from './review/idiom-rules.js';

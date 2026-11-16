@@ -435,6 +435,8 @@ interface ScopeOptionBag {
   projectId?: unknown;
   /** `--agent`: present is `true`, absent leaves the lanes in charge. */
   agent?: unknown;
+  /** `--ensemble`: review with both reviewers and post one merged list (`requires --agent`). */
+  ensemble?: unknown;
   /** `--max-findings-per-file <number>`. */
   maxFindingsPerFile?: unknown;
 }
@@ -458,6 +460,7 @@ function scopeOf(opts: ScopeOptionBag): {
     | 'languages'
     | 'projectId'
     | 'agent'
+    | 'ensemble'
     | 'maxFindingsPerFile'
   >;
   error?: string;
@@ -494,6 +497,10 @@ function scopeOf(opts: ScopeOptionBag): {
       // to `true` when present and leaves it absent otherwise, and an absent flag must keep the lanes - the reviewer
       // every published figure before the arm existed was measured on.
       agent: opts.agent === true ? true : undefined,
+      // **`--ensemble` requires `--agent`**, and the refusal is here rather than in the command: a merge of one reviewer
+      // is not a merge, and the alternative is a flag that silently becomes a synonym for `--agent` on a run whose report
+      // would still say it merged.
+      ensemble: opts.ensemble === true ? true : undefined,
       exclude: splitList(opts.exclude),
       languages: splitList(opts.languages),
       projectId: textOption(opts.projectId),
@@ -552,6 +559,10 @@ function prReviewOptionFlags(command: Command): Command {
     .option(
       '--agent',
       'Review with the reading reviewer: a tool loop over the checkout instead of the five lanes (needs DEEPSEEK_API_KEY)',
+    )
+    .option(
+      '--ensemble',
+      'With --agent: also run the five lanes and post one merged list, at most 12 comments per pull request (§56)',
     )
     .option(
       '--max-findings-per-file <number>',

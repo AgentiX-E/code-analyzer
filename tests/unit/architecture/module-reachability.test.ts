@@ -440,11 +440,10 @@ describe('every module a package compiles is reachable from an entry its manifes
       // against is 82% these, and §47.2 measured the engine at zero on them. **A module rather than six branches in the
       // engine** because the rules are content with a quoted source for each one, and because a lane that can only be
       // exercised through a provider call is a lane whose every regression costs a run.
-      // **182 since iteration 143**, which added `review/emission-policy.ts`: the operating point the product ships, as a
-      // function the command that posts comments and the harness that measures them both call. §54 prices it at F1 0.2121
-      // against the 0.1823 the gate had been publishing, and **a cut applied in two places without one implementation is
-      // a figure about neither**.
-      intelligence: 182,
+      // **183 since iteration 144**, which added `review/merge-reviewers.ts`: the one place two reviewers' comments become
+      // one list. §56 prices the union at F1 0.2243 and the merged list at up to 0.2422 against the lanes' 0.2121, and
+      // **a merge spelled out in the harness and again in the command would be two figures about two products**.
+      intelligence: 183,
       mcp: 39,
       server: 24,
       // **11 since iteration 121**, which added `utils/type-text.ts`: the depth-counted removal of type arguments and

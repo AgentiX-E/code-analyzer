@@ -25,7 +25,7 @@ import { compareReplayToArtifact, replayHeadToHead } from './lib/paired-replay.m
  * **Our arms, named once.** The published arm is one of these, so a checker that printed three of four would report a
  * figure it also refused to show - which is what happened to the reading reviewer's arm.
  */
-const OUR_ARMS = ['everything', 'gate', 'profile', 'everything-filtered'];
+const OUR_ARMS = ['shipped', 'everything', 'gate', 'profile', 'everything-filtered'];
 
 const HERE = dirname(fileURLToPath(import.meta.url));
 const REPO = resolve(HERE, '..');
@@ -91,13 +91,16 @@ function main() {
     console.log(`  whole corpus`);
     // **Every arm the replay computed, in a fixed order**, so a new one cannot be measured without being printed: the
     // list used to be written out by hand here, and the reading reviewer's published arm was not on it.
-    for (const name of OUR_ARMS) console.log(line(name, replay.whole[name]));
+    // **Only the arms this artifact can carry**, because an artifact written before §54 has no `shipped` rows and a
+    // line that printed `undefined` would look like a reading of zero.
+    for (const name of OUR_ARMS.filter((arm) => replay.whole[arm] !== undefined))
+      console.log(line(name, replay.whole[name]));
     console.log(line('theirs', replay.whole.theirs));
     console.log(line('theirs·raw', replay.whole.theirsEverything));
     console.log(
       `  paired subset · ${replay.paired.pullRequests} pull requests · ${replay.paired.goldens} goldens`,
     );
-    for (const name of OUR_ARMS) {
+    for (const name of OUR_ARMS.filter((arm) => replay.paired[arm] !== undefined)) {
       const arm = replay.paired[name];
       console.log(line(name, arm));
       if (arm.discordance) {

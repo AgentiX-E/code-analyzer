@@ -289,11 +289,14 @@ describe('the matrix is one experiment', () => {
     // twice, once shown the block each hunk sits in. It exists because the reading agent cannot be switched on without
     // being shown that block, so **R-22's +0.0412 contains an unmeasured component** and the cheapest way to measure it
     // is the arm that was deleted when the window stopped being an input (§49.5).
+    // **And a single row for the merge**, because §56's device is both reviewers under one arm: `ensemble: on` implies
+    // `agent: on` - the script refuses the combination where it does not - so a second row would buy the same merge
+    // twice. Five singles and four pairs, enumerated rather than bounded for the reason above.
     expect(
       alternatives()
         .map((matrix) => matrix.length)
         .sort(),
-    ).toEqual([1, 1, 1, 1, 2, 2, 2, 2, 2]);
+    ).toEqual([1, 1, 1, 1, 1, 2, 2, 2, 2, 2]);
   });
 
   it('varies exactly one key, so that a difference between the arms is the device', () => {

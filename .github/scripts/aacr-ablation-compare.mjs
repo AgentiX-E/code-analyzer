@@ -219,6 +219,33 @@ export const REGISTRATIONS = Object.freeze({
     registeredAfterDispatch: true,
     confirmation: [],
   },
+  /**
+   * **§56's device, and the only one in this table whose two arms both had to be paid for before the claim was written.**
+   *
+   * The claim is arithmetic on artifacts that already exist: `43676036390` ran the five lanes and the reading agent over
+   * the same hundred pull requests, the two arms covered **198 and 171 distinct goldens with 93 in common**, and the
+   * union covers **276 of 724** against 198 for either alone. **So the second reviewer is not a second opinion about the
+   * same code, and the reason it never paid for itself is that it spends 1 920 comments to say what one says in 1 109.**
+   *
+   * **The device is the merge, not the second reviewer**, and the threshold is the house 0.02 because the measured
+   * headroom is bigger than that: the union cut to twelve per pull request scores 0.2243 against the lanes' 0.2121, and
+   * a merge that removed the restatements and kept the 78 unique goldens would be 770 comments at 0.2422. **A device
+   * priced between the naive union and its own ceiling is the one case where a 0.02 bar is conservative rather than
+   * arbitrary.**
+   *
+   * **The guard is recall**, because a merge can raise precision by dropping findings and the arm's whole justification
+   * is that it finds goldens no lane reaches: a merge that lost recall would be a filter wearing a merge's name.
+   */
+  ensemble: {
+    section: '§56 (R-29)',
+    claim:
+      'merging both reviewers into twelve comments per pull request raises the file arm F1 by at least 0.02 over the five lanes alone, without lowering recall',
+    arm: 'file',
+    registeredGain: 0.02,
+    mechanism: 'precision rises and recall does not fall',
+    mechanismRule: 'recall-holds',
+    confirmation: [],
+  },
 });
 
 /**
@@ -415,6 +442,20 @@ const ENTAILED_BY = {
    * then differ in two keys that are not an entailment, and it is refused - because that is a different experiment.
    */
   agent: [{ key: 'codeContext', whenOn: true, whenOff: false }],
+  /**
+   * **A merge of two reviewers cannot be switched on without the second reviewer being switched on.**
+   *
+   * `ensemble: on` requires `agent: on`, and `agent: on` carries `codeContext: true` - so the pair that measures the
+   * merge against the lanes differs in three configuration keys and the guard refuses it as confounded. **It is not: the
+   * device is the merge, and the other two keys are what a merge needs in order to have two lists to merge.**
+   *
+   * **Both are entailed, not one**, because `agent` carries its own entailment and the resolution here reads the table
+   * rather than the arm: listing `agent` alone would leave `codeContext` unexplained on exactly the pair §56 needs.
+   */
+  ensemble: [
+    { key: 'agent', whenOn: true, whenOff: false },
+    { key: 'codeContext', whenOn: true, whenOff: false },
+  ],
 };
 
 export function variedField(on, off) {
@@ -1290,6 +1331,61 @@ function selfTest() {
       { ...agentOff, configuration: { ...agentOff.configuration, codeContext: true } },
     ).some((confound) => confound.field === 'configuration'),
     'and the guard refuses it, so the direction of the entailment is enforced rather than described',
+  );
+
+  /**
+   * **And the merge's pair, which differs in three keys and is still one device.**
+   *
+   * `ensemble: on` needs `agent: on`, which carries `codeContext: true` - so the arm that measures §56 differs from the
+   * lane arm in `agent`, `codeContext` **and** `ensemble`. The first version of this table listed one entailment per
+   * switch and the guard resolved `agent` out of a pair that still had `ensemble` unexplained, which is the same
+   * false refusal that cost R-22 four hours, one level up.
+   */
+  const lanesArm = {
+    ...baseline,
+    configuration: {
+      ...baseline.configuration,
+      emissionProfile: undefined,
+      agent: false,
+      codeContext: false,
+      ensemble: false,
+    },
+  };
+  const ensembleArm = {
+    ...qualifies,
+    configuration: {
+      ...qualifies.configuration,
+      emissionProfile: undefined,
+      agent: true,
+      codeContext: true,
+      ensemble: true,
+    },
+  };
+  const merged3 = variedField(ensembleArm, lanesArm);
+  assert(merged3.field === 'ensemble', 'the merge is the device and the reviewer is what it needs');
+  assert(
+    merged3.entailed.length === 2 &&
+      merged3.entailed.includes('agent') &&
+      merged3.entailed.includes('codeContext'),
+    'and both keys the merge entails are named rather than absorbed silently',
+  );
+  assert(
+    confoundsBetween(ensembleArm, lanesArm).length === 0,
+    'the guard accepts a merge against the lanes, which is the pair §56 registers',
+  );
+  /**
+   * **And a merge with no second reviewer is refused by the harness rather than by this guard**, which is worth an
+   * assertion because it is the one malformed dispatch the table cannot see: with `agent: false` the configuration
+   * differs in `ensemble` alone, so `variedField` reports a clean one-key pair - **and the arm that ran was the lanes
+   * with a flag that did nothing.** `aacr-bench.mjs` refuses that combination at startup and a test holds it there.
+   */
+  const impossible = {
+    ...ensembleArm,
+    configuration: { ...ensembleArm.configuration, agent: false, codeContext: false },
+  };
+  assert(
+    variedField(impossible, lanesArm).field === 'ensemble',
+    'a merge switched on without the reader looks like a single-variable pair, which is why the harness refuses it',
   );
 
   console.log(

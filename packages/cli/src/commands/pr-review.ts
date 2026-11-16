@@ -27,10 +27,12 @@ import {
   MappedRepository,
   ReviewAgent,
   ReviewSwarm,
+  MERGE_BUDGET_PER_PULL_REQUEST,
   SHIPPED_AGENT_OPTIONS,
   SHIPPED_EMISSION_STEPS,
   applyEmissionPolicy,
   describeEmissionSteps,
+  mergeReviewers,
   splitPatchByPath,
   type ActionItem,
   type LensFinding,
@@ -162,6 +164,18 @@ export interface PrReviewReport {
      * it** - the alternative is a report that quietly says a pull request was clean at one operating point while the
      * engine spoke at another.
      */
+    /**
+     * **What `--ensemble` merged, and which path decided** (§56): `model`, `budget` when the candidates already fit,
+     * `fallback` when the answer was refused, `refused` when the provider failed and the lanes were kept alone.
+     */
+    ensemble?: {
+      rule: string;
+      candidates: number;
+      kept: number;
+      decidedBy: string;
+      droppedByReason: Record<string, number>;
+      error?: string;
+    };
     emissionPolicy?: {
       rule: string;
       droppedByCategory: readonly { readonly category: string; readonly count: number }[];
@@ -218,6 +232,19 @@ export interface PrReviewOptions {
    * the default, because every figure this repository published before the arm existed was measured on them.
    */
   agent?: boolean;
+  /**
+   * `--ensemble`: run both reviewers and post one merged list, at most twelve comments per pull request (§56).
+   *
+   * **The two reviewers are not two opinions about the same code.** On `43676036390` the lanes and the reader covered 198
+   * and 171 distinct goldens with **93 in common** - a union of 276 of 724 against 198 for either alone - so the reader
+   * reaches 78 goldens no lane finds. **What it also does is spend 1 920 comments to say what one reviewer says in 1 109**,
+   * and that is the whole reason it has never paid for itself: the union cut to twelve per pull request scores F1 0.2243
+   * against the lanes' 0.2121, and a merge that removed the restatements while keeping the unique goldens reaches 0.2422.
+   *
+   * **Requires `--agent`**, because a merge of one reviewer is not a merge; the flag is refused rather than silently
+   * becoming a synonym for `--agent`.
+   */
+  ensemble?: boolean;
   /**
    * The provider the agent calls. Absent builds `DeepSeekProvider` from `DEEPSEEK_API_KEY`.
    *
@@ -431,7 +458,8 @@ async function reviewWithTheAgent(
   change: ChangeSet,
   options: PrReviewOptions,
 ): Promise<
-  { ok: true; comments: ReviewComment[]; spend: AgentSpend } | { ok: false; error: string }
+  | { ok: true; comments: ReviewComment[]; spend: AgentSpend; provider: LLMProvider }
+  | { ok: false; error: string }
 > {
   let provider: LLMProvider;
   try {
@@ -477,6 +505,9 @@ async function reviewWithTheAgent(
   return {
     ok: true,
     comments: outcome.comments,
+    // **The provider comes back with the comments**, because `--ensemble` buys a second opinion about the same pull
+    // request and a second `DeepSeekProvider` would be a second ledger - one bill printed twice, each half of it.
+    provider,
     spend: {
       modelCalls: outcome.ledger.modelCalls,
       toolCalls: outcome.ledger.toolCalls,
@@ -609,6 +640,22 @@ export async function runPrReview(options: PrReviewOptions): Promise<PrReviewRun
     };
   }
 
+  /**
+   * **`--ensemble` without `--agent` is refused, not silently downgraded.**
+   *
+   * The flag promises two reviewers merged into one list. A run that took it with the lanes alone would post one
+   * reviewer's comments and report `ensemble: {decidedBy: 'budget'}` - **a report describing a merge of two things one of
+   * which never ran** - and the only way to notice would be to read the artifact against the command line.
+   */
+  if (options.ensemble === true && options.agent !== true) {
+    return {
+      ok: false,
+      exitCode: EXIT_USAGE,
+      error:
+        '--ensemble needs --agent: the merge is of two reviewers, and one of them is the reading reviewer',
+    };
+  }
+
   const languages = options.languages ?? [];
   const { extensions, unknown } = extensionsForLanguages(languages);
   if (unknown.length > 0) {
@@ -672,6 +719,17 @@ export async function runPrReview(options: PrReviewOptions): Promise<PrReviewRun
   let decision: SwarmDecision;
   let actionPlan: ActionItem[];
   let spend: AgentSpend | undefined;
+  /** What `--ensemble` did, when it ran. **Present only under the flag**, so a report cannot claim a merge it never made. */
+  let ensemble:
+    | {
+        rule: string;
+        candidates: number;
+        kept: number;
+        decidedBy: string;
+        droppedByReason: Record<string, number>;
+        error?: string;
+      }
+    | undefined;
 
   if (options.agent === true) {
     const reviewed = await reviewWithTheAgent(change, options);
@@ -694,6 +752,42 @@ export async function runPrReview(options: PrReviewOptions): Promise<PrReviewRun
     };
     decision = decisionFor(lensFindings);
     actionPlan = [];
+    /**
+     * **`--ensemble`: the same pull request, reviewed twice, merged once** (§56).
+     *
+     * The reviewer above reads the repository; the swarm below reads the diff. **They find different goldens** - 198 and
+     * 171 with 93 in common on the hundred pull requests of `43676036390` - and the merge is what turns the second field
+     * of view into comments a person sees. The lanes are bought only here, so a run without the flag pays for one
+     * reviewer exactly as it did before.
+     */
+    if (options.ensemble === true) {
+      const swarm = new ReviewSwarm(new InMemoryGraphStore(), { minSeverity: 'info' });
+      const swarmResult = await swarm.reviewWithGraphContext(
+        projectId,
+        change.diffs,
+        change.contents,
+      );
+      const laneFindings = joinLensFindings(swarmResult, inDiff);
+      const merged = await mergeTwoReviewers({
+        lanes: laneFindings,
+        reader: lensFindings,
+        provider: reviewed.provider,
+        budget: MERGE_BUDGET_PER_PULL_REQUEST,
+      });
+      lensFindings = merged.kept;
+      // **What the merge removed is reported as truncation**, because that is what it is: a comment the reviewer wrote
+      // and the report does not carry. The reason is kept beside it so the sentence the reader sees can name the rule.
+      lensSummary.truncatedFindings += Math.max(0, merged.candidates - merged.kept.length);
+      decision = decisionFor(lensFindings);
+      ensemble = {
+        rule: 'two reviewers, merged at twelve comments per pull request',
+        candidates: merged.candidates,
+        kept: merged.kept.length,
+        decidedBy: merged.decidedBy,
+        droppedByReason: merged.dropped,
+        ...(merged.error === undefined ? {} : { error: merged.error }),
+      };
+    }
   } else {
     const swarm = new ReviewSwarm(new InMemoryGraphStore(), { minSeverity: 'info' });
     const swarmResult = await swarm.reviewWithGraphContext(
@@ -797,6 +891,9 @@ export async function runPrReview(options: PrReviewOptions): Promise<PrReviewRun
               truncatedByBudget: policy.truncated,
             },
           }),
+      // **What the merge did, when it ran.** Absent without `--ensemble`, because a report that carried a merge it never
+      // made would describe a reviewer two of whose passes did not happen.
+      ...(ensemble === undefined ? {} : { ensemble }),
     },
     decision,
     actionPlan,
@@ -1005,6 +1102,102 @@ export function formatPrReviewText(report: PrReviewReport): string {
     lines.push(truncationNote(report.summary, 'text'));
   }
   return lines.join('\n');
+}
+
+/**
+ * **The severity a merge is scored by, when the caller has no actionability score.**
+ *
+ * The harness ranks findings with `rankFindings` and merges on that score; this command's findings carry a severity and
+ * no score, so the order a merge falls back to is severity. **That substitution is measured rather than assumed**:
+ * `docs/EVAL-CONTRACT.md` §54.2 priced the shipped policy under the same substitution and got 0.2062 and 0.1946 where
+ * the score order gave 0.2121 and 0.1960 - **the same ordering, four thousandths apart**, which is why shipping it did not
+ * require moving the command's ranking into the package first.
+ */
+const MERGE_SEVERITY_SCORE: Record<string, number> = {
+  critical: 1,
+  high: 0.8,
+  medium: 0.6,
+  low: 0.4,
+  info: 0.2,
+};
+
+/**
+ * **Two reviewers, one list, at most twelve comments** (§56).
+ *
+ * Returns the findings to keep and a record of what the merge removed, **by reason**, so a report can say why a comment
+ * a reader expected is missing. A merge that failed - a provider error, an answer that did not parse - returns the lanes'
+ * findings and an `error`, because **a second reviewer that cannot be merged must not take the first reviewer's findings
+ * with it.**
+ */
+export async function mergeTwoReviewers(input: {
+  lanes: readonly PrReviewFinding[];
+  reader: readonly PrReviewFinding[];
+  provider: LLMProvider;
+  budget: number;
+}): Promise<{
+  kept: PrReviewFinding[];
+  dropped: Record<string, number>;
+  decidedBy: string;
+  candidates: number;
+  error?: string;
+}> {
+  const byRef = new Map<string, PrReviewFinding>();
+  const candidates = [
+    ...input.lanes.map((finding, at) => {
+      const ref = `l${String(at)}`;
+      byRef.set(ref, finding);
+      return { ref, source: 'lanes' as const, finding };
+    }),
+    ...input.reader.map((finding, at) => {
+      const ref = `r${String(at)}`;
+      byRef.set(ref, finding);
+      return { ref, source: 'reader' as const, finding };
+    }),
+  ].map((entry) => ({
+    ref: entry.ref,
+    source: entry.source,
+    path: entry.finding.file,
+    line: entry.finding.line,
+    category: entry.finding.category,
+    score: MERGE_SEVERITY_SCORE[entry.finding.severity] ?? 0.4,
+    text: `${entry.finding.title} :: ${entry.finding.description}`,
+  }));
+  try {
+    const outcome = await mergeReviewers({
+      lanes: candidates.filter((entry) => entry.source === 'lanes'),
+      reader: candidates.filter((entry) => entry.source === 'reader'),
+      provider: input.provider,
+      budget: input.budget,
+      tag: 'pr-review:merge',
+    });
+    const dropped: Record<string, number> = {};
+    for (const entry of outcome.dropped) dropped[entry.reason] = (dropped[entry.reason] ?? 0) + 1;
+    return {
+      kept: outcome.kept
+        .map((entry) => byRef.get(entry.ref))
+        .filter((entry): entry is PrReviewFinding => entry !== undefined),
+      dropped,
+      decidedBy: outcome.decidedBy,
+      candidates: candidates.length,
+      ...(outcome.decidedBy === 'fallback' ? { error: outcome.detail } : {}),
+    };
+  } catch (error) {
+    /**
+     * **The lanes survive a failed merge.** A merge is a second opinion about comments that already exist; a provider
+     * that is down, rate-limited or out of credit is a reason for one reviewer rather than a reason for no review - and
+     * **the report says so**, because a run that silently posted one reviewer's comments under a flag that promised two
+     * is the defect this whole campaign exists to remove.
+     */
+    const dropped: Record<string, number> = {};
+    if (input.reader.length > 0) dropped['merge-failed'] = input.reader.length;
+    return {
+      kept: [...input.lanes],
+      dropped,
+      decidedBy: 'refused',
+      candidates: candidates.length,
+      error: String((error as Error)?.message ?? error).slice(0, 200),
+    };
+  }
 }
 
 /**

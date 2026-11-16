@@ -5838,3 +5838,102 @@ it asserted `variedField` alone and passed while the guard stayed broken.
 is empty _and_ that the inverted pair - window off while the reader is on, window on while the reader is off - is still
 refused. **A guard that refuses sound comparisons is not a safe guard**, and the cost of this one was a paid run's
 verdict held up for four hours.
+
+## 56. R-28 landed at the bottom of its range, and its own artifact could not be replayed
+
+### 56.1 The confirmation, on rows the selection never read
+
+`43775832164`, one arm, `skip 150`, `max 100`. The corpus holds **46 pull requests** past row 150 and **330 goldens**
+there, so the confirmation is a coarser instrument than the discovery slice: at 330 goldens the resolution of an F1
+difference is of the order of **±0.006**, not the ±0.0028 the 724-golden pair gave.
+
+| arm                                            | comments | goldens found | precision  | recall     | F1         |
+| ---------------------------------------------- | -------- | ------------- | ---------- | ---------- | ---------- |
+| the actionability gate                         | 361      | 69            | 0.1911     | 0.2091     | 0.1997     |
+| **`drop test, budget 12` (the shipped point)** | **331**  | **71**        | **0.2145** | **0.2152** | **0.2148** |
+| full emission                                  | 525      | 88            | 0.1676     | 0.2667     | 0.2058     |
+
+**+0.0151 F1, +0.0234 precision, +0.0061 recall and 30 fewer comments.** The registered claim was **≥ +0.02** with a
+recall guard of −0.01; the verdict is **falsified at the registered bar**, by 0.0049 against the registration and 0.0003
+against the lower end of the replicated discovery range (+0.0154 on `43669547968`'s off arm).
+
+**What the run does support, and what it does not.** The direction replicated on a third corpus with a different
+selection of rows, the recall guard was not merely held but passed in the opposite direction, and the comment count fell.
+**What it does not support is the number 0.02** - and the honest statement of the shipped point after three runs is
+**+0.015 to +0.030 with the ordering stable**, which is what §54.2 said before this run and what this run narrows to its
+lower half. The threshold stays as registered: a bar that moves to meet its measurement is not a bar.
+
+**The alternatives were priced offline and lost**, so the point is not one of several untried rules:
+
+| rule over the same 1 109 findings of `43676036390` off | F1         |
+| ------------------------------------------------------ | ---------- |
+| score order, 12 per pull request (shipped)             | **0.2121** |
+| category prior estimated on the other half, k=10 (CV)  | 0.2143     |
+| category prior, k=12 (CV)                              | 0.2106     |
+| per-file cap 4, then 12 per pull request               | 0.2133     |
+| per-file cap 3                                         | 0.2125     |
+| file round-robin, 12 per pull request                  | 0.2048     |
+| agreement ≥ 2 (the ranker's own feature)               | 0.2045     |
+| agreement ≥ 3                                          | 0.1926     |
+
+**Every one of them is inside ±0.002 of the shipped rule or below it.** The order the reviewer emits is calibrated; the
+remaining loss is not in _which_ of our comments is posted.
+
+### 56.2 The artifact could not be replayed, and the checker was right
+
+The job failed after the measurement, on `aacr-paired-replay.mjs --check`:
+
+> the artifact's published figures are not derivable from its rows: precision published 0.2145 replayed 0.1911, recall
+> 0.2152 replayed 0.2091, f1 0.2148 replayed 0.1997
+
+**§54 moved the headline to the emission policy and left `scoring.publishedArm` saying `gate`.** The checker recomputed
+the gate from the rows - correctly - and compared it with a figure about another rule. Three defects came out of it:
+
+1. **`publishedArm` is `shipped`** for the lanes and for the merged arm, and stays `everything` for the single-pass reader,
+   whose filing check keeps all it locates.
+2. **One row per pull request now carries `shippedEmitted`**, because `covered` was already scoped to the shipped rule
+   while `emitted` was the full emission - **a row that carries one without the other cannot be replayed**, and a checker
+   that divided by `emitted` would report a precision about a reviewer nobody ran.
+3. **An artifact that names an arm its rows cannot reproduce now fails instead of passing.** The comparison used to skip
+   every field it could not find and report `ok: true` - **a check that reports success by not running**, which is the
+   shape of the defect it was supposed to catch.
+
+**And a fourth, which no figure had shown.** `shippedRuleKeep` applied the policy to _every_ ranked finding, ignoring the
+category profile - so a `defect` run would have published a point that posted the categories its own profile had dropped.
+The profile is now applied first and the policy second. Every dispatch so far has been `advisory`, where the floor removes
+nothing, which is exactly why an excursion like this needs a test rather than a run.
+
+### 56.3 R-29, registered: the second reviewer is a second field of view, and the merge is the device
+
+`43676036390` ran both reviewers over the same hundred pull requests. Their coverage, by golden:
+
+| arm            | distinct goldens | of 724   | comments emitted |
+| -------------- | ---------------- | -------- | ---------------- |
+| the five lanes | 198              | 27 %     | 1 109            |
+| the reader     | 171              | 24 %     | 811              |
+| **both**       | **276**          | **38 %** | 1 920            |
+| in common      | 93               | -        | -                |
+
+**The reader reaches 78 goldens no lane finds**, and that is the largest single uncovered block this campaign has
+measured. It has never paid for itself because it says it in 1 920 comments. Cut to twelve per pull request the union is
+890 comments at F1 0.2243; **a merge that removed the restatements and kept the unique goldens is 770 at 0.2422**, and a
+merge that knows the answer key - which no device can - would be 734 at 0.2949. **The band between 0.2243 and 0.2422 is
+what R-29 buys or does not.**
+
+> **The emission policy `drop test, budget 12`, applied to a list merged from the five lanes and the reading reviewer by
+> a selection-only model pass, lifts the file-arm F1 by at least 0.02 over the five lanes alone with the same per-pull-
+> request budget, without lowering recall.**
+
+- **Selection, not rewriting**, so the measurement is about _which_ comments and not about their words, and a kept comment
+  carries the verdict it was already judged with.
+- **The fallback is a measured rule, not a guess**: score order at 0.2243 and positional de-duplication at 0.2215 are both
+  in the table above, and an answer that does not parse, keeps nothing, or names refs that do not exist falls back to the
+  better of them with the reason recorded in `summary.ensemble` / `artifact.merge.fallbackReasons`.
+- **Falsified by** F1 < 0.2321 (0.02 over 0.2121) or recall below 0.1917 (0.01 under 0.2017). **The guard is recall**,
+  because a merge can raise precision by posting less and the arm's entire justification is coverage.
+- **Registered before the dispatch**, unlike R-25's entry, and `docs/EVAL-CONTRACT.md` is the only place the claim exists.
+
+**The cost, stated before the run.** The merge is one completion per pull request over its own candidates - about 20
+candidates of 240 characters - and the second reviewer costs +31 % of a run (`$1.53` against `$1.17` on the pair above).
+**A device that needs two thirds more money to move F1 by a third of what §54 bought for nothing has to say so in its own
+registration**, which is why the number is in this paragraph rather than in a footnote after the result.

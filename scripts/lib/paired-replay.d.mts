@@ -45,6 +45,13 @@ export interface WholeCorpusArms {
   everything: ReplayPoint;
   gate: ReplayPoint;
   profile: ReplayPoint;
+  /**
+   * **The arm that ships since §54**: `drop test, budget 12`, read from the `covered` and `shippedEmitted` of one row per
+   * pull request. Absent from an artifact written before those rows existed, which is why it is optional - a budget is a
+   * property of the pull request and `keep(finding)` cannot express it, so this arm cannot be reconstructed from the
+   * findings the way the three above are.
+   */
+  shipped?: ReplayPoint;
   /** Their arm under the same actionability gate ours is scored under. */
   theirs: ReplayPoint;
   /** Their arm with every finding emitted, which is what their own publication quoted. */
@@ -72,9 +79,16 @@ export interface PairedReplay {
 }
 
 export interface ReplayVerdict {
-  arm: 'gate' | 'profile';
+  arm: 'gate' | 'profile' | 'everything' | 'everything-filtered' | 'shipped';
   ok: boolean;
-  mismatches: Array<{ field: string; published: number; replayed: number; arm: string }>;
+  mismatches: Array<{
+    field: string;
+    published: number | string | null;
+    replayed: number | null;
+    arm: string;
+    /** Present when the mismatch is about the arm itself rather than about a figure it produced. */
+    reason?: string;
+  }>;
 }
 
 export declare function maximumMatchingIndices(matches: number[][], goldens: number): number[];

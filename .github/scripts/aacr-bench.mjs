@@ -169,6 +169,28 @@ const PROFILE = (() => {
  * the resource that matters.
  */
 const AGENT = String(process.env['AACR_AGENT'] ?? 'off').toLowerCase() === 'on';
+/**
+ * **ARM SEVEN: both reviewers, merged into one list** (§56).
+ *
+ * `AACR_ENSEMBLE=on` requires `AACR_AGENT=on` and adds one thing to the arm: the pull request's findings are the lanes'
+ * **and** the reader's, and `mergeReviewers` decides which of them are posted.
+ *
+ * **Why this is a different arm rather than a fix to the reader's.** On `43676036390` the two reviewers found 198 and 171
+ * distinct goldens with **93 in common**: a union of 276 of 724 against 198 for either alone. The second reviewer is a
+ * second field of view, and the reason it has never paid for itself is that it spends 1 920 comments to express one. **The
+ * merge is the device; this flag is the arm that measures whether the device works.**
+ */
+const ENSEMBLE = String(process.env['AACR_ENSEMBLE'] ?? 'off').toLowerCase() === 'on';
+// **A merge with nothing to merge is refused before a single call is bought.** `AACR_ENSEMBLE=on` with `AACR_AGENT=off`
+// leaves the arm reviewing with the five lanes and writing `ensemble: true` into its configuration - **an artifact that
+// says both reviewers ran when one did**, and a pair whose varied key is the flag rather than the device. There is no
+// version of this that is a measurement, so it ends here rather than in a footnote on a figure.
+if (ENSEMBLE && !AGENT) {
+  console.error(
+    'AACR-ENSEMBLE refuses to run: the merge needs `AACR_AGENT=on` (a merge of one reviewer is not a merge)',
+  );
+  process.exit(2);
+}
 
 /**
  * **How many findings one file may carry, which §23.7 measured to be a binding cap rather than a safety rail.**
@@ -225,15 +247,20 @@ const { applyEmissionPolicy, describeEmissionSteps, SHIPPED_EMISSION_STEPS } =
  * scoping decision that stops being re-measured is a decision that can quietly become wrong, and the artifact still
  * prints the gate beside the headline.
  */
-const shippedRuleKeep = (entries, pullRequest) => {
+const shippedRuleKeep = (entries, pullRequest, profileKept) => {
   if (entries.length === 0) return [];
+  // **The profile is applied before the policy, not instead of it.** `drop test, budget 12` was priced on the advisory
+  // profile, where the floor removes nothing; a `defect` run would otherwise publish a point that quietly posted the
+  // categories its own profile had dropped - **one figure about two rules**, which is the defect §54 fixed one level up.
   const published = applyEmissionPolicy(
-    entries.map((entry) => ({
-      entry,
-      category: entry.finding?.category,
-      score: entry.score?.score,
-      pr: pullRequest,
-    })),
+    entries
+      .filter((entry) => profileKept === undefined || profileKept.has(entry))
+      .map((entry) => ({
+        entry,
+        category: entry.finding?.category,
+        score: entry.score?.score,
+        pr: pullRequest,
+      })),
   );
   const keep = new Set(published.kept.map((item) => item.entry));
   return entries.map((entry) => keep.has(entry));
@@ -1597,6 +1624,11 @@ async function main() {
     // **The arm's own rate**, because an agent reading a checkout is not five lanes reading a diff and a ceiling written
     // for one of them would stop the other halfway.
     agent: AGENT,
+    // **Which arm reviewed**, in the field the confound guard reads: `ensemble` on means both reviewers ran and the merge
+    // decided, so a pair that varies it varies one device. **Spelled `AGENT && ENSEMBLE` rather than
+    // `mergeCounters.enabled`** because this literal is built before the counters exist, and a value read from a binding
+    // in its temporal dead zone is a crash rather than a figure.
+    ensemble: AGENT && ENSEMBLE,
   });
   // **The dedup threshold is a parameter now, and this run takes the next point on its curve.**
   //
@@ -1793,6 +1825,23 @@ async function main() {
    * competitor's resolver, made countable), and **how many the filter removed** - because a reviewer that improves by
    * removing its own output is a different claim from one that improves by reading.
    */
+  /**
+   * **What the merge decided, per pull request, so the figure beside the headline can say which path produced it.**
+   *
+   * Three paths can decide a merge - no call needed, the model's answer, or the fallback - and **a run that reported only
+   * the score would be unable to distinguish a merge that worked from a fallback that quietly replaced it**.
+   */
+  const mergeCounters = {
+    enabled: ENSEMBLE && AGENT,
+    pulls: 0,
+    calls: 0,
+    paths: { budget: 0, model: 0, fallback: 0 },
+    kept: 0,
+    candidates: 0,
+    dropped: { duplicate: 0, 'over-budget': 0, 'not-kept': 0, 'unknown-ref': 0 },
+    fallbackReasons: [],
+    firstFailure: null,
+  };
   const agentCounters = {
     enabled: AGENT,
     pulls: 0,
@@ -2992,12 +3041,16 @@ async function main() {
     // numbers in that file; **the path lived on the result rather than on the finding**, so a flattened list of findings
     // could not be grounded against any diff - which is the same shape of loss as the golden path that was handed to
     // the engine three runs ago.
-    let located = lanes
+    const laneLocated = lanes
       .filter((l) => l.success)
       .flatMap((l) => (l.findings ?? []).map((finding) => ({ finding, path: l.filePath })));
+    let located = laneLocated;
     // **The agent's findings, when the arm ran.** Replaced rather than merged: a figure over two reviewers at once is a
-    // figure about neither.
-    if (agentResult !== null) located = agentResult.findings;
+    // figure about neither. **`AACR_ENSEMBLE=on` is the exception that gets measured**, and it is an exception precisely
+    // because the two reviewers' overlap was measured first: 93 goldens in common out of 276, so a merged list is a list
+    // about both rather than a list about neither.
+    if (agentResult !== null)
+      located = ENSEMBLE ? [...laneLocated, ...agentResult.findings] : agentResult.findings;
 
     // **ARM THREE: the same findings, ordered by the probability a developer would act on them.**
     //
@@ -3005,7 +3058,56 @@ async function main() {
     // suppressing 22% of true vulnerabilities, so **nothing here is dropped before it is judged** - every finding is
     // scored, every pair is judged, and **the emission rule is scored as a subset of a matrix that already contains
     // everything**, which means the figures for the rule and the figures for the raw list come from one pass.
-    const ranked = rankFindings(located, prFacts);
+    let ranked = rankFindings(located, prFacts);
+    /**
+     * **The merge runs after ranking and before judging**, and both halves of that are decisions.
+     *
+     * After ranking, because the fallback and the over-budget cut are score-ordered and a merge that ran on unscored
+     * candidates would have no order to fall back to. **Before judging, because a candidate the merge removes is a pair
+     * that never has to be paid for** - the judge is the expensive half of this arm, and the merge is the only device in
+     * it that removes work.
+     */
+    if (mergeCounters.enabled && agentResult !== null) {
+      try {
+        const { mergeReviewers, MERGE_BUDGET_PER_PULL_REQUEST } =
+          await import('../../packages/intelligence/dist/review/merge-reviewers.js');
+        const candidates = ranked.map((entry, at) => ({
+          ref: `c${String(at)}`,
+          source: entry.finding.lane === 'agent' ? 'reader' : 'lanes',
+          path: entry.path,
+          line: entry.finding.startLine ?? 0,
+          category: String(entry.finding.category ?? 'unknown'),
+          score: entry.score.score,
+          text: `${String(entry.finding.title)} :: ${String(entry.finding.description)}`,
+        }));
+        const mergeProvider = new DeepSeekProvider({ ledger, ceilingUsd: MAX_USD });
+        const merged = await mergeReviewers({
+          lanes: candidates.filter((entry) => entry.source === 'lanes'),
+          reader: candidates.filter((entry) => entry.source === 'reader'),
+          provider: mergeProvider,
+          budget: MERGE_BUDGET_PER_PULL_REQUEST,
+          tag: 'aacr-merge',
+        });
+        const keep = new Set(merged.kept.map((entry) => entry.ref));
+        const before = ranked.length;
+        ranked = ranked.filter((_, at) => keep.has(`c${String(at)}`));
+        mergeCounters.pulls += 1;
+        mergeCounters.calls += merged.calls;
+        mergeCounters.paths[merged.decidedBy] += 1;
+        mergeCounters.kept += ranked.length;
+        mergeCounters.candidates += before;
+        for (const drop of merged.dropped) {
+          mergeCounters.dropped[drop.reason] = (mergeCounters.dropped[drop.reason] ?? 0) + 1;
+        }
+        if (merged.decidedBy === 'fallback' && mergeCounters.fallbackReasons.length < 10) {
+          mergeCounters.fallbackReasons.push(
+            `${String(pr.githubPrUrl).replace('https://github.com/', '')} ${merged.detail}`,
+          );
+        }
+      } catch (error) {
+        mergeCounters.firstFailure = String(error?.message ?? error).slice(0, 300);
+      }
+    }
     // **What the profile removed, counted once per category with its reason**, and **applied to the ranked list rather
     // than to the judged matrix**: every finding is still scored and still judged, so the curve below remains a curve
     // over the full emission and the profile is one cut of it - the same discipline the actionability gate follows.
@@ -3029,7 +3131,7 @@ async function main() {
     // second call to `shippedRuleKeep` would be a second rule, and two figures about two rules is how a run reports a
     // comparison between itself and itself. **The pull-request key is passed rather than implied**, because the budget
     // counts twelve per pull request and a run-wide count would be a different rule with a better score.
-    const shippedKeepFlags = shippedRuleKeep(ranked, competitorKey);
+    const shippedKeepFlags = shippedRuleKeep(ranked, competitorKey, profileKept);
     const attribution = attributeGoldens({
       goldens,
       reviewedPaths: sections.map((section) => section.path),
@@ -3721,13 +3823,24 @@ async function main() {
        * **Recorded rather than re-derived here too**, because the same derivation written twice is the defect this
        * field exists to remove: the value below is the one arm whose rule the three figures above are.
        */
-      publishedArm: AGENT
-        ? PROFILE === 'defect'
-          ? 'everything-filtered'
-          : 'everything'
-        : PROFILE === 'defect'
-          ? 'profile'
-          : 'gate',
+      /**
+       * **`shipped`, which is the emission policy and not the actionability gate.**
+       *
+       * §54 moved the headline from the gate to `drop test, budget 12` and **this field went on saying `gate`** - so
+       * `aacr-paired-replay.mjs --check` recomputed the gate (0.1997 on the 46 rows of `43775832164`) against a published
+       * 0.2148 and the job failed. **The checker was right and the artifact was lying about which rule it published**,
+       * which is exactly the defect the field exists to prevent: a reader who cannot reproduce a figure from the rows
+       * beside it has no reason to believe the figure.
+       */
+      // **`shipped` whenever a rule with a budget decided what was posted** - which is the lanes and the merge, and not
+      // the single-pass reader, whose own filing check keeps everything it can locate. An ensemble arm that recorded
+      // `everything` would be replayed against 1 920 comments it never posted.
+      publishedArm:
+        ENSEMBLE || !AGENT
+          ? 'shipped'
+          : PROFILE === 'defect'
+            ? 'everything-filtered'
+            : 'everything',
       judgeConcurrency: JUDGE_CONCURRENCY,
       /**
        * **Two arms of this engine, one judge, one set of goldens, one job.**
@@ -3782,6 +3895,11 @@ async function main() {
       // comparable as settings of one instrument: they differ in what the model is given, in how many calls it makes and
       // in what a finding must contain to survive. **A figure without this field is a figure with no reviewer attached.**
       agent: AGENT,
+      // **Which arm reviewed**, in the field the confound guard reads: `ensemble` on means both reviewers ran and the merge
+      // decided, so a pair that varies it varies one device. **Spelled `AGENT && ENSEMBLE` rather than
+      // `mergeCounters.enabled`** because this literal is built before the counters exist, and a value read from a binding
+      // in its temporal dead zone is a crash rather than a figure.
+      ensemble: AGENT && ENSEMBLE,
       // **Whether a finding's claim was checked before it was filed**, because this is the arm under test and a figure
       // whose artifact does not name the side of the switch it came from is a figure a second run can disagree with
       // without either being wrong - the defect every other field in this block was added to prevent, one device later.
@@ -3850,6 +3968,10 @@ async function main() {
           pull.goldens,
         ),
         emitted: pull.matches.length,
+        // **How many of those comments the rule that ships actually posts**, because `covered` above is already scoped
+        // to that rule and a row that carries one without the other cannot be replayed: `emitted` is the full emission,
+        // and a checker that divided `covered` by it would report a precision about a reviewer nobody ran.
+        shippedEmitted: pull.matches.filter((_, at) => pull.keep[at]).length,
       })),
       coveredTotal: gated.truePositives,
     },
@@ -4170,6 +4292,7 @@ async function main() {
     // file**, and comments **the filter removed** - a reviewer that improves by reading and one that improves by deleting
     // its own output produce the same F1 and different entries here.
     agent: agentCounters,
+    merge: mergeCounters,
     skipped: null,
   });
   console.log(
