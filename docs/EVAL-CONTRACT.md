@@ -6607,3 +6607,66 @@ exceeds F1/2 = 0.1028**, and a second concern at a site draws from category base
 
 The bar R-32 has to clear is **0.2172**, and the field it has to beat is **0.1612**. Those are different numbers and only
 the first one decides whether the device is real.
+
+## 63. The same device, two slices, two signs
+
+### 63.1 The reading that does not fit
+
+R-29 measured the reader's de-duplicated, twelve-per-pull-request list at **0.2504 against 0.2148** on `skip 150` - 46
+pull requests, 330 goldens, `+0.0356` F1, and §57.1 confirmed it against a registered bar of 0.02. R-31 measured the same
+selector on `skip 50` - 100 pull requests, 715 goldens - at **0.1893 against 0.2055**, `-0.0162`.
+
+| slice | rows | goldens | comparator | device | delta |
+| --- | ---: | ---: | ---: | ---: | ---: |
+| `skip 150` (§57.1, R-29) | 46 | 330 | 0.2148 | **0.2504** | **+0.0356** |
+| `skip 50` (§62.2, R-31) | 100 | 715 | 0.2055 | **0.1893** | **-0.0162** |
+
+**Both figures are real readings of their own rows, and they disagree about the sign of the device.** The gap between them
+is 0.0518, which is **thirty times the 0.0017 this instrument resolves when the same configuration is run twice** (§60).
+The measurement is not the problem: two runs of one configuration land 0.0017 apart, and one device lands 0.05 apart
+between two corpora drawn from the same dataset.
+
+### 63.2 What that does to the error bar, and to every confirmation in this document
+
+**The error bar in §60 is sampling noise on one slice, and it is not the error bar of a claim.** A claim in this document
+is a sentence about *this corpus*, and the corpus has two halves that do not agree. So a confirmation measured on one
+slice is a verdict about that slice - which is what every registration here already says in its `confirmation` field, and
+what none of them was read as until these two numbers sat beside each other.
+
+That has three consequences, and they are all expensive:
+
+- **A confirmed device has to be confirmed twice**, on two slices, before this document may call it a property of the
+  reviewer rather than of a corpus. The second confirmation is not a formality: 0.0356 and -0.0162 are the two answers
+  the same arithmetic gave.
+- **A falsified device has to be falsified twice as well**, for the same reason in the other direction. R-31's verdict on
+  `skip 50` does not overrule §57.1's reading on `skip 150`; **it makes the slice part of the finding**, and the reader is
+  therefore closed as *unstable* rather than as *harmful*.
+- **The comparison job cannot see any of this**, because it compares one pair at a time and has no field for "the same
+  device disagreed with itself across corpora". That field is a table in this document and nothing else, which is a
+  weaker instrument than the one §62.6 built - and naming the gap is the first step to closing it.
+
+**§62.5 called 0.2504 a rumour and that was too strong.** It was a reading of 46 pull requests with an empty lane side
+(§57.2), and it was reproducible arithmetic on the rows it named. What it was not is general: on the rows this document's
+later runs used, the same selector cost 0.0162. The word to retire is not "rumour" but "confirmation".
+
+### 63.3 The confound that has to be ruled out before the slice is blamed
+
+**Two things differ between those two rows, and only one of them is the corpus.** R-29's arm was `ensemble: on` with the
+lanes emptied by the upstream cost rule (§57.2), so its selection ran over one reviewer's candidates through the merge
+path. R-31's arm is `ensemble: reader`, a switch written afterwards to make the same selection reachable on purpose.
+**An artifact that records a device under a different name is not thereby the same device**, and the possibility that the
+two implementations differ is not excluded by any field either run published.
+
+So the honest form of §63.1 is: **either the slice changed the sign of the device, or the two implementations are not the
+same device.** Distinguishing them needs one dispatch the matrix can already build - `ensemble: reader` on `skip 150`,
+against the same comparator §57.1 used - and it is the cheapest 0.02 this document has ever had the chance to buy: if the
+selector scores 0.2504 there again, the device is real and slice-dependent, and if it scores 0.19 the two implementations
+differ and §57.1's number belongs to a device that no longer exists.
+
+### 63.4 What the field publishes, and why the comparison is still worth making
+
+The published systems in §62.7 sit between 0.1563 and 0.1612 on the full corpus. **Whatever the slice does to a
+difference of 0.05, it does less than that to the distance between 0.2055 and 0.1612**, because the second number is a
+property of a whole system measured on 200 pull requests and the first is a property of this system on 100. The field is
+still the field; the error bar on our own number is now the width of our own corpus, and that is what the next
+registration has to be written against.
