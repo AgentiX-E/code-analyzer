@@ -76,6 +76,53 @@ function twoSidedP(z) {
   return Math.max(0, Math.min(1, 2 * (1 - normalCdf(Math.abs(z)))));
 }
 
+/**
+ * **Which rows an artifact read**, as a set of slices.
+ *
+ * A single dispatch carries `corpusSlice`, one slice. A merge carries `corpusSlice.slices`, several - and the difference
+ * is what decides which of two sentences about one switch an artifact can answer.
+ */
+function readSlicesOf(artifact) {
+  const slice = artifact?.corpusSlice ?? null;
+  if (slice === null || typeof slice !== 'object') return null;
+  if (Array.isArray(slice.slices) && slice.slices.length > 0) {
+    return slice.slices.map((entry) => ({ skip: Number(entry.skip), max: Number(entry.max) }));
+  }
+  return [{ skip: Number(slice.skip), max: Number(slice.requested) }];
+}
+
+/**
+ * **The registration an artifact's rows can answer, most specific first.**
+ *
+ * `REGISTRATIONS` is keyed by the configuration field a device varies, which was enough while one dispatch was one slice.
+ * A field can now carry more than one sentence - the bar a single dispatch was registered against, and a bar for the
+ * corpus two dispatches make - and **the lookup has to choose by rows rather than by key**, or a merged artifact would be
+ * judged against a bar written for a hundred rows and a single dispatch would inherit the wider one.
+ *
+ * A candidate matches when every slice it names is among the rows the artifact read; ties go to the candidate naming
+ * more slices. **The field's own entry is the fallback**, so a field with one sentence and an artifact whose rows it does
+ * not name still gets an answer rather than a silence.
+ */
+export function registrationFor(field, readSlices) {
+  const keys = Object.keys(REGISTRATIONS).filter(
+    (key) => key === field || REGISTRATIONS[key].field === field,
+  );
+  if (keys.length === 0) return null;
+  const matches = keys
+    .map((key) => ({ key, entry: REGISTRATIONS[key] }))
+    .filter(({ entry }) => {
+      const declared = entry.confirmation ?? [];
+      return (
+        declared.length > 0 &&
+        readSlices !== null &&
+        declared.every((want) => readSlices.some((got) => got.skip === want.skip && got.max === want.max))
+      );
+    })
+    .sort((left, right) => (right.entry.confirmation?.length ?? 0) - (left.entry.confirmation?.length ?? 0));
+  if (matches.length > 0) return matches[0].entry;
+  return REGISTRATIONS[field] ?? null;
+}
+
 
 /**
  * **The registrations this job knows how to read a verdict against, keyed by the configuration field they vary.**
@@ -367,6 +414,32 @@ export const REGISTRATIONS = Object.freeze({
     mechanism: 'recall rises and precision does not fall by more than a golden is worth',
     mechanismRule: 'recall-rises',
     confirmation: [{ skip: 50, max: 100 }],
+  },
+  /**
+   * **§68's registration: the same device over both halves of one corpus.**
+   *
+   * §67 turns two dispatches into one corpus of two hundred pull requests, which halves the standard deviation a bar has
+   * to clear - 0.0106 against 0.0150 - and **the bar for that corpus had to be written before the second slice was
+   * read**, or it would be a description of the number it is meant to test. **0.021 is 1.96 x 0.0106 rounded up**, taken
+   * from the arithmetic in §67 and not from R-32's 0.0296.
+   *
+   * `field` is what makes two sentences about one switch possible: `REGISTRATIONS` is keyed by the configuration field a
+   * device varies, and the lookup now asks which sentence the artifact's **rows** can answer, most specific first. A
+   * single dispatch is still judged against §59's 0.01, so a published verdict stays reproducible.
+   */
+  secondConcern200: {
+    section: '§68 (R-34)',
+    field: 'secondConcern',
+    claim:
+      'keeping one finding of a different category at a range the reviewer already reported raises the file arm F1 by at least 0.021 over the two hundred pull requests this registration names, and raises recall, without lowering precision by more than a golden is worth',
+    arm: 'file',
+    registeredGain: 0.021,
+    mechanism: 'recall rises and precision does not fall by more than a golden is worth',
+    mechanismRule: 'recall-rises',
+    confirmation: [
+      { skip: 50, max: 100 },
+      { skip: 150, max: 100 },
+    ],
   },
 });
 
@@ -853,9 +926,10 @@ export function summarise(on, off) {
    * registered. The value-specific key is tried first and the field is the fallback, so every existing entry keeps
    * working and a new value has to name its own claim or inherit a field-wide one deliberately.
    */
+  const readSlices = readSlicesOf(on);
   const registration =
     REGISTRATIONS[`${varied.field ?? ''}:${String(varied.withValue)}`] ??
-    REGISTRATIONS[varied.field ?? ''] ??
+    registrationFor(varied.field ?? '', readSlices) ??
     null;
   const paired = pairedComparison(coverageSet(on), coverageSet(off));
   /**
@@ -941,12 +1015,6 @@ export function summarise(on, off) {
    * nothing else: more data bearing on the same sentence is not a confound, and the run that reads both halves has read
    * the half the sentence was about.
    */
-  const readSlices =
-    Array.isArray(slice?.slices) && slice.slices.length > 0
-      ? slice.slices.map((entry) => ({ skip: Number(entry.skip), max: Number(entry.max) }))
-      : slice === null
-        ? null
-        : [{ skip: Number(slice.skip), max: Number(slice.requested) }];
   const sliceMatches =
     declared.length === 0
       ? null

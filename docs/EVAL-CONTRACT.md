@@ -6963,3 +6963,49 @@ deviation of 0.0106 instead of 0.0150.
 **The registration that merge can answer has to be written before R-33's number is read** - which is the only thing that
 keeps this from being a threshold fitted to a result. It is written in §68 when R-33 lands, against 0.0106 and not
 against whatever the second slice happens to show.
+
+## 68. A bar written before the second slice, and the lookup that lets two sentences share one switch
+
+### 68.1 Why this section is written now rather than when R-33 lands
+
+R-33 is running on `skip 150` with the same two arms. Its number will be a gain, and **any bar written after seeing a
+gain is a description of that gain**. §67 puts the standard deviation of a 200-row corpus at 0.0106; signing needs 1.96 of
+them; the bar is therefore **0.021**, and it is arithmetic rather than an observation:
+
+| Quantity | Value | Source |
+|---|---:|---|
+| Standard deviation, one slice of 100 rows | 0.0150 | R-32's own rows, resampled |
+| Standard deviation, two slices of 200 rows | **0.0106** | √(100/200) × 0.0150 |
+| Smallest signable gain | **0.0208** | 1.96 × 0.0106 |
+| **R-34's registered bar** | **0.021** | this table, written before the result |
+
+If R-33's gain lands under 0.021 the registration is falsified and that is the answer. If it lands above it, the corpus
+is signed - and **the reading will be one sentence about 200 pull requests rather than two sentences about 100 each**,
+which is the only way this project's corpus produces a signable result.
+
+### 68.2 The lookup had to change, and it is not a convenience
+
+`REGISTRATIONS` is keyed by the configuration field a device varies, so `secondConcern` mapped to exactly one sentence.
+One switch now needs two - the 0.01 bar R-32 was dispatched against, and the 0.021 bar for the corpus two dispatches
+make - and **the choice between them is a fact about rows, not about which key is spelled first**:
+
+- a single-slice artifact is judged against §59's 0.01, so **a published verdict stays reproducible**;
+- a merged artifact is judged against §68's 0.021, because it holds the rows that sentence names;
+- ties go to the sentence naming more slices, and a field's own entry is the fallback so an artifact whose rows nobody
+  named still gets an answer rather than a silence.
+
+`registrationFor(field, readSlices)` is that rule, tested in both directions: **the same two artifacts, differing only in
+whether they are one dispatch or a merge of two, are judged against different bars** - and neither reading is allowed to
+borrow the other's.
+
+### 68.3 What would make this section wrong
+
+Three things, and each has a test rather than a sentence:
+
+1. **Reading R-33 first and adjusting 0.021 afterwards.** The commitment is that this number is a function of 0.0106; the
+   test asserts the registration's bar and confirmation literally, so a later edit is a visible diff.
+2. **Applying the wider bar to a narrower corpus.** A single dispatch measures at 0.01 whatever the new entry says, and
+   the test asserts that its outcome is still `unfalsifiable`.
+3. **Reading a merge whose inputs disagree.** `mergeSlices` refuses overlapping pull requests, differing configurations
+   and unrecorded slices; a merge that let any of those through would produce a corpus whose error bar is computed on rows
+   that are not an experiment.
