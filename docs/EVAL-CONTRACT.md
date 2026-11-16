@@ -6239,6 +6239,27 @@ The engine publishes **`keptAsSecondConcern`** beside `mergedBy`, because a run 
 `dropped` than the run it is compared with, and **a device whose only trace is a number that fell in a different column
 cannot be told from a corpus that produced fewer duplicates.**
 
+### 59.2b What the field does with a second comment, and what it does not
+
+The noise policies the shipped reviewers publish are **per concern, not per line**. CodeRabbit's stated behaviour is one
+summary comment and inline comments "only on actual issues", with no filler of the *consider adding a comment here* kind
+([review of seven tools on 14 planted bugs](https://vibecodemeta.com/blog/best-ai-code-review-tools-2026)); the same
+comparison article that recommends running two reviewers warns that two of them commenting on one line is worse than
+either alone, because **"a duplicate doubles the reading cost of a finding you have already dismissed"**
+([CodeRabbit vs Greptile vs Bugbot vs Diamond](https://menuagentic.com/zh/blogs/coderabbit-vs-greptile-vs-bugbot-vs-diamond)).
+Both are arguments for de-duplication, and neither is an argument for collapsing by location.
+
+**And the location-level agreement the range rule assumes does not exist in the field's own measurements.** An engineer
+ran four reviewers over 146 pull requests and 679 findings: of **617 distinct flagged locations, 93.4 % were flagged by
+exactly one tool, 6 % by two, none by all four, and the four never once flagged the same line**
+([Agentic Code Review](https://click-buy-ship.com/agentic-code-review-oreilly)). A rule that merges everything inside an
+overlapping range is therefore a rule about a coincidence - **and the only place the coincidence is systematic is inside
+one reviewer, where five lanes read the same diff and mark the same block.**
+
+Which is the distinction the range rule lost: *one comment per site* is a noise policy, *one comment per concern per
+site* is a precision policy, and the run's 2 273 `rangeOnly` removals are the price of having implemented the first
+while believing it was the second.
+
 ### 59.3 R-32, registered before its dispatch
 
 - **Claim.** Keeping one finding of a different category at a range the reviewer already reported raises the file-arm F1
