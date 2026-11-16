@@ -50,7 +50,11 @@ on:
         description: 'Buy both arms (a registered device under test) or one arm (a diagnostic run)'
         type: choice
         options: ['off', 'on']
-        default: off
+        # **Quoted, for the reason the `competitor` input above spells out.** An unquoted `off` is a YAML boolean, and a
+        # dispatch that omits this input fails with 422 *"Provided value 'false' for input 'pair' not in the list of
+        # allowed values"* - **the workflow could not be dispatched with its own defaults**, which is how the R-30
+        # dispatch was refused on its first attempt.
+        default: 'off'
       prompt_order:
         # **Where the diff sits in a lane's prompt, exposed because it is now a measured variable rather than a
         # preference.** `boilerplate-first` puts the shared target-and-diff block last, which is what raised prefix
