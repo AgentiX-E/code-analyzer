@@ -7929,16 +7929,16 @@ because a mechanism sentence (`precision rises and recall holds`) describes two 
 At §73's baseline — **146 pull requests, 1 054 goldens, 208 true positives, 769 false positives, F1 0.2048** — the ceiling
 as a function of what the gate removes:
 
-| claims the gate removed | best possible gain in F1 | under a 0.02 bar? |
-| ----------------------- | ------------------------ | ----------------- |
+| claims the gate removed | best possible gain in F1 | under a 0.02 bar?  |
+| ----------------------- | ------------------------ | ------------------ |
 | 40 (§74.4's floor)      | +0.0041                  | yes, by five times |
-| 80                      | +0.0084                  | yes               |
-| 100                     | +0.0106                  | yes               |
-| 150                     | +0.0163                  | yes               |
-| **181**                 | **+0.0200**              | **exactly at it** |
-| 200                     | +0.0224                  | no                |
-| 300                     | +0.0355                  | no                |
-| 557 (§73's gate)        | +0.0774                  | no                |
+| 80                      | +0.0084                  | yes                |
+| 100                     | +0.0106                  | yes                |
+| 150                     | +0.0163                  | yes                |
+| **181**                 | **+0.0200**              | **exactly at it**  |
+| 200                     | +0.0224                  | no                 |
+| 300                     | +0.0355                  | no                 |
+| 557 (§73's gate)        | +0.0774                  | no                 |
 
 **Three consequences, and the first is a correction of §74.4.** The activity floor of 40 was justified as "the count at
 which _which ones_ is a question the artifact can answer" — but at 40 removals the ceiling is a fifth of the bar, so a
@@ -7951,7 +7951,7 @@ as a test of the device's judgement.
 ### 76.3 What would make this section wrong
 
 1. **Reading the ceiling as an excuse.** It is charitable by construction, and its whole force is that it uses the
-   device's *own* removals: a gate that removes forty of a thousand claims is `unreachable`, and the sentence says so.
+   device's _own_ removals: a gate that removes forty of a thousand claims is `unreachable`, and the sentence says so.
    **If the branch ever fires on a run whose removals were plentiful, the arithmetic is broken, not the corpus.**
 2. **Reading it as a substitute for the paired test.** A reachable run still needs the corpus bar to sign a win; the
    ceiling says whether the question could be asked, not whether the answer is real.
