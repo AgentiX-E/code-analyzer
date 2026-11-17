@@ -7582,3 +7582,104 @@ recover. A narrower reviewer is not a more accurate one; it is a reviewer whose 
 control, §71's repeat read 15.5 %, and the same judge on two arms of _this_ run reads 22.5 % and 20.4 %. **Four readings
 of the same-file floor on the same corpus, from 15.5 % to 22.5 %** - so a floor quoted without the run it came from is a
 number whose error bar nobody has measured, and §71's rule (quote the range, not the point) now applies to §69.4 as well.
+
+## §73 R-36 — the gate that keeps by default, registered before its run
+
+### 73.1 What was built, and why the destructive form was not a verdict about this one
+
+§72.5 located us against the field for the first time: OpenCodeReview reports **SEM-F1 25.10 %** on AACR-Bench where
+Claude Code reports 11.57 %, and our file arm reads **20.76 %** - 83 % of that figure and 1.8× Claude Code, with the gap
+in precision rather than recall. Their paper names three devices and **we had implemented one of them**. The second and
+third are rule-guided dispatch and _independent reflection_: a falsification-first filter whose reflector _sees only the
+diff and not the reviewer's exploration_, which they say removes hallucinated comments _"without the self-reinforcing bias
+of intrinsic self-critique"_.
+
+**We had tested that class exactly once, in its most destructive form.** §44-§45's adjudicator asks one model call per
+finding and applies "refuted" on the answer's word: precision **45.5 %** and **32.4 %**, recall **6.6 %** and **5.3 %**,
+F1 from 19.5 % to **11.6 %** and from 20.6 % to **9.1 %**. That is not evidence about reflection. It is evidence about a
+gate with no evidentiary requirement, and **a device that removes nine of every ten sentences is a quieter reviewer
+rather than a filter.**
+
+So the second device is `review/adjudication/falsifier.ts`, and the difference is the contract rather than the prompt.
+
+### 73.2 The contract, in four rules
+
+1. **Once per file, not once per finding.** The per-finding form would have spent **1 643** calls on the 146-pull-request
+   slice - one per surviving finding. The per-file form spends one call per file that holds at least one claim, and the
+   artifact counts them (`falsifier.calls`). **The arithmetic of the price is why the device is affordable, not why it
+   was chosen**: a gate whose cost forces it to be lenient is a gate that was never measured.
+2. **Keep is the default and silence is a keep.** The question is _which of these claims does a line this diff added
+   directly contradict?_, so a reader with nothing to say removes nothing. `{}` is a legitimate answer.
+3. **A removal must quote an added line, and the quote is checked.** The quote has to be at least ten characters
+   (`FALSIFIER_MIN_QUOTE`) and has to be found - whitespace-collapsed - in one of the lines the diff added **and the
+   prompt showed**. A refutation whose quote fails either test is **not applied**, and is counted in
+   `keptBecauseQuoteMissing`. **This is the whole difference from §45**: there, an unverifiable refutation deleted a
+   comment; here it changes nothing and raises a number.
+4. **It may not edit.** No rewrite, no re-anchor, no severity change. The survivors are returned as the objects they
+   arrived as, and the engine re-attaches them by identity - so a gate that edits cannot hide behind a coordinate
+   comparison, because it would have to produce different objects to do it.
+
+What the reader is shown is **the added lines with their new-side numbers and the claims with their numbers**, and
+nothing else: not the lane, not the severity, not the description's argument. A reader told which lane wrote a claim
+anchors on that lane's concerns; a reader shown a severity anchors on the severity. **A claim is a title at a line** -
+the same reason §69's lane swap was a different question rather than a better one.
+
+### 73.3 The price, and what buys it
+
+`F1 = 2TP/(C+G)`, so **a removed comment raises F1 exactly when it was a false positive** and costs exactly its share of
+the denominator when it was not. The merged pool on these rows is **1 643 ranked rows of which 343 are acceptable**
+(§72.4), so **1 300 of them are worth removing and 343 are not**, and a gate that removes on a coin flip still looks like
+it is working. That is why the counters in §73.5 matter more than the F1: they are what separates a gate that found the
+1 300 from one that found the 343.
+
+It is also why the device is registered under `recall-holds` and not under a precision claim: **a filter that buys
+precision by deleting true positives is the failure mode this class is most exposed to**, and the field's own acceptance
+study prices it - 56.3 % of AI comments rejected, 43.3 % of those flat false positives, and the deployable device is a
+_pre-filter_.
+
+### 73.4 The registration
+
+**Claim.** A gate asked once per file that removes a claim only when a line the diff added is quoted against it raises
+the **file arm F1 by at least 0.026** on the 146 pull requests R-32, R-33 and R-35 read, and does not lower recall by
+more than a golden is worth.
+
+| field              | value                                | why that value                                                                                                                                                  |
+| ------------------ | ------------------------------------ | --------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `registeredGain`   | **0.026**                            | >1.7× the corpus's resolution at these rows (**0.0157** at 1 054 goldens, `resolutionFor`), so the bar can be cleared and cannot be cleared by rounding         |
+| `mechanismRule`    | `recall-holds`                       | the entire distance between this device and §45's is the claim that precision can be bought without paying recall                                               |
+| `arm`              | `file`                               | one call per file per lane, at most three findings per file - the arm every figure of §8 and §19 was measured on, and the arm a _narrowing_ device is judged on |
+| `confirmation`     | `skip 50, max 146`                   | 232.7 minutes at 1.594 min/PR, 267.6 with the 1.15 tolerance, against a 340-minute ceiling                                                                      |
+| falsifier (F1)     | **< 0.2336**                         | the lanes' 0.2076 plus the registered 0.026; a figure below it is a falsification rather than a shortfall                                                       |
+| falsifier (recall) | **below the lanes' less one golden** | a gate that buys precision by deleting true positives is the failure this device is most exposed to                                                             |
+
+**And the confirmation debt is named rather than hidden.** The anatomy the device was designed from (§72.3) was read on
+these 146 rows, so **this dispatch is a discovery**. The corpus holds 200 pull requests and rows 196-199 are the only
+ones no run has read - four rows, which cannot carry a 0.026 bar. **A confirmation therefore needs a corpus that grows or
+a slice that is bought twice**, and a registration that called this run a confirmation would be claiming a number its
+own slice cannot resolve.
+
+### 73.5 The counters that decide whether the device is working
+
+The artifact carries `falsifier: { enabled, contract, candidates, dropped, keptBecauseQuoteMissing, unreadable,
+notAsked, notAPatch, calls, droppedFindings }`. Four of them are the instrument:
+
+| counter                   | what it separates                                                                                                                                               |
+| ------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `candidates`              | the pool the gate was shown, so a figure is attached to a breadth                                                                                               |
+| `dropped`                 | what it removed **with a verified quote**                                                                                                                       |
+| `keptBecauseQuoteMissing` | a reader that refutes and cannot quote - **a gate that never drops and a gate that refutes everything print the same F1, and only this field tells them apart** |
+| `notAPatch`               | files whose text carried no quotable line, because **a file the gate could not read is not a file it cleared**                                                  |
+
+And `droppedFindings` carries the quote with the removal, sampled across the corpus rather than taken from the front.
+**The quote is the only field that lets a reader check the check** - the counter says how many, the row says on what.
+
+### 73.6 What would make this section wrong
+
+1. **Reading a confirmed F1 as "reflection works".** It would confirm _this contract_ at _this breadth_ on _these rows_.
+   The 343-acceptable ceiling says the device cannot take the pool past what a perfect filter of it would reach.
+2. **Reading `keptBecauseQuoteMissing` as a reader defect.** A quote can fail verification because the reader copied a
+   line from outside the prompt's character budget, which is an instrument defect in the other direction - and the count
+   is reported with the budget beside it so that the two can be told apart.
+3. **Reading a falsified F1 as "filters do not work".** §45 already showed a filter can move precision to 45.5 %. What a
+   falsification here would say is narrower and more useful: **that the quoting requirement is what costs the recall**,
+   which is a statement about the contract and not about the class.

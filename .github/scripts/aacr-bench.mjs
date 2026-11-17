@@ -1766,7 +1766,21 @@ async function main() {
    * **It is an input rather than an edit for the reason every device in this repository is**: `off` is the configuration
    * every published figure was measured under, so an arm that cannot be switched off cannot be measured against them.
    */
-  const ADJUDICATE = String(process.env['AACR_ADJUDICATE'] ?? 'off').toLowerCase() === 'on';
+  const ADJUDICATE_MODE = String(process.env['AACR_ADJUDICATE'] ?? 'off').toLowerCase();
+  const ADJUDICATE = ADJUDICATE_MODE === 'on';
+  /**
+   * **Whether the independent gate runs, and it is the same switch with a third value rather than a second switch.**
+   *
+   * `AACR_ADJUDICATE=falsifier` is R-36's arm. **It is not a fourth input** because the two devices are two forms of one
+   * question - *does a second reader agree with this sentence* - and a run is only comparable with the next one if the
+   * field that already answers that question says which form produced it. **A gate that kept the field and changed its
+   * meaning would be the defect §44's artifact recorded twice.**
+   *
+   * What separates the forms is the contract, not the model: `on` asks once per finding and trusts the answer's reason,
+   * `falsifier` asks **once per file**, keeps by default, and **applies a removal only when the reader quotes a line the
+   * diff added** - so a reader that invents refutations costs an unchanged pool rather than a silent reviewer.
+   */
+  const FALSIFY = ADJUDICATE_MODE === 'falsifier';
   /**
    * **Whether the deterministic idiom lane runs beside the five model lanes.**
    *
@@ -1839,11 +1853,22 @@ async function main() {
    * alphabet. The stride below spreads the same sixty across the whole run, and the field says how it was drawn.
    */
   const refusalsSeen = [];
+  /**
+   * **Every claim the gate removed, in corpus order, sampled at the end for the same reason the refusals are.**
+   *
+   * A reader looking at this list is asking one question - *is the gate removing sentences that were wrong, or sentences
+   * it could quote a line against* - and the second answer reads as the first in every total. **The quote is carried
+   * with the removal** because it is the only field that lets a reader check the check.
+   */
+  const falsifierDropsSeen = [];
+  /** How many of them the artifact keeps: enough to read the pattern, few enough to open. */
+  const FALSIFIER_DROP_SAMPLES = 80;
   const engine = new LLMReviewEngine(new DeepSeekProvider({ ledger, ceilingUsd: MAX_USD }), {
     dedupThreshold: DEDUP_THRESHOLD,
     languageChecklist: CHECKLIST,
     promptOrder: PROMPT_ORDER,
     adjudicate: ADJUDICATE,
+    falsify: FALSIFY,
     idioms: IDIOMS,
     remarks: REMARKS,
     secondConcern: SECOND_CONCERN,
@@ -1976,6 +2001,35 @@ async function main() {
            */
           refused: [],
           refusedTotal: 0,
+        }
+      : { enabled: false },
+    /**
+     * **What the independent gate did, summed over the corpus, in the counters its registration is stated in.**
+     *
+     * `candidates` is the pool it was shown and `dropped` the part it removed with a verified quote; **the number that
+     * decides whether the device is working is `keptBecauseQuoteMissing`** - a reader that refutes twenty claims and can
+     * quote a line for none of them is a reader guessing, and a gate with no such counter cannot tell that from a gate
+     * that found nothing. `notAPatch` counts files whose text carried no quotable line, because a file the gate could
+     * not read is not a file it cleared.
+     */
+    falsifier: FALSIFY
+      ? {
+          enabled: true,
+          /**
+           * **Which contract the gate was asked under**, for the reason `adjudication.contract` exists one device over:
+           * a quote-verified, keep-by-default gate and a reason-trusting, per-finding adjudicator both wrote
+           * `adjudicate: true` for as long as the field had two values, and **a figure that cannot say which contract
+           * produced it is a figure the next run can contradict without being wrong.**
+           */
+          contract: 'quoted-falsifier-v1',
+          candidates: 0,
+          dropped: 0,
+          keptBecauseQuoteMissing: 0,
+          unreadable: 0,
+          notAsked: 0,
+          notAPatch: 0,
+          calls: 0,
+          droppedFindings: [],
         }
       : { enabled: false },
   };
@@ -2961,6 +3015,31 @@ async function main() {
           }
           totals.refusedTotal += claims.refused.length;
           refusalsSeen.push(...claims.refused);
+        }
+        // **And what the independent gate removed from this file, with the line it quoted.** The counts answer *how
+        // many*, which is the registration; the rows answer *on what evidence*, which is the only way to read a figure
+        // that did not move - **a gate that dropped nothing and a gate that dropped everything it was shown are both
+        // "F1 unchanged" in the score and opposite facts about the reader.**
+        const gate = engine.lastFalsifier;
+        if (gate && engineCounters.falsifier.enabled) {
+          const totals = engineCounters.falsifier;
+          totals.candidates += gate.report.candidates;
+          totals.dropped += gate.report.dropped;
+          totals.keptBecauseQuoteMissing += gate.report.keptBecauseQuoteMissing;
+          totals.unreadable += gate.report.unreadable;
+          totals.notAsked += gate.report.notAsked;
+          totals.calls += gate.report.calls;
+          if (gate.report.notAPatch) totals.notAPatch += 1;
+          for (const one of gate.dropped) {
+            falsifierDropsSeen.push({
+              path: section.path,
+              startLine: one.finding.startLine,
+              endLine: one.finding.endLine,
+              title: one.finding.title.slice(0, 160),
+              quote: one.quote.slice(0, 200),
+              reason: one.reason.slice(0, 240),
+            });
+          }
         }
         // **And what the remark pass kept, and which rail removed the rest.** A pass that filed nothing is either the
         // device working on a clean diff or a rail refusing every line it named, and only these four counts tell those
@@ -4025,6 +4104,20 @@ async function main() {
     wholeEmissionPrecision: gated.precision,
   });
 
+  // **The gate's removals, sampled evenly for the reason the refusals are.**
+  if (engineCounters.falsifier.enabled) {
+    const stride = Math.max(1, Math.ceil(falsifierDropsSeen.length / FALSIFIER_DROP_SAMPLES));
+    engineCounters.falsifier.droppedFindings = falsifierDropsSeen.filter(
+      (_, at) => at % stride === 0,
+    );
+    engineCounters.falsifier.droppedSampled = {
+      drawn: engineCounters.falsifier.droppedFindings.length,
+      from: falsifierDropsSeen.length,
+      stride,
+      how: 'every nth removal in corpus order, so the sample is not the first repository',
+    };
+  }
+
   // **The refusals, sampled evenly rather than taken from the front** - see `ADJUDICATION_REFUSAL_SAMPLES`.
   if (engineCounters.adjudication.enabled) {
     const stride = Math.max(1, Math.ceil(refusalsSeen.length / ADJUDICATION_REFUSAL_SAMPLES));
@@ -4178,6 +4271,10 @@ async function main() {
       // whose artifact does not name the side of the switch it came from is a figure a second run can disagree with
       // without either being wrong - the defect every other field in this block was added to prevent, one device later.
       adjudicate: ADJUDICATE,
+      // **Which form of the second reader produced this figure**, because the two forms share one field for the reason
+      // the field exists: a reader of the artifact has to be able to say whether the pool was filtered once per finding
+      // or once per file, and `adjudicate: false` cannot say it.
+      falsifier: FALSIFY,
       // **Whether the deterministic lane ran**, and which rules it read rather than "some heuristics": a figure from a
       // run with this on and one with it off are two reviewers, and **the rules are named so the next reader can retire
       // one on evidence** - each carries the golden it was derived from.

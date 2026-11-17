@@ -67,6 +67,7 @@ export declare const MECHANISMS: Readonly<
 export declare const REGISTRATIONS: Readonly<
   Record<
     | 'adjudicate'
+    | 'adjudicate:falsifier'
     | 'agent'
     | 'codeContext'
     | 'emissionProfile'

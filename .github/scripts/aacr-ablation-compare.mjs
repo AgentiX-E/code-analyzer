@@ -493,6 +493,50 @@ export const REGISTRATIONS = Object.freeze({
     mechanismRule: 'recall-rises',
     confirmation: [{ skip: 50, max: 146 }],
   },
+  /**
+   * **§73's registration (R-36): the gate that keeps by default, priced against the pool it filters.**
+   *
+   * This is the device the field's own paper names as *independent reflection* - a falsification-first filter whose
+   * reflector **sees only the diff and not the reviewer's exploration**, which the authors say removes hallucinated
+   * comments *"without the self-reinforcing bias of intrinsic self-critique"* - and it is the one class this repository
+   * had only ever tested in its most destructive form. §44-§45's adjudicator asks the same question once per finding and
+   * trusts the answer: precision 45.5 %, recall 6.6 %, F1 19.5 % → 11.6 %. **A gate that drops nine of every ten
+   * sentences is not a filter, it is a quieter reviewer.**
+   *
+   * **What is different is the contract, and it is arithmetic before it is taste.** `F1 = 2TP/(C+G)`, so **a removed
+   * comment raises F1 exactly when it was a false positive**. The merged pool on these rows is 1 643 ranked rows of
+   * which 343 are acceptable, so **1 300 of them are worth removing and 343 are not** - which is why a gate judged on
+   * precision alone will always look like it is working. So this one is asked **once per file**, keeps by default, and
+   * applies a removal only when the reader quotes a line **this diff added**, the quote is at least ten characters, and
+   * the quote is found in those lines. **A refutation whose quote cannot be found is not applied and is counted**
+   * (`keptBecauseQuoteMissing`), and that counter is the difference between a strict gate and a reader that invents
+   * refutations.
+   *
+   * **The bar is 0.026 against a resolution of 0.0157 at these 1 054 goldens** - cleared by a factor of 1.7 rather than
+   * by a rounding step - and the mechanism is `recall-holds`, because the entire distance between this device and §45's
+   * is the claim that precision can be bought without paying recall.
+   *
+   * **The falsifiers are stated with the claim.** F1 below **0.2336** (the lanes' 0.2076 plus the registered 0.026) is a
+   * falsification, and so is a recall below the lanes' less one golden - **because a gate that buys precision by
+   * deleting true positives is the failure this device is most exposed to**, and a registration that named only F1 would
+   * accept exactly that trade and call it a confirmation.
+   *
+   * **The slice is `skip 50, max 146` - the rows R-32, R-33 and R-35 read - and the confirmation debt is named rather
+   * than hidden.** The anatomy the device was designed from (§72.3) was read on these rows, so this dispatch is a
+   * discovery; the corpus holds 200 pull requests and 196-199 are the only rows no run has read, which is four rows and
+   * cannot carry a 0.026 bar. **A confirmation therefore needs a corpus that grows or a slice that is bought twice**,
+   * and writing that here is the difference between a registration with a debt and one pretending not to have any.
+   */
+  'adjudicate:falsifier': {
+    section: '§73 (R-36)',
+    claim:
+      'a gate asked once per file that removes a claim only when a line the diff added is quoted against it raises the file arm F1 by at least 0.026 on the 146 pull requests R-32, R-33 and R-35 read, and does not lower recall by more than a golden is worth',
+    arm: 'file',
+    registeredGain: 0.026,
+    mechanism: 'precision rises and recall does not fall by more than a golden is worth',
+    mechanismRule: 'recall-holds',
+    confirmation: [{ skip: 50, max: 146 }],
+  },
 });
 
 /**

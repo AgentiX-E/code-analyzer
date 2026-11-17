@@ -33,6 +33,17 @@ const WORKFLOW = readFileSync(
 /** One combination the bench job runs, as the keys the matrix declares. */
 type Arm = Record<string, string>;
 
+/** The matrix keys an experiment is allowed to vary. */
+type ArmKey =
+  | 'adjudicate'
+  | 'idioms'
+  | 'agent'
+  | 'code_context'
+  | 'remarks'
+  | 'ensemble'
+  | 'second_concern'
+  | 'lane_set';
+
 /** One inline mapping's body - `profile: advisory, code_context: off` - read as an arm. */
 function armOf(body: string, source: string): Arm {
   const arm: Arm = {};
@@ -99,20 +110,19 @@ function arms(): Arm[] {
  * **The alternative that runs a pair**, and the reason the assertions about a device are made against it rather than
  * against `arms()`: a single-row matrix has no second arm to differ from, and reading one row as a pair would compare an
  * arm with itself and call the difference zero. Exactly one alternative is expected to be a pair - the default run.
+ *
+ * **`value` is the side that carries the device**, and it is required rather than inferred: `adjudicate` now has two
+ * pairs, and a helper that took "the matrix that varies adjudicate" would hand one experiment's assertions the other
+ * experiment's rows.
  */
-function pair(
-  varied:
-    | 'adjudicate'
-    | 'idioms'
-    | 'agent'
-    | 'code_context'
-    | 'remarks'
-    | 'ensemble'
-    | 'second_concern'
-    | 'lane_set',
-): Arm[] {
+function pair(varied: ArmKey, value: string): Arm[] {
   const pairs = alternatives().filter((matrix) => {
     if (matrix.length !== 2 || matrix[0]![varied] === matrix[1]![varied]) return false;
+    // **Which side carries the device, named rather than assumed.** `adjudicate` has two pairs now - the retired
+    // per-finding adjudicator (`off`/`on`) and R-36's keep-by-default gate (`off`/`falsifier`) - so "the matrix that
+    // varies adjudicate" is ambiguous, and a helper that picked the first would hand the gate's assertions the retired
+    // device's rows and report a sign that belongs to a different experiment.
+    if (!matrix.some((arm) => arm[varied] === value)) return false;
     // **The only difference, not merely a difference.** The merge's pair moves `agent` and `code_context` as well - both
     // entailed by `ensemble` in `aacr-ablation-compare.mjs` - so a helper that matched on "differs in this key" would
     // hand that pair to the reading agent's assertions and report a device that was never varied.
@@ -121,7 +131,7 @@ function pair(
   });
   expect(
     pairs,
-    `the workflow declares no two-arm matrix varying ${varied}, so nothing is being compared`,
+    `the workflow declares no two-arm matrix varying ${varied} to ${value}, so nothing is being compared`,
   ).toHaveLength(1);
   return pairs[0]!;
 }
@@ -219,31 +229,31 @@ describe('the artifact names of the benchmark workflow', () => {
       expand(uploaded[0]!, baseline),
       expand(
         uploaded[0]!,
-        pair('adjudicate').find((arm) => arm['adjudicate'] === 'on')!,
+        pair('adjudicate', 'on').find((arm) => arm['adjudicate'] === 'on')!,
       ),
       expand(
         uploaded[0]!,
-        pair('idioms').find((arm) => arm['idioms'] === 'on')!,
+        pair('idioms', 'on').find((arm) => arm['idioms'] === 'on')!,
       ),
       // **And the reading agent's own arm**, because `agent: pair` buys it inside one dispatch and the comparison job
       // downloads it by this name. A dispatch that paid for the arm and then downloaded a name nobody uploaded is the
       // failure this whole file exists for, and it has already happened once.
       expand(
         uploaded[0]!,
-        pair('agent').find((arm) => arm['agent'] === 'on')!,
+        pair('agent', 'on').find((arm) => arm['agent'] === 'on')!,
       ),
       // **And the code-window control's arm.** §49.5: R-22's +0.0412 arrives with the window switched on inside the
       // reader, so the lanes are run with the window in a dispatch of their own and the difference is subtracted. A
       // control that is not downloaded is a control that was paid for and never read.
       expand(
         uploaded[0]!,
-        pair('code_context').find((arm) => arm['code_context'] === 'on')!,
+        pair('code_context', 'on').find((arm) => arm['code_context'] === 'on')!,
       ),
       // **And the remark pass's own arm**, because R-25 buys it inside one dispatch and a control or a device that is
       // paid for and then never downloaded is the failure this file exists for.
       expand(
         uploaded[0]!,
-        pair('remarks').find((arm) => arm['remarks'] === 'on')!,
+        pair('remarks', 'on').find((arm) => arm['remarks'] === 'on')!,
       ),
       // **And the merge's arm**, because §56's device is dispatched by `ensemble: pair` and the comparison job is the
       // only thing that reads it: an arm that is paid for and never downloaded is the failure this file exists for.
@@ -268,14 +278,22 @@ describe('the artifact names of the benchmark workflow', () => {
       // by name. An arm paid for and never downloaded is the failure this file exists for, one device later.
       expand(
         uploaded[0]!,
-        pair('second_concern').find((arm) => arm['second_concern'] === 'on')!,
+        pair('second_concern', 'on').find((arm) => arm['second_concern'] === 'on')!,
       ),
       // **And the behaviour lane's arm**, which is R-35's device side and the first arm in this file whose two sides ask
       // a different *question* of the same diff rather than a different switch of one reviewer. The comparison job
       // downloads it by name; an arm paid for and never downloaded is the failure this file exists for, one device later.
       expand(
         uploaded[0]!,
-        pair('lane_set').find((arm) => arm['lane_set'] === 'behaviour')!,
+        pair('lane_set', 'behaviour').find((arm) => arm['lane_set'] === 'behaviour')!,
+      ),
+      // **And the keep-by-default gate's arm**, which is R-36's device side: `pair: falsifier` buys the lanes as they
+      // ship and the same lanes behind a gate that can only remove what it can quote a line for. It is a second pair
+      // over the same key as §44's adjudicator, and the two are told apart by the value rather than by the key - which is
+      // why `pair` takes the value it is looking for.
+      expand(
+        uploaded[0]!,
+        pair('adjudicate', 'falsifier').find((arm) => arm['adjudicate'] === 'falsifier')!,
       ),
     ]);
     expect(new Set(downloads)).toEqual(expected);
@@ -357,7 +375,7 @@ describe('the matrix is one experiment', () => {
       // two arms are the claim's own two arms rather than a proxy, and R-29 could not be dispatched as one.
       // **And one pair and one single for the lane set**, which is R-35's device: `lane_set: pair` buys both questions
       // over the same rows, and `lane_set: on` is the diagnostic dispatch that prices one question without a comparison.
-    ).toEqual([1, 1, 1, 1, 1, 1, 1, 1, 2, 2, 2, 2, 2, 2, 2, 2, 2]);
+    ).toEqual([1, 1, 1, 1, 1, 1, 1, 1, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2]);
   });
 
   it('varies exactly one key, so that a difference between the arms is the device', () => {
@@ -365,8 +383,16 @@ describe('the matrix is one experiment', () => {
     // in more than one configuration key, and that refusal happens in the job that runs *after* both arms have been
     // paid for - so the only place this can be caught for free is here, before the dispatch. **Every pair**, because
     // the workflow now declares two experiments and a second pair that moved two keys would be refused after the bill.
-    for (const varied of ['adjudicate', 'idioms', 'agent', 'second_concern', 'lane_set'] as const) {
-      const [withArm, withoutArm] = pair(varied);
+    const experiments: [ArmKey, string][] = [
+      ['adjudicate', 'on'],
+      ['adjudicate', 'falsifier'],
+      ['idioms', 'on'],
+      ['agent', 'on'],
+      ['second_concern', 'on'],
+      ['lane_set', 'behaviour'],
+    ];
+    for (const [varied, value] of experiments) {
+      const [withArm, withoutArm] = pair(varied, value);
       const keys = new Set([...Object.keys(withArm!), ...Object.keys(withoutArm!)]);
       const differ = [...keys].filter((key) => withArm![key] !== withoutArm![key]);
       expect(differ, `the ${varied} arms differ in ${differ.join(' and ')}`).toHaveLength(1);
@@ -384,7 +410,7 @@ describe('the matrix is one experiment', () => {
     // **The previous device is still pinned, and that is the part worth stating.** §20/R-18 measured the code window at
     // −0.0065 against a registered +0.02 and left it falsified, so both arms read the diff without one: **the pin is
     // what makes the pair a comparison of the claim check rather than of two devices at once.**
-    const all = pair('adjudicate');
+    const all = pair('adjudicate', 'on');
     const keys = [...new Set(all.flatMap((arm) => Object.keys(arm)))];
     const varied = keys.find((key) => all[0]![key] !== all[1]![key]);
     expect(varied).toBe('adjudicate');
@@ -405,7 +431,7 @@ describe('the matrix is one experiment', () => {
     // **And the two retired devices are held still**, because a pair that also moved either of them would be measuring
     // two things: the claim check was falsified twice (§46.1) and the code window once (§20), and neither is a variable
     // an experiment about maintainability remarks may smuggle in.
-    const all = pair('idioms');
+    const all = pair('idioms', 'on');
     expect(all.map((arm) => arm['idioms']).sort()).toEqual(['off', 'on']);
     for (const arm of all) {
       expect(arm['adjudicate']).toBe('off');
@@ -425,7 +451,7 @@ describe('the matrix is one experiment', () => {
     // was compared against a lane arm from a different day; this repository's own artifact reports the same
     // configuration at 0.1691 and 0.2405 across two dispatches, which is larger than every registered effect. A device
     // measurable only across runs is not measurable by this instrument, and this arm is the fix.
-    const all = pair('agent');
+    const all = pair('agent', 'on');
     expect(all.map((arm) => arm['agent']).sort()).toEqual(['off', 'on']);
     for (const arm of all) {
       expect(arm['code_context']).toBe('off');
@@ -539,7 +565,7 @@ describe('a download guard that the next device forgets to extend', () => {
       expect(candidates, `no two-arm matrix buys ensemble=${value}`).toHaveLength(1);
       return candidates[0]!.find((arm) => arm['ensemble'] === value)!;
     }
-    const rows = pair(varied as Parameters<typeof pair>[0]);
+    const rows = pair(varied as ArmKey, value);
     const arm = rows.find((row) => row[varied] === value);
     expect(arm, `the ${varied} pair has no arm with ${varied}=${value}`).toBeDefined();
     return arm!;
@@ -584,6 +610,9 @@ describe('a download guard that the next device forgets to extend', () => {
       // §56's device is bought by `pair: on`, whose row is the claim check switched on - so the fallback step's guard
       // has to exclude this input too, and this is the row that says so.
       { input: 'pair', value: 'on', varied: 'adjudicate', armValue: 'on' },
+      // **And R-36's gate, which is the same input with the third value.** The fallback step's guard excludes
+      // `falsifier` explicitly, because that dispatch's device arm is not the one it downloads.
+      { input: 'pair', value: 'falsifier', varied: 'adjudicate', armValue: 'falsifier' },
     ];
 
     for (const { input, value, varied, armValue } of dispatches) {

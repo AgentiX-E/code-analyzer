@@ -20,6 +20,11 @@ import {
   type AdjudicationReport,
   type RefusedClaim,
 } from '../adjudication/adjudicator.js';
+import {
+  FalsifierGate,
+  type FalsifierDrop,
+  type FalsifierReport,
+} from '../adjudication/falsifier.js';
 import { applyNarrationVeto, type NarrationVetoReport } from '../adjudication/narration.js';
 import { addedLinesOf, numberedAddedLines } from '../adjudication/patch-lines.js';
 
@@ -96,6 +101,20 @@ export interface LLMReviewOptions {
   adjudicate?: boolean;
   /** How many adjudication calls may be in flight at once. Defaults to 4. */
   adjudicateConcurrency?: number;
+  /**
+   * **Whether each file's claims are put to an independent reader that must quote a line to remove one.** Defaults to
+   * **false**, which is the side every published figure was measured on.
+   *
+   * **This is not `adjudicate` with a different prompt.** That device is asked once per finding and trusts the answer's
+   * reason; on fifty pull requests it took precision to 45.5 % and recall to 6.6 %, and F1 from 19.5 % to 11.6 %
+   * (§44-§45). This one is asked **once per file**, keeps by default, and **applies a removal only when the reader
+   * quotes an added line that the gate can find in the diff** - so the worst case of a reader that hallucinates is a
+   * pool that did not shrink, rather than a reviewer that stopped speaking.
+   *
+   * **It is a product flag rather than a harness flag** for the reason every other one is: what a run measures has to be
+   * what ships. See `docs/EVAL-CONTRACT.md` §73.
+   */
+  falsify?: boolean;
   languageChecklist?: boolean;
   /**
    * **Where the target-and-diff block sits in every lane prompt.** Undefined means `boilerplate-first`, the arrangement
@@ -306,6 +325,7 @@ const DEFAULT_OPTIONS: Required<LLMReviewOptions> = {
   languageChecklist: false,
   adjudicate: false,
   adjudicateConcurrency: 4,
+  falsify: false,
   promptOrder: 'boilerplate-first',
   laneWaves: 1,
   codeContext: false,
@@ -441,8 +461,12 @@ export class LLMReviewEngine {
       results.push(await this.reviewRemarks(diff, fileContext));
     }
     const merged = this.deduplicateAcrossLanes(results);
-    if (!this.options.adjudicate) return merged;
-    return this.checkClaims(merged, diff, fileContext);
+    // **The free gate before the paid one**, and the order is not cosmetic: a claim a quoted line refutes is one the
+    // adjudicator would have been paid to look at. **Neither device is on by default**, so this branch is empty on every
+    // run that produced a figure in this repository.
+    const gated = this.options.falsify ? await this.gateClaims(merged, diff, fileContext) : merged;
+    if (!this.options.adjudicate) return gated;
+    return this.checkClaims(gated, diff, fileContext);
   }
 
   /**
@@ -580,6 +604,60 @@ export class LLMReviewEngine {
      */
     refused: RefusedClaim[];
   } | null = null;
+
+  /**
+   * **What the independent gate did to one file, or `null` when it was not switched on.**
+   *
+   * The report rather than a count, because the numbers are the registration: `candidates` is the pool the gate was
+   * shown, `dropped` is what it removed with a verified quote, and **`keptBecauseQuoteMissing` is the number that says
+   * whether the device is strict or broken** - a gate that refutes twenty claims and can quote a line for none of them
+   * has a reader that is guessing, and it is indistinguishable from a working gate without this counter.
+   */
+  lastFalsifier: { report: FalsifierReport; dropped: FalsifierDrop[] } | null = null;
+
+  /**
+   * **Put one file's claims to a reader that must quote a line to remove one.**
+   *
+   * **One call per file**, which is the difference in price between this and `checkClaims`: 1 415 calls for the 146
+   * pull-request corpus against that device's 5 032. **The pool it is shown is the merged one** - after the range rule
+   * and after the narration-free merge - because a claim the merge already removed is not a claim a reader should be
+   * paid to look at.
+   *
+   * **A file with no patch text keeps everything and spends nothing**: the gate's only warrant is a quoted added line,
+   * and `numberedAddedLines` returns `null` for a code window rather than an empty set precisely so that the two cases
+   * cannot be confused here.
+   */
+  private async gateClaims(
+    results: LLMReviewResult[],
+    diff: GitDiff,
+    fileContext?: string,
+  ): Promise<LLMReviewResult[]> {
+    const patch = fileContext ?? this.buildDiffContent(diff);
+    const entries = results.flatMap((result, resultAt) =>
+      result.success
+        ? result.findings.map((finding, findingAt) => ({ resultAt, findingAt, finding }))
+        : [],
+    );
+
+    const gate = new FalsifierGate(this.provider, { timeout: this.options.laneTimeout });
+    const outcome = await gate.gate({
+      path: diff.filePath,
+      findings: entries.map((entry) => entry.finding),
+      addedLines: numberedAddedLines(patch),
+    });
+
+    this.lastFalsifier = { report: outcome.report, dropped: outcome.dropped };
+
+    // **The survivors are found by identity rather than by index**, because the gate is forbidden to rewrite what it
+    // keeps: a finding it returns is the object it was given, so membership is the whole test and a re-anchoring bug
+    // cannot hide behind a coordinate comparison.
+    const kept = new Set(outcome.kept);
+    return results.map((result) =>
+      result.success
+        ? { ...result, findings: result.findings.filter((finding) => kept.has(finding)) }
+        : result,
+    );
+  }
 
   /**
    * **Check every merged finding's claim before it can be filed.**
