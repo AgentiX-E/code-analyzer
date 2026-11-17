@@ -7408,3 +7408,23 @@ dispatch should differ.
    analysis in 71.3 puts it - is untested.
 3. **Quoting "seven" again.** Any sentence that says seven recoverable pairs without the range 0-9 is quoting one
    threshold as if it were the corpus.
+
+### 71.6 What this changes about R-35's falsifier, decided before the run landed
+
+§70.4 wrote R-35's falsifier as _"the same run's rejected pairs must show the 16 % same-file floor moving. If the seven
+recoverable pairs stay at seven, the device found new sentences about old defects."_ **§71.2 makes that falsifier
+unreadable as written**, because it names a movement without a size and the instrument's own repeat disagreement is one
+pair in 219 pairs of the same arm - **a floor that moves by one pair has moved by noise, and R-35 would then be confirmed
+or falsified by which way a coin landed.** The amendment, recorded here while the run is still executing
+(`43987896252`, dispatched before this section existed):
+
+> **The device is confirmed on the floor only if the same-file floor moves by more than three pairs between the two arms,
+> read by the same judge on the same artifact pair.** Three is not a taste: the largest net disagreement between two
+> readings of _one_ arm in §71.2 is one pair, so three is the smallest movement that is three times the measured noise
+> floor - and it is stated as "more than three" rather than "at least three" because a movement of exactly three is still
+> inside a doubling of the noise.
+
+**And the F1 half of R-35 is unchanged**: at least 0.026 on the file arm, which is the bar 146 rows can sign (§69.2).
+**The two halves are read independently** - a device may raise the score and not the floor, or the floor and not the score,
+and §70.5's third item already says a score that rises while the floor stays put has not earned a verdict. **What is new
+is only this: the floor reading is no longer allowed to be a sign, it has to be a size.**
