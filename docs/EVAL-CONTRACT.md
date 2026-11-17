@@ -7137,6 +7137,11 @@ The same job over R-32's control arm (`43972526272`, artifact of `43854378420`) 
 both, and the whole difference between them is inside what one pair is worth. That is what a device that does not exist
 looks like when it is measured twice.
 
+**And both of those readings came from one judge, which §71 put to the test: the same floor read by the same model twice
+moves it by 2.2 pairs, and read by a reasoning model it falls to 6.4 % and the recovery to zero.** The conclusion of this
+subsection - _the matcher is not the bottleneck_ - survives both readings; **the number "seven" does not, and §71 states
+the range instead.**
+
 ### 69.5 What is left, and the number it has to beat
 
 Three devices are closed and each was closed by its own artifact: the window (negative at 22 of 23 cuts, §51), the claim
@@ -7304,3 +7309,102 @@ own run reported, then the tolerance is too small and a slice it admitted was a 
 remedy is a larger tolerance with a smaller cap, not a smaller tolerance with an unregistered bar. And if R-35's verdict
 turns out to be `falsified`, this section is not thereby wrong: **a guard can be correctly repaired around a device that
 does not work, and the repair is judged on the run that finishes, not on the delta it returns.**
+
+## 71. The floor is a threshold, not a constant
+
+### 71.1 The question, and why it had to be asked before R-35 is read
+
+§69.4 measured the matcher hypothesis and closed it: of 449 goldens rejected in files we had commented on, **18.6 % were
+accepted when the pair was read again against a 16.0 % same-file floor, which is 6.97 pairs a perfect matcher could
+recover.** R-35's falsifier is that same floor: **if the seven recoverable pairs stay at seven, the new lane found new
+sentences about old defects.** So the floor is not a detail of §69 - it is the instrument R-35 is judged with, and it had
+only ever been read by one judge: `deepseek-chat`, the same model that wrote the comments being judged. **A judge that is
+the author is the one case the literature says to distrust** (§70.6's note; `Zheng et al. 2023` on self-preference, and
+the correlated-panel result that count agreement across related models as one opinion).
+
+Pre-registered before the second reading was dispatched: **the same-file floor stays inside 16.0 ± 0.05 under a second
+judge, and the paired verdicts do not separate at p ≤ 0.05.** Both halves, because a large sample makes two pairs
+significant and a small one cannot make ten insignificant. The bar is 0.05 and not 0.01 because 0.160 over 219 pairs
+carries a sampling error of 0.025 - **a bar narrower than the reading it tests fails for arithmetic rather than for the
+judge.**
+
+### 71.2 Three readings of one artifact
+
+All three read the same 263 rejected same-line pairs of run `43839753881`'s control artifact, with the same prompts and
+the same controls. **Only the reader changed.**
+
+| reading              | judge               | run           | real pairs accepted | crossed | same-file floor | same-pull | beyond floor |
+| -------------------- | ------------------- | ------------- | ------------------: | ------: | --------------: | --------: | -----------: |
+| §69.4, as published  | `deepseek-chat`     | `43869953158` |     49/263 = 18.6 % |   0.4 % | 35/219 = 16.0 % |     5.4 % |     **6.97** |
+| the same judge again | `deepseek-chat`     | `44001096752` |     50/263 = 19.0 % |   0.4 % | 34/219 = 15.5 % |     6.8 % |     **9.17** |
+| the second judge     | `deepseek-reasoner` | `44000908077` |      12/257 = 4.7 % |   0.0 % |  14/218 = 6.4 % |     0.9 % |        **0** |
+
+**The repeat of the first judge is the instrument's noise floor, and it is small where it is measured and large where it
+is quoted.** Paired, the two `deepseek-chat` readings disagree on 2 and 3 pairs (real), 3 and 2 (same file), 1 and 4
+(same pull request) and 1 and 1 (crossed) - every one of them inside the bar with p ≥ 0.375. **But the headline number is
+a difference of two proportions**, so it carries the error of both: 6.97 against 9.17 is a swing of **2.2 pairs on a
+number of seven**, from one judge reading one artifact twice. The shares are reproducible; **the number quoted from them
+is reproducible to about ±2 pairs and was quoted to two decimals.**
+
+### 71.3 The second judge moved the floor, and moved it by being stricter
+
+Paired, the strict reading against the lenient one, on the pairs both answered:
+
+| field                           | pairs | both accepted | lenient only | strict only |        Δ | McNemar exact p |
+| ------------------------------- | ----: | ------------: | -----------: | ----------: | -------: | --------------: |
+| the rejected pairs              |   257 |            12 |       **37** |       **0** | −14.4 pp |        < 0.0001 |
+| same file, another line         |   218 |            14 |           19 |           0 |  −8.7 pp |        < 0.0001 |
+| same pull request, another file |   219 |             2 |           13 |           0 |  −5.9 pp |          0.0002 |
+| crossed                         |   258 |             0 |            1 |           0 |  −0.4 pp |          1.0000 |
+
+**The pre-registered bar fails on both halves for the floor: −8.7 points and p < 0.0001. The floor is a property of the
+reader.** That is the verdict, and it is recorded as one - the experiment was designed to be able to fail and it did.
+
+**But look at the third and fourth columns: the strict judge accepted nothing the lenient judge did not accept.** Zero in
+all four fields. That is not two readers with different notions of "the same defect" - **it is one ordering read at two
+thresholds**, and it changes what the movement means:
+
+1. **§69.4's conclusion survives the drift.** No reading in the table recovers more than a handful of pairs, and the
+   strict one recovers none: on its reading, our comments on those lines are accepted **less** often than a golden from a
+   different line of the same file (4.7 % against 6.4 %, lift **−1.8 points**). **The matcher is not the bottleneck under
+   either threshold**, which is the finding; "seven" was the lenient threshold's estimate of a quantity that is at most
+   a handful.
+2. **§69.4's number does not survive.** "6.97 pairs" is a figure about `deepseek-chat`'s generosity, not about the corpus.
+   The honest statement is **0 to 9 pairs depending on the reader, with the corpus's own answer bounded by both**, and a
+   reader quoting "seven" is quoting the middle of a range they did not measure.
+3. **The leniency is not noise.** On the band the strict judge rejects and the lenient one accepts - 37 real pairs and 19
+   same-file pairs among 257 and 218 - the real acceptance is **14.4 % against an 8.7 % floor, +5.7 points**, which is
+   _larger_ than the lenient judge's overall lift of +3.5. **An exploratory reading, not a registered one**: it says the
+   marginal acceptances are more informative than the average ones, which is what a threshold sitting just under a real
+   signal looks like, and it is the shape a calibrated matcher would have. It is written down here as the next thing to
+   test, not as a device.
+
+### 71.4 Three constants were dimensioned on the fast reader, and a pipe ate the guard
+
+The experiment cost four dispatches and found more in the plumbing than in the numbers. **Every one of these is the same
+error - a constant measured on `deepseek-chat` and reused on a reader that is not it - and every one was found by
+something failing rather than by reading the code:**
+
+| constant                    | measured on                   | failed as                                                       | now                                               |
+| --------------------------- | ----------------------------- | --------------------------------------------------------------- | ------------------------------------------------- |
+| `timeout-minutes: 20`       | 967 pairs in ~2 min           | the first second-judge dispatch was **cancelled**, no report    | 60 minutes, and concurrency is an input           |
+| `max_tokens: 160`           | six lines of chat prose       | `truncated × 66`: `finish_reason: length`, empty answer         | escalates ×8 to 4 000 on a truncated call         |
+| the report's headline rates | 0 unanswered                  | 34 of 263 answered, and four rates printed over the 13 %        | `readingIsUsable`, > 20 % unanswered is a refusal |
+| `node … \| tee`             | an exit code nobody discarded | the refusal above was a **green tick** with a sentence under it | `set -o pipefail`, asserted by test               |
+
+**A refusal that a pipe turns green is worse than no refusal**, because the sentence under it is the only thing that says
+the reading is void and nobody reads a green step. The instrument now writes its report, names the failure tally, and
+**exits non-zero** - the report is not suppressed, because a failed reading is the only thing that says why the next
+dispatch should differ.
+
+### 71.5 What would make this section wrong
+
+1. **Reading the drift as a verdict about the corpus.** It is a verdict about the reader. Two judges, both DeepSeek, both
+   prompted identically: **cross-family judging is still untested**, because this repository has no second provider
+   credential (§71.4's table is the reason to get one, not a substitute for it). Everything here is one family at two
+   thresholds.
+2. **Treating `beyond floor = 0` as "no matcher can help".** It says a reader stricter than the corpus's own goldens finds
+   nothing preferentially recoverable in the rejections it looks at. A _calibrated_ reader - one sitting where the band
+   analysis in 71.3 puts it - is untested.
+3. **Quoting "seven" again.** Any sentence that says seven recoverable pairs without the range 0-9 is quoting one
+   threshold as if it were the corpus.
