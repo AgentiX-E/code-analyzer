@@ -7559,3 +7559,26 @@ uploaded` parses each `if:` in the comparison job, evaluates it against nine dis
 which fire download exactly the two names that dispatch's matrix produces. **`pair: on` is one of the nine**, because it
 is the shape whose arm the fallback step legitimately fetches, and a test that had excluded it would have "fixed" the
 workflow by breaking the retired ablation reference instead.
+
+### 72.8 The floor half of the falsifier, read on both arms
+
+§71.6 registered the second half as a _size_: the same-file floor has to move by more than three pairs between the two
+arms, read by the same judge on the same artifact pair. Both arms' rejected same-line pairs were re-read by
+`deepseek-chat` - `44016266435` and `44017052544`, no failed calls, no unanswered pairs:
+
+| arm       | rejected pairs | accepted | crossed |     same-file floor | same pull, other file |
+| --------- | -------------: | -------: | ------: | ------------------: | --------------------: |
+| shipped   |            398 |   19.4 % |   0.5 % | **77/342 = 22.5 %** |                 5.8 % |
+| behaviour |            387 |   21.4 % |   0.8 % | **68/333 = 20.4 %** |                 4.8 % |
+
+Paired on the 277 goldens both arms rejected, the movement is **−4.0 points, 29 pairs one way and 18 the other, McNemar
+p 0.144** - eleven pairs net, which is more than the three §71.6 required, so **the floor half is not confirmed either**,
+and its direction is the opposite of what a device that found _nearer_ misses would produce. **The behaviour arm's
+rejections are less recoverable than the shipped arm's**, which is what §72.3 predicts: the shipped arm's misses had a
+swallowed sibling sitting on the golden's line, and the behaviour arm says fewer things, so there is less on the line to
+recover. A narrower reviewer is not a more accurate one; it is a reviewer whose mistakes are further from the answer.
+
+**And the number that used to be quoted as "the floor" is not one number.** §69.4 read 16.0 % on run `43839753881`'s
+control, §71's repeat read 15.5 %, and the same judge on two arms of _this_ run reads 22.5 % and 20.4 %. **Four readings
+of the same-file floor on the same corpus, from 15.5 % to 22.5 %** - so a floor quoted without the run it came from is a
+number whose error bar nobody has measured, and §71's rule (quote the range, not the point) now applies to §69.4 as well.
