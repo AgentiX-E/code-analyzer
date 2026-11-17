@@ -616,7 +616,15 @@ jobs:
       - name: Download the run with the claim check
         # **And not on a merge dispatch either.** This step downloads the code-window arm's name, and a merge dispatch's
         # matrix does not produce it - so the comparison would have failed here, after both arms had been paid for.
-        if: (inputs.idioms || 'off') != 'pair' && (inputs.agent || 'off') != 'pair' && (inputs.window || 'off') != 'pair' && (inputs.remarks || 'off') != 'pair' && (inputs.ensemble || 'off') != 'pair' && (inputs.ensemble || 'off') != 'pair-reader' && (inputs.second_concern || 'off') != 'pair'
+        # **`pair` and `lane_set` were the two inputs missing from this list**, and the omission cost R-35 its
+        # comparison: the step fired on a `lane_set: pair` dispatch, downloaded an arm that matrix never produced, and
+        # failed the job whose output was the whole point of the run - after both 146-pull-request arms were paid for.
+        # **`pair: on` deliberately stays out of the list**: that dispatch's matrix is the claim check switched on beside
+        # the baseline, so this is the step that fetches its arm - the retired device kept as an ablation reference.
+        # **The list is checked by evaluation rather than by reading it** (`fires, on every pair dispatch, only the
+        # downloads that dispatch uploaded`), because a guard written by extension is a guard that will be extended
+        # wrong again.
+        if: (inputs.idioms || 'off') != 'pair' && (inputs.agent || 'off') != 'pair' && (inputs.window || 'off') != 'pair' && (inputs.remarks || 'off') != 'pair' && (inputs.ensemble || 'off') != 'pair' && (inputs.ensemble || 'off') != 'pair-reader' && (inputs.second_concern || 'off') != 'pair' && (inputs.lane_set || 'off') != 'pair'
         uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8
         with:
           name: aacr-bench-advisory-off-on-off-off-off-off-off-shipped

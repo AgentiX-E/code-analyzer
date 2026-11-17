@@ -7428,3 +7428,134 @@ or falsified by which way a coin landed.** The amendment, recorded here while th
 **The two halves are read independently** - a device may raise the score and not the floor, or the floor and not the score,
 and §70.5's third item already says a score that rises while the floor stays put has not earned a verdict. **What is new
 is only this: the floor reading is no longer allowed to be a sign, it has to be a size.**
+
+## 72. R-35 falsified: the question was better and the breadth was a quarter
+
+### 72.1 The run, and the two halves of the falsifier
+
+`43987896252` dispatched `lane_set=pair` over `skip 50, max 146` - the same 146 pull requests R-32 and R-33 read - in
+one artifact per arm, and both arms finished (183 and 191 minutes). **The comparison job then failed at
+`Download the run with the claim check`**, downloading `…-off-on-off-off-off-off-off-shipped` from a matrix that produces
+`…-shipped` and `…-behaviour`: the fallback step's guard listed every device input except `lane_set` (§72.7). The two
+artifacts were read locally instead, and the verdict is the one the registration can be judged on - the
+comparison is committed as `benchmarks/aacr-ablation-paired.json`, which is what the compare job would have written:
+
+| arm                                           | precision | recall |         F1 |  TP |  FP |  FN | findings |
+| --------------------------------------------- | --------: | -----: | ---------: | --: | --: | --: | -------: |
+| shipped (five lanes, `testing` in place)      |    0.2146 | 0.2011 | **0.2076** | 212 | 776 | 842 |     1643 |
+| behaviour (`behaviour` in place of `testing`) |    0.2032 | 0.1917 | **0.1973** | 202 | 792 | 852 |     1479 |
+
+**Δ F1 −0.0103 (precision −0.0114, recall −0.0094), bootstrap over pull requests mean −0.0104, 95 % [−0.0317, +0.0116],
+p 0.354.** The registered gain was +0.026. **Falsified, on the arm the registration named, by more than the registration
+was worth.** The paired row test agrees: 70 rows the behaviour arm has and 80 it does not, p 0.4625.
+
+### 72.2 The mechanism the falsification reveals, which the registration did not name
+
+**Read per lane, the behaviour arm's own lane is the second-most precise thing we emit.** At the operating point, kept
+rows and the share of them that match a golden:
+
+| lane            | shipped: rows / precision | behaviour: rows / precision |
+| --------------- | ------------------------: | --------------------------: |
+| security        |           166 / **0.271** |                 136 / 0.316 |
+| **behaviour**   |                         - |              **66 / 0.258** |
+| architecture    |               714 / 0.244 |                 806 / 0.208 |
+| maintainability |               152 / 0.211 |                 173 / 0.185 |
+| performance     |                30 / 0.233 |                  28 / 0.286 |
+| **testing**     |           **222 / 0.158** |                           - |
+
+**The behaviour lane's rows are 0.258 where the testing lane's were 0.158 - the question is better - and it emits 75 rows
+where `testing` emitted 289.** It matched 24 goldens against testing's 59. So the device asked a better question at a
+quarter of the breadth, and the corpus pays for breadth: 7.2 goldens per pull request, and the arm that says more things
+finds more of them. **R-35 priced a substitution, and the substitution is a recall trade the corpus cannot afford** -
+which is exactly what §69.3's lane economics said about removing `testing` alone (+0.0069) being larger than the median
+device in this repository.
+
+### 72.3 Where the 642 rejected goldens actually are, and what is sitting on top of them
+
+Of the 1 054 goldens in the slice, 310 are covered, **642 have a finding of ours on their path that the judge says does
+not address them**, 66 are in a file the pull request did not change, and 36 are in a reviewed file we said nothing about.
+Of the 642, **398 are on a line we commented on** (proximity 0), 115 within ten lines, 129 beyond fifty.
+
+**And 351 of those 398 - 88 % - have a second finding of ours at the same range that the deduplicator threw away**, always
+of a different category:
+
+| golden                                                      | swallowed sibling                                             |
+| ----------------------------------------------------------- | ------------------------------------------------------------- |
+| `ValueOrDefault` can be surprising for some `T` …           | `ValueOrDefault` copies `default_value` even when key present |
+| the import statement has been updated but the example …     | import changed to `patchright` but the surrounding example …  |
+| `self.config.chrome_remote_debugging_port` is typed `int` … | builtin browser always adds `--remote-debugging-port` …       |
+
+The counter says the same thing at scale: **5 032 findings before dedup, 1 643 after, and 3 362 of the 3 389 dropped rows
+are `rangeOnly` merges.** So the finder is not silent at the line the golden sits on; **it is verbose and the selector
+keeps one sentence per range.** R-32 already tested keeping _one_ cross-category sibling at a reported range: **+0.0089
+with sd 0.0130.** Keeping one is not the same as keeping the one that addresses the golden, and the pool is where the
+choice is made.
+
+### 72.4 A negative result that closes an obvious lever before anybody builds it
+
+If 21 % of what we file is acceptable and the ordering decides which 16 rows a pull request ships, better ordering looks
+like the cheapest device in the repository. **It is not.** Fitting a ranker on the artifact's own eight features
+(`grounded`, `quotesDiff`, `namesSymbol`, `proposesChange`, `hedged`, `agreement`, `severity`, `lane`) plus category,
+span and length, cross-validated by pull request over five folds:
+
+| ranker                         |   p@1 |       p@3 |       p@5 |   p@8 |      p@16 |
+| ------------------------------ | ----: | --------: | --------: | ----: | --------: |
+| the shipped score              | 0.273 |     0.270 |     0.269 | 0.254 |     0.228 |
+| logistic regression            | 0.280 | **0.292** | **0.282** | 0.254 |     0.234 |
+| gradient boosting              | 0.259 |     0.290 |     0.272 | 0.254 |     0.225 |
+| **perfect ordering (ceiling)** | 1.000 |     0.864 |     0.566 | 0.400 | **0.267** |
+
+**The best held-out gain is +0.013 at `p@5` and +0.006 at `p@16`, and the ceiling at sixteen rows is 0.267** - because
+there are 343 acceptable rows in 1 643 however they are ordered. **The ordering is not the constraint; the pool is.** That
+is worth writing down because the temptation to fit a ranker is enormous and it would have consumed a dispatch and a
+registration to buy a tenth of the resolution the corpus can sign.
+
+### 72.5 Where this leaves us against the published state of the art, on our own corpus
+
+**`AACR-Bench` is no longer ours alone.** `OpenCodeReview` (Alibaba, arXiv 2608.09290) evaluates on _"200 real-world PRs,
+10 languages, 1 505 expert-verified comments"_ - the corpus this repository has been measuring on - and reports
+**SEM-F1 25.10 %** against **11.57 %** for the same model under Claude Code, calling that _"up to 2.17× higher"_. Our
+sibling arm on 146 pull requests of the same corpus reads **F1 20.76 %**. **We are at 83 % of the published figure and
+1.8× the Claude Code baseline**, with the caveat §71 makes unavoidable: their semantic F1 and ours are two instruments,
+and the comparison is only as good as the agreement between them.
+
+Their paper names the three devices that buy the gap, and **we have implemented one of them**: _rule-guided dispatch_,
+_grounded file review with on-demand cross-file retrieval_, and _independent reflection_ - a falsification-first filter
+whose reflector **sees only the diff and not the reviewer's exploration**, which they say removes hallucinated comments
+_"without the self-reinforcing bias of intrinsic self-critique, improving precision while preserving recall"_. The
+independent acceptance study they cite (`arXiv 2607.03316`, 31 073 AI review - developer reply pairs) reports 36.4 %
+accepted and 56.3 % rejected, of which **43.3 % are flat false positives**, and their most deployable finding is a
+**small model fine-tuned on historical feedback as a pre-filter: F1 76 % against 64 % for a 70B prompted directly.**
+
+**Our pool's acceptance is 20.9 %** - below every field measurement above - and our precision is where the gap to SOTA
+lives, not our recall. That reframes the next device: it is not another question for a lane, it is a stage that decides
+**whether a sentence survives to be filed**, which is the one device class we have tested only in its most destructive
+form. `adjudicate` (§44-§45) raised precision to 45.5 % and 32.4 % and collapsed recall to 6.6 % and 5.3 %, taking F1
+from 19.5 % to 11.6 % and from 20.6 % to 9.1 %. **A gate that drops most of what it sees is not a filter, it is a
+different reviewer** - and the difference between it and a reflector that preserves recall is the falsification
+contract: drop only what it can name a falsifier for, keep everything else.
+
+### 72.6 What would make this section wrong
+
+1. **Reading the −0.0103 as "the behaviour question is bad".** Its own rows are the second-most precise in the set
+   (0.258) and its goldens-per-row is 0.32 against `testing`'s 0.20. What failed is the _substitution_, at this breadth,
+   on this corpus.
+2. **Reading §72.3 as "keep more siblings".** R-32 kept one and bought +0.0089. The 351 pairs say the sibling is often
+   on topic; they do not say the sibling is the one a judge would accept, and until that is measured the count is a
+   ceiling on a device rather than an estimate of one.
+3. **Reading §72.4 as "ranking cannot help".** It says _these eight features_ cannot order _this pool_. A ranker over
+   the diff and the sentence - which is a small model, per §72.5 - is a different object and is untested here.
+
+### 72.7 The comparison job's guard was one device behind, and the cost was a whole run's verdict
+
+`43839753881`, `43902714209` and `43987896252` all ended `failure` at a download step after both arms were paid for, and
+each time the cause was a name that had moved and a guard that had not. **This time the guard was the fallback step's**:
+it excluded every pair input except `lane_set`, so a `lane_set: pair` dispatch fetched the claim-check arm, which that
+matrix never produces. The fix is one clause, and it is not the interesting part - **the interesting part is that the
+guard had been extended by hand seven times and read by nobody.**
+
+So the guard is now _evaluated_ rather than read: `fires, on every pair dispatch, only the downloads that dispatch
+uploaded` parses each `if:` in the comparison job, evaluates it against nine dispatch shapes, and requires that the steps
+which fire download exactly the two names that dispatch's matrix produces. **`pair: on` is one of the nine**, because it
+is the shape whose arm the fallback step legitimately fetches, and a test that had excluded it would have "fixed" the
+workflow by breaking the retired ablation reference instead.

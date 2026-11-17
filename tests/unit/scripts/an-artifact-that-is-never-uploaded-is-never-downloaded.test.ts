@@ -491,3 +491,124 @@ describe('the matrix is one experiment', () => {
     expect(compare![0]).toMatch(/\(inputs\.agent \|\| 'off'\) != 'on'/);
   });
 });
+
+describe('a download guard that the next device forgets to extend', () => {
+  /**
+   * **The comparison job's download steps, each with the condition that lets it run.**
+   *
+   * `null` is a step with no condition, which runs on every dispatch - the baseline arm is the only one that may.
+   * A step's guard is read rather than re-derived, because the property under test is what the runner will evaluate and
+   * the only way to know that is to read the expression it was given.
+   */
+  function downloadSteps(): { title: string; guard: string | null; artifact: string }[] {
+    const job = WORKFLOW.slice(WORKFLOW.indexOf('\n  compare:'));
+    return job
+      .split(/\n {6}- name: /)
+      .slice(1)
+      .flatMap((chunk) => {
+        const title = chunk.split('\n')[0]!.trim();
+        if (!title.startsWith('Download')) return [];
+        const guard = /\n {8}if: (.+)/.exec(chunk)?.[1]?.trim() ?? null;
+        const artifact = /\n {10}name: (aacr-[\w-]+)/.exec(chunk)?.[1];
+        expect(artifact, `${title} names no artifact`).toBeDefined();
+        return [{ title, guard, artifact: artifact! }];
+      });
+  }
+
+  /** **A guard evaluated, not pattern-matched**: one clause per `&&`, each a comparison of an input against a literal. */
+  function guardFires(guard: string | null, inputs: Record<string, string>): boolean {
+    if (guard === null) return true;
+    return guard.split('&&').every((clause) => {
+      const m = /\(inputs\.(\w+) \|\| '([^']*)'\)\s*(==|!=)\s*'([^']*)'/.exec(clause.trim());
+      expect(m, `a guard clause is not an input comparison: ${clause.trim()}`).toBeTruthy();
+      const value = inputs[m![1]!] ?? m![2]!;
+      return m![3] === '==' ? value === m![4] : value !== m![4];
+    });
+  }
+
+  /**
+   * The one arm a pair dispatch buys, selected by the key the matrix *varies* - which is not the key the assertion cares
+   * about. **The merge's arm carries `agent: on` as an entailment of `ensemble`**, so selecting "a matrix that has
+   * `agent` on" finds three of them and none of the three is the reading agent's arm.
+   */
+  function deviceArm(varied: string, value: string): Arm {
+    if (varied === 'ensemble') {
+      const candidates = alternatives().filter(
+        (matrix) => matrix.length === 2 && matrix.some((arm) => arm['ensemble'] === value),
+      );
+      expect(candidates, `no two-arm matrix buys ensemble=${value}`).toHaveLength(1);
+      return candidates[0]!.find((arm) => arm['ensemble'] === value)!;
+    }
+    const rows = pair(varied as Parameters<typeof pair>[0]);
+    const arm = rows.find((row) => row[varied] === value);
+    expect(arm, `the ${varied} pair has no arm with ${varied}=${value}`).toBeDefined();
+    return arm!;
+  }
+
+  it('fires, on every pair dispatch, only the downloads that dispatch uploaded', () => {
+    // **The defect this exists for, in its third costume.** Each new pair branch adds a download step and must add a
+    // clause to the fallback step's guard; the fallback step is the one that downloads the *default* arm, and its guard
+    // had been extended one device at a time until every previous device was named in it and the newest was not. R-35's
+    // comparison job then ran on a `lane_set: pair` dispatch, downloaded `…off-on-off-off-off-off-off-shipped` - an arm
+    // that matrix never produced - and failed **after both 146-pull-request arms had been paid for**, which is the same
+    // failure the fifty- and hundred-row runs died of, after the same amount of money.
+    // **Evaluating the guards rather than reading them** is what makes the next device fail here instead: the assertion
+    // is about which steps run under which dispatch, so a guard that forgets its own input fails without anybody having
+    // to remember the shape of the expression.
+    const uploaded = artifactNames('upload').filter((name) => !isStatic(name));
+    expect(uploaded).toHaveLength(1);
+    const baseline: Arm = {
+      profile: 'advisory',
+      code_context: 'off',
+      adjudicate: 'off',
+      idioms: 'off',
+      agent: 'off',
+      ensemble: 'off',
+      remarks: 'off',
+      second_concern: 'off',
+      lane_set: 'shipped',
+    };
+
+    // **The input, the value a dispatch gives it, and the value the matrix then writes into the row** - three columns
+    // because `pair` is a word the *dispatch* uses and the *arm* never carries: a guard reads the first and the artifact
+    // name is built from the third.
+    const dispatches: { input: string; value: string; varied: string; armValue: string }[] = [
+      { input: 'window', value: 'pair', varied: 'code_context', armValue: 'on' },
+      { input: 'agent', value: 'pair', varied: 'agent', armValue: 'on' },
+      { input: 'idioms', value: 'pair', varied: 'idioms', armValue: 'on' },
+      { input: 'remarks', value: 'pair', varied: 'remarks', armValue: 'on' },
+      { input: 'second_concern', value: 'pair', varied: 'second_concern', armValue: 'on' },
+      { input: 'ensemble', value: 'pair', varied: 'ensemble', armValue: 'on' },
+      { input: 'ensemble', value: 'pair-reader', varied: 'ensemble', armValue: 'reader' },
+      { input: 'lane_set', value: 'pair', varied: 'lane_set', armValue: 'behaviour' },
+      // §56's device is bought by `pair: on`, whose row is the claim check switched on - so the fallback step's guard
+      // has to exclude this input too, and this is the row that says so.
+      { input: 'pair', value: 'on', varied: 'adjudicate', armValue: 'on' },
+    ];
+
+    for (const { input, value, varied, armValue } of dispatches) {
+      const inputs: Record<string, string> = {
+        idioms: 'off',
+        agent: 'off',
+        window: 'off',
+        remarks: 'off',
+        second_concern: 'off',
+        ensemble: 'off',
+        lane_set: 'off',
+        pair: 'off',
+      };
+      inputs[input] = value;
+      const produced = new Set([
+        expand(uploaded[0]!, baseline),
+        expand(uploaded[0]!, deviceArm(varied, armValue)),
+      ]);
+      const fired = downloadSteps().filter((step) => guardFires(step.guard, inputs));
+      // Two downloads: the device arm and the baseline. **A third is an arm nobody bought**, and the baseline exactly
+      // once is what §56's duplicate-name failure was.
+      expect(
+        fired.map((step) => step.artifact).sort(),
+        `on a ${input}=${value} dispatch the comparison downloads ${fired.map((step) => step.title).join(', ')}`,
+      ).toEqual([...produced].sort());
+    }
+  });
+});
