@@ -7970,3 +7970,48 @@ is not a perfect pool, which is the same rule `activity: { observed: null }` app
 At §73's gate the field reads **277 removed, 69 of them true positives, share 0.2491, outside the 0.04 target** — the
 number §74 had to read off twelve sampled rows by hand, now computed from the two arms. And at §75.3's combination it is
 the only figure that can say whether the gate half of the plan is working while the F1 half is still short.
+
+## §77 The clock was a comment and the bill was a surprise
+
+### 77.1 What a run costs, measured rather than estimated
+
+The artifact for a fifty-pull-request single arm carries its own ledger: **3 195 lane calls, 6.69 M prompt tokens at
+56.9 % cache hit, 0.77 M completion tokens, 11 849 judge calls**, priced by `costUsdOf` at **0.9045 USD** — and that
+figure is already off-peak, because the factor is `isPeakHour(at) ? 1 : OFF_PEAK_FACTOR` and the job ran at 00:30 CST.
+At peak the same work is **1.809 USD**. Per pull request: **0.027 USD off-peak, 0.036 at peak**, judge included.
+
+So one paired experiment over the 146-pull-request corpus is **5.3 to 7.1 USD**, or **37 to 50 CNY**, and the number of
+experiments is the whole bill. **The 200 CNY of 2026-11-17 was not a unit price.** It was three paired dispatches, one
+competitor `record` at 5.89 USD, and one 128-minute run cancelled by hand — **every one of which was a decision I made
+in the same day.**
+
+### 77.2 Three things were wrong, and none of them was the price
+
+1. **The slot was a constant.** `timeout-minutes: 340` admitted a 146-pull-request pair for 178 minutes of work and a
+   stuck job for five and a half hours, so the only thing that ever stopped run 44100493243 was a person watching. It is
+   now `fromJSON(inputs.max_pull_requests || '146') * 2` — **two minutes per pull request against 1.22 observed**, and
+   the assertion that it stays a rate rather than a constant is a test rather than a comment.
+2. **The same number was bought repeatedly.** The off arm of every pair re-derives a figure that does not move when the
+   on arm changes, and the judge re-decides `finding × golden` pairs whose texts it has already read. **Both are pure
+   functions of inputs this repository already stores**, and neither was cached — so every experiment paid twice for the
+   half of it that was not an experiment.
+3. **Nothing was tried small first.** Every hypothesis went to the full corpus on its first dispatch, so a device that a
+   thirty-pull-request slice would have rejected in four minutes was rejected in three hours at 2.9 times the cost.
+
+**The instrument was never the problem.** `CostLedger` writes a record at every call site and the artifact publishes
+the split by tag; **what was missing was a brake, and a brake is a decision about how often to press the accelerator.**
+
+### 77.3 The discipline this section binds us to
+
+1. **A new device is measured on thirty pull requests before it is dispatched on the corpus**, and a slice that cannot
+   move the figure by a tenth of the registered bar is not promoted.
+2. **A figure that cannot change is not bought twice**: the off arm and the judge are to be cached by input fingerprint,
+   which is the same device the competitor arm already has.
+3. **A run is given a slot and a ceiling that are about its corpus**, and both are refused rather than reported when
+   they are exceeded.
+4. **A cancelled run is a cost, not a non-event**: it goes in the same account as a completed one, because the vendor
+   billed it the same way.
+
+**What would make this section wrong:** if a thirty-pull-request slice were not predictive of the corpus for the devices
+we register. **It was predictive of §73's gate** — the same sign, the same significance, at a fifth of the corpus — and
+if that stops being true the first rule is the one to drop, not the second.

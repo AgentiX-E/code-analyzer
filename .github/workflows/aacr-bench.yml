@@ -312,16 +312,16 @@ jobs:
     # pull request** - and two hundred pull requests at that rate is eleven hours, which does not fit in any job GitHub
     # will run. **That paragraph was right about the runner and wrong about the work**: the fourteen-pull-request run
     # cost 468 model calls per pull request and the fifty-pull-request run of 2026-11-10 cost 301, so its two arms took
-    # 61.0 and 79.7 minutes - **1.22 and 1.59 minutes per pull request, not 3.3**. The number this ceiling fits is
-    # therefore **213** pull requests at the slower measured arm, and the figure in this comment said **190** until
-    # iteration 119, which needs 1.8 minutes per pull request and is a number nobody measured.
+    # 61.0 and 79.7 minutes - **1.22 and 1.59 minutes per pull request, not 3.3**.
     #
-    # **What that changes in practice.** R-17's confirmation is a hundred pull requests the discovery did not see: 159
-    # minutes of a 340-minute ceiling, dispatched as the single run the registration names. **The whole 200-pull-request
-    # corpus is now 319 minutes - inside the ceiling at 94 % of it, and outside anything a retry could absorb**, so a
-    # full-corpus run is a thing to schedule and not a thing that fails. A dispatch beyond 213 is refused by the runner
-    # rather than by a wrong number in the artifact.
-    timeout-minutes: 340
+    # **340 was still the wrong shape, and §77.1 is the correction.** A constant is right for the run that finishes or
+    # right for the one that hangs, never both: 340 admitted a 146-pull-request pair for 178 minutes of work, and it
+    # also admitted run 44100493243 to spend 128 minutes inside a single step before a person read the clock and
+    # cancelled it. **So the slot is a rate now** - two minutes per pull request, 1.64 times the slower measured arm and
+    # 1.26 times the faster one - and at that rate the job fits **183** pull requests at the tolerance this repository
+    # confirms with. A dispatch beyond that is refused by the runner rather than by a wrong number in the artifact, and
+    # **a run that stops making progress stops being billed at 292 minutes rather than at 340**.
+    timeout-minutes: ${{ fromJSON(inputs.max_pull_requests || '146') * 2 }}
     strategy:
       # **Both arms are information.** A run that dies takes its half of the comparison with it, and `compare` has to
       # report that rather than a one-sided figure.

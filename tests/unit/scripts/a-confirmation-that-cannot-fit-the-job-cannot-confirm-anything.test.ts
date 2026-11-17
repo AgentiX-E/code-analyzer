@@ -2,12 +2,12 @@
 // registration
 //
 // **Why this file exists.** R-17 was registered with a confirmation described as "a run of the 100 pull requests the
-// discovery did not see", and **whether a hundred fits inside the 340-minute job ceiling is arithmetic performed on a
+// discovery did not see", and **whether a hundred fits inside the job's own slot is arithmetic performed on a
 // rate, and the rate had been borrowed from a run that did not resemble the one it would be applied to.**
 //
 // The history is the point. §15.6 measured 46 minutes for fourteen pull requests - **468 model calls per pull request** -
 // and every ceiling figure derived from it said a hundred pull requests were impossible: 103 fit, and a hundred needs 329
-// of 340 minutes. **The fifty-pull-request run of 2026-11-10 cost 301 calls per pull request and its arms took 61.0 and
+// minutes of the 340-minute slot that was written then. **The fifty-pull-request run of 2026-11-10 cost 301 calls per pull request and its arms took 61.0 and
 // 79.7 minutes**, so a hundred is 159 minutes and the whole 200-row corpus is 319. **A conclusion about what the
 // infrastructure cannot do was, in fact, a conclusion about a configuration that had been replaced.**
 //
@@ -18,15 +18,15 @@
 // current measurement supports rather than the one that was true two configurations ago.
 //
 // **And the same lesson was learned twice: the guard was a fraction of the ceiling, which is a proxy for the property
-// the guard exists to hold.** "Half of 340 minutes" is 106 rows, and 106 was chosen in the era when the rate was
+// the guard exists to hold.** "Half of the slot" is 106 rows at the old 340, and 106 was chosen in the era when the rate was
 // believed to be 3.29 minutes per pull request and a hundred rows really did cost 329 of 340. At 1.594 that fraction
 // refuses **every slice that carries a bar only 146 rows can sign** (R-35's, at 0.026) while still admitting a
 // hundred - so the fraction was measuring the era it was written in. **What a confirmation actually needs is to finish
 // on an ordinary slow day**, and the width of an ordinary slow day is now measured rather than assumed: one run
 // dispatched the same 46 pull requests twice and its arms took 56.8 and 64.5 minutes, **1.135×**, and
 // `MEASURED_MINUTES_PER_PULL_REQUEST` is already the slower arm (79.7 of 61.0 and 79.7) of the run it came from. So the
-// guard is `minutes × 1.15 ≤ ceiling`, which admits 185 rows and refuses 186 - **inside the full 196-row corpus, which
-// is the thing it has to refuse.**
+// guard is `minutes × 1.15 ≤ ceiling`, which at §77.1's rate admits 159 rows and refuses 160 - **inside the full
+// 196-row corpus, which is the thing it has to refuse.**
 
 import { readFileSync } from 'node:fs';
 import { resolve } from 'node:path';
@@ -46,10 +46,23 @@ const WORKFLOW = readFileSync(
   'utf8',
 );
 
+/**
+ * **The bench job's slot, whether it is written as a constant or as a rate.**
+ *
+ * It became `fromJSON(inputs.max_pull_requests || '146') * 2` in §77.1, because a constant slot of 340 admitted a
+ * 146-pull-request pair for 178 minutes of work and a stuck job for five and a half hours. **A test that reads only a
+ * constant then reads the `compare` job's ten minutes instead**, which is what these three failures were: a parser that
+ * silently bound to the next job's number rather than to the one it names.
+ */
 function jobCeilingMinutes(): number {
-  const match = /timeout-minutes:\s*(\d+)/.exec(WORKFLOW);
-  expect(match, 'the benchmark job must declare a timeout').not.toBeNull();
-  return Number(match?.[1]);
+  const scaled =
+    /timeout-minutes:\s*\$\{\{\s*fromJSON\(inputs\.max_pull_requests\s*\|\|\s*'(\d+)'\)\s*\*\s*(\d+)/.exec(
+      WORKFLOW,
+    );
+  if (scaled) return Number(scaled[1]) * Number(scaled[2]);
+  const constant = /timeout-minutes:\s*(\d+)\s*$/m.exec(WORKFLOW);
+  expect(constant, 'the benchmark job must declare a timeout').not.toBeNull();
+  return Number(constant?.[1]);
 }
 
 function wallClock(max: number): number {
@@ -90,11 +103,11 @@ describe('a confirmation slice is a promise the runner can keep', () => {
       ).toBeLessThanOrEqual(ceiling);
     }
 
-    // **And the bound is asserted at the exact row where it turns over rather than described.** 185 rows survive the
-    // tolerance and 186 do not, so the rule that admits R-35's 146 still refuses the whole 196-row corpus in one
+    // **And the bound is asserted at the exact row where it turns over rather than described.** 159 rows survive the
+    // tolerance and 160 do not, so the rule that admits R-35's 146 still refuses the whole 196-row corpus in one
     // dispatch - **a guard that admits everything is not a guard, and a guard whose edge is not tested is a comment.**
     const rows = slicesAConfirmationCanFit(ceiling);
-    expect(rows).toBe(185);
+    expect(rows).toBe(159);
     expect(wallClock(rows) * CONFIRMATION_OVERRUN_TOLERANCE).toBeLessThanOrEqual(ceiling);
     expect(wallClock(rows + 1) * CONFIRMATION_OVERRUN_TOLERANCE).toBeGreaterThan(ceiling);
     expect(rows).toBeLessThan(196);
@@ -105,14 +118,14 @@ describe('a confirmation slice is a promise the runner can keep', () => {
 
     // `slicesThatFit` is the arithmetic the workflow's own comment states, and the two must agree.
     const fits = slicesThatFit(ceiling);
-    expect(fits).toBe(213);
+    expect(fits).toBe(183);
     expect(WORKFLOW).toContain(`**${String(fits)}** pull requests at the`);
 
     // **The rate that used to be in this constant, kept as a negative assertion.** 46 minutes over 14 pull requests
     // gives 103, and 103 is what this project believed until it checked the run the rate belonged to: **a rate per pull
     // request is a property of the configuration, and the configuration had changed underneath it.**
     const retired = 46 / 14;
-    expect(Math.floor(ceiling / retired)).toBe(103);
+    expect(Math.floor(ceiling / retired)).toBe(88);
     expect(WORKFLOW).not.toContain('340 minutes is 190 pull requests');
   });
 
