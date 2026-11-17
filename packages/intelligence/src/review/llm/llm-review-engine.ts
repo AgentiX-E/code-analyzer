@@ -22,6 +22,7 @@ import {
 } from '../adjudication/adjudicator.js';
 import {
   FalsifierGate,
+  type FalsifierContract,
   type FalsifierDrop,
   type FalsifierReport,
 } from '../adjudication/falsifier.js';
@@ -112,9 +113,14 @@ export interface LLMReviewOptions {
    * pool that did not shrink, rather than a reviewer that stopped speaking.
    *
    * **It is a product flag rather than a harness flag** for the reason every other one is: what a run measures has to be
-   * what ships. See `docs/EVAL-CONTRACT.md` §73.
+   * what ships. See `docs/EVAL-CONTRACT.md` §73 and §74.
+   *
+   * **Its value is the contract, not a boolean**, because the two contracts are one device with two rules and **§74 is
+   * the record of a run that had to infer which rule produced its pool from twelve sampled rows.** `falsify:
+   * 'quoted-falsifier-v1'` admits the claim's own line as evidence; `'independent-evidence-v2'` removes the claim's own
+   * range from the quotable set, so the only thing that can refute a sentence is the rest of the change.
    */
-  falsify?: boolean;
+  falsify?: false | FalsifierContract;
   languageChecklist?: boolean;
   /**
    * **Where the target-and-diff block sits in every lane prompt.** Undefined means `boilerplate-first`, the arrangement
@@ -639,7 +645,10 @@ export class LLMReviewEngine {
         : [],
     );
 
-    const gate = new FalsifierGate(this.provider, { timeout: this.options.laneTimeout });
+    const gate = new FalsifierGate(this.provider, {
+      timeout: this.options.laneTimeout,
+      contract: this.options.falsify === false ? undefined : this.options.falsify,
+    });
     const outcome = await gate.gate({
       path: diff.filePath,
       findings: entries.map((entry) => entry.finding),

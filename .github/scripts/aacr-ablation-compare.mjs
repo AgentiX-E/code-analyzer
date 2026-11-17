@@ -541,6 +541,69 @@ export const REGISTRATIONS = Object.freeze({
     registeredGain: 0.026,
     mechanism: 'precision rises and recall does not fall by more than a golden is worth',
     mechanismRule: 'recall-holds',
+    /**
+     * **Empty, and the reading is §74's.** This device was measured on its registered slice: F1 **0.2048 → 0.1585**
+     * (delta −0.0463, paired +41/−110, p ≈ 0), so the claim was falsified and a slice list here would be a promise to
+     * spend money re-reading a verdict that has already been read - the same reason §8's entry is closed.
+     *
+     * **What that run also established is the reason the next entry exists.** Of the 557 claims the gate removed, only
+     * 277 could have reached a reviewer - the rest were beyond `maxFindingsPerFile` and were never going to be filed -
+     * and **69 of those 277 were true positives, 24.9 % against a pool rate of 21.3 %.** The gate was not imprecise; it
+     * was very slightly anti-selective, which is a different and more useful finding: **the contract admitted a
+     * tautology**, because the quotable set contained the very line each claim was anchored to.
+     */
+    confirmation: [],
+  },
+  /**
+   * **§74's registration (R-36b): the same gate with the claim's own range removed from its evidence.**
+   *
+   * The first contract's defect was not its reader. Under `quoted-falsifier-v1` a claim at line 12 saying *the y
+   * component is doubled* could be refuted by quoting line 12 - `keptBecauseQuoteMissing` was 27 of 584 refutations
+   * (4.6 %), which is the same fact from the other side: **a reader that may quote the claim's own line can always
+   * quote something.** All twelve removals sampled from that run quote a line inside the range they attack, and the
+   * arithmetic agrees: 24.9 % of the removals that could have been filed were true, against 21.3 % in the pool.
+   *
+   * **So the second contract subtracts the claim's range from the quotable set**, in the prompt (each claim is printed
+   * with the range that is not evidence for it) and in the checker (`keptBecauseSelfReferential`). What remains is the
+   * only thing that could ever have refuted a sentence: **the rest of the change** - a guard three lines up, a
+   * `reserved` tag below, the check the claim said was missing. **A gate with nothing else to point at keeps every
+   * claim**, which is the direction this device has always been allowed to fail in.
+   *
+   * **The bar is 0.02, and it is deliberately below §73's 0.026.** The device's opportunity is smaller: it may only
+   * remove claims whose refutation lives elsewhere in the same hunk, and the first contract could remove anything. **A
+   * bar copied from the contract that had more freedom would be a bar chosen to be missed.** 0.02 is 1.27× the
+   * resolution at these goldens (0.0157), which is thin - so the reading is stated with it: **a gain of 0.02 with a
+   * removal count under 40 is not a confirmation of this device, it is a demonstration that this corpus's claims have
+   * no independent evidence to find**, and the direction closes rather than being tuned again.
+   *
+   * **The mechanism is `recall-holds` for the same reason as §73's, and it is the failure branch.** A gate whose
+   * removals are 24.9 % true positives raises precision by paying recall; the second contract's whole claim is that the
+   * true-positive share of its removals falls. **If F1 rises while recall falls by more than a golden, the device has
+   * learned nothing from §74** and the registration refuses it.
+   *
+   * **The confirmation debt is the same debt, named again.** These 146 rows have now read four devices, and rows 196-199
+   * are the only four the corpus has left; **a 0.02 bar on four rows is not a confirmation**, so this dispatch is a
+   * discovery and the next corpus expansion is the only thing that can close it.
+   */
+  'falsifier:independent-evidence-v2': {
+    section: '§74 (R-36b)',
+    claim:
+      'a gate that removes the claim’s own range from its evidence, and so can only be refuted by the rest of the change, raises the file arm F1 by at least 0.02 on the 146 pull requests R-32, R-33, R-35 and R-36 read, without lowering recall by more than a golden is worth',
+    arm: 'file',
+    registeredGain: 0.02,
+    mechanism:
+      'precision rises and recall does not fall by more than a golden is worth, because the removals carry fewer true positives than the pool does',
+    mechanismRule: 'recall-holds',
+    /**
+     * **The floor below which a difference is not about this contract.**
+     *
+     * §74.4 states it in prose and this field is where it is enforced: the second contract may only remove a claim whose
+     * refutation lives elsewhere in the same hunk, so **a run that removes a handful of claims and moves F1 by a
+     * thousandth of a point has said something about this corpus's claims, not about the device.** Forty is roughly a
+     * seventh of the first contract's removals that could have been filed (277 over the same 146 rows), which is the
+     * smallest count at which "which ones" is a question the artifact can answer.
+     */
+    activity: { counter: 'falsifier.dropped', atLeast: 40 },
     confirmation: [{ skip: 50, max: 146 }],
   },
 });
@@ -1256,6 +1319,29 @@ export function summarise(on, off) {
           ? gain !== 0
           : significance.pValue !== null && significance.pValue <= 0.05;
 
+  /**
+   * **Whether the device did enough to be a test of its contract, when the registration names a floor.**
+   *
+   * §74.4's rule, made checkable: the second contract may only remove claims whose refutation lives elsewhere in the same
+   * hunk, so **a run that removes fourteen claims and moves F1 by −0.001 has demonstrated that this corpus's claims have
+   * no independent evidence to find** - a fact about the corpus, which must not be readable as either a confirmation or a
+   * falsification of the device. `observed: null` is `met: false` rather than a pass: **a requirement satisfied by the
+   * absence of its measurement is not a requirement.**
+   */
+  const activity = registration?.activity
+    ? (() => {
+        const [device, counter] = registration.activity.counter.split('.');
+        const raw = on?.engineCounters?.[device]?.[counter];
+        const observed = typeof raw === 'number' ? raw : null;
+        return {
+          counter: registration.activity.counter,
+          atLeast: registration.activity.atLeast,
+          observed,
+          met: observed !== null && observed >= registration.activity.atLeast,
+        };
+      })()
+    : null;
+
   const outcome =
     magnitudeMet === null
       ? 'unregistered: no expectation was written before this run'
@@ -1265,19 +1351,21 @@ export function summarise(on, off) {
           ? `not a test: the device was registered to merge two reviewers and ran with ${String(on?.merge?.sides?.lanes ?? 0)} lane candidates and ${String(on?.merge?.sides?.reader ?? 0)} reader candidates over ${String(on?.prsReviewed ?? 0)} pull requests, so the union never formed`
           : !resolvable
             ? registrationResolvable(registration, goldens).reason
-            : !magnitudeMet
-              ? `falsified: the registered gain was not reached on ${armName}${guardMet === false ? `, and the ${armProse(String(guardArm))} fell by ${String(-guardGain)}` : ''}`
-              : mechanismMet === false
-                ? 'falsified: the magnitude arrived, the mechanism did not'
-                : guardMet === false
-                  ? `falsified: ${armName} gained ${String(gain)} and the ${armProse(String(guardArm))} it must not lower fell by ${String(-guardGain)}`
-                  : signed === false
-                    ? significance?.inconsistent
-                      ? `met but not signed: ${String(gain)} F1 on ${armName} clears the ${String(registeredGain)} registered, and the ${String(significance?.pullRequests)} pull-request rows resample to ${String(significance?.mean)}, which is ${String(significance?.sd)} wide against a published delta of ${String(gain)} - the rows and the totals are about two different corpora, so there is nothing to sign`
-                      : `met but not signed: ${String(gain)} F1 on ${armName} clears the ${String(registeredGain)} registered, and over ${String(significance?.pullRequests)} pull requests the paired difference is ${String(significance?.sd)} wide, so the gain is ${String(significance?.z)} standard deviations (p = ${String(significance?.pValue)})`
-                    : signed === null
-                      ? `met but unverifiable: ${String(gain)} F1 on ${armName} clears the ${String(registeredGain)} registered, and the artifacts carry ${String(pairedRows.withRows.length)} paired pull-request rows, which is too few to resample a corpus from`
-                      : `confirmed: at least ${String(registeredGain)} F1 on ${armName}, and the mechanism is precision`;
+            : activity !== null && !activity.met
+              ? `not a test: the registration needs ${String(activity.atLeast)} ${String(activity.counter)} before a difference is about the contract, and the arm reported ${activity.observed === null ? 'no such counter' : String(activity.observed)}`
+              : !magnitudeMet
+                ? `falsified: the registered gain was not reached on ${armName}${guardMet === false ? `, and the ${armProse(String(guardArm))} fell by ${String(-guardGain)}` : ''}`
+                : mechanismMet === false
+                  ? 'falsified: the magnitude arrived, the mechanism did not'
+                  : guardMet === false
+                    ? `falsified: ${armName} gained ${String(gain)} and the ${armProse(String(guardArm))} it must not lower fell by ${String(-guardGain)}`
+                    : signed === false
+                      ? significance?.inconsistent
+                        ? `met but not signed: ${String(gain)} F1 on ${armName} clears the ${String(registeredGain)} registered, and the ${String(significance?.pullRequests)} pull-request rows resample to ${String(significance?.mean)}, which is ${String(significance?.sd)} wide against a published delta of ${String(gain)} - the rows and the totals are about two different corpora, so there is nothing to sign`
+                        : `met but not signed: ${String(gain)} F1 on ${armName} clears the ${String(registeredGain)} registered, and over ${String(significance?.pullRequests)} pull requests the paired difference is ${String(significance?.sd)} wide, so the gain is ${String(significance?.z)} standard deviations (p = ${String(significance?.pValue)})`
+                      : signed === null
+                        ? `met but unverifiable: ${String(gain)} F1 on ${armName} clears the ${String(registeredGain)} registered, and the artifacts carry ${String(pairedRows.withRows.length)} paired pull-request rows, which is too few to resample a corpus from`
+                        : `confirmed: at least ${String(registeredGain)} F1 on ${armName}, and the mechanism is precision`;
 
   return {
     measuredAt: new Date().toISOString().slice(0, 10),
@@ -1381,6 +1469,8 @@ export function summarise(on, off) {
       mechanismMet,
       /** Whether this run read the rows the registration names, or `null` when it names none. */
       sliceMatches,
+      /** The device's own activity against the floor its registration names, or `null` when it names none. */
+      activity,
       /**
        * **Whether the device had the inputs it was registered with**, or `null` when the registration names none.
        * `unionFormed: false` means the merge ran with one side empty, and every figure below is about a different device.
@@ -1550,6 +1640,24 @@ function selfTest() {
       adjudicate: overrides.adjudicate ?? false,
       falsifier: overrides.falsifier ?? false,
     },
+    /**
+     * **What the second reader did, when a fixture asks for it.**
+     *
+     * §74.4's rule is not only about a gain: *a gain under 40 removals is a statement about the corpus's claims, not about
+     * the device*. That sentence is a gate or it is a remark, so the counter it reads has to be in the fixture and in the
+     * verdict.
+     */
+    ...(typeof overrides.falsifierDropped === 'number'
+      ? {
+          engineCounters: {
+            falsifier: {
+              enabled: true,
+              dropped: overrides.falsifierDropped,
+              candidates: overrides.falsifierCandidates ?? overrides.falsifierDropped * 3,
+            },
+          },
+        }
+      : {}),
     truePositives: overrides.tp,
     falsePositives: overrides.fp,
     falseNegatives: overrides.fn,
@@ -1738,6 +1846,77 @@ function selfTest() {
   assert(
     collapsed.verdict.magnitudeMet === true,
     'F1 0.2329 clears the bar on precision alone, which is exactly why the mechanism is registered beside it',
+  );
+  // **And §74's second contract, which reuses the key and moves only its value.** `falsifier` is a boolean no longer: it
+  // carries the contract's name, so the pair `off` vs `independent-evidence-v2` still varies exactly one field - and the
+  // registration that answers it is filed under `falsifier:independent-evidence-v2`, reached by the composite lookup
+  // rather than by the field alone. **A contract that reused the field without a value-keyed sentence would report the
+  // first contract's verdict about the second contract's run**, which is §44's defect with the sign reversed.
+  const independent = summarise(
+    artifact({
+      profile: 'advisory',
+      tp: 310,
+      fp: 1480,
+      fn: 690,
+      covered: [range(0, 155), range(155, 155)],
+      goldensPerPr: [500, 500],
+      falsifier: 'independent-evidence-v2',
+      falsifierDropped: 300,
+      // **The slice the registration names**, because the slice gate is read before the floor: a fixture on the wrong
+      // rows is not a test of this contract at all, and the two gates would otherwise be indistinguishable in the reason.
+      slice: { skip: 50, requested: 146 },
+    }),
+    baseline,
+  );
+  assert(
+    independent.variedField === 'falsifier',
+    `the second contract is the same configuration key with a different value, received ${String(independent.variedField)}`,
+  );
+  assert(
+    independent.registration?.section === '§74 (R-36b)',
+    `and the value decides which sentence answers it, received ${String(independent.registration?.section)}`,
+  );
+  assert(
+    independent.verdict.magnitudeMet === true,
+    'a gain of 0.0222 clears the 0.02 the second contract asked for, which is a thinner bar on purpose',
+  );
+  assert(
+    independent.verdict.mechanismMet === true,
+    'and recall held, so a removal-only device that kept its recall is a confirmation',
+  );
+  assert(
+    independent.verdict.activity?.met === true,
+    'and it removed enough to be a test of the contract at all',
+  );
+  // **The floor's failure branch, which is the one §74.4 exists for.** The same gain, and a gate that removed fourteen
+  // claims: **a run that barely runs is not a falsification of the device either** - it is a statement that these rows'
+  // claims have no independent evidence to find, and the artifact has to say so rather than reporting a delta.
+  const idle = summarise(
+    artifact({
+      profile: 'advisory',
+      tp: 310,
+      fp: 1480,
+      fn: 690,
+      covered: [range(0, 155), range(155, 155)],
+      goldensPerPr: [500, 500],
+      falsifier: 'independent-evidence-v2',
+      falsifierDropped: 14,
+      slice: { skip: 50, requested: 146 },
+    }),
+    baseline,
+  );
+  assert(idle.verdict.activity?.observed === 14, 'the floor reads the count the device reported');
+  assert(
+    idle.verdict.activity?.met === false,
+    'fourteen removals is under the forty the registration needs',
+  );
+  assert(
+    String(idle.verdict.outcome).startsWith('not a test'),
+    `and the run is refused as a test rather than reported as a loss, received ${String(idle.verdict.outcome)}`,
+  );
+  assert(
+    idle.verdict.confirms === false,
+    'which is the only safe direction for a gate nobody has enough evidence to read',
   );
   assert(
     collapsed.verdict.mechanismMet === false,

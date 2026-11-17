@@ -73,6 +73,7 @@ export declare const REGISTRATIONS: Readonly<
     | 'ensemble'
     | 'ensemble:reader'
     | 'falsifier'
+    | 'falsifier:independent-evidence-v2'
     | 'idioms'
     | 'languageChecklist'
     | 'remarks'

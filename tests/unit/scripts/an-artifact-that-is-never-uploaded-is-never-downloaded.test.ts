@@ -295,6 +295,14 @@ describe('the artifact names of the benchmark workflow', () => {
         uploaded[0]!,
         pair('adjudicate', 'falsifier').find((arm) => arm['adjudicate'] === 'falsifier')!,
       ),
+      // **And the second contract's arm**, which is §74's answer to §73 rather than a new device: the same gate with the
+      // claim's own range removed from its evidence. It is a separate input value because §73's figure has to stay
+      // reproducible from the switch that produced it - **a run that redefined `falsifier` would make the falsification
+      // unfalsifiable**, which is the one outcome this repository's registrations exist to prevent.
+      expand(
+        uploaded[0]!,
+        pair('adjudicate', 'falsifier-v2').find((arm) => arm['adjudicate'] === 'falsifier-v2')!,
+      ),
     ]);
     expect(new Set(downloads)).toEqual(expected);
   });
@@ -375,7 +383,9 @@ describe('the matrix is one experiment', () => {
       // two arms are the claim's own two arms rather than a proxy, and R-29 could not be dispatched as one.
       // **And one pair and one single for the lane set**, which is R-35's device: `lane_set: pair` buys both questions
       // over the same rows, and `lane_set: on` is the diagnostic dispatch that prices one question without a comparison.
-    ).toEqual([1, 1, 1, 1, 1, 1, 1, 1, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2]);
+      // **And a seventh pair for the gate's second contract**, which is §74's discovery: the first contract's removals
+      // were 24.9 % true positives against a pool rate of 21.3 %, and every sampled removal quoted the claim it attacked.
+    ).toEqual([1, 1, 1, 1, 1, 1, 1, 1, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2]);
   });
 
   it('varies exactly one key, so that a difference between the arms is the device', () => {
@@ -386,6 +396,7 @@ describe('the matrix is one experiment', () => {
     const experiments: [ArmKey, string][] = [
       ['adjudicate', 'on'],
       ['adjudicate', 'falsifier'],
+      ['adjudicate', 'falsifier-v2'],
       ['idioms', 'on'],
       ['agent', 'on'],
       ['second_concern', 'on'],
@@ -613,6 +624,7 @@ describe('a download guard that the next device forgets to extend', () => {
       // **And R-36's gate, which is the same input with the third value.** The fallback step's guard excludes
       // `falsifier` explicitly, because that dispatch's device arm is not the one it downloads.
       { input: 'pair', value: 'falsifier', varied: 'adjudicate', armValue: 'falsifier' },
+      { input: 'pair', value: 'falsifier-v2', varied: 'adjudicate', armValue: 'falsifier-v2' },
     ];
 
     for (const { input, value, varied, armValue } of dispatches) {

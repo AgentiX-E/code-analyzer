@@ -20,12 +20,43 @@
 //
 // **And it may not edit.** No rewrite, no re-anchor, no severity change: the survivors go back as the same objects. A
 // gate that edits is a second author of the comment, and then a figure measures the gate rather than the reviewer.
+//
+// **§74 found that the first contract admitted a tautology, and the second one closes it.** Under `quoted-falsifier-v1`
+// the quotable set is the whole file's added lines - including the line the claim is anchored to. A claim's evidence
+// *is* its line, so `the y component is doubled` at line 11 was "refuted" by quoting line 11. Nine of the twelve
+// removals sampled from that run did exactly this, and the gate's removals carried **69 true positives against a pool
+// rate of 21.3 %** - very slightly worse than deleting at random. `independent-evidence-v2` removes the claim's own
+// range from the quotable set, in the prompt and in the checker, so what is left is the only thing that could ever
+// refute a sentence: the rest of the change. **A gate whose only evidence is the claim itself keeps every claim**, which
+// is the direction this device has always been allowed to fail in.
 
 import { text } from './verdict.js';
 
 import type { NumberedAddedLine } from './patch-lines.js';
 import type { LLMFinding } from '../llm/prompts.js';
 import type { CompletionOptions, LLMProvider } from '../llm/provider.js';
+
+/**
+ * **The two contracts a gate call can be run under, named in the artifact.**
+ *
+ * `v1` is the quote-verifying gate of §73; `v2` is the same device with the claim's own range removed from its evidence.
+ * **The name travels with the report** rather than being a constant of the run, because the two contracts produce
+ * different pools from the same prompts-shaped artefacts and a figure that could not say which one produced it would be a
+ * figure the next iteration can contradict without being wrong.
+ */
+export const FALSIFIER_CONTRACTS = {
+  v1: 'quoted-falsifier-v1',
+  v2: 'independent-evidence-v2',
+} as const;
+
+/**
+ * **A contract is named by its value, not by its key.**
+ *
+ * `'independent-evidence-v2'` rather than `'v2'`, because the name is what the artifact records and what a reader of a
+ * report compares against `docs/EVAL-CONTRACT.md`; a key would be a second name for the same fact and the pair would
+ * drift the first time one of them was renamed.
+ */
+export type FalsifierContract = (typeof FALSIFIER_CONTRACTS)[keyof typeof FALSIFIER_CONTRACTS];
 
 /**
  * **The shortest quote that can identify a line.**
@@ -60,6 +91,11 @@ export interface FalsifierRequest {
    * cannot be checked would be dropping on the reader's word, which is the device this one exists to replace.
    */
   addedLines: ReadonlyArray<NumberedAddedLine> | null;
+  /**
+   * **Which rules the reader is answering under.** Defaults to `quoted-falsifier-v1`, the contract §73 registered and
+   * §74 falsified, so that every figure already in this repository stays reproducible from the code that measured it.
+   */
+  contract?: FalsifierContract;
 }
 
 /** One claim the reader says a line contradicts, before the quote is checked. */
@@ -79,6 +115,10 @@ export type FalsifierRead =
 /** One claim the gate removed, with the evidence that removed it. */
 export interface FalsifierDrop {
   finding: LLMFinding;
+  /** The claim's one-based position in the file's list, so the artifact can say *which* claim was removed. */
+  claimIndex: number;
+  /** The new-side line number of the line the quote was found on. */
+  quoteLine: number;
   quote: string;
   reason: string;
 }
@@ -91,6 +131,16 @@ export interface FalsifierReport {
   dropped: number;
   /** Claims whose refutation did not quote an added line, or quoted fewer than `FALSIFIER_MIN_QUOTE` characters. */
   keptBecauseQuoteMissing: number;
+  /**
+   * **Claims whose refutation quoted only lines inside the claim's own range.**
+   *
+   * Kept apart from `keptBecauseQuoteMissing` because the two are different defects that print the same F1: one says the
+   * reader cannot copy a line, the other says the reader copied the claim. **Only the second is evidence that the device
+   * is tautological**, and §74 could only infer it by reading twelve sampled rows by hand.
+   */
+  keptBecauseSelfReferential: number;
+  /** Which rules this call ran under, from `FALSIFIER_CONTRACTS`. */
+  contract: string;
   /** Claims the reader refuted but the answer could not be read at all. */
   unreadable: number;
   /** Claims beyond `FALSIFIER_MAX_CLAIMS`, which were never asked about. */
@@ -145,8 +195,17 @@ function renderLines(lines: ReadonlyArray<NumberedAddedLine>): {
   return { body: rendered.join(''), shown: rendered.length };
 }
 
-/** How many claims the prompt can carry, and the block that numbers them. */
-function renderClaims(findings: ReadonlyArray<LLMFinding>): { body: string; asked: number } {
+/**
+ * **How many claims the prompt can carry, and the block that numbers them.**
+ *
+ * Under `v2` each claim is followed by the range that is not evidence for it. **The prohibition is stated per claim
+ * rather than once for the file**, because a reader that has to apply a subtraction while composing its answer will
+ * quote the claim's own line - which is what the sampled removals of §74 show twelve times in twelve.
+ */
+function renderClaims(
+  findings: ReadonlyArray<LLMFinding>,
+  contract: FalsifierContract,
+): { body: string; asked: number } {
   const asked = Math.min(findings.length, FALSIFIER_MAX_CLAIMS);
   const body = findings
     .slice(0, asked)
@@ -155,7 +214,10 @@ function renderClaims(findings: ReadonlyArray<LLMFinding>): { body: string; aske
         finding.endLine > finding.startLine
           ? `lines ${finding.startLine}-${finding.endLine}`
           : `line ${finding.startLine}`;
-      return `[${at + 1}] (${where}) ${finding.title}`;
+      const head = `[${at + 1}] (${where}) ${finding.title}`;
+      if (contract !== FALSIFIER_CONTRACTS.v2) return head;
+      const verb = finding.endLine > finding.startLine ? 'are' : 'is';
+      return `${head}\n    claim ${at + 1}'s own ${where} ${verb} not evidence for claim ${at + 1}`;
     })
     .join('\n');
   return { body, asked };
@@ -171,9 +233,36 @@ function renderClaims(findings: ReadonlyArray<LLMFinding>): { body: string; aske
 export function buildFalsifierPrompt(
   request: FalsifierRequest & { addedLines: ReadonlyArray<NumberedAddedLine> },
 ): string {
+  const contract = request.contract ?? FALSIFIER_CONTRACTS.v1;
   const lines = renderLines(request.addedLines);
-  const claims = renderClaims(request.findings);
+  const claims = renderClaims(request.findings, contract);
+  const rules =
+    contract !== FALSIFIER_CONTRACTS.v2
+      ? [
+          'Three rules, and they are the whole contract:',
+          '',
+          '1. Only the added lines above are evidence. Code this change did not touch is not evidence, and neither is',
+          '   code you cannot see.',
+          '2. The quote must be one of the lines above, copied exactly. A quote that is not on an added line is not a',
+          '   refutation, and the claim stays.',
+          '3. You may not rewrite a claim, re-anchor it, or lower its severity. A claim is either refuted by a quoted',
+          '   line or kept as it was written.',
+        ]
+      : [
+          'Four rules, and they are the whole contract:',
+          '',
+          '1. Only the added lines above are evidence. Code this change did not touch is not evidence, and neither is',
+          '   code you cannot see.',
+          "2. **A claim's own range is not evidence for that claim.** The line a claim points at is what the claim is",
+          '   about, not a reason to disbelieve it: quoting it says the code is the code. The quote has to be a line',
+          '   **outside** the range printed under that claim.',
+          '3. The quote must be one of the lines above, copied exactly. A quote that is not on an added line, or that is',
+          '   only inside the claim it attacks, is not a refutation, and the claim stays.',
+          '4. You may not rewrite a claim, re-anchor it, or lower its severity. A claim is either refuted by a quoted',
+          '   line or kept as it was written.',
+        ];
   return [
+    `Contract: ${contract}.`,
     `You are the independent reader of one file's change: ${request.path}.`,
     '',
     'Below are the added lines, with the number the new file gives each one. Below them are claims another reader made',
@@ -185,19 +274,14 @@ export function buildFalsifierPrompt(
     'The claims:',
     claims.body,
     '',
-    'Question: which of these claims does one of the added lines directly contradict?',
+    contract !== FALSIFIER_CONTRACTS.v2
+      ? 'Question: which of these claims does one of the added lines directly contradict?'
+      : "Question: which of these claims does one of the added lines outside the claim's own range directly contradict?",
     '',
     "Answer with the claim's number and the exact text of the line that contradicts it, copied character for character",
     'from the list above. If no added line contradicts a claim, do not mention it - a claim you cannot refute is kept.',
     '',
-    'Three rules, and they are the whole contract:',
-    '',
-    '1. Only the added lines above are evidence. Code this change did not touch is not evidence, and neither is code',
-    '   you cannot see.',
-    '2. The quote must be one of the lines above, copied exactly. A quote that is not on an added line is not a',
-    '   refutation, and the claim stays.',
-    '3. You may not rewrite a claim, re-anchor it, or lower its severity. A claim is either refuted by a quoted line or',
-    '   kept as it was written.',
+    ...rules,
     '',
     'Answer as JSON only:',
     '{"refuted":[{"claim":<number>,"quote":"<the added line, character for character>","reason":"<one sentence>"}]}',
@@ -251,18 +335,26 @@ export function readFalsifierAnswer(raw: string): FalsifierRead {
 export class FalsifierGate {
   private readonly provider: LLMProvider;
   private readonly timeout: number | undefined;
+  private readonly contract: FalsifierContract;
 
-  constructor(provider: LLMProvider, options: { timeout?: number } = {}) {
+  constructor(
+    provider: LLMProvider,
+    options: { timeout?: number; contract?: FalsifierContract } = {},
+  ) {
     this.provider = provider;
     this.timeout = options.timeout;
+    this.contract = options.contract ?? FALSIFIER_CONTRACTS.v1;
   }
 
   /** Run the gate over one file's claims. */
   async gate(request: FalsifierRequest): Promise<FalsifierOutcome> {
+    const contract = request.contract ?? this.contract;
     const report: FalsifierReport = {
       candidates: request.findings.length,
       dropped: 0,
       keptBecauseQuoteMissing: 0,
+      keptBecauseSelfReferential: 0,
+      contract,
       unreadable: 0,
       notAsked: 0,
       notAPatch: request.addedLines === null,
@@ -283,7 +375,7 @@ export class FalsifierGate {
     const asked = Math.min(request.findings.length, FALSIFIER_MAX_CLAIMS);
     report.notAsked = request.findings.length - asked;
 
-    const prompt = buildFalsifierPrompt({ ...request, addedLines });
+    const prompt = buildFalsifierPrompt({ ...request, addedLines, contract });
     let raw: string;
     try {
       const options: CompletionOptions = {
@@ -308,11 +400,12 @@ export class FalsifierGate {
       return { kept: [...request.findings], dropped: [], report };
     }
 
-    // **The strings the reader was allowed to quote**, in comparison form, so a quote is checked against what it was
-    // shown rather than against the whole file's added lines beyond the budget.
+    // **The lines the reader was allowed to quote**, in comparison form and carrying the number they were shown, so a
+    // quote is checked against what it saw rather than against the whole file's added lines beyond the budget - and so
+    // that a removal can say *which* line it stood on.
     const quotable = addedLines
       .slice(0, renderLines(addedLines).shown)
-      .map((line) => compareForm(line.text));
+      .map((line) => ({ line: line.line, text: compareForm(line.text) }));
 
     const droppedAt = new Map<number, FalsifierDrop>();
     for (const refutation of read.refuted) {
@@ -325,12 +418,32 @@ export class FalsifierGate {
       if (droppedAt.has(at)) continue;
 
       const quote = compareForm(refutation.quote);
-      if (quote.length < FALSIFIER_MIN_QUOTE || !quotable.some((line) => line.includes(quote))) {
+      const matches =
+        quote.length < FALSIFIER_MIN_QUOTE
+          ? []
+          : quotable.filter((line) => line.text.includes(quote));
+      if (matches.length === 0) {
         report.keptBecauseQuoteMissing += 1;
         continue;
       }
+
+      // **`v2`: the claim's own range is not evidence for the claim.** The test is existential - if *any* line carrying
+      // that text lies outside the range, the reader has quoted evidence that survives the subtraction - and a quote
+      // whose every match is inside the claim is the tautology §74 found, so it keeps the claim and is counted.
+      const claim = request.findings[at]!;
+      const usable =
+        contract !== FALSIFIER_CONTRACTS.v2
+          ? matches
+          : matches.filter((line) => line.line < claim.startLine || line.line > claim.endLine);
+      if (usable.length === 0) {
+        report.keptBecauseSelfReferential += 1;
+        continue;
+      }
+
       droppedAt.set(at, {
-        finding: request.findings[at]!,
+        finding: claim,
+        claimIndex: at + 1,
+        quoteLine: usable[0]!.line,
         quote: refutation.quote,
         reason: refutation.reason,
       });

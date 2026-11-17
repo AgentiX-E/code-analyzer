@@ -7690,3 +7690,126 @@ And `droppedFindings` carries the quote with the removal, sampled across the cor
 3. **Reading a falsified F1 as "filters do not work".** §45 already showed a filter can move precision to 45.5 %. What a
    falsification here would say is narrower and more useful: **that the quoting requirement is what costs the recall**,
    which is a statement about the contract and not about the class.
+
+## §74 R-36 read back — the gate that could quote the claim, and the contract that let it
+
+### 74.1 The reading, before the explanation
+
+Two arms, the same 146 pull requests, the same judge, the same lanes; the only configuration field that differs is
+`falsifier` (`false` against `true`), and the run is `44028262099`, artifacts `14314024344` and `14314940025`.
+
+|                    | TP  | FP  | FN  | precision | recall | **F1**     |
+| ------------------ | --- | --- | --- | --------- | ------ | ---------- |
+| lanes as they ship | 208 | 769 | 846 | 0.2129    | 0.1973 | **0.2048** |
+| behind the gate    | 139 | 561 | 915 | 0.1986    | 0.1319 | **0.1585** |
+
+**ΔF1 = −0.0463**, paired **+41 / −110** on 277 common goldens, **p = 1.79 × 10⁻⁸**. The registration asked for
+**+0.026**; the mechanism rule was `recall-holds`, whose first clause is _precision rises_. **Precision fell**, so the
+verdict fails on both clauses rather than on the magnitude alone: this is a falsification of the device as specified, not
+a shortfall.
+
+| counter                   | value                             | what it was for                                       |
+| ------------------------- | --------------------------------- | ----------------------------------------------------- |
+| `candidates`              | 1 646                             | the pool the gate was shown                           |
+| `dropped`                 | **557** (33.8 %)                  | removals it applied                                   |
+| `keptBecauseQuoteMissing` | **27** of 584 refutations (4.6 %) | **the reader almost never failed to quote something** |
+| `notAPatch`               | 38 files                          | files whose text carried no quotable line             |
+| `calls`                   | 915 of 146 PRs                    | 6.3 calls per pull request                            |
+
+### 74.2 The anatomy, and it is one number
+
+The pool the gate was shown is larger than the pool that could have been filed: `maxFindingsPerFile` truncates before
+the artifact's precision and recall are computed, so **of the 557 removals only 277 could ever have reached a reviewer**.
+The other 280 were claims that were not going to be filed whether the gate ran or not - **the gate paid a model call to
+decide the fate of a sentence nobody would see.**
+
+Of those 277: **69 were true positives and 208 were false positives.** The pool's own true-positive rate is
+`208 / 977 = 21.3 %`; the removals' is `69 / 277 = 24.9 %`. **The gate was very slightly worse than deleting at random**,
+and that is the finding, because it is not a story about an unlucky prompt:
+
+> **A false positive is a sentence with nothing specific to point at; a true positive is a sentence about a line. A
+> gate whose evidence requirement is "quote an added line" therefore preferentially removes the sentences that have a
+> line.** §72.3 already showed that 88 % of the goldens sitting on a hit's line have a sibling the range rule swallowed -
+> the claims are anchored, and the gate attacks exactly the anchored ones.
+
+Twelve removals were sampled evenly across the corpus at the time of the run, and **all twelve quote a line inside the
+range the claim attacks**:
+
+| claim (anchored at)                                                              | what the reader quoted as a contradiction                                 |
+| -------------------------------------------------------------------------------- | ------------------------------------------------------------------------- |
+| `renaming proto field task_id to ulid without reserving the old tag` (178)       | `optional string ulid = 3;`                                               |
+| `the y component is doubled` family — `updateSettings.ts` (30)                   | `controller.task.api = buildApiHandler({ … ulid: controller.task.ulid })` |
+| `Registry views coupled to concrete browser driver` (3)                          | `from patchright.async_api import Page`                                   |
+| `Deprecated field initialized to empty string changes null semantics` (47)       | `private String systemPrompt = "";`                                       |
+| `Scope validation accepts any case but handler only matches 'workspace'` (18-24) | `if (args.scope?.toLowerCase() === 'workspace') {`                        |
+
+**None of these is a reader error.** Each quote is _the_ evidence for the claim - `from patchright.async_api import Page`
+is what "coupled to a concrete driver" means. The reader was asked _which line contradicts this claim_ and answered with
+the line the claim is about, because the contract says a line the diff added is evidence and **the claim's own line is
+one of those lines**.
+
+That is a tautology: `the y component is doubled` at line 12, refuted by line 12. **The gate concluded that the code is
+the code, 557 times, and was right about a third of them by accident.**
+
+### 74.3 The same fact from the other side
+
+`keptBecauseQuoteMissing` was designed to separate a strict gate from a reader that invents refutations, and it read
+**27 of 584**. Read as a strictness metric that looks like a working gate. Read against §74.2 it is the mechanism
+itself: **a reader that may quote the claim's own line can always quote something**, so the counter that was supposed to
+measure the gate's discipline was measuring the contract's looseness.
+
+And `dropped` alone would have looked like a success: 557 of 1 646 is a filter that removes a third of the pool, which is
+exactly what a filter is for. **The number that would have caught it is the one that was not in the artifact** - the
+true-positive share of the removals - and it took a second full run (the judge scores both arms) to compute it.
+
+### 74.4 The second contract, and why it is a contract rather than a prompt edit
+
+`independent-evidence-v2` subtracts the claim's range from the quotable set, in **both** places:
+
+1. **In the prompt.** Each claim is printed with the range that is not evidence for it - `claim 1's own line 12 is not
+evidence for claim 1` - because a reader told to apply a subtraction while composing its answer will not apply it.
+2. **In the checker.** A refutation whose every matching line falls inside `[startLine, endLine]` keeps the claim and is
+   counted in `keptBecauseSelfReferential`. **The test is existential**: if any line carrying that text lies outside the
+   range, the reader has quoted evidence that survives the subtraction, because refining a claim by its text is the same
+   as refining it by its line.
+
+What remains quotable is the only thing that could ever have refuted a sentence: **the rest of the change** - the guard
+three lines up, the `reserved` tag below, the check the claim said was missing. **A gate with nothing else to point at
+keeps every claim**, which is the direction this device has always been allowed to fail in.
+
+**§73's figure stays reproducible**: `falsifier` is no longer a boolean but a contract name, `falsifier:
+'quoted-falsifier-v1'` is the arm that produced 0.1585, and its registration is closed with an empty `confirmation` for
+the reason §8's is - **a falsified device needs no confirmation slice, and listing one would be a promise to pay for a
+verdict that has already been read.**
+
+**And the sentence above is a gate rather than a remark.** The registration carries `activity: { counter:
+'falsifier.dropped', atLeast: 40 }`, the comparison reports `verdict.activity: { observed, atLeast, met }`, and a run
+under the floor is refused as `not a test: the registration needs 40 falsifier.dropped before a difference is about the
+contract` - **before the magnitude is read**, because a gain of zero from a gate that removed nothing is not evidence
+that the gate does not work. `observed: null` (the artifact does not carry the counter) is `met: false`: **a requirement
+satisfied by the absence of its measurement is not a requirement.**
+
+### 74.5 The two instrument defects this run exposed
+
+1. **The sample could not be checked against itself.** `droppedFindings` carried the claim's range and the quote's text
+   but nothing that joined them, so _was this quote the claim's own line?_ was answerable only by reading twelve rows by
+   hand - which is what §74.2 did. The rows now carry `quoteLine` and `claimIndex`, and the next run answers it by
+   counting.
+2. **The contract was a constant of the writer.** The artifact's `falsifier.contract` was the string
+   `'quoted-falsifier-v1'` written by `aacr-bench.mjs`, not by the gate. **A field whose value is a constant of the
+   writer cannot record a change**: the second contract would have produced artifacts saying `quoted-falsifier-v1`, and
+   the comparison would have answered them with §73's sentence. It is now written from `report.contract` on the first
+   file the gate reads, and left `null` until then.
+
+### 74.6 What would make this section wrong
+
+1. **Reading the falsification as "reflection does not work".** It says the quoting requirement as written admitted the
+   claim itself. §45 showed the same class can move precision to 45.5 %; §74 shows it can move F1 to 0.1585. **Neither is
+   a statement about reflection; both are statements about contracts**, which is why the next dispatch changes the
+   contract and nothing else.
+2. **Reading 24.9 % as "the gate was anti-selective" as a law.** The interval on 69 of 277 is wide enough to contain the
+   pool rate. What the 24.9 % establishes is the _absence_ of selection - a gate indistinguishable from uniform deletion
+   - and the twelve-row sample is what establishes the mechanism behind the absence.
+3. **Reading a confirmed v2 as the device being worth its price.** 915 calls per 146 pull requests bought −0.0463 this
+   time. The bar is 0.02 at a resolution of 0.0157, and §74.4's rule stands: **a gain under 40 removals is a statement
+   about the corpus's claims, not about the device**, and the direction closes rather than being tuned again.

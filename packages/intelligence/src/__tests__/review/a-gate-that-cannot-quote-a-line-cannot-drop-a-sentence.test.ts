@@ -588,7 +588,10 @@ describe('the engine with the gate switched on', () => {
         ],
       }),
     );
-    const engine = new LLMReviewEngine(provider, { lanes: ['security'], falsify: true });
+    const engine = new LLMReviewEngine(provider, {
+      lanes: ['security'],
+      falsify: 'quoted-falsifier-v1',
+    });
     const results = await engine.reviewDiff(reviewDiff(), PATCH);
 
     // **One call for the file, not one per claim** - that ratio is the whole reason the device is affordable.
@@ -612,7 +615,10 @@ describe('the engine with the gate switched on', () => {
       [CLAIM_ONE],
       JSON.stringify({ refuted: [{ claim: 1, quote: 'const double y = line.y;', reason: 'x' }] }),
     );
-    const engine = new LLMReviewEngine(provider, { lanes: ['security'], falsify: true });
+    const engine = new LLMReviewEngine(provider, {
+      lanes: ['security'],
+      falsify: 'quoted-falsifier-v1',
+    });
     const window = ['double isValidSingleEdge(const Line& line) {', '  return false;', '}'].join(
       '\n',
     );
@@ -630,7 +636,10 @@ describe('the engine with the gate switched on', () => {
         refuted: [{ claim: 1, quote: 'const double y = line.y;', reason: 'y is still read' }],
       }),
     );
-    const engine = new LLMReviewEngine(provider, { lanes: ['security'], falsify: true });
+    const engine = new LLMReviewEngine(provider, {
+      lanes: ['security'],
+      falsify: 'quoted-falsifier-v1',
+    });
     const results = await engine.reviewDiff(reviewDiff(), PATCH);
 
     expect(engine.lastFalsifier?.report.keptBecauseQuoteMissing).toBe(1);

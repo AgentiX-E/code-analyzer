@@ -1780,7 +1780,21 @@ async function main() {
    * `falsifier` asks **once per file**, keeps by default, and **applies a removal only when the reader quotes a line the
    * diff added** - so a reader that invents refutations costs an unchanged pool rather than a silent reviewer.
    */
-  const FALSIFY = ADJUDICATE_MODE === 'falsifier';
+  /**
+   * **The value is the contract, and §74 is the reason it is not a boolean.**
+   *
+   * The first gate's artifact recorded `falsifier: true` and `contract: 'quoted-falsifier-v1'` from a constant in this
+   * file rather than from the device, so the number could not say which rules produced it - and the next contract would
+   * have written the same string. **A field whose value is a constant of the writer is a field that cannot record a
+   * change.** It now records what the gate itself reported for the last file it read, which is the only value that can
+   * differ between the two arms.
+   */
+  const FALSIFY =
+    ADJUDICATE_MODE === 'falsifier'
+      ? 'quoted-falsifier-v1'
+      : ADJUDICATE_MODE === 'falsifier-v2'
+        ? 'independent-evidence-v2'
+        : false;
   /**
    * **Whether the deterministic idiom lane runs beside the five model lanes.**
    *
@@ -2021,10 +2035,13 @@ async function main() {
            * `adjudicate: true` for as long as the field had two values, and **a figure that cannot say which contract
            * produced it is a figure the next run can contradict without being wrong.**
            */
-          contract: 'quoted-falsifier-v1',
+          // **Left empty until the gate answers**, and written from `report.contract` on the first file it reads: a
+          // default here would be a second source of truth for the same fact.
+          contract: null,
           candidates: 0,
           dropped: 0,
           keptBecauseQuoteMissing: 0,
+          keptBecauseSelfReferential: 0,
           unreadable: 0,
           notAsked: 0,
           notAPatch: 0,
@@ -3023,9 +3040,11 @@ async function main() {
         const gate = engine.lastFalsifier;
         if (gate && engineCounters.falsifier.enabled) {
           const totals = engineCounters.falsifier;
+          totals.contract ??= gate.report.contract;
           totals.candidates += gate.report.candidates;
           totals.dropped += gate.report.dropped;
           totals.keptBecauseQuoteMissing += gate.report.keptBecauseQuoteMissing;
+          totals.keptBecauseSelfReferential += gate.report.keptBecauseSelfReferential;
           totals.unreadable += gate.report.unreadable;
           totals.notAsked += gate.report.notAsked;
           totals.calls += gate.report.calls;
@@ -3036,6 +3055,11 @@ async function main() {
               startLine: one.finding.startLine,
               endLine: one.finding.endLine,
               title: one.finding.title.slice(0, 160),
+              // **The line the quote stood on, which §74 had to infer.** The first run's sample carried the quote's text
+              // and the claim's range and nothing that joined them, so "was this quote the claim's own line?" could only
+              // be answered by reading twelve rows by hand. `quoteLine` and `claimIndex` make it a count.
+              quoteLine: one.quoteLine,
+              claimIndex: one.claimIndex,
               quote: one.quote.slice(0, 200),
               reason: one.reason.slice(0, 240),
             });
