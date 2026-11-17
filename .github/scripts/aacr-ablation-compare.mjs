@@ -855,6 +855,43 @@ export function registrationResolvable(registration, goldens) {
 }
 
 /**
+ * **The share of a device's removals that were true positives, which is a criterion rather than a description.**
+ *
+ * §75.3's number: the route to the field's leader needs **a removal pool at or under 4 % true positives**, and §74's
+ * gate read 24.9 % - which is why its 557 removals bought −0.046 F1 while the same 557 removals, had they all been false
+ * positives, would have bought +0.077. **Measured on the removals rather than on the run**, it does not move when the
+ * reviewer's generation changes, so a gate that improves while the lanes improve keeps its own number.
+ *
+ * Three fields and not one, because the share alone cannot tell a device that removed nothing from a device that removed
+ * the right things - `0 / 0` is not a perfect pool, it is no pool, and `share` is `null` for it. A negative
+ * `truePositivesRemoved` means the device found goldens the baseline missed, which a removal device cannot do; it is
+ * clamped, and the clamp is reported as zero removed rather than as a negative pool.
+ */
+export const REMOVAL_TP_SHARE_TARGET = 0.04;
+
+export function removalPool(without, withArm) {
+  const withoutFindings = Number(without?.findings);
+  const withFindings = Number(withArm?.findings);
+  const withoutTp = Number(without?.truePositives);
+  const withTp = Number(withArm?.truePositives);
+  const countable = [withoutFindings, withFindings, withoutTp, withTp].every((value) =>
+    Number.isFinite(value),
+  );
+  // **A pool nobody measured is not a pool of zero**, so a missing count returns `null` rather than a perfect record.
+  if (!countable) return null;
+  const removed = Math.max(0, withoutFindings - withFindings);
+  const truePositivesRemoved = Math.min(removed, Math.max(0, withoutTp - withTp));
+  const share = removed === 0 ? null : round(truePositivesRemoved / removed);
+  return {
+    removed,
+    truePositivesRemoved,
+    share,
+    target: REMOVAL_TP_SHARE_TARGET,
+    withinTarget: share === null ? null : share <= REMOVAL_TP_SHARE_TARGET,
+  };
+}
+
+/**
  * **The most a removal-only device could have gained, computed from the arm it was compared against.**
  *
  * A device that can only delete findings has an upper bound on its effect: **the figure it would have reached had every
@@ -1539,6 +1576,11 @@ export function summarise(on, off) {
       falseNegatives: offArm.falseNegatives,
       findings: offArm.findings,
     },
+    /**
+     * **The pool this device was judged on, beside the figure it produced** - §75.3's criterion, measured on the
+     * removals rather than on the run, so that a gate's number does not move when the reviewer's generation does.
+     */
+    removalPool: removalPool(offArm, onArm),
     delta: {
       precision: precisionGain,
       recall: recallGain,

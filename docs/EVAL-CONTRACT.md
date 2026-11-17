@@ -7958,3 +7958,15 @@ as a test of the device's judgement.
 3. **Computing it from the difference in emitted findings.** That difference has already had truncation and true-positive
    losses applied, so a bound built from it would be the result rather than the ceiling — the device would be excused by
    its own failures.
+
+### 76.4 The pool, not the figure
+
+§75.3 said every subsequent precision device should be judged on **the true-positive share of its removals** — ≤ 4 % —
+rather than on F1, because that number is measured on what the device deleted and does not move when the reviewer's
+generation moves. It was prose; it is now a field. `removalPool` publishes `removed`, `truePositivesRemoved`, `share`,
+`target` and `withinTarget` beside the delta, and **`share` is `null` rather than `0` when nothing was removed**: no pool
+is not a perfect pool, which is the same rule `activity: { observed: null }` applies one level up.
+
+At §73's gate the field reads **277 removed, 69 of them true positives, share 0.2491, outside the 0.04 target** — the
+number §74 had to read off twelve sampled rows by hand, now computed from the two arms. And at §75.3's combination it is
+the only figure that can say whether the gate half of the plan is working while the F1 half is still short.

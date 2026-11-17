@@ -151,6 +151,24 @@ export declare const REPRODUCTION: {
 /** **The smallest gain this project will register**, because a bar under it cannot be signed by any run it can afford. */
 export declare const MINIMUM_REGISTERED_GAIN: number;
 
+/** **The share of a device's removals that may be true positives** for the removal route of §75.3 to pay. */
+export declare const REMOVAL_TP_SHARE_TARGET: number;
+
+/**
+ * **The pool a device was judged on**: findings removed, true positives among them, their share, and whether the share
+ * is inside the target. `share` is `null` when nothing was removed, because no pool is not a perfect pool.
+ */
+export declare function removalPool(
+  without: { findings?: number | null; truePositives?: number } | null | undefined,
+  withArm: { findings?: number | null; truePositives?: number } | null | undefined,
+): {
+  removed: number;
+  truePositivesRemoved: number;
+  share: number | null;
+  target: number;
+  withinTarget: boolean | null;
+} | null;
+
 /**
  * **The most a removal-only device could have gained**, from the arm it was compared against: the figure had every claim
  * it removed been a false positive that reached the reviewer, with no true positive lost.
