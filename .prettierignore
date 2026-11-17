@@ -51,3 +51,13 @@ benchmarks/aacr-bench.json
 # extended twice in two iterations - a new `-semantic.json` and a regenerated `-corpus.json` each arrived unformatted and
 # turned the format gate red on a commit that had nothing to do with formatting. A pattern cannot be forgotten.
 benchmarks/multirepo-qa*.json
+
+# **The review measurement's artifacts, by one pattern, for the reason the pattern above exists and one more.** These
+# files are written by `.github/scripts/aacr-ablation-compare.mjs` and its siblings with `JSON.stringify(…, null, 2)`,
+# and they are the bytes the workflow uploads - so a formatter pass would make the committed artifact differ from the
+# measured one. The second reason is the commit that made this entry necessary: `aacr-ablation-paired.json` was written
+# by a run, committed, and only then found by `format:check` in CI, on a commit whose local gate had been believed
+# green. **A file the harness wrote cannot be a file the formatter has an opinion about**, and a list of such files is a
+# list somebody has to remember to extend - which is exactly what failed. The whole family is excluded instead.
+# Verified: the only difference Prettier finds in any of these files is array layout.
+benchmarks/aacr-*.json
