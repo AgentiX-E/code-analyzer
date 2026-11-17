@@ -67,12 +67,12 @@ export declare const MECHANISMS: Readonly<
 export declare const REGISTRATIONS: Readonly<
   Record<
     | 'adjudicate'
-    | 'adjudicate:falsifier'
     | 'agent'
     | 'codeContext'
     | 'emissionProfile'
     | 'ensemble'
     | 'ensemble:reader'
+    | 'falsifier'
     | 'idioms'
     | 'languageChecklist'
     | 'remarks'

@@ -7652,6 +7652,13 @@ more than a golden is worth.
 | falsifier (F1)     | **< 0.2336**                         | the lanes' 0.2076 plus the registered 0.026; a figure below it is a falsification rather than a shortfall                                                       |
 | falsifier (recall) | **below the lanes' less one golden** | a gate that buys precision by deleting true positives is the failure this device is most exposed to                                                             |
 
+**The registration is filed under `falsifier`, not under `adjudicate:falsifier`, and that is a fact about the artifact.**
+The gate is dispatched as a third value of the existing input, but the artifact records what ran as its own configuration
+key beside `adjudicate: false` - so the field that differs between the two arms is `falsifier`, and a sentence filed under
+the input's name would be a sentence **no artifact can reach**. The name of the switch a dispatch flips and the name of
+the field that proves it was flipped are two different facts, and the comparison reads the second. Its `--self-test`
+branch is the proof: the fixture that varies `falsifier` is answered by §73's sentence and by nothing else.
+
 **And the confirmation debt is named rather than hidden.** The anatomy the device was designed from (§72.3) was read on
 these 146 rows, so **this dispatch is a discovery**. The corpus holds 200 pull requests and rows 196-199 are the only
 ones no run has read - four rows, which cannot carry a 0.026 bar. **A confirmation therefore needs a corpus that grows or

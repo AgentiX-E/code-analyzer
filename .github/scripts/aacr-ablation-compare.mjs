@@ -521,13 +521,19 @@ export const REGISTRATIONS = Object.freeze({
    * deleting true positives is the failure this device is most exposed to**, and a registration that named only F1 would
    * accept exactly that trade and call it a confirmation.
    *
+   * **The key is `falsifier` rather than `adjudicate:falsifier`, and that is a fact about the artifact.** The gate is
+   * dispatched as a third value of the existing input, but the artifact records it as its own configuration key beside
+   * `adjudicate: false` - so the field that varies between the two arms is `falsifier`, and a registration filed under
+   * the input's name would be a sentence no artifact can reach. **The name of the switch a dispatch flips and the name
+   * of the field that proves it was flipped are two different facts**, and the comparison reads the second.
+   *
    * **The slice is `skip 50, max 146` - the rows R-32, R-33 and R-35 read - and the confirmation debt is named rather
    * than hidden.** The anatomy the device was designed from (§72.3) was read on these rows, so this dispatch is a
    * discovery; the corpus holds 200 pull requests and 196-199 are the only rows no run has read, which is four rows and
    * cannot carry a 0.026 bar. **A confirmation therefore needs a corpus that grows or a slice that is bought twice**,
    * and writing that here is the difference between a registration with a debt and one pretending not to have any.
    */
-  'adjudicate:falsifier': {
+  falsifier: {
     section: '§73 (R-36)',
     claim:
       'a gate asked once per file that removes a claim only when a line the diff added is quoted against it raises the file arm F1 by at least 0.026 on the 146 pull requests R-32, R-33 and R-35 read, and does not lower recall by more than a golden is worth',
@@ -1538,6 +1544,11 @@ function selfTest() {
       languageChecklist: false,
       emissionProfile: overrides.profile,
       codeContext: overrides.codeContext ?? false,
+      // **Both second-reader keys, because a fixture that carried only one of them could not exercise the registration
+      // that reads the other.** They are `false` on every fixture that does not ask for them, so no existing assertion
+      // sees them vary.
+      adjudicate: overrides.adjudicate ?? false,
+      falsifier: overrides.falsifier ?? false,
     },
     truePositives: overrides.tp,
     falsePositives: overrides.fp,
@@ -1680,6 +1691,57 @@ function selfTest() {
   assert(
     registrationResolvable({ registeredGain: 0.2, section: 'R-x' }, 10).resolvable === true,
     'and a bar above it is answerable',
+  );
+
+  // **And §73's gate, which is the registration that has to be reachable from an artifact rather than from a dispatch.**
+  // The fixture is the arithmetic the registration names: 335 true positives against 300 on the same thousand goldens is
+  // F1 0.2291 against 0.2000 - **+0.0291, over the 0.026 bar** - and recall rises, so `recall-holds` holds.
+  const gated = summarise(
+    artifact({
+      profile: 'advisory',
+      tp: 335,
+      fp: 1590,
+      fn: 665,
+      covered: [range(0, 168), range(168, 167)],
+      goldensPerPr: [500, 500],
+      falsifier: true,
+    }),
+    baseline,
+  );
+  assert(
+    gated.variedField === 'falsifier',
+    `the gate is its own configuration key, received ${String(gated.variedField)}`,
+  );
+  assert(
+    gated.registration?.section === '§73 (R-36)',
+    `and the sentence it is filed under is found by that key, received ${String(gated.registration?.section)}`,
+  );
+  assert(
+    gated.verdict.magnitudeMet === true,
+    'a gain of 0.0291 clears the 0.026 the registration asked for',
+  );
+  assert(gated.verdict.mechanismMet === true, 'and recall rose, so the mechanism holds');
+  // **The failure the mechanism rule exists for**: a gate that buys precision by deleting true positives. Precision rises,
+  // recall falls by ten goldens, and the registration says that is a falsification rather than a confirmation.
+  const collapsed = summarise(
+    artifact({
+      profile: 'advisory',
+      tp: 290,
+      fp: 1200,
+      fn: 710,
+      covered: [range(0, 145), range(145, 145)],
+      goldensPerPr: [500, 500],
+      falsifier: true,
+    }),
+    baseline,
+  );
+  assert(
+    collapsed.verdict.magnitudeMet === true,
+    'F1 0.2329 clears the bar on precision alone, which is exactly why the mechanism is registered beside it',
+  );
+  assert(
+    collapsed.verdict.mechanismMet === false,
+    'and the gate is refused for paying with ten true positives',
   );
 
   const nothing = summarise(baseline, baseline);
