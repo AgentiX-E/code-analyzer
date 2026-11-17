@@ -483,6 +483,26 @@ export const REGISTRATIONS = Object.freeze({
    * device's. **The bar is unchanged at 0.026**, because the row count is unchanged at 146 and it is rows that decide
    * what can be signed.
    */
+  // **§75 (R-37) has no entry here, and the absence is the finding.**
+  //
+  // The union of the two lane sets is built and wired: `LANE_SETS.wide` is the five lanes plus `behaviour`, the matrix
+  // buys it as `lane_set: pair-wide`, and the download step and its guard test are in place. **What it does not have is a
+  // registration, because this corpus cannot sign one.**
+  //
+  // The arithmetic was done before the run rather than after: if `behaviour`'s 24 goldens are disjoint from `testing`'s
+  // 59, the union reads TP 232 against FP 820 on 1 054 goldens - **F1 0.2203, +0.0155** - and **146 rows resolve
+  // 0.0191**. A bar at the point estimate is under the instrument's own error bar, which the self-test refuses with the
+  // sentence §69.5 wrote: *a bar under its own resolution is a sentence that cannot be true.* A bar at 0.02 instead would
+  // be a bar chosen above its own estimate so that a failure could be reported as a result, which is worse.
+  //
+  // **So R-37 is a component, not an experiment.** It is one arm of the combined dispatch §75 describes - width plus a
+  // precision device - whose expected gain is 0.035 and therefore signable. Building it now is what makes that dispatch
+  // possible in one run rather than two.
+  //
+  // This is also the general finding: **at 200 pull requests and 1 054 goldens, the instrument cannot resolve anything
+  // smaller than 0.019**, and every device this repository registered before §69 that claimed 0.02 was claiming a number
+  // the corpus could not distinguish from zero. The corpus is the ceiling on the *rate* of learning, not the devices.
+
   laneSet: {
     section: '§69.5 (R-35)',
     claim:
@@ -1123,8 +1143,20 @@ export function summarise(on, off) {
    * working and a new value has to name its own claim or inherit a field-wide one deliberately.
    */
   const readSlices = readSlicesOf(on);
+  /**
+   * **The value's own name, when the field is an object.**
+   *
+   * `laneSet` is `{ name, lanes }` rather than a string, because a lane set is a reviewer and a reviewer is its list -
+   * so `String(withValue)` is `[object Object]` and the composite key could never be written. **Two lane sets now exist
+   * on this field** (§69.5's substitution, which lost, and §75's union), and a lookup that fell back to the field-wide
+   * sentence would answer R-37's run with R-35's bar - **the defect §44's artifact recorded, one field over.**
+   */
+  const withValueName =
+    varied.withValue !== null && typeof varied.withValue === 'object' && 'name' in varied.withValue
+      ? String(varied.withValue.name)
+      : String(varied.withValue);
   const registration =
-    REGISTRATIONS[`${varied.field ?? ''}:${String(varied.withValue)}`] ??
+    REGISTRATIONS[`${varied.field ?? ''}:${withValueName}`] ??
     registrationFor(varied.field ?? '', readSlices) ??
     null;
   const paired = pairedComparison(coverageSet(on), coverageSet(off));
@@ -1639,6 +1671,9 @@ function selfTest() {
       // sees them vary.
       adjudicate: overrides.adjudicate ?? false,
       falsifier: overrides.falsifier ?? false,
+      // **The lane set is an object in the artifact**, `{ name, lanes }`, so a fixture that only ever wrote a string
+      // could not exercise the composite registration key that distinguishes §69.5's substitution from §75's union.
+      ...(overrides.laneSet ? { laneSet: { name: overrides.laneSet, lanes: [] } } : {}),
     },
     /**
      * **What the second reader did, when a fixture asks for it.**
@@ -2523,6 +2558,9 @@ function selfTest() {
  */
 function describeValue(value) {
   if (typeof value !== 'object' || value === null) return String(value);
+  // **A lane set is its name in every sentence a reader reads**, because the lanes are the same five in both arms and
+  // printing them would put the interesting word at the end of a truncated line.
+  if ('name' in value && typeof value.name === 'string') return value.name;
   const text = JSON.stringify(value);
   // **And bounded**, because the alternative is a line that names the two arms in six hundred characters of prose the
   // arm itself carries as `why`. The artifact keeps the whole value; the line keeps the part that distinguishes them.

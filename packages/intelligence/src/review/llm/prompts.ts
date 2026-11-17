@@ -771,6 +771,21 @@ export const LANE_LABELS: Record<ReviewLane, string> = {
 export const LANE_SETS = {
   shipped: ['security', 'architecture', 'performance', 'maintainability', 'testing'],
   behaviour: ['security', 'architecture', 'performance', 'maintainability', 'behaviour'],
+  /**
+   * **The union, which is R-37's arm, and the reason it is a union rather than a third substitution.**
+   *
+   * R-35 asked whether `behaviour` should replace `testing` and the answer was no: F1 0.1973 against 0.2076, Δ −0.0103,
+   * p = 0.354 (§72.1). **But the substitution was a forced choice between two lanes that are not the same device.**
+   * `testing` filed 289 findings and hit 59 goldens at precision 0.158; `behaviour` filed 75 and hit 24 at precision
+   * 0.258. **The wide set asks both and pays one call per file for it** - the arithmetic then belongs to the judge,
+   * which is where §69's substitution should have left it.
+   *
+   * **Why width at all, when four devices have been read off this corpus.** §72.4 measured a perfect ordering of the
+   * merged pool at p@16 = 0.267, and the shipped set reaches recall 0.1973 against that ceiling. **The ranker is not
+   * the constraint; the pool is**, and a wider pool is the only device in this repository that widens it without
+   * touching the judge, the deduplicator or the gate.
+   */
+  wide: ['security', 'architecture', 'performance', 'maintainability', 'testing', 'behaviour'],
 } as const satisfies Record<string, readonly ReviewLane[]>;
 
 /** Review lanes sorted by priority (most critical first). */

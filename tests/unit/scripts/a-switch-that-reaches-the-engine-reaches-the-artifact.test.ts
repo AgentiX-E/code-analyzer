@@ -92,7 +92,12 @@ describe('the lane-set switch is wired end to end', () => {
   it('refuses an unrecognised value rather than falling through to the default', () => {
     // **A typo answered by a default is a run that pays for one reviewer and publishes another's name**, which is the
     // rule `AACR_PROFILE` already follows and the reason this one does too.
-    expect(BENCH).toMatch(/AACR_LANE_SET must be "shipped" or "behaviour"/);
+    //
+    // **The message names the sets from a list rather than from the refusal itself**, because this assertion used to pin
+    // the literal `"shipped" or "behaviour"` and went red the moment a third set existed - **which is the assertion
+    // working**, and the reason it now checks the generator rather than the sentence. The list is compared against the
+    // module's own keys in `a-lane-set-the-bench-refuses-is-a-set-that-exists.test.ts`.
+    expect(BENCH).toMatch(/AACR_LANE_SET must be one of \$\{LANE_SET_NAMES\.join/);
   });
 
   it('reaches the engine as the lane list, which is what makes it a reviewer rather than a log line', () => {

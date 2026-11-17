@@ -162,10 +162,20 @@ const PROFILE = (() => {
  * for one reviewer and publishes another's name.** `behaviuor`, `on` and the empty string are all refused here, before
  * a single call, rather than silently reviewing with the five lanes and writing a `laneSet` nobody implemented.
  */
+/**
+ * **The sets this file accepts, in one list, because the list had two copies and the second one went stale.**
+ *
+ * `LANE_SETS` in `packages/intelligence/src/review/llm/prompts.ts` is the definition; this is the copy the refusal reads.
+ * Adding R-37's `wide` to the module and not to the `if` below produced a dispatch that threw at module scope - **the
+ * right failure, on an input the workflow had just declared valid**, which is the pair a reader cannot tell apart without
+ * opening both files. `tests/unit/scripts/a-lane-set-the-bench-refuses-is-a-set-that-exists.test.ts` keeps them equal.
+ */
+const LANE_SET_NAMES = ['shipped', 'behaviour', 'wide'];
+
 function parseLaneSet(raw) {
   const value = String(raw ?? 'shipped');
-  if (value !== 'shipped' && value !== 'behaviour')
-    throw new Error(`AACR_LANE_SET must be "shipped" or "behaviour", not "${value}"`);
+  if (!LANE_SET_NAMES.includes(value))
+    throw new Error(`AACR_LANE_SET must be one of ${LANE_SET_NAMES.join(', ')}, not "${value}"`);
   return value;
 }
 

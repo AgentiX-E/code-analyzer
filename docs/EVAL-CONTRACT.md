@@ -7813,3 +7813,96 @@ satisfied by the absence of its measurement is not a requirement.**
 3. **Reading a confirmed v2 as the device being worth its price.** 915 calls per 146 pull requests bought −0.0463 this
    time. The bar is 0.02 at a resolution of 0.0157, and §74.4's rule stands: **a gain under 40 removals is a statement
    about the corpus's claims, not about the device**, and the direction closes rather than being tuned again.
+
+## §75 What the field is doing, what this corpus can resolve, and the one combination that can pass
+
+### 75.1 Three papers, and the one of them that names our §74 failure
+
+**`Adversarial Review` (arXiv 2608.18167, ICML 2026 DL4C).** A reviewer and a critic exchange review text under one rule:
+the critic must either **agree, cite the spot it disagrees with, or say that it has no citation** - and _disagreement
+without a citation is sent back rather than counted_. The paper's own negative result is the important one: **the naive
+version of the protocol was the worst of every method tested on the task of judging reviews**, because two roles that are
+allowed to agree freely do agree — _"false consensus"_. Adding the mandatory-evidence rule made the same structure the
+best.
+
+> That is §74 in another vocabulary. Our first gate asked _which claims does a line contradict_ and accepted the
+> claim's own line as the citation. **It was the naive version**, it removed 557 claims, and its removals were 24.9 %
+> true positives against a pool rate of 21.3 %. The second contract is the mandatory-evidence rule: _a citation inside
+> the claim is not a citation._
+
+**`CIVER` (arXiv 2610.36010).** Verifies a critique by **intervening on the code**: build a repair that removes the
+claimed defect and an unrelated change that does not, then score whether the critique's validity drops for the first and
+holds for the second. Reported: **77 % of genuine defects identified, cross-project AUROC 0.760**, downstream repair
+success 0.61 → 0.93. Its own limitation is the one that matters for us — _the reliability depends on how well the
+intervention isolates the claimed defect_, and the paper filters misaligned pairs before training.
+
+> **This is the device we have not built.** Every filter we have measured asks a reader to _find_ something; CIVER asks a
+> reader to _construct_ something - a world in which the claim would be false. That is a harder question to answer by
+> pattern-matching, which is exactly why our two filters could be answered without looking.
+
+**`CRScore` (2024) and the claim-level line.** Grounds review comments in **code claims and smells** rather than in
+surface similarity. Its contribution to this contract is the deterministic half of grounding: _a comment about symbol
+`X` should be anchored where `X` is_, which is checkable without a model.
+
+### 75.2 The hard constraint, stated once
+
+**146 pull requests and 1 054 goldens resolve 0.0191.** Everything in this section follows from that number:
+
+- R-35's bar was 0.026 and R-35 was falsified at −0.0103 with p = 0.354 — **the instrument could not have signed a win
+  smaller than 0.019 anyway**, so the run could distinguish "large win" from "not large win" and nothing else.
+- R-36's bar was 0.026 and its reading was −0.0463 at p = 1.8 × 10⁻⁸ — **that one was signable**, which is why its
+  falsification is a real finding rather than a shrug.
+- R-37's expected gain is **+0.0155** and **it therefore has no registration**. A bar at the point estimate sits under
+  the instrument's own error bar, and a bar at 0.02 would have been chosen above its own estimate so that a failure could
+  be reported as a result. **The union is built and wired; it is a component of the combined dispatch below, not an
+  experiment.**
+
+**And the corpus is at its ceiling.** 200 pull requests exist, 196–199 have never been read, and five iterations have
+read four devices off rows 50–195. **Nothing under 0.019 can be learned on these rows again**; the next _new_ number
+requires either more pull requests or a device whose expected gain is 0.04 or larger.
+
+### 75.3 What "beat the field" costs, in the only currency this corpus accepts
+
+The field's published leader on this benchmark reports **SEM-F1 25.10 %** (OpenCodeReview, `arXiv 2608.09290`; Claude
+Code 11.57 % on the same rows). We read **0.2048**. Three ways to close 0.046, each computed on the artifact's own
+counts rather than estimated:
+
+| route                | what has to happen                                                           | what it costs                                                                                      |
+| -------------------- | ---------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------- |
+| precision only       | FP **769 → 187** (remove 582 of 769 false positives, keeping every true one) | a filter with 0 % false removals — **no filter in this repository has ever been better than 75 %** |
+| recall only          | TP **208 → 292** (recall 0.198 → 0.277, + 40 %)                              | the corpus ceiling is p@16 = 0.267, so this route cannot reach the figure                          |
+| **both, moderately** | TP **208 → 240** and FP **769 → 560**                                        | **+32 goldens found, 209 false positives removed, at most 8 true positives lost**                  |
+
+**The third row is the only one that is reachable and it is a combination, not a device.** Thus:
+
+> **R-37 supplies the +32 and a gate must supply the −209 with at most eight casualties** — a removal pool that is
+> **≤ 4 % true positives**, against §74's 24.9 %. That is the number every subsequent precision device should be judged
+> on, and it is a sharper instrument than F1 because it is measured on the removals rather than on the whole run.
+
+### 75.4 The decision tree this section commits to, before the v2 run lands
+
+R-36b (`falsifier: 'independent-evidence-v2'`) is in flight on run `44100493243`. Its outcome selects the next dispatch,
+and the selection is written here so that it cannot be made to fit the result:
+
+| v2 outcome                        | what it means                                                                           | next dispatch                                                                                                                                                                                                            |
+| --------------------------------- | --------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| F1 ≥ +0.02 **and** `dropped` ≥ 40 | the quoting requirement was the defect, and independent evidence exists inside the hunk | **combined**: `lane_set: wide` + the gate, registered at 0.03, one dispatch, two arms                                                                                                                                    |
+| F1 ≤ 0 **and** `dropped` ≥ 40     | the gate has something to say and says it wrongly                                       | **CIVER's question** (R-39): ask the reader to _construct_ the repair that would make the claim false, and treat a claim it cannot construct a world for as unverified — one call per file, the same price               |
+| `dropped` < 40                    | a hunk holds no independent evidence for its own claims                                 | **cross-file evidence** (R-38): resolve the changed exported symbols' call sites deterministically and put them in the quotable set — the gate's problem was never its reader, it was the size of the world it could see |
+| 0 < F1 < +0.02                    | direction right, size under the instrument                                              | **combined** with `wid`, and read the _removal_ counter rather than F1; if the removals are ≤ 4 % true positives the device is working and the corpus is what is too small                                               |
+
+**And the closing rule.** If the combined dispatch reads under 0.019 again, **the answer is not another device** - it is
+that this corpus has said what it can say, and the next number has to come from rows that do not exist yet. **A plan
+that cannot state its own floor is a plan that runs forever.**
+
+### 75.5 What would make this section wrong
+
+1. **Reading 0.0191 as a property of the benchmark.** It is a property of _these 146 rows_. The 200-pull-request corpus
+   resolves 0.016 and a 500-pull-request corpus would resolve about 0.010; **the ceiling is a budget statement, not a
+   law about AACR-Bench.**
+2. **Reading §75.3's third row as a target that can be hit by tuning.** +32 and −209 with ≤ 8 casualties is a _joint_
+   condition; a device that finds 300 more goldens and 400 more false positives moves F1 backwards, and §72.4's ceiling
+   says the first half is bounded while the second half is not.
+3. **Reading the three papers as a menu.** CIVER needs intervention generation, AR needs a two-role loop, CRScore needs
+   claim extraction; **each is a device with its own price**, and the tree above chooses between them by what the corpus
+   says rather than by which is most cited.

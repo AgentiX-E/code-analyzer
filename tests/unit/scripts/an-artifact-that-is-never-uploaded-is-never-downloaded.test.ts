@@ -303,6 +303,14 @@ describe('the artifact names of the benchmark workflow', () => {
         uploaded[0]!,
         pair('adjudicate', 'falsifier-v2').find((arm) => arm['adjudicate'] === 'falsifier-v2')!,
       ),
+      // **And the union's arm**, which is R-37's device side: `lane_set: pair-wide` buys the five lanes as they ship and
+      // the same five plus `behaviour`. R-35 measured the substitution and it lost; **this is the same two lanes with the
+      // choice removed**, so the comparison's sign answers whether width was the constraint rather than which of the two
+      // questions is better.
+      expand(
+        uploaded[0]!,
+        pair('lane_set', 'wide').find((arm) => arm['lane_set'] === 'wide')!,
+      ),
     ]);
     expect(new Set(downloads)).toEqual(expected);
   });
@@ -385,7 +393,9 @@ describe('the matrix is one experiment', () => {
       // over the same rows, and `lane_set: on` is the diagnostic dispatch that prices one question without a comparison.
       // **And a seventh pair for the gate's second contract**, which is §74's discovery: the first contract's removals
       // were 24.9 % true positives against a pool rate of 21.3 %, and every sampled removal quoted the claim it attacked.
-    ).toEqual([1, 1, 1, 1, 1, 1, 1, 1, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2]);
+      // **And one single and one pair for the union**, which is R-37's device: `lane_set: wide` is the diagnostic dispatch
+      // that prices the union without a comparison, and `pair-wide` is the comparison itself.
+    ).toEqual([1, 1, 1, 1, 1, 1, 1, 1, 1, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2]);
   });
 
   it('varies exactly one key, so that a difference between the arms is the device', () => {
@@ -401,6 +411,7 @@ describe('the matrix is one experiment', () => {
       ['agent', 'on'],
       ['second_concern', 'on'],
       ['lane_set', 'behaviour'],
+      ['lane_set', 'wide'],
     ];
     for (const [varied, value] of experiments) {
       const [withArm, withoutArm] = pair(varied, value);
@@ -625,6 +636,7 @@ describe('a download guard that the next device forgets to extend', () => {
       // `falsifier` explicitly, because that dispatch's device arm is not the one it downloads.
       { input: 'pair', value: 'falsifier', varied: 'adjudicate', armValue: 'falsifier' },
       { input: 'pair', value: 'falsifier-v2', varied: 'adjudicate', armValue: 'falsifier-v2' },
+      { input: 'lane_set', value: 'pair-wide', varied: 'lane_set', armValue: 'wide' },
     ];
 
     for (const { input, value, varied, armValue } of dispatches) {
