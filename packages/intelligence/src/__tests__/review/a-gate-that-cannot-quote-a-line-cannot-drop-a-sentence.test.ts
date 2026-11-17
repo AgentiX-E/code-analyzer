@@ -20,6 +20,7 @@ import {
   FALSIFIER_MIN_QUOTE,
   buildFalsifierPrompt,
   readFalsifierAnswer,
+  type FalsifierRefutation,
 } from '../../review/adjudication/falsifier.js';
 import { numberedAddedLines } from '../../review/adjudication/patch-lines.js';
 import { LLMReviewEngine } from '../../review/llm/llm-review-engine.js';
@@ -424,6 +425,59 @@ describe('the falsifier prompt and its reader', () => {
     expect(prompt).toContain('src/a.cpp');
   });
 
+  it('reads a fenced answer, because a model told not to fence one fences it anyway', () => {
+    // **The fence is the one malformation that would otherwise read as silence.** `parseLLMResponse` strips fences for
+    // the lanes for exactly this reason, and a gate that answered "unreadable" to every fenced answer would be a gate
+    // that never ran on the provider that prefers them.
+    const fenced = '```json\n{"refuted":[{"claim":1,"quote":"' +
+      '  const double y = line.y * 2.0;","reason":"intended"}]}\n```';
+    expect(readFalsifierAnswer(fenced)).toMatchObject({ kind: 'answer' });
+    const refuted = (readFalsifierAnswer(fenced) as { refuted: FalsifierRefutation[] }).refuted;
+    expect(refuted[0]!.claim).toBe(1);
+
+    // A fence with no newline at all is not a body, and the answer is returned as it stands rather than emptied.
+    expect(readFalsifierAnswer('```').kind).toBe('unreadable');
+    // A fence that never closes is still a body - the model was cut off after the JSON, not before it.
+    expect(readFalsifierAnswer('```json\n{"refuted":[]}')).toEqual({ kind: 'answer', refuted: [] });
+  });
+
+  it('skips a refutation that is not an object, rather than counting it as a drop', () => {
+    // **The list is model output, so an element can be anything.** A string or a nested list in the `refuted` array is
+    // a malformed entry and not a refutation - skipping it keeps the claim, which is the direction the contract allows.
+    const answer = readFalsifierAnswer(
+      '{"refuted":[["claim",1],"keep this one","nonsense",{"claim":"two","quote":"x","reason":"y"},{"claim":2,"quote":"q","reason":"r"}]}',
+    );
+    expect(answer.kind).toBe('answer');
+    expect((answer as { refuted: FalsifierRefutation[] }).refuted).toHaveLength(1);
+    expect((answer as { refuted: FalsifierRefutation[] }).refuted[0]!.claim).toBe(2);
+  });
+
+  it('reads a missing answer as unreadable rather than as silence', () => {
+    expect(readFalsifierAnswer(null as unknown as string)).toEqual({
+      kind: 'unreadable',
+      why: 'the answer is not JSON',
+    });
+  });
+
+  it('reads a bare list as unreadable, because the question asked for an object', () => {
+    // An array is the answer to a different question - the prompt asks for `{"refuted":[…]}` - and reading a list of
+    // refutations off it would be inventing the key the model did not write.
+    expect(readFalsifierAnswer('[{"claim":1,"quote":"x","reason":"y"}]')).toEqual({
+      kind: 'unreadable',
+      why: 'the answer is not an object',
+    });
+  });
+
+  it('numbers a claim by the range it covers when the claim is not on one line', () => {
+    const prompt = buildFalsifierPrompt({
+      path: 'src/a.cpp',
+      findings: [{ ...finding('a block'), startLine: 11, endLine: 13 }],
+      addedLines: ADDED,
+    });
+
+    expect(prompt).toContain('[1] (lines 11-13)');
+  });
+
   it('reads an answer that has no refuted key as silence rather than as an error', () => {
     expect(readFalsifierAnswer('{}')).toEqual({ kind: 'answer', refuted: [] });
     expect(readFalsifierAnswer('{"refuted":[{"claim":1,"quote":"x","reason":"y"}]}')).toMatchObject(
@@ -547,6 +601,23 @@ describe('the engine with the gate switched on', () => {
     expect(kept.map((entry) => entry.title)).toEqual([CLAIM_TWO.title]);
     expect(results[0]!.lane).toBe('security');
     expect(engine.lastFalsifier?.dropped[0]?.quote).toBe('  const double y = line.y * 2.0;');
+  });
+
+  it('keeps everything and spends nothing when the review was handed a code window instead of a patch', async () => {
+    // **The product path hands in the block a hunk sits in rather than a diff**, and a gate whose only warrant is a
+    // quoted added line cannot verify one there. The honest answer is to keep the pool and record why - **a file the
+    // gate could not read is not a file it cleared**, and the counter says so.
+    const provider = new LaneAndGate(
+      [CLAIM_ONE],
+      JSON.stringify({ refuted: [{ claim: 1, quote: 'const double y = line.y;', reason: 'x' }] }),
+    );
+    const engine = new LLMReviewEngine(provider, { lanes: ['security'], falsify: true });
+    const window = ['double isValidSingleEdge(const Line& line) {', '  return false;', '}'].join('\n');
+    const results = await engine.reviewDiff(reviewDiff(), window);
+
+    expect(provider.gateCalls).toBe(0);
+    expect(engine.lastFalsifier?.report).toMatchObject({ dropped: 0, notAPatch: true, calls: 0 });
+    expect(results.flatMap((result) => result.findings)).toHaveLength(1);
   });
 
   it('reads the added lines out of the patch, so a quote from a removed line drops nothing', async () => {

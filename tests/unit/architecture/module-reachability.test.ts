@@ -443,7 +443,12 @@ describe('every module a package compiles is reachable from an entry its manifes
       // **183 since iteration 144**, which added `review/merge-reviewers.ts`: the one place two reviewers' comments become
       // one list. §56 prices the union at F1 0.2243 and the merged list at up to 0.2422 against the lanes' 0.2121, and
       // **a merge spelled out in the harness and again in the command would be two figures about two products**.
-      intelligence: 183,
+      // **184 since iteration 146**, which added `review/adjudication/falsifier.ts`: the gate that keeps by default and
+      // removes a claim only when a line the diff added is quoted against it (§73). **A module rather than a fifth branch
+      // of the adjudicator** for the reason §45 already paid for: the two devices have opposite contracts - one removes on
+      // the reader's word, one only on a quote it can verify - and a file that held both would be a file where the
+      // lenient branch and the strict one are one `if` apart.
+      intelligence: 184,
       mcp: 39,
       server: 24,
       // **11 since iteration 121**, which added `utils/type-text.ts`: the depth-counted removal of type arguments and

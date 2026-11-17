@@ -168,8 +168,10 @@ function renderClaims(findings: ReadonlyArray<LLMFinding>): { body: string; aske
  * lane, not the severity, not the description's argument**. A reader told which lane wrote a claim anchors on that
  * lane's concerns, and a reader shown a severity anchors on the severity.
  */
-export function buildFalsifierPrompt(request: FalsifierRequest): string {
-  const lines = renderLines(request.addedLines ?? []);
+export function buildFalsifierPrompt(
+  request: FalsifierRequest & { addedLines: ReadonlyArray<NumberedAddedLine> },
+): string {
+  const lines = renderLines(request.addedLines);
   const claims = renderClaims(request.findings);
   return [
     `You are the independent reader of one file's change: ${request.path}.`,
@@ -273,10 +275,15 @@ export class FalsifierGate {
     if (request.findings.length === 0 || request.addedLines === null)
       return { kept: [...request.findings], dropped: [], report };
 
+    // **The narrowing is taken into a binding rather than trusted to survive three calls**, because what follows reads
+    // it twice - once to render the prompt and once to verify the quotes against what that prompt showed - and the two
+    // readings have to be of the same list.
+    const addedLines = request.addedLines;
+
     const asked = Math.min(request.findings.length, FALSIFIER_MAX_CLAIMS);
     report.notAsked = request.findings.length - asked;
 
-    const prompt = buildFalsifierPrompt(request);
+    const prompt = buildFalsifierPrompt({ ...request, addedLines });
     let raw: string;
     try {
       const options: CompletionOptions = {
@@ -303,8 +310,8 @@ export class FalsifierGate {
 
     // **The strings the reader was allowed to quote**, in comparison form, so a quote is checked against what it was
     // shown rather than against the whole file's added lines beyond the budget.
-    const quotable = (request.addedLines ?? [])
-      .slice(0, renderLines(request.addedLines ?? []).shown)
+    const quotable = addedLines
+      .slice(0, renderLines(addedLines).shown)
       .map((line) => compareForm(line.text));
 
     const droppedAt = new Map<number, FalsifierDrop>();
