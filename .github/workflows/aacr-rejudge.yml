@@ -37,6 +37,18 @@ on:
         required: false
         type: string
         default: '0'
+      judge_model:
+        # **The model that reads the pairs, and the only reason this input exists is that the floor has only ever been
+        # read by one of them.** Every reading in §69.4 - 18.6 % against a 16.0 % floor, seven recoverable pairs - came
+        # from `deepseek-chat`, which is also the model that **wrote** the comments being judged. The self-preference
+        # literature says a judge is more generous towards its own family's text, so the floor may be reporting the
+        # judge rather than the pairs. **Pre-registered: the same-file floor stays inside 16.0 ± 0.05 under a second
+        # judge, and the paired verdicts do not separate at p ≤ 0.05.** Not ± 0.01: 0.160 over 219 pairs carries a
+        # sampling error of 0.025, and a bar narrower than the reading it tests fails for arithmetic.
+        description: 'Judge model for the re-read (a second one re-reads the same pairs)'
+        required: false
+        type: string
+        default: 'deepseek-chat'
 
 permissions:
   # **`actions: read` is the permission this job exists on**: the artifact belongs to another run, and reading it across
@@ -45,9 +57,11 @@ permissions:
   contents: read
 
 concurrency:
-  # One re-read per run, and a second dispatch replaces the first: two readers spending the same judge budget on the
-  # same pairs produce one answer and two bills.
-  group: aacr-rejudge-${{ inputs.run_id }}
+  # One re-read per run **and per judge**, and a second dispatch of the same pair replaces the first: two readers
+  # spending the same judge budget on the same pairs produce one answer and two bills. **The model is in the key because
+  # it was not, and a second judge's dispatch cancelled the first mid-flight** - the one failure mode that looks like a
+  # missing artifact rather than like a collision.
+  group: aacr-rejudge-${{ inputs.run_id }}-${{ inputs.judge_model }}
   cancel-in-progress: true
 
 jobs:
@@ -81,6 +95,7 @@ jobs:
       - name: Re-read the pairs
         env:
           AACR_JUDGE_KEY: ${{ secrets.DEEPSEEK_API_KEY }}
+          AACR_JUDGE_MODEL: ${{ inputs.judge_model }}
           AACR_REJUDGE_CONCURRENCY: '6'
         run: |
           node scripts/aacr-rejudge.mjs \
@@ -106,7 +121,9 @@ jobs:
         if: always()
         uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7
         with:
-          name: aacr-rejudge-${{ inputs.run_id }}
+          # **The judge is in the name**, because two readings of one run are two artifacts: this said only the run id,
+          # so a second judge uploaded under the first reading's name and a reader downloaded the wrong report.
+          name: aacr-rejudge-${{ inputs.run_id }}-${{ inputs.judge_model }}
           path: |
             /tmp/rejudge/report.json
             /tmp/rejudge.log

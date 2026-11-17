@@ -305,4 +305,36 @@ describe('a second reading of a rejected pair is only evidence if it is controll
     const register = JSON.parse(readFileSync('scripts/gate-wiring-register.json', 'utf8'));
     expect(Object.keys(register)).not.toContain('scripts/aacr-rejudge.mjs');
   });
+
+  it('lets a second judge read the same pairs, without overwriting the first reading', () => {
+    // **The re-read is the instrument the floor is read with, and the instrument had never been asked whether the floor
+    // is a property of the pairs or of the model reading them.** §69.4's answer - 18.6 % against a 16.0 % floor, 6.97
+    // pairs of recoverable goldens - came from one judge, and every judge in this repository is the same model that
+    // wrote the comments. The literature on self-preference says a judge is measurably more generous towards text its
+    // own family produced (`Zheng et al. 2023`; the correlated-panel result in `ICML 2026`), so **a floor that moves when
+    // the judge changes is a floor that was reporting the judge.**
+    //
+    // **The pre-registered bar: the same-file floor stays inside 16.0 ± 0.05 under a second judge, and the paired
+    // verdicts do not separate at p ≤ 0.05.** It is *not* ± 0.01, because 0.160 over 219 pairs has a sampling error of
+    // 0.025 - **a bar narrower than the reading it is tested on is a bar that fails for arithmetic rather than for the
+    // judge** - and it is the paired difference, not the two marginal rates, that carries the evidence.
+    const workflow = readFileSync('.github/workflows/aacr-rejudge.yml', 'utf8');
+
+    // The input exists, defaults to the model every previous reading used, and reaches the script as an env var: **a
+    // `--judge` flag on the command line would have been the third wiring connection to go quiet.**
+    expect(workflow).toContain('judge_model:');
+    expect(workflow).toContain("default: 'deepseek-chat'");
+    expect(workflow).toContain('AACR_JUDGE_MODEL: ${{ inputs.judge_model }}');
+
+    // **Two readings of one run are two artifacts.** The name carried only the run until this input existed, so the
+    // second reading uploaded under the first one's name and the older one was the file a reader downloaded.
+    expect(workflow).toContain(
+      'name: aacr-rejudge-${{ inputs.run_id }}-${{ inputs.judge_model }}',
+    );
+    // And the concurrency group, because it was keyed on the run alone: a second judge's dispatch **cancelled** the
+    // first one mid-flight, which is the one failure mode that looks like a missing artifact.
+    expect(workflow).toContain(
+      'group: aacr-rejudge-${{ inputs.run_id }}-${{ inputs.judge_model }}',
+    );
+  });
 });
