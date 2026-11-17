@@ -14,7 +14,7 @@
 
 import { describe, expect, it } from 'vitest';
 
-import { compareReadings } from '../../../scripts/lib/claims-match.mjs';
+import { compareReadings, readingIsUsable } from '../../../scripts/lib/claims-match.mjs';
 
 function row(id: string, sameFile: string | null): { id: string; sameFile: string | null } {
   return { id, sameFile };
@@ -102,5 +102,26 @@ describe('two readings of one corpus are compared pair by pair', () => {
 
     expect(comparison.paired).toBe(1);
     expect(comparison.unanswered).toBe(1);
+  });
+});
+
+describe('a reading that did not answer is not a reading', () => {
+  // **The second judge answered 34 of 263 pairs and the report still printed four rates and a recovery of 1.08 pairs.**
+  // Every one of those numbers was computed over the 13 % that answered, with nothing in the table saying so - which is
+  // the same failure the judge loop's own comment warns about, one instrument further out: a rate-limited re-read that
+  // counted its refusals as rejections would report a stricter matcher, and a re-read that counts them as *answered*
+  // reports a rate about a subsample nobody chose.
+  it('withholds the verdict when a fifth of the pairs went unanswered', () => {
+    expect(readingIsUsable({ pairs: 263, unanswered: 229 })).toBe(false);
+    expect(readingIsUsable({ pairs: 263, unanswered: 53 })).toBe(false);
+  });
+
+  it('accepts a reading that lost a handful of calls, because that is what a rate limit is', () => {
+    expect(readingIsUsable({ pairs: 263, unanswered: 5 })).toBe(true);
+    expect(readingIsUsable({ pairs: 263, unanswered: 52 })).toBe(true);
+  });
+
+  it('refuses a reading with nothing in it rather than calling it unanimous', () => {
+    expect(readingIsUsable({ pairs: 0, unanswered: 0 })).toBe(false);
   });
 });

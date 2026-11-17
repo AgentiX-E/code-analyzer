@@ -334,3 +334,23 @@ function exactBinomial(n, k) {
   const denominator = 2n ** BigInt(n);
   return Math.min(1, (2 * Number(sum)) / Number(denominator));
 }
+
+/**
+ * **How many unanswered calls a reading may carry before it is a reading of something else.**
+ *
+ * The second judge answered 34 of 263 pairs, and the report printed four rates and a recovery of 1.08 pairs computed
+ * over the 13 % that answered. **A rate over a subsample whose composition nobody chose is not a rate about the
+ * corpus** - the calls that failed are the calls that took longest, which in a reasoning model are the pairs the model
+ * found hardest, so the subsample is biased in the worst direction. One in five is the line: a rate limit loses a
+ * handful, a configuration that cannot answer loses most of them.
+ */
+export const UNANSWERED_LIMIT = 0.2;
+
+/** **Whether a reading may be quoted at all**, so a failed reading is a loud refusal rather than a table of rates. */
+export function readingIsUsable({ pairs, unanswered } = {}) {
+  const total = Number(pairs);
+  const missing = Number(unanswered);
+  if (!Number.isFinite(total) || total <= 0) return false;
+  if (!Number.isFinite(missing) || missing < 0) return false;
+  return missing / total <= UNANSWERED_LIMIT;
+}

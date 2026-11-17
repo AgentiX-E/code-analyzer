@@ -30,10 +30,12 @@ import { dirname, join, resolve } from 'node:path';
 import {
   claimsPrompt,
   compareReadings,
+  readingIsUsable,
   crossPairControl,
   sameLineRejects,
   samePullRequestControl,
   summariseRejudge,
+  UNANSWERED_LIMIT,
 } from './lib/claims-match.mjs';
 
 const MODEL = process.env['AACR_JUDGE_MODEL'] ?? process.env['MARTIAN_MODEL'] ?? 'deepseek-chat';
@@ -118,6 +120,7 @@ async function read(pair, { model = MODEL, base = BASE, key = KEY, fetchImpl = f
       { role: 'user', content: claimsPrompt(pair) },
     ],
   };
+  let reason = 'unanswered';
   for (let attempt = 0; attempt < 3; attempt += 1) {
     try {
       const response = await fetchImpl(`${base}/chat/completions`, {
@@ -125,20 +128,36 @@ async function read(pair, { model = MODEL, base = BASE, key = KEY, fetchImpl = f
         headers: { 'content-type': 'application/json', authorization: `Bearer ${key}` },
         body: JSON.stringify(body),
       });
-      if (!response.ok) throw new Error(`http ${String(response.status)}`);
+      if (!response.ok) {
+        // **The status, kept**, because `http 400` and `http 429` want different repairs and a reader that reported
+        // "unanswered" for both would send somebody looking for a rate limit when the request was malformed.
+        reason = `http ${String(response.status)}`;
+        throw new Error(reason);
+      }
       const json = await response.json();
-      const text = String(json?.choices?.[0]?.message?.content ?? '')
+      const choice = json?.choices?.[0];
+      const text = String(choice?.message?.content ?? '')
         .replace(/```json|```/g, '')
         .trim();
+      if (text === '') {
+        // **An empty answer with `length` beside it is the one failure a bigger `max_tokens` fixes**, so it is named
+        // separately from an answer that arrived and could not be read.
+        reason = choice?.finish_reason === 'length' ? 'truncated' : 'empty';
+        throw new Error(reason);
+      }
       const parsed = JSON.parse(text);
       const verdict = String(parsed?.verdict ?? '').toLowerCase();
-      if (verdict !== 'same' && verdict !== 'different' && verdict !== 'wording') return null;
-      return { verdict, shared: String(parsed?.shared ?? '').slice(0, 240) };
-    } catch {
+      if (verdict !== 'same' && verdict !== 'different' && verdict !== 'wording') {
+        reason = 'unreadable';
+        return { verdict: null, shared: null, reason };
+      }
+      return { verdict, shared: String(parsed?.shared ?? '').slice(0, 240), reason: null };
+    } catch (error) {
+      if (reason === 'unanswered') reason = `fetch ${String(error?.message ?? error).slice(0, 40)}`;
       await new Promise((done) => setTimeout(done, 400 * 2 ** attempt));
     }
   }
-  return null;
+  return { verdict: null, shared: null, reason };
 }
 
 /** Bounded concurrency, because the pairs are known before the first call and a burst is a rate limit. */
@@ -176,18 +195,29 @@ async function rejudge(pairs, artifact, options) {
       new Map(controls.map((c) => [c.id, c])),
     ]),
   );
+  // **Every failed call is counted with the reason it failed**, because the first second-judge reading answered 34 of
+  // 263 pairs and the log said only "unanswered 229" - a number that names neither the status nor the repair.
+  const failures = new Map();
+  const take = (answer) => {
+    const verdict = answer?.verdict ?? null;
+    if (verdict === null) {
+      const reason = answer?.reason ?? 'unanswered';
+      failures.set(reason, (failures.get(reason) ?? 0) + 1);
+    }
+    return verdict;
+  };
   const rows = await mapBounded(pairs, CONCURRENCY, async (pair) => {
     const real = await read(pair, options);
     const control = async (name) => {
       const pairing = index[name].get(pair.id);
-      return pairing ? ((await read(pairing, options))?.verdict ?? null) : null;
+      return pairing ? take(await read(pairing, options)) : null;
     };
     return {
       id: pair.id,
       pr: pair.pr,
       path: pair.path,
       startLine: pair.startLine,
-      real: real?.verdict ?? null,
+      real: take(real),
       shared: real?.shared ?? null,
       crossed: await control('crossed'),
       sameFile: await control('sameFile'),
@@ -197,6 +227,7 @@ async function rejudge(pairs, artifact, options) {
   return {
     rows,
     controls: Object.fromEntries(Object.entries(build).map(([k, v]) => [k, v.length])),
+    failures: Object.fromEntries(failures),
   };
 }
 
@@ -365,7 +396,7 @@ async function main() {
   process.stdout.write(
     `AACR-REJUDGE ${String(pairs.length)} of ${String(all.length)} rejected same-line pairs · judge ${MODEL} · ${String(CONCURRENCY)} in flight\n`,
   );
-  const { rows, controls } = await rejudge(pairs, artifact, {});
+  const { rows, controls, failures } = await rejudge(pairs, artifact, {});
   const summary = summariseRejudge(rows);
 
   const report = {
@@ -374,7 +405,7 @@ async function main() {
     judge: { model: MODEL, endpoint: BASE },
     protocol:
       'every rejected same-line pair read once, beside a crossed pair whose golden comes from another pull request; a reader that accepts both earns nothing',
-    summary: { ...summary, controlPairs: controls },
+    summary: { ...summary, controlPairs: controls, failures },
     rows,
   };
   if (options.out) {
@@ -400,12 +431,27 @@ async function main() {
       line('same pull request, another file', summary.samePull),
       '',
       `verdicts: same ${String(summary.same)} · different ${String(summary.different)} · wording ${String(summary.wording)} · unanswered ${String(summary.unanswered)}`,
+      `failed calls: ${
+        Object.entries(failures)
+          .map(([why, count]) => `${why} × ${String(count)}`)
+          .join(' · ') || 'none'
+      }`,
       `floor: the ${summary.floorFrom} control at ${pct(summary.floorShare)}`,
       `recovery beyond the floor: ${String(summary.beyondControl)} pairs (lift ${pct(summary.lift)})`,
       '',
     ].join('\n'),
   );
   if (options.out) process.stdout.write(`written to ${resolve(options.out)}\n`);
+  // **A reading that lost most of its calls is refused, loudly, after the report is written** - so the failure is
+  // diagnosable from the artifact and the job is still red. The report is not suppressed: a failed reading is the only
+  // thing that says why the next dispatch should differ.
+  if (!readingIsUsable(summary)) {
+    process.stdout.write(
+      `verdict withheld: ${String(summary.unanswered)} of ${String(summary.pairs)} pairs went unanswered ` +
+        `(limit ${String(UNANSWERED_LIMIT * 100)} %) - this reading is about the ${String(summary.answered)} that answered\n`,
+    );
+    process.exitCode = 1;
+  }
 }
 
 main().catch((error) => {

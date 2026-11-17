@@ -140,3 +140,9 @@ export declare function compareReadings(
   rowsB: readonly RejudgeRow[],
   options?: { field?: string; bar?: number; alpha?: number },
 ): ReadingComparison;
+
+/** **How many unanswered calls a reading may carry before it is a reading of something else.** */
+export declare const UNANSWERED_LIMIT: number;
+
+/** **Whether a reading may be quoted at all**, so a failed reading is a loud refusal rather than a table of rates. */
+export declare function readingIsUsable(summary?: { pairs?: number; unanswered?: number }): boolean;
