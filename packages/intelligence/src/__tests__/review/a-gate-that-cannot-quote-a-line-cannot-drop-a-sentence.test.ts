@@ -429,7 +429,8 @@ describe('the falsifier prompt and its reader', () => {
     // **The fence is the one malformation that would otherwise read as silence.** `parseLLMResponse` strips fences for
     // the lanes for exactly this reason, and a gate that answered "unreadable" to every fenced answer would be a gate
     // that never ran on the provider that prefers them.
-    const fenced = '```json\n{"refuted":[{"claim":1,"quote":"' +
+    const fenced =
+      '```json\n{"refuted":[{"claim":1,"quote":"' +
       '  const double y = line.y * 2.0;","reason":"intended"}]}\n```';
     expect(readFalsifierAnswer(fenced)).toMatchObject({ kind: 'answer' });
     const refuted = (readFalsifierAnswer(fenced) as { refuted: FalsifierRefutation[] }).refuted;
@@ -612,7 +613,9 @@ describe('the engine with the gate switched on', () => {
       JSON.stringify({ refuted: [{ claim: 1, quote: 'const double y = line.y;', reason: 'x' }] }),
     );
     const engine = new LLMReviewEngine(provider, { lanes: ['security'], falsify: true });
-    const window = ['double isValidSingleEdge(const Line& line) {', '  return false;', '}'].join('\n');
+    const window = ['double isValidSingleEdge(const Line& line) {', '  return false;', '}'].join(
+      '\n',
+    );
     const results = await engine.reviewDiff(reviewDiff(), window);
 
     expect(provider.gateCalls).toBe(0);
