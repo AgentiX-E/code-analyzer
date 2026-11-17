@@ -335,4 +335,23 @@ describe('a second reading of a rejected pair is only evidence if it is controll
       'group: aacr-rejudge-${{ inputs.run_id }}-${{ inputs.judge_model }}',
     );
   });
+
+  it('gives a slower judge a ceiling and a flight count of its own', () => {
+    // **The first dispatch with a reasoning judge was cancelled at the twenty-minute ceiling**, and the ceiling was not a
+    // property of the corpus: the chat judge read 967 pairs in about two minutes at six in flight, and the reasoning one
+    // had not finished when the job died - **a job that dies at its ceiling has spent the calls and produced no report**,
+    // which is the same failure the confirmation guard exists to prevent, one instrument over. So the ceiling is raised
+    // to a number a reasoning judge fits inside and the flight count becomes an input, because the two are one decision.
+    const workflow = readFileSync('.github/workflows/aacr-rejudge.yml', 'utf8');
+    const job = /timeout-minutes:\s*(\d+)/.exec(workflow);
+    expect(Number(job?.[1])).toBeGreaterThanOrEqual(45);
+
+    expect(workflow).toContain(
+      "description: 'Judge calls in flight (a reasoning judge needs more)'",
+    );
+    expect(workflow).toContain("default: '6'");
+    // **The input reaches the script's own variable and does not become a second source of truth**: the script reads
+    // `AACR_REJUDGE_CONCURRENCY` and the workflow maps the input onto it.
+    expect(workflow).toContain('AACR_REJUDGE_CONCURRENCY: ${{ inputs.concurrency }}');
+  });
 });

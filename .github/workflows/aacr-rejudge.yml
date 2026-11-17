@@ -49,6 +49,15 @@ on:
         required: false
         type: string
         default: 'deepseek-chat'
+      concurrency:
+        # **Flight count, because it and the ceiling are one decision.** 967 pairs at six in flight is two minutes for
+        # the chat judge and more than twenty for a reasoning one, so a judge that thinks before answering needs both a
+        # higher ceiling and more calls in flight. **The two are inputs rather than constants because the reader is now a
+        # parameter**, and a constant dimensioned on the fastest reader is a constant that fails on the slowest.
+        description: 'Judge calls in flight (a reasoning judge needs more)'
+        required: false
+        type: string
+        default: '6'
 
 permissions:
   # **`actions: read` is the permission this job exists on**: the artifact belongs to another run, and reading it across
@@ -68,7 +77,12 @@ jobs:
   rejudge:
     name: Re-read the rejected pairs (${{ inputs.artifact }} of run ${{ inputs.run_id }})
     runs-on: ubuntu-latest
-    timeout-minutes: 20
+    # **Sixty, from twenty, and the twenty was measured on the fast reader**: the chat judge read 967 pairs in about two
+    # minutes at six in flight and the first reasoning-judge dispatch was cancelled at the old ceiling with no report
+    # written - **a job that dies at its ceiling spends the calls and produces nothing**, which is the exact failure the
+    # confirmation guard exists to prevent. Sixty minutes at six in flight covers a reader eight times slower than the
+    # one the number was chosen on.
+    timeout-minutes: 60
     steps:
       - name: Checkout
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
@@ -96,7 +110,7 @@ jobs:
         env:
           AACR_JUDGE_KEY: ${{ secrets.DEEPSEEK_API_KEY }}
           AACR_JUDGE_MODEL: ${{ inputs.judge_model }}
-          AACR_REJUDGE_CONCURRENCY: '6'
+          AACR_REJUDGE_CONCURRENCY: ${{ inputs.concurrency }}
         run: |
           node scripts/aacr-rejudge.mjs \
             --bench /tmp/artifact \
