@@ -76,7 +76,8 @@ export declare const REGISTRATIONS: Readonly<
     | 'languageChecklist'
     | 'remarks'
     | 'secondConcern'
-    | 'secondConcern200',
+    | 'secondConcern200'
+    | 'laneSet',
     Registration
   >
 >;

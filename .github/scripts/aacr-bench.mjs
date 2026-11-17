@@ -156,6 +156,23 @@ const PROFILE = (() => {
 })();
 
 /**
+ * **Which lane set a run bought, refused rather than defaulted when it is unrecognised.**
+ *
+ * The same rule `PROFILE` follows and for the same reason: **a typo that falls through to a default is a run that pays
+ * for one reviewer and publishes another's name.** `behaviuor`, `on` and the empty string are all refused here, before
+ * a single call, rather than silently reviewing with the five lanes and writing a `laneSet` nobody implemented.
+ */
+function parseLaneSet(raw) {
+  const value = String(raw ?? 'shipped');
+  if (value !== 'shipped' && value !== 'behaviour')
+    throw new Error(`AACR_LANE_SET must be "shipped" or "behaviour", not "${value}"`);
+  return value;
+}
+
+/** **The lane set this run bought**, and the one value in this file whose typo would re-price every published figure. */
+const LANE_SET = parseLaneSet(process.env['AACR_LANE_SET']);
+
+/**
  * **The switch the head-to-head made necessary: a reviewer that can read the repository.**
  *
  * `AACR_AGENT=on` replaces the five lanes with `ReviewAgent`: it groups the changed files, gives the model the five tools
@@ -1044,6 +1061,49 @@ async function dryRun() {
   );
 
   /**
+   * **The lane set the run bought, rendered without a model.**
+   *
+   * R-35's device is one substitution, and the two ways it can be wrong are both invisible until the artifact is read:
+   * a lane set that names a prompt this build does not carry (a stale `dist/`), and a `behaviour` prompt that quietly
+   * turned into a fifth category checklist. **Both are strings**, so both are asserted here, at the cost of no calls -
+   * the same rule the checklist's own block follows.
+   */
+  {
+    const { LANE_SETS: sets, LANE_PROMPTS: prompts } =
+      await import('../../packages/intelligence/dist/review/llm/prompts.js');
+    const lanes = sets[LANE_SET];
+    assert.equal(
+      lanes.length,
+      5,
+      'both lane sets are five calls per file, so a pair prices a question',
+    );
+    for (const lane of lanes)
+      assert.equal(
+        typeof prompts[lane],
+        'function',
+        `the build carries no prompt for the ${lane} lane`,
+      );
+    const behaviour = prompts['behaviour']({
+      diffContent: diff,
+      filePath: 'src/scoring/rhythm.ts',
+      changeType: 'modified',
+    });
+    assert.ok(
+      behaviour.includes('which value, state or sequence'),
+      'the behaviour lane asks for a value rather than for a category',
+    );
+    assert.ok(
+      behaviour.includes(diff),
+      'and it is shown the same diff as every other lane, which is what makes it a different question',
+    );
+    assert.equal(
+      sets['behaviour'].filter((lane) => !sets['shipped'].includes(lane)).join(','),
+      'behaviour',
+      'exactly one lane is substituted, so a difference between the arms is the question and not the budget',
+    );
+  }
+
+  /**
    * **The reading arm, rehearsed without a model.**
    *
    * The agent's wiring is four things that fail independently and silently: the repository the job builds, the tool
@@ -1627,6 +1687,9 @@ async function main() {
 
   const { LLMReviewEngine } =
     await import('../../packages/intelligence/dist/review/llm/llm-review-engine.js');
+  // **The lane set comes from the module that owns it**, so the list a run puts to a diff and the list a test asserts on
+  // are one list. A copy here would drift, and the artifact would name a question whose sentence nobody could find.
+  const { LANE_SETS } = await import('../../packages/intelligence/dist/review/llm/prompts.js');
   const {
     ACTIONABILITY_WEIGHTS,
     collectDiffFacts,
@@ -1742,6 +1805,23 @@ async function main() {
    */
   const SECOND_CONCERN = String(process.env['AACR_SECOND_CONCERN'] ?? 'off').toLowerCase() === 'on';
   /**
+   * **Which question the lanes put to a diff, and the device R-35 registers (§69.5).**
+   *
+   * `shipped` is the five lanes every published figure was measured under. `behaviour` swaps one of them - `testing`,
+   * which reaches this corpus's question 8.6 % of the time at precision 0.111 and whose own removal gains 0.0069 F1 -
+   * for a lane asked for the value that breaks a changed line rather than for a category of improvement.
+   *
+   * **A substitution and not an addition**, because the claim is about the question and not about the budget: five
+   * calls per file either way, so a difference between the arms is what the lanes were asked and not how many of them
+   * there were. **And it is an input rather than an edit**, because every figure in `EVAL-CONTRACT.md` was measured
+   * under `shipped` and a lane set that cannot be switched off re-prices all of them.
+   *
+   * **The reader of this value is the engine's `lanes` option** - this constant is the name the artifact carries, and
+   * `LANE_SETS` is where the list itself lives, so a run and its artifact cannot disagree about which question ran.
+   */
+  // **`LANE_SET` is read at module scope with `PROFILE`**, so that `--dry-run` refuses an unrecognised value as well:
+  // a run whose first refusal arrives after the corpus is cloned has already paid to discover a typo.
+  /**
    * **How many refusals the artifact carries, and why it is not all of them.**
    *
    * A corpus of fifty pull requests refuses about five hundred comments, and five hundred rows in one field would make
@@ -1767,6 +1847,10 @@ async function main() {
     idioms: IDIOMS,
     remarks: REMARKS,
     secondConcern: SECOND_CONCERN,
+    // **The lanes are named, not defaulted**, so the artifact's `laneSet` and the calls the run actually bought are the
+    // same five questions. A run that recorded a set and dispatched the engine's default would be the §58.1 shape one
+    // device later: an artifact internally consistent and about a different reviewer.
+    lanes: [...LANE_SETS[LANE_SET]],
   });
   console.log(
     `AACR-BENCH dedup threshold ${DEDUP_THRESHOLD} · prompt order ${PROMPT_ORDER} · adjudicate ${ADJUDICATE} · idioms ${IDIOMS} · remarks ${REMARKS} · second concern ${SECOND_CONCERN}`,
@@ -4103,6 +4187,12 @@ async function main() {
         rules: IDIOM_RULE_NAMES,
         why: '41 of 50 sampled missed goldens are remarks the five lanes never attempt, and each is decidable from the syntax of one construct',
       },
+      // **Which question the lanes put to each diff, and the list itself rather than its name alone.** R-35 asks whether
+      // a lane asked for the value that breaks a line beats a lane asked for test problems; **a comparison that reads
+      // only the name would be comparing two artifacts whose reviewer it cannot see**, and one that reads only the list
+      // would report a set with no sentence behind it. Both travel, and `variedField` sees one key because they are one
+      // object.
+      laneSet: { name: LANE_SET, lanes: [...LANE_SETS[LANE_SET]] },
       // **Whether a model was asked for the rest of that bucket**, and the families it was asked for rather than "some
       // remarks": **a figure from a run with this on and one with it off are two reviewers**, and a family list that is
       // not in the artifact is a prompt nobody can reproduce.

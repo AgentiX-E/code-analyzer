@@ -172,13 +172,17 @@ describe('Architecture Review Prompt', () => {
 // ---------------------------------------------------------------------------
 
 describe('Lane Registry', () => {
-  it('should have all five review lanes defined', () => {
+  it('should have all six review lanes defined', () => {
+    // **Six rather than five since R-35**: `behaviour` is the lane asked for the value that breaks a line, and it is a
+    // lane in this registry whether or not a run includes it - the registry is what a lane has to be in to be
+    // addressable, and `LANE_SETS` is what decides which of them a run puts to a diff.
     const lanes: ReviewLane[] = [
       'security',
       'performance',
       'maintainability',
       'testing',
       'architecture',
+      'behaviour',
     ];
     for (const lane of lanes) {
       expect(LANE_PROMPTS[lane]).toBeDefined();
@@ -200,10 +204,13 @@ describe('Lane Registry', () => {
     expect(LANE_PRIORITIES[0]).toBe('security');
   });
 
-  it('should have all five lanes in priorities', () => {
-    expect(LANE_PRIORITIES).toHaveLength(5);
+  it('should have every lane in priorities, once', () => {
+    expect(LANE_PRIORITIES).toHaveLength(6);
     const set = new Set(LANE_PRIORITIES);
-    expect(set.size).toBe(5);
+    expect(set.size).toBe(6);
+    // **And the registry and the priority list name the same lanes**, because a lane in one and not the other is a lane
+    // the engine could run but no ordering would place, or a priority entry for a prompt that does not exist.
+    expect(new Set(LANE_PRIORITIES)).toEqual(new Set(Object.keys(LANE_PROMPTS)));
   });
 
   it('should generate prompts from each lane prompt function', () => {

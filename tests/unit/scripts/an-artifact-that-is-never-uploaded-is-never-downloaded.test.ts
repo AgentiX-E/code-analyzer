@@ -102,7 +102,14 @@ function arms(): Arm[] {
  */
 function pair(
   varied:
-    'adjudicate' | 'idioms' | 'agent' | 'code_context' | 'remarks' | 'ensemble' | 'second_concern',
+    | 'adjudicate'
+    | 'idioms'
+    | 'agent'
+    | 'code_context'
+    | 'remarks'
+    | 'ensemble'
+    | 'second_concern'
+    | 'lane_set',
 ): Arm[] {
   const pairs = alternatives().filter((matrix) => {
     if (matrix.length !== 2 || matrix[0]![varied] === matrix[1]![varied]) return false;
@@ -206,6 +213,7 @@ describe('the artifact names of the benchmark workflow', () => {
       ensemble: 'off',
       remarks: 'off',
       second_concern: 'off',
+      lane_set: 'shipped',
     };
     const expected = new Set([
       expand(uploaded[0]!, baseline),
@@ -261,6 +269,13 @@ describe('the artifact names of the benchmark workflow', () => {
       expand(
         uploaded[0]!,
         pair('second_concern').find((arm) => arm['second_concern'] === 'on')!,
+      ),
+      // **And the behaviour lane's arm**, which is R-35's device side and the first arm in this file whose two sides ask
+      // a different *question* of the same diff rather than a different switch of one reviewer. The comparison job
+      // downloads it by name; an arm paid for and never downloaded is the failure this file exists for, one device later.
+      expand(
+        uploaded[0]!,
+        pair('lane_set').find((arm) => arm['lane_set'] === 'behaviour')!,
       ),
     ]);
     expect(new Set(downloads)).toEqual(expected);
@@ -340,7 +355,9 @@ describe('the matrix is one experiment', () => {
         .sort(),
       // **And a sixth pair for the merge**, dispatched by `ensemble: pair` on §57.5's registration: it is the pair whose
       // two arms are the claim's own two arms rather than a proxy, and R-29 could not be dispatched as one.
-    ).toEqual([1, 1, 1, 1, 1, 1, 1, 2, 2, 2, 2, 2, 2, 2, 2]);
+      // **And one pair and one single for the lane set**, which is R-35's device: `lane_set: pair` buys both questions
+      // over the same rows, and `lane_set: on` is the diagnostic dispatch that prices one question without a comparison.
+    ).toEqual([1, 1, 1, 1, 1, 1, 1, 1, 2, 2, 2, 2, 2, 2, 2, 2, 2]);
   });
 
   it('varies exactly one key, so that a difference between the arms is the device', () => {
@@ -348,7 +365,7 @@ describe('the matrix is one experiment', () => {
     // in more than one configuration key, and that refusal happens in the job that runs *after* both arms have been
     // paid for - so the only place this can be caught for free is here, before the dispatch. **Every pair**, because
     // the workflow now declares two experiments and a second pair that moved two keys would be refused after the bill.
-    for (const varied of ['adjudicate', 'idioms', 'agent', 'second_concern'] as const) {
+    for (const varied of ['adjudicate', 'idioms', 'agent', 'second_concern', 'lane_set'] as const) {
       const [withArm, withoutArm] = pair(varied);
       const keys = new Set([...Object.keys(withArm!), ...Object.keys(withoutArm!)]);
       const differ = [...keys].filter((key) => withArm![key] !== withoutArm![key]);

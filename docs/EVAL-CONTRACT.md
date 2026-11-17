@@ -7164,3 +7164,101 @@ So the next device is a finder device, and it is registered here against the cor
    the reading the registration named. §69.1 puts them side by side rather than choosing.
 3. **Treating 6.97 pairs as zero.** The lift is small and it is not nothing: it is the size of the prize a matcher could
    win, and the reason the next registration pays for a finder instead.
+
+## 70. The finder, built to the registration rather than the registration fitted to it
+
+### 70.1 What the corpus said the missing thing was
+
+§69.5 registered a finder device and named one sentence for it. This section is that device, and it exists because three
+readings of the artifacts pointed at the same place before a line of it was written.
+
+**The first is the lane table**, over the 537 ranked rows of R-33's control arm, the only slice whose rows carry `lane`:
+
+| lane            | emitted | goldens credited | precision | F1 with this lane removed |
+| --------------- | ------: | ---------------: | --------: | ------------------------: |
+| architecture    |     313 |               77 |     0.246 |      0.1625 (**−0.1190**) |
+| testing         |      90 |               10 | **0.111** |      **0.2883 (+0.0069)** |
+| maintainability |      62 |               15 |     0.242 |          0.2658 (−0.0156) |
+| security        |      53 |               16 |     0.302 |          0.2604 (−0.0210) |
+| performance     |      19 |                4 |     0.211 |          0.2783 (−0.0031) |
+
+**The slice is 0.2814 with all five and 0.2883 without the testing lane.** One of the five costs more than it earns, and it
+is the one whose question the corpus barely asks: 91 of the 1 054 goldens are test-shaped, 8.6 %.
+
+**The second is the shape of the sentence**, over the 2 438 ranked rows of three artifacts:
+
+| what the comment does                |  rows | goldens credited | precision |
+| ------------------------------------ | ----: | ---------------: | --------: |
+| names what breaks, under which value |   458 |              157 | **0.343** |
+| describes the change                 | 1 400 |              256 | **0.183** |
+| neither                              |   580 |              127 |     0.219 |
+
+**The third is what the goldens themselves name.** 426 of the 1 054 name a boundary condition - an unchecked return, an
+empty collection, a zero divisor, an index at the end - and **our findings that name one run at 0.257 against 0.196 for
+those that do not**.
+
+Put beside §69.4's 6.97 recoverable pairs, the three readings say one thing: **we comment on the right file and describe
+the change rather than the defect, and no cut, matcher or second pass can repair a sentence that was never written.**
+
+### 70.2 The device, and why it is a substitution
+
+`behaviour` is one lane, and it is the only lane asked a question with a value in it: _which value, state or sequence
+that can actually reach this line makes it produce something other than what the surrounding code expects_ - then _what
+the line produces instead_.
+
+**It replaces `testing` and adds nothing.** A sixth call per file would make the pair a comparison of the question and
+of the budget at once, and `variedField` would have no way to refuse it: the artifacts differ in one key either way, and
+the confound would be inside the arm rather than between the arms.
+
+| what the lane is told                          | why that sentence and not another                                                                                                                  |
+| ---------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------- |
+| name the value first, in the code's vocabulary | _"requiring a triggering input filters out speculative comments, because a model that cannot name the input usually does not have a real finding"_ |
+| most changed lines are correct                 | the clean-control study: 93.8 % of clean items accused without this sentence, 0 % with it, at unchanged detection                                  |
+| do not report an improvement here              | the four other lanes' questions are their business; a remark of that kind costs a comment a defect needed                                          |
+| no category list                               | a hunt in a category the corpus does not label is a miss with extra steps                                                                          |
+
+**And it does not say "find bugs".** The directive framing is measured to roughly triple the false-positive rate against
+the trace framing, so the lane traces a value rather than hunting a category - a distinction that costs nothing to write
+and is the difference between a finder and a flood.
+
+### 70.3 The wiring, which is the part that fails quietly
+
+Five connections, each of which has failed before in this repository: the environment variable, the engine option, the
+artifact key, the matrix row, and the artifact name the comparison job downloads. `laneSet` in the artifact is
+**`{name, lanes}` rather than the name alone**, because a comparison that reads only the name cannot see the reviewer and
+one that reads only the list cannot find the sentence.
+
+| the artifact will say         | the value                                                                 |
+| ----------------------------- | ------------------------------------------------------------------------- |
+| `configuration.laneSet.name`  | `shipped` or `behaviour`                                                  |
+| `configuration.laneSet.lanes` | `["security","architecture","performance","maintainability","behaviour"]` |
+| `rankedFindings[].lane`       | `behaviour`, on every row the lane produced                               |
+
+**And the refusals are asserted without a model.** `--dry-run` renders both lane sets and fails if the build carries no
+prompt for a named lane, if the `behaviour` prompt asks for a category instead of a value, if it is not shown the same
+diff, or if the substitution is not exactly one lane. **`AACR_LANE_SET=behaviuor` throws before the corpus is cloned**,
+because a typo that falls through to a default is a run that pays for one reviewer and publishes another's name.
+
+### 70.4 The registration, restated
+
+> **R-35: a lane asked for the value that breaks a changed line, in place of the testing lane, raises the file arm F1 by
+> at least 0.026 on the 146 pull requests R-32 and R-33 read, and raises recall.**
+
+- **0.026 and not 0.021**, because 146 rows can sign 0.0255 (§69.2) and a bar under its own resolution cannot be true
+  whatever the device does.
+- **`recall-rises`**, because the losses are defects never claimed rather than claims that were refused.
+- **The falsifier is not an F1 movement**: the same run's rejected pairs must show the 16 % same-file floor moving. If the
+  seven recoverable pairs stay at seven, the device found new sentences about old defects, and **no score turns that into
+  a confirmation**.
+
+### 70.5 What would make this section wrong
+
+1. **Reading a confirmation off one slice.** §63 wrote the rule and §69.1 paid for it: the second concern gained 0.0296 on
+   `skip 50` and lost 0.0344 on `skip 150`. The pair this registration names is dispatched over both slices and merged
+   before anything is signed.
+2. **Treating the substitution as free.** It is five calls either way, and the `testing` lane's own contribution is priced
+   in the arm: if `behaviour` earns less than the lane it replaced, the delta says so rather than hiding it in a budget
+   that did not move.
+3. **Calling a higher F1 a better reviewer without the floor.** The floor is the control that shows a reader a comment on
+   one line and a golden from another line of the same file. A device that raises the score and leaves the floor where it
+   was has raised the score.

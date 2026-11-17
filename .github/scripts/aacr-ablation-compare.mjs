@@ -449,6 +449,45 @@ export const REGISTRATIONS = Object.freeze({
       { skip: 150, max: 100 },
     ],
   },
+  /**
+   * **§69.5's registration (R-35): the same diff, a different question asked of it.**
+   *
+   * Four devices have been closed by their own artifacts - the code window (negative at 22 of 23 cuts), the claim check
+   * (§45), the reader (unstable across slices, §63) and the second concern (+0.0089 on 146 rows against a bar it could
+   * not reach, §69.1) - and **every one of them changed the cut, the matcher or the second pass. Not one of them changed
+   * what a lane is asked to say.**
+   *
+   * **The sentence was written before the device existed, and the device was built to fit it rather than the reverse.**
+   * `behaviour` swaps the `testing` lane - which reaches this corpus's question 8.6 % of the time at precision 0.111 and
+   * whose own removal gains 0.0069 F1 - for a lane asked *which value, state or sequence that can reach this line makes
+   * it produce something wrong*, at the same five calls per file. **A substitution and not an addition**, so a difference
+   * between the arms is the question and not the budget.
+   *
+   * **0.026 rather than 0.021**, because 146 rows is what the merged corpus has and 0.0255 is the smallest gain it can
+   * sign (§69.2). **A bar under its own resolution is a sentence that cannot be true**, which is the defect §68 had and
+   * this entry corrects.
+   *
+   * **`recall-rises`**, because §69.4 says the losses are defects never claimed rather than claims that were refused: a
+   * device registered under `recall-holds` would be answered by a rule that cannot see its own mechanism.
+   *
+   * **And the falsifier is not in this object, because it is not a figure this job computes.** §69.5 states it: a
+   * companion reading of the same run's rejected pairs must show the 16 %-floor moving. If the seven recoverable pairs
+   * stay at seven, the device did not find new defects - **it found new sentences about old ones**, and no F1 movement
+   * turns that into a confirmation.
+   */
+  laneSet: {
+    section: '§69.5 (R-35)',
+    claim:
+      'a lane asked for the value that breaks a changed line, in place of the testing lane, raises the file arm F1 by at least 0.026 on the 146 pull requests R-32 and R-33 read, and raises recall',
+    arm: 'file',
+    registeredGain: 0.026,
+    mechanism: 'recall rises and precision does not fall by more than a golden is worth',
+    mechanismRule: 'recall-rises',
+    confirmation: [
+      { skip: 50, max: 100 },
+      { skip: 150, max: 100 },
+    ],
+  },
 });
 
 /**

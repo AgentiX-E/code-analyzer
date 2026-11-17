@@ -647,12 +647,92 @@ Respond ONLY with the JSON object. Do not include any markdown formatting, expla
 }
 
 // ---------------------------------------------------------------------------
+// Behaviour Review Prompt — the lane asked a different question
+// ---------------------------------------------------------------------------
+
+/**
+ * **The value that reaches a line and what that line produces instead.**
+ *
+ * **Why this lane exists, in the corpus's own numbers.** Of the 1 054 goldens on the merged corpus, **449 sit on a file
+ * we commented on and were judged not to address them**, and only seven of those are recoverable by a better matcher
+ * (`EVAL-CONTRACT.md` §69.4). **426 of the 1 054 name a boundary condition** - an unchecked return, an empty
+ * collection, a zero denominator, an index at the end - and the findings that name one are the ones that get accepted:
+ * precision 0.257 against 0.196 over 2 438 ranked rows. **What the five lanes produce instead is mostly the shape of
+ * the change**: a title like *"field removed without deprecation"* where the golden says *"`///` replaced with `//`,
+ * so the field loses its documentation"*.
+ *
+ * **So the question is the value, not the category.** A lane told to look for a category of improvement reports what it
+ * notices about the diff; a lane told to name a value that reaches a line and say what goes wrong with it reports a
+ * defect and, when there is none, says nothing. **The second framing is the one two independent sources measured**:
+ * requiring a triggering input filters speculative comments because *"a model that cannot name the input usually does
+ * not have a real finding"*, and a clean-control study took accusations on correct items from 93.8 % to 0 % with one
+ * sentence granting that most items are correct, at unchanged detection.
+ *
+ * **What it must not become.** Not *"find bugs"* - the directive framing roughly triples the false-positive rate
+ * against the trace framing - and not a sixth category checklist, because four other lanes already ask those and a
+ * lane that repeats them is four calls wearing five hats.
+ */
+export function BEHAVIOUR_REVIEW_PROMPT(ctx: PromptContext): string {
+  const head = `You are tracing what a change does to the values that reach it. You are not reviewing this diff for
+style, structure, tests or documentation - other reviewers are doing that, and a remark of that kind here is one this
+lane cannot price.
+
+Ask one question about every changed line: **which value, state or sequence that can actually reach this line makes it
+produce something other than what the surrounding code expects?**
+
+Answer it by naming the value first, in the vocabulary the code uses:
+- an argument the caller can pass: empty, null, zero, negative, longer than the buffer, a key that appears twice
+- a state the code can be in: not yet initialised, already closed, called twice, called concurrently
+- a return this line does not check: an error, a missing row, a partial write, a value the type admits and the logic
+  does not
+- a boundary the arithmetic crosses: an index at the end, a division by a count that can be zero, a comparison that is
+  exclusive where its caller reads it as inclusive
+
+**Then say what the line produces instead.** "The empty case returns NaN and the caller compares it against a
+threshold" is a finding. "This could be fragile" is not, and neither is a sentence about the change itself - what it
+replaces, what it now does, what it would be cleaner as. **A finding whose description cannot name a value that reaches
+the line has not answered the question**, and the right output is to leave it out rather than to phrase it more
+carefully.
+
+**Do not report an improvement here.** A naming problem, a long function, a missing test and a layer violation are all
+real, all four other reviewers' business, and all four cost a comment that a defect needed.
+
+**Most changed lines are correct.** A rename, a reformat, a comment, a test fixture and most configuration changes
+carry nothing this lane can say, and an empty findings array is the expected answer for them rather than a failure of
+the exercise.
+
+`;
+  const tail = `Return a JSON object with this exact structure:
+${defectChecklist(ctx)}${selectionContract(ctx)}
+
+Few-shot example — a divisor the caller does not know is zero:
+Input: diff adding \`const ratio = delta / Math.min(previous, current);\`
+Output:
+{
+  "findings": [
+    {
+      "startLine": 41,
+      "endLine": 41,
+      "severity": "high",
+      "category": "bug",
+      "title": "Two equal intervals make Math.min zero and the ratio Infinity",
+      "description": "Math.min(previous, current) is the gap between consecutive events, and two events on the same tick pass 0 here. The division then returns Infinity, which the caller compares against a threshold and never exceeds; the previous expression divided by Math.max and could not be zero.",
+      "suggestion": "Guard the zero before dividing: if (Math.min(previous, current) === 0) return 0;"
+    }
+  ]
+}
+
+Respond ONLY with the JSON object. Do not include any markdown formatting, explanations, or additional text.`;
+  return composeLanePrompt(ctx, head, tail);
+}
+
+// ---------------------------------------------------------------------------
 // Prompt Registry
 // ---------------------------------------------------------------------------
 
 /** All available review lanes with their associated prompt builders. */
 export type ReviewLane =
-  'security' | 'performance' | 'maintainability' | 'testing' | 'architecture';
+  'security' | 'performance' | 'maintainability' | 'testing' | 'architecture' | 'behaviour';
 
 export const LANE_PROMPTS: Record<ReviewLane, (ctx: PromptContext) => string> = {
   security: SECURITY_REVIEW_PROMPT,
@@ -660,6 +740,7 @@ export const LANE_PROMPTS: Record<ReviewLane, (ctx: PromptContext) => string> = 
   maintainability: MAINTAINABILITY_REVIEW_PROMPT,
   testing: TESTING_REVIEW_PROMPT,
   architecture: ARCHITECTURE_REVIEW_PROMPT,
+  behaviour: BEHAVIOUR_REVIEW_PROMPT,
 };
 
 /** Labels for each review lane (human-readable). */
@@ -669,7 +750,28 @@ export const LANE_LABELS: Record<ReviewLane, string> = {
   maintainability: 'Maintainability Review',
   testing: 'Testing Review',
   architecture: 'Architecture Review',
+  behaviour: 'Behaviour Review',
 };
+
+/**
+ * **The two questions a run can put to one diff, named so an artifact can say which it asked.**
+ *
+ * `shipped` is the five lanes every published figure was measured under, and it stays the default: **a lane set is a
+ * reviewer, and a reviewer that changes silently re-prices every number in this repository.**
+ *
+ * `behaviour` swaps *one* of them - `testing`, whose findings reach the corpus's question 8.6 % of the time at
+ * precision 0.111 and whose own removal gains 0.0069 F1 (§69.3's table) - for the lane that asks for the value that
+ * breaks the line. **A substitution rather than a sixth call**, because a device that also costs 20 % more per file
+ * cannot be priced against one that does not, and because the registration R-35 asks about the *question* rather than
+ * about the budget.
+ *
+ * **Read by the benchmark and by nothing else.** The engine's default lanes are still `shipped`; a caller that wants
+ * the other set passes it, and the artifact records which set it passed.
+ */
+export const LANE_SETS = {
+  shipped: ['security', 'architecture', 'performance', 'maintainability', 'testing'],
+  behaviour: ['security', 'architecture', 'performance', 'maintainability', 'behaviour'],
+} as const satisfies Record<string, readonly ReviewLane[]>;
 
 /** Review lanes sorted by priority (most critical first). */
 export const LANE_PRIORITIES: ReviewLane[] = [
@@ -678,6 +780,7 @@ export const LANE_PRIORITIES: ReviewLane[] = [
   'performance',
   'maintainability',
   'testing',
+  'behaviour',
 ];
 
 // ---------------------------------------------------------------------------
