@@ -30,6 +30,7 @@ import { dirname, join, resolve } from 'node:path';
 import {
   claimsPrompt,
   compareReadings,
+  escalateTokens,
   readingIsUsable,
   crossPairControl,
   sameLineRejects,
@@ -141,8 +142,10 @@ async function read(pair, { model = MODEL, base = BASE, key = KEY, fetchImpl = f
         .trim();
       if (text === '') {
         // **An empty answer with `length` beside it is the one failure a bigger `max_tokens` fixes**, so it is named
-        // separately from an answer that arrived and could not be read.
+        // separately from an answer that arrived and could not be read - and the retry is given room *before* it is
+        // made, because the second attempt at the same cap would truncate in the same place.
         reason = choice?.finish_reason === 'length' ? 'truncated' : 'empty';
+        if (reason === 'truncated') body.max_tokens = escalateTokens(body.max_tokens);
         throw new Error(reason);
       }
       const parsed = JSON.parse(text);

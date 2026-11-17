@@ -14,7 +14,11 @@
 
 import { describe, expect, it } from 'vitest';
 
-import { compareReadings, readingIsUsable } from '../../../scripts/lib/claims-match.mjs';
+import {
+  compareReadings,
+  escalateTokens,
+  readingIsUsable,
+} from '../../../scripts/lib/claims-match.mjs';
 
 function row(id: string, sameFile: string | null): { id: string; sameFile: string | null } {
   return { id, sameFile };
@@ -123,5 +127,22 @@ describe('a reading that did not answer is not a reading', () => {
 
   it('refuses a reading with nothing in it rather than calling it unanimous', () => {
     expect(readingIsUsable({ pairs: 0, unanswered: 0 })).toBe(false);
+  });
+});
+
+describe('a judge that needs more room is given room, not given up on', () => {
+  // **The probe answered one pair in twenty and the reason was `truncated × 66`** - every failed call came back with
+  // `finish_reason: length` and an empty answer, because `max_tokens: 160` was measured on a chat judge where six lines
+  // is 120 tokens. **On a reasoning judge the cap covers the thinking as well as the answer**, so the field that keeps the
+  // bill bounded is the field that emptied the answer - the third constant in this repository found to be dimensioned
+  // on one reader and reused on another.
+  it('escalates the answer budget on a truncated call, without letting it run unbounded', () => {
+    // 160 is the chat judge's six lines; 1 280 and 4 000 are the two escalations a reasoning judge can take, and the
+    // ceiling is what stops "give it room" from becoming "give it anything".
+    expect(escalateTokens(160)).toBe(1280);
+    expect(escalateTokens(1280)).toBe(4000);
+    expect(escalateTokens(4000)).toBe(4000);
+    // **An escalation that could shrink would be a retry that made the failure likelier**, so it is monotone by test.
+    expect(escalateTokens(4000)).toBeGreaterThanOrEqual(escalateTokens(1280));
   });
 });

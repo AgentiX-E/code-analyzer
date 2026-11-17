@@ -354,4 +354,13 @@ describe('a second reading of a rejected pair is only evidence if it is controll
     // `AACR_REJUDGE_CONCURRENCY` and the workflow maps the input onto it.
     expect(workflow).toContain('AACR_REJUDGE_CONCURRENCY: ${{ inputs.concurrency }}');
   });
+
+  it('turns a refused reading into a red job instead of a green one with a sentence under it', () => {
+    // **The probe answered 1 of 20 pairs and the job reported success.** The script had already been taught to exit
+    // non-zero on a reading it will not quote - and `node … | tee` returns `tee`'s status, so the refusal was a green
+    // tick with a sentence nobody reads underneath it. **A guard whose status is discarded by a pipe is a comment**,
+    // which is why the pipe option is asserted here rather than trusted to have been remembered.
+    const workflow = readFileSync('.github/workflows/aacr-rejudge.yml', 'utf8');
+    expect(workflow).toMatch(/set -o pipefail\n\s+node scripts\/aacr-rejudge\.mjs/u);
+  });
 });

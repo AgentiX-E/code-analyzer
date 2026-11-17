@@ -146,3 +146,9 @@ export declare const UNANSWERED_LIMIT: number;
 
 /** **Whether a reading may be quoted at all**, so a failed reading is a loud refusal rather than a table of rates. */
 export declare function readingIsUsable(summary?: { pairs?: number; unanswered?: number }): boolean;
+
+/** **The ceiling an escalated answer budget stops at.** */
+export declare const TOKEN_CEILING: number;
+
+/** **The answer budget after a truncated call: eight times the last one, capped** - a judge that needs room asks by truncating. */
+export declare function escalateTokens(current: number): number;

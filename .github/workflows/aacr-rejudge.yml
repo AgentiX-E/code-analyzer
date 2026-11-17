@@ -112,6 +112,10 @@ jobs:
           AACR_JUDGE_MODEL: ${{ inputs.judge_model }}
           AACR_REJUDGE_CONCURRENCY: ${{ inputs.concurrency }}
         run: |
+          # **`pipefail`, because the guard's exit code was being thrown away by `tee`.** The step reported success on a
+          # reading that answered 19 of 20 pairs: `node ... | tee` returns `tee`'s status, so a refusal is a green tick
+          # with a sentence nobody reads underneath it.
+          set -o pipefail
           node scripts/aacr-rejudge.mjs \
             --bench /tmp/artifact \
             --limit "${{ inputs.limit }}" \

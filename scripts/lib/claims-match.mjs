@@ -354,3 +354,21 @@ export function readingIsUsable({ pairs, unanswered } = {}) {
   if (!Number.isFinite(missing) || missing < 0) return false;
   return missing / total <= UNANSWERED_LIMIT;
 }
+
+/** **The ceiling an escalated answer budget stops at**, because "give it room" must not become "give it anything". */
+export const TOKEN_CEILING = 4000;
+
+/**
+ * **The answer budget after a truncated call: eight times the last one, capped.**
+ *
+ * `max_tokens: 160` is six lines of prose - measured on `deepseek-chat`, where a verdict and a sentence is 120 tokens.
+ * On a reasoning judge the same field covers the thinking as well as the answer, so **the cap that keeps the bill bounded
+ * is the cap that emptied the answer**: the second judge returned `finish_reason: length` with no content on 66 of 66
+ * failed calls. Escalating on the failure itself rather than by reading the model's name keeps the repair in one place -
+ * a judge that needs more room asks for it by truncating, whatever it is called.
+ */
+export function escalateTokens(current) {
+  const tokens = Number(current);
+  if (!Number.isFinite(tokens) || tokens <= 0) return TOKEN_CEILING;
+  return Math.min(Math.round(tokens * 8), TOKEN_CEILING);
+}
