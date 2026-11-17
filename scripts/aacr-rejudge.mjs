@@ -16,6 +16,12 @@
  * Usage:
  *   node scripts/aacr-rejudge.mjs --bench /tmp/with --out /tmp/rejudge.json
  *   node scripts/aacr-rejudge.mjs --bench /tmp/with --limit 40 --self-test
+ *   node scripts/aacr-rejudge.mjs --compare /tmp/first.json --against /tmp/second.json
+ *
+ * **The third form is the one that tests the instrument rather than the corpus.** The same pairs read by two judges are
+ * two reports, and the question is whether the floor moved *with the judge*: the two are compared pair by pair, because
+ * subtracting two percentages over the same pairs reports the corpus size as if it were the disagreement
+ * (`compareReadings`). It spends no judge calls and needs no key - the readings were already paid for.
  */
 
 import { existsSync, mkdirSync, readFileSync, statSync, writeFileSync } from 'node:fs';
@@ -23,6 +29,7 @@ import { dirname, join, resolve } from 'node:path';
 
 import {
   claimsPrompt,
+  compareReadings,
   crossPairControl,
   sameLineRejects,
   samePullRequestControl,
@@ -42,13 +49,22 @@ const KEY =
 const CONCURRENCY = Number(process.env['AACR_REJUDGE_CONCURRENCY'] ?? '6');
 
 function parse(argv) {
-  const options = { bench: null, out: null, limit: 0, selfTest: false };
+  const options = {
+    bench: null,
+    out: null,
+    limit: 0,
+    selfTest: false,
+    compare: null,
+    against: null,
+  };
   for (let i = 0; i < argv.length; i += 1) {
     const arg = argv[i];
     if (arg === '--bench') options.bench = argv[++i];
     else if (arg === '--out') options.out = argv[++i];
     else if (arg === '--limit') options.limit = Number(argv[++i]);
     else if (arg === '--self-test') options.selfTest = true;
+    else if (arg === '--compare') options.compare = argv[++i];
+    else if (arg === '--against') options.against = argv[++i];
     else if (arg === '--help' || arg === '-h') {
       process.stdout.write(
         'usage: aacr-rejudge.mjs --bench <artifact dir or file> [--out file] [--limit n]\n',
@@ -272,10 +288,69 @@ function selfTest() {
   );
 }
 
+/**
+ * **Two readings of one corpus, and the question is whether the floor moved with the judge.**
+ *
+ * Prints the table and the pre-registered rule rather than a bare difference: **a bias test that reports only the number
+ * it set out to like is not a bias test**, and the only way a reader can tell which happened here is to see the
+ * discordant pairs beside the two shares.
+ */
+function compare(options) {
+  const first = readReport(options.compare);
+  const second = readReport(options.against);
+  const result = compareReadings(first.rows, second.rows);
+  const judgeA = String(first.report?.judge?.model ?? 'first');
+  const judgeB = String(second.report?.judge?.model ?? 'second');
+  const pct = (value) => `${(Number(value) * 100).toFixed(1)} %`;
+  const p = result.mcnemarP < 0.0001 ? '< 0.0001' : result.mcnemarP.toFixed(4);
+  process.stdout.write(
+    [
+      `AACR-JUDGE-DRIFT ${String(result.paired)} paired pairs · ${judgeA} against ${judgeB}`,
+      '',
+      `| reading | accepted | share |`,
+      `| ------- | -------: | ----: |`,
+      `| ${judgeA} | ${String(Math.round(result.shareA * result.paired))} | ${pct(result.shareA)} |`,
+      `| ${judgeB} | ${String(Math.round(result.shareB * result.paired))} | ${pct(result.shareB)} |`,
+      '',
+      '| cell | pairs |',
+      '| ---- | ----: |',
+      `| both accepted | ${String(result.bothSame)} |`,
+      `| ${judgeA} only | ${String(result.aOnly)} |`,
+      `| ${judgeB} only | ${String(result.bOnly)} |`,
+      `| neither | ${String(result.paired - result.bothSame - result.discordant)} |`,
+      `| unpaired (one reading does not have the pair) | ${String(result.unpaired)} |`,
+      `| unanswered by one reading | ${String(result.unanswered)} |`,
+      '',
+      `difference: ${result.difference >= 0 ? '+' : ''}${pct(result.difference)} · discordant ${String(result.discordant)} · McNemar exact p = ${p}`,
+      `pre-registered bar: |difference| <= ${pct(result.bar)} and p > ${String(result.alpha)}`,
+      `verdict: ${result.pairsRule ? 'the floor is a property of the pairs' : 'the floor moved with the judge'}`,
+      '',
+    ].join('\n'),
+  );
+}
+
+/** One report, whether the caller downloaded it by artifact or by run. */
+function readReport(path) {
+  if (typeof path !== 'string' || path === '')
+    throw new Error('--compare and --against both need a report path');
+  const file = resolve(path);
+  if (!existsSync(file)) throw new Error(`no report at ${file}`);
+  const report = JSON.parse(readFileSync(file, 'utf8'));
+  const rows = Array.isArray(report?.rows) ? report.rows : [];
+  if (rows.length === 0) throw new Error(`${file} holds no rows to compare`);
+  return { file, report, rows };
+}
+
 async function main() {
   const options = parse(process.argv.slice(2));
   if (options.selfTest) {
     selfTest();
+    return;
+  }
+  // **Before the artifact and before the key**: a comparison of two readings that were already paid for must not fail
+  // because this machine has no judge credential.
+  if (options.compare !== null || options.against !== null) {
+    compare(options);
     return;
   }
   // **The artifact before the key**, because the two failures want different repairs and a reader that named the key

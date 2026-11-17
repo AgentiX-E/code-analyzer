@@ -232,3 +232,105 @@ export function summariseRejudge(rows) {
 function round(value) {
   return Math.round(Number(value) * 10_000) / 10_000;
 }
+
+/**
+ * **Two readings of one corpus, compared pair by pair, because a floor is only a property of the pairs if a second
+ * reader reproduces it.**
+ *
+ * The two readings are the *same* pairs read by two judges, so subtracting one share from the other throws away the only
+ * thing that makes the comparison cheap: **the pairs are paired, and the error bar belongs to the pairs where the judges
+ * disagreed rather than to the size of the corpus.** `mcnemarP` is the exact two-sided binomial on those discordant
+ * cells, which is the test a paired proportion comparison is; with `n` discordant pairs and `k` of them going one way,
+ * `p = 2 * sum_{i<=k} C(n,i) / 2^n`, capped at 1 - **capped because the sum is a doubling of a one-sided tail and a
+ * disagreement smaller than a coin flip is not evidence of anything.**
+ *
+ * **`withinBar` is pre-registered, not chosen after the fact**: the floor is a property of the pairs if the second
+ * reading stays inside `bar` of the first *and* the discordant pairs do not separate at `alpha`. Both, because a large
+ * sample can make a difference of two pairs significant and a small one cannot make a difference of ten insignificant.
+ */
+export function compareReadings(
+  rowsA,
+  rowsB,
+  { field = 'sameFile', bar = 0.05, alpha = 0.05 } = {},
+) {
+  const answered = (value) => value === 'same' || value === 'different' || value === 'wording';
+  const index = (rows) => {
+    const map = new Map();
+    for (const row of Array.isArray(rows) ? rows : []) if (row?.id) map.set(row.id, row[field]);
+    return map;
+  };
+  const mapA = index(rowsA);
+  const mapB = index(rowsB);
+  // **The union of the two readings**, because a pair only one of them has is a fact about the reading rather than about
+  // the judge - and a pair both of them have with an unanswered field is the third case, which is neither.
+  const ids = new Set([...mapA.keys(), ...mapB.keys()]);
+
+  let paired = 0;
+  let aOnly = 0;
+  let bOnly = 0;
+  let bothSame = 0;
+  let aSame = 0;
+  let bSame = 0;
+  let unanswered = 0;
+  let unpaired = 0;
+  for (const id of ids) {
+    const a = mapA.get(id);
+    const b = mapB.get(id);
+    if (a === undefined || b === undefined) {
+      unpaired += 1;
+      continue;
+    }
+    if (!answered(a) || !answered(b)) {
+      unanswered += 1;
+      continue;
+    }
+    paired += 1;
+    const aIsSame = a === 'same';
+    const bIsSame = b === 'same';
+    if (aIsSame) aSame += 1;
+    if (bIsSame) bSame += 1;
+    if (aIsSame && bIsSame) bothSame += 1;
+    else if (aIsSame) aOnly += 1;
+    else if (bIsSame) bOnly += 1;
+  }
+
+  const shareA = paired === 0 ? 0 : aSame / paired;
+  const shareB = paired === 0 ? 0 : bSame / paired;
+  const difference = shareB - shareA;
+  const discordant = aOnly + bOnly;
+  const mcnemarP = exactBinomial(discordant, Math.min(aOnly, bOnly));
+
+  return {
+    field,
+    paired,
+    unpaired,
+    unanswered,
+    bothSame,
+    aOnly,
+    bOnly,
+    discordant,
+    shareA: round(shareA),
+    shareB: round(shareB),
+    difference: round(difference),
+    mcnemarP,
+    withinBar: Math.abs(difference) <= bar,
+    /** **Both halves of the pre-registered bar**, because either one alone can be satisfied by a corpus the other refuses. */
+    pairsRule: Math.abs(difference) <= bar && mcnemarP > alpha,
+    /** The pre-registered bar, so a report quotes the rule it was judged by rather than the rule it met. */
+    bar,
+    alpha,
+  };
+}
+
+/** The exact two-sided binomial tail `2 * P(X <= k | n, 1/2)`, capped at 1, in integers so 263 pairs are exact. */
+function exactBinomial(n, k) {
+  if (n === 0) return 1;
+  let sum = 0n;
+  let term = 1n;
+  for (let i = 0; i <= k; i += 1) {
+    if (i > 0) term = (term * BigInt(n - i + 1)) / BigInt(i);
+    sum += term;
+  }
+  const denominator = 2n ** BigInt(n);
+  return Math.min(1, (2 * Number(sum)) / Number(denominator));
+}

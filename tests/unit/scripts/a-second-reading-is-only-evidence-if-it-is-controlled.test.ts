@@ -328,9 +328,7 @@ describe('a second reading of a rejected pair is only evidence if it is controll
 
     // **Two readings of one run are two artifacts.** The name carried only the run until this input existed, so the
     // second reading uploaded under the first one's name and the older one was the file a reader downloaded.
-    expect(workflow).toContain(
-      'name: aacr-rejudge-${{ inputs.run_id }}-${{ inputs.judge_model }}',
-    );
+    expect(workflow).toContain('name: aacr-rejudge-${{ inputs.run_id }}-${{ inputs.judge_model }}');
     // And the concurrency group, because it was keyed on the run alone: a second judge's dispatch **cancelled** the
     // first one mid-flight, which is the one failure mode that looks like a missing artifact.
     expect(workflow).toContain(

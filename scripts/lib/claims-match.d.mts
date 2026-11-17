@@ -113,3 +113,30 @@ export declare function claimsPrompt(input: { note: string; comment: string }): 
 
 /** **What the re-read found, with the control subtracted** - the only number that licenses a re-scoring is `beyondControl`. */
 export declare function summariseRejudge(rows: readonly RejudgeRow[]): RejudgeSummary;
+
+/** **The two readings of one corpus, paired**, so the difference between them carries the disagreement rather than the corpus size. */
+export interface ReadingComparison {
+  field: string;
+  paired: number;
+  unpaired: number;
+  unanswered: number;
+  bothSame: number;
+  aOnly: number;
+  bOnly: number;
+  discordant: number;
+  shareA: number;
+  shareB: number;
+  difference: number;
+  mcnemarP: number;
+  withinBar: boolean;
+  pairsRule: boolean;
+  bar: number;
+  alpha: number;
+}
+
+/** **The floor is a property of the pairs only if a second judge reproduces it** - and the bar is pre-registered. */
+export declare function compareReadings(
+  rowsA: readonly RejudgeRow[],
+  rowsB: readonly RejudgeRow[],
+  options?: { field?: string; bar?: number; alpha?: number },
+): ReadingComparison;
