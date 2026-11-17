@@ -133,13 +133,14 @@ describe('the registration is the one the lane-set switch is measured against', 
     expect(registration!['registeredGain']).toBe(0.026);
   });
 
-  it('names the two slices whose merge is the 146 rows the bar was written for', () => {
+  it('names the slice that holds the 146 rows the bar was written for', () => {
     const registration = (REGISTRATIONS as unknown as Record<string, Record<string, unknown>>)[
       'laneSet'
     ];
-    expect(registration!['confirmation']).toEqual([
-      { skip: 50, max: 100 },
-      { skip: 150, max: 100 },
-    ]);
+    // **One dispatch over rows 50-195, which is the union of the two slices R-32 and R-33 read.** A corpus assembled
+    // from two runs carries their difference as well as the device's - two dispatches of *one* configuration have
+    // reported 0.1691 and 0.2405 (§20.4) - so the same 146 rows are bought once. **The bar is unchanged**, because the
+    // row count is unchanged and it is rows that decide what can be signed.
+    expect(registration!['confirmation']).toEqual([{ skip: 50, max: 146 }]);
   });
 });

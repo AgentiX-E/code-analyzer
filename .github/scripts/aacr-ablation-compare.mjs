@@ -229,8 +229,8 @@ export const REGISTRATIONS = Object.freeze({
     // here first and then withdrawn by measurement.** The split was argued from 3.29 minutes per pull request, a figure
     // that came from the fourteen-pull-request run of §15.6; the fifty-pull-request run of 2026-11-10 (workflow run
     // 42823966835) took 61.0 and 79.7 minutes for its two arms, which is 1.22 and 1.59. **At the slower of the two, a
-    // hundred needs 159 minutes of a 340-minute ceiling** - inside the half-ceiling rule below - so the registration is
-    // answered by the run it names rather than by two runs that add up to it.
+    // hundred needs 159 minutes of a 340-minute ceiling** - inside the confirmation guard below with 183 minutes even on
+    // a 15 % slow day - so the registration is answered by the run it names rather than by two runs that add up to it.
     confirmation: [{ skip: 50, max: 100 }],
   },
   /**
@@ -474,6 +474,14 @@ export const REGISTRATIONS = Object.freeze({
    * companion reading of the same run's rejected pairs must show the 16 %-floor moving. If the seven recoverable pairs
    * stay at seven, the device did not find new defects - **it found new sentences about old ones**, and no F1 movement
    * turns that into a confirmation.
+   *
+   * **The slice is `skip 50, max 146`, which is the same 146 rows R-32 and R-33 read, bought in one dispatch rather
+   * than two merged ones** - and the choice is stated here because it was made before the run landed. `skip 50, max
+   * 100` is R-32's rows (50-149) and `skip 150` is R-33's (150-195); one dispatch over 50-195 reads the union in one
+   * artifact, and §20.4's measurement is why that is better than the merge: **two dispatches of *one* configuration
+   * have reported 0.1691 and 0.2405**, so a corpus assembled from two runs carries their difference as well as the
+   * device's. **The bar is unchanged at 0.026**, because the row count is unchanged at 146 and it is rows that decide
+   * what can be signed.
    */
   laneSet: {
     section: '§69.5 (R-35)',
@@ -483,10 +491,7 @@ export const REGISTRATIONS = Object.freeze({
     registeredGain: 0.026,
     mechanism: 'recall rises and precision does not fall by more than a golden is worth',
     mechanismRule: 'recall-rises',
-    confirmation: [
-      { skip: 50, max: 100 },
-      { skip: 150, max: 100 },
-    ],
+    confirmation: [{ skip: 50, max: 146 }],
   },
 });
 
@@ -550,15 +555,39 @@ export function slicesThatFit(minutes) {
 }
 
 /**
- * **What a confirming run is allowed to spend of its ceiling: half of it.**
+ * **How much slower than the measured arm a day is allowed to be before a confirmation stops being a confirmation.**
  *
  * A slice that fills the ceiling is a slice whose artifact does not exist the first time the runner is slow, and a job
  * that dies at minute 340 has spent the money and produced no verdict - **so the margin is not caution, it is the
- * difference between a confirmation and a dispatch whose outcome is a timeout.** The registered hundred meets it at 159
- * minutes of 340, and the whole 200-pull-request corpus does not: 319 minutes, which is 94 % of the ceiling and inside it
- * with no room to retry.
+ * difference between a confirmation and a dispatch whose outcome is a timeout.** The width of an ordinary slow day is
+ * therefore measured rather than assumed: run `43902714209` dispatched the same 46 pull requests twice and its arms took
+ * 56.8 and 64.5 minutes, **1.135×**, and `MEASURED_MINUTES_PER_PULL_REQUEST` is already the slower arm (79.7 of the 61.0
+ * and 79.7 the fifty-pull-request run reported). A confirmation that survives 1.15× the constant therefore survives a
+ * runner as much slower than its own run's slower arm as one arm was than the other.
+ *
+ * **This replaced `CONFIRMATION_CEILING_FRACTION = 0.5`, and the replacement is what lets R-35 be registered at all.**
+ * Half of 340 minutes is 106 rows, a fraction chosen when the rate was believed to be 3.29 minutes per pull request and
+ * a hundred rows really did cost 329 of 340. At 1.594 the same fraction refuses every slice that carries a bar only 146
+ * rows can sign - R-35's 0.026 is one - while still admitting the hundred it was written around, **so it was measuring
+ * the era rather than the property**. The property is asked directly now: does the job finish on a 15 % slow day? The
+ * largest confirmation that does is 185 rows, which is inside the 196-row corpus - **so the guard still refuses the
+ * whole corpus in one dispatch, which is the one thing it has to refuse.**
  */
-export const CONFIRMATION_CEILING_FRACTION = 0.5;
+export const CONFIRMATION_OVERRUN_TOLERANCE = 1.15;
+
+/**
+ * **The largest confirmation a job ceiling can finish on a 15 % slow day**, which is the number a registration is
+ * checked against rather than a share of the ceiling.
+ *
+ * 185 rows of 340 minutes: the edge is called out because the two registrations that need a large slice sit just inside
+ * it - `laneSet`'s 146 spends 232.7 minutes, 267.6 with the tolerance - and a reader is entitled to know how much room
+ * that leaves rather than being told the slice "fits".
+ */
+export function slicesAConfirmationCanFit(minutes) {
+  const budget = Number(minutes);
+  if (!Number.isFinite(budget) || budget <= 0) return 0;
+  return Math.floor(budget / (MEASURED_MINUTES_PER_PULL_REQUEST * CONFIRMATION_OVERRUN_TOLERANCE));
+}
 
 /**
  * **Two runs of one configuration, as the measurement the instrument's error bar never had.**

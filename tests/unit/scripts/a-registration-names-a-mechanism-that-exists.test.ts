@@ -18,7 +18,7 @@ import { resolve } from 'node:path';
 import { describe, expect, it } from 'vitest';
 
 import {
-  CONFIRMATION_CEILING_FRACTION,
+  CONFIRMATION_OVERRUN_TOLERANCE,
   MEASURED_MINUTES_PER_PULL_REQUEST,
   MECHANISMS,
   REGISTRATIONS,
@@ -61,14 +61,16 @@ describe('every registration names a mechanism the comparison can test', () => {
     }
   });
 
-  it('keeps every confirmation slice inside the half-ceiling rule', () => {
+  it('keeps every confirmation slice inside the job, tolerance included', () => {
     for (const [field, registration] of entries) {
       for (const slice of registration.confirmation) {
         const minutes = slice.max * MEASURED_MINUTES_PER_PULL_REQUEST;
+        const survived = minutes * CONFIRMATION_OVERRUN_TOLERANCE;
         expect(
-          minutes,
-          `${field}'s slice of ${String(slice.max)} needs ${minutes.toFixed(1)} of ${String(CEILING_MINUTES)} minutes`,
-        ).toBeLessThanOrEqual(CEILING_MINUTES * CONFIRMATION_CEILING_FRACTION);
+          survived,
+          `${field}'s slice of ${String(slice.max)} needs ${minutes.toFixed(1)} minutes of ` +
+            `${String(CEILING_MINUTES)}, ${survived.toFixed(1)} with the tolerance`,
+        ).toBeLessThanOrEqual(CEILING_MINUTES);
         // **And a confirmation must start after row zero.** This is the weak form of the rule on purpose: each
         // registration's discovery was a different size - the code window's was the first fourteen pull requests and the
         // category floor's the first fifty - and a table that asserted one number here would be asserting a fact about

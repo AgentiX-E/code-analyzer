@@ -112,8 +112,11 @@ export declare const MEASURED_MINUTES_PER_PULL_REQUEST: number;
 /** How many pull requests a job with this many minutes can score at all. */
 export declare function slicesThatFit(minutes: number | string): number;
 
-/** The share of its ceiling a confirming run may spend. */
-export declare const CONFIRMATION_CEILING_FRACTION: number;
+/** How much slower than the measured arm a confirming run's day may be and still finish. */
+export declare const CONFIRMATION_OVERRUN_TOLERANCE: number;
+
+/** How many pull requests a confirmation on this ceiling can hold and still finish on a slow day. */
+export declare function slicesAConfirmationCanFit(minutes: number | string): number;
 
 /**
  * **The corpus the resolution is anchored on**, so that a scaled bar is a formula with an anchor rather than a constant

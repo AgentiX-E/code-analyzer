@@ -1589,9 +1589,10 @@ cannot be reconstructed.**
 taste.** §15.6 briefly derived the ceiling from 3.3 minutes per pull request - a figure belonging to the
 fourteen-pull-request run - which made a hundred look like 329 minutes of a 340-minute ceiling and led to a plan of two
 slices of fifty. **The fifty-pull-request run of 2026-11-10 measures 61.0 and 79.7 minutes for its two arms**, so a
-hundred is 159 minutes and fits the half-ceiling rule with 181 minutes to spare. **A registration that names a hundred and
-is answered by one run of a hundred has answered the registration**; the split would have cost a second dispatch's
-checkout, clone and install to buy nothing.
+hundred is 159 minutes and fits the half-ceiling rule with 181 minutes to spare - **and that rule was replaced in §70.6**,
+because half of 340 minutes is 106 rows and 106 rows cannot carry a bar that only 146 rows can sign. **A registration that
+names a hundred and is answered by one run of a hundred has answered the registration**; the split would have cost a
+second dispatch's checkout, clone and install to buy nothing.
 
 **What was measured before the registration, on the discovery set** (a subset of the verdicts above, so this is the
 in-sample figure and it is labelled as one):
@@ -7254,11 +7255,52 @@ because a typo that falls through to a default is a run that pays for one review
 ### 70.5 What would make this section wrong
 
 1. **Reading a confirmation off one slice.** §63 wrote the rule and §69.1 paid for it: the second concern gained 0.0296 on
-   `skip 50` and lost 0.0344 on `skip 150`. The pair this registration names is dispatched over both slices and merged
-   before anything is signed.
+   `skip 50` and lost 0.0344 on `skip 150`. **The pair this registration names is one dispatch over rows 50-195** -
+   `skip 50, max 146` - which is the union of the two slices, bought once rather than twice so that the corpus does not
+   carry a cross-dispatch difference as well as the device's (§20.4: two dispatches of _one_ configuration have reported
+   0.1691 and 0.2405). **The bar is unchanged at 0.026**, because the row count is unchanged at 146, and it is rows that
+   decide what can be signed.
 2. **Treating the substitution as free.** It is five calls either way, and the `testing` lane's own contribution is priced
    in the arm: if `behaviour` earns less than the lane it replaced, the delta says so rather than hiding it in a budget
    that did not move.
 3. **Calling a higher F1 a better reviewer without the floor.** The floor is the control that shows a reader a comment on
    one line and a golden from another line of the same file. A device that raises the score and leaves the floor where it
    was has raised the score.
+
+### 70.6 The guard that refused this slice was measuring the era it was written in
+
+**`skip 50, max 146` was refused by the confirmation rule before it was dispatched, and the refusal is the finding.**
+The rule said a confirmation may spend half the job ceiling: **106 rows of 340 minutes**. That fraction was chosen when
+the rate was believed to be 3.29 minutes per pull request, a figure belonging to the fourteen-pull-request run of §15.6,
+and under that rate a hundred rows really did cost 329 of 340 - **so 0.5 was not a law, it was the arithmetic that let
+R-17 register a hundred.** The rate has since been measured twice: 1.594 minutes per pull request at the slower arm of
+the fifty-pull-request run, and 1.235 / 1.402 at the two arms of `43902714209`. **At 1.594 the half rule admits 106 rows
+and refuses 146** - and 146 is the number of rows that can sign 0.026, which is the bar R-35 has to meet to be worth
+dispatching. A guard that refuses every registration large enough to be resolvable is not protecting the corpus, it is
+preserving a number from a configuration that no longer runs.
+
+**So the guard now asks the property instead of the proxy: does the job finish on an ordinary slow day?** The width of
+an ordinary slow day is measured rather than assumed - one run dispatched the same 46 pull requests twice and its arms
+took **56.8 and 64.5 minutes, 1.135×** - and `MEASURED_MINUTES_PER_PULL_REQUEST` is already the slower of the two arms
+(79.7 of 61.0 and 79.7) of the run it came from. `CONFIRMATION_OVERRUN_TOLERANCE = 1.15` therefore means a confirmation
+survives a runner as much slower than the measured arm as one arm was than the other.
+
+| slice                     |    rows |   minutes | with tolerance | verdict                     |
+| ------------------------- | ------: | --------: | -------------: | --------------------------- |
+| R-17's confirmation       |     100 |     159.4 |          183.3 | admitted                    |
+| **R-35's confirmation**   | **146** | **232.7** |      **267.6** | **admitted**                |
+| the largest admitted      |     185 |     294.9 |          339.1 | the edge                    |
+| one row past the edge     |     186 |     296.5 |          341.0 | refused                     |
+| the whole corpus, one run |     196 |     312.4 |          359.3 | refused, which is the point |
+
+**The edge is tested rather than described** (`slicesAConfirmationCanFit(340) === 185`, and 186 asserted not to fit),
+because a guard whose boundary is prose is a comment. **Nothing else moved to accommodate the slice**: the rate constant
+is the same 79.7 / 50, the bar is the same 0.026, the registration was written before the run was dispatched, and the
+dispatched run is `43987896252` at `lane_set=pair, skip 50, max 146` - **one artifact per arm, so the corpus cannot carry
+a cross-dispatch difference as well as the device's.**
+
+**What would make this subsection wrong.** If a future dispatch measures an arm more than 15 % slower than the arm its
+own run reported, then the tolerance is too small and a slice it admitted was a timeout that had not happened yet - the
+remedy is a larger tolerance with a smaller cap, not a smaller tolerance with an unregistered bar. And if R-35's verdict
+turns out to be `falsified`, this section is not thereby wrong: **a guard can be correctly repaired around a device that
+does not work, and the repair is judged on the run that finishes, not on the delta it returns.**

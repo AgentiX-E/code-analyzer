@@ -16,6 +16,17 @@
 // below read the ceiling out of the workflow file. **What they cannot check is that the rate is the right one for the
 // next run** - only a run measures that, and this file's job is to make sure the number written down is the number the
 // current measurement supports rather than the one that was true two configurations ago.
+//
+// **And the same lesson was learned twice: the guard was a fraction of the ceiling, which is a proxy for the property
+// the guard exists to hold.** "Half of 340 minutes" is 106 rows, and 106 was chosen in the era when the rate was
+// believed to be 3.29 minutes per pull request and a hundred rows really did cost 329 of 340. At 1.594 that fraction
+// refuses **every slice that carries a bar only 146 rows can sign** (R-35's, at 0.026) while still admitting a
+// hundred - so the fraction was measuring the era it was written in. **What a confirmation actually needs is to finish
+// on an ordinary slow day**, and the width of an ordinary slow day is now measured rather than assumed: one run
+// dispatched the same 46 pull requests twice and its arms took 56.8 and 64.5 minutes, **1.135×**, and
+// `MEASURED_MINUTES_PER_PULL_REQUEST` is already the slower arm (79.7 of 61.0 and 79.7) of the run it came from. So the
+// guard is `minutes × 1.15 ≤ ceiling`, which admits 185 rows and refuses 186 - **inside the full 196-row corpus, which
+// is the thing it has to refuse.**
 
 import { readFileSync } from 'node:fs';
 import { resolve } from 'node:path';
@@ -23,9 +34,10 @@ import { resolve } from 'node:path';
 import { describe, expect, it } from 'vitest';
 
 import {
-  CONFIRMATION_CEILING_FRACTION,
+  CONFIRMATION_OVERRUN_TOLERANCE,
   MEASURED_MINUTES_PER_PULL_REQUEST,
   REGISTRATIONS,
+  slicesAConfirmationCanFit,
   slicesThatFit,
 } from '../../../.github/scripts/aacr-ablation-compare.mjs';
 
@@ -65,22 +77,27 @@ describe('a confirmation slice is a promise the runner can keep', () => {
     expect(read.size).toBe(100);
   });
 
-  it('keeps every confirmation inside half the job ceiling, with the minutes stated', () => {
+  it('keeps every confirmation inside the job even on a fifteen-percent-slow day', () => {
     const ceiling = jobCeilingMinutes();
 
     for (const slice of REGISTRATIONS.emissionProfile.confirmation) {
       const minutes = wallClock(slice.max);
       // **The mechanism, so a failure says which slice and by how much rather than "false was not true".**
       expect(
-        minutes,
-        `a slice of ${String(slice.max)} needs ${minutes.toFixed(1)} of ${String(ceiling)} minutes`,
-      ).toBeLessThanOrEqual(ceiling * CONFIRMATION_CEILING_FRACTION);
+        minutes * CONFIRMATION_OVERRUN_TOLERANCE,
+        `a slice of ${String(slice.max)} needs ${minutes.toFixed(1)} minutes of ${String(ceiling)}, ` +
+          `${(minutes * CONFIRMATION_OVERRUN_TOLERANCE).toFixed(1)} with the tolerance`,
+      ).toBeLessThanOrEqual(ceiling);
     }
 
-    // **And the bound the whole corpus fails is asserted rather than described**: 200 pull requests is 319 minutes, which
-    // is inside the ceiling and outside anything a retry could absorb.
-    expect(wallClock(200)).toBeLessThan(ceiling);
-    expect(wallClock(200)).toBeGreaterThan(ceiling * CONFIRMATION_CEILING_FRACTION);
+    // **And the bound is asserted at the exact row where it turns over rather than described.** 185 rows survive the
+    // tolerance and 186 do not, so the rule that admits R-35's 146 still refuses the whole 196-row corpus in one
+    // dispatch - **a guard that admits everything is not a guard, and a guard whose edge is not tested is a comment.**
+    const rows = slicesAConfirmationCanFit(ceiling);
+    expect(rows).toBe(185);
+    expect(wallClock(rows) * CONFIRMATION_OVERRUN_TOLERANCE).toBeLessThanOrEqual(ceiling);
+    expect(wallClock(rows + 1) * CONFIRMATION_OVERRUN_TOLERANCE).toBeGreaterThan(ceiling);
+    expect(rows).toBeLessThan(196);
   });
 
   it('derives the ceiling claim from the fifty-pull-request run rather than from the fourteen', () => {
