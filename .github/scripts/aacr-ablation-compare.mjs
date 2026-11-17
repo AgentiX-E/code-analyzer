@@ -562,6 +562,16 @@ export const REGISTRATIONS = Object.freeze({
     mechanism: 'precision rises and recall does not fall by more than a golden is worth',
     mechanismRule: 'recall-holds',
     /**
+     * **This device can only remove claims, so the most it could ever have moved F1 is computable before the run.**
+     *
+     * §76's third verdict reads `deletionCounter` and answers *was the bar inside this device's reach at all* before it
+     * answers *did the device reach it*. **Both flags are declared rather than inferred from `mechanism`**: a mechanism
+     * is a sentence about precision and recall, and two devices that move them the same way can have different reach -
+     * the gate removes, a substitution replaces.
+     */
+    deletionOnly: true,
+    deletionCounter: 'falsifier.dropped',
+    /**
      * **Empty, and the reading is §74's.** This device was measured on its registered slice: F1 **0.2048 → 0.1585**
      * (delta −0.0463, paired +41/−110, p ≈ 0), so the claim was falsified and a slice list here would be a promise to
      * spend money re-reading a verdict that has already been read - the same reason §8's entry is closed.
@@ -624,6 +634,9 @@ export const REGISTRATIONS = Object.freeze({
      * smallest count at which "which ones" is a question the artifact can answer.
      */
     activity: { counter: 'falsifier.dropped', atLeast: 40 },
+    /** The reach arithmetic of §76, declared for the same reason the first contract declares it. */
+    deletionOnly: true,
+    deletionCounter: 'falsifier.dropped',
     confirmation: [{ skip: 50, max: 146 }],
   },
 });
@@ -839,6 +852,37 @@ export function registrationResolvable(registration, goldens) {
       reason: `unfalsifiable: the registered gain ${String(bar)} sits under the ${String(resolution)} a second corpus of ${String(goldens)} goldens moves the figure by, so the registration asks for less than the instrument resolves`,
     };
   return { resolvable: true, resolution, bar };
+}
+
+/**
+ * **The most a removal-only device could have gained, computed from the arm it was compared against.**
+ *
+ * A device that can only delete findings has an upper bound on its effect: **the figure it would have reached had every
+ * claim it removed been a false positive**, keeping every true positive it had, at the emission the baseline actually
+ * produced. Two charities at once - no true positive lost, and every removal reaching the reviewer rather than stopping
+ * at `maxFindingsPerFile` - so the number is a ceiling and not a prediction.
+ *
+ * **Why a ceiling and not a target.** §73's gate removed 557 claims on this corpus and bought −0.046 F1; the ceiling at
+ * 557 is +0.077, so that run could have cleared its 0.026 bar and did not, which is a falsification. **The same gate
+ * removing eighty claims has a ceiling of +0.008, under the bar, and no reading of that run can say the device failed** -
+ * the pool was too small to price the question. The two runs print the same `falsified:` sentence today, and one of them
+ * is a statement about the corpus wearing the device's name.
+ *
+ * `removed` is the device's own count and not the difference between the arms' emissions, because the difference has
+ * already had the truncation and the true-positive losses applied - **the ceiling is about what the device did, and the
+ * gap between that and the difference is a fact about the corpus.** Returns `null` when the arm cannot support the
+ * arithmetic, so a missing measurement never reads as a bound.
+ */
+export function deletionCeiling(without, removed, goldens) {
+  const tp = Number(without?.truePositives);
+  const fp = Number(without?.falsePositives);
+  const count = Number(goldens);
+  if (!Number.isFinite(tp) || !Number.isFinite(fp)) return null;
+  if (!Number.isFinite(count) || count <= 0) return null;
+  if (typeof removed !== 'number' || !Number.isFinite(removed) || removed < 0) return null;
+  const f1Of = (truePositives, falsePositives) =>
+    (2 * truePositives) / (2 * truePositives + falsePositives + (count - truePositives));
+  return round(f1Of(tp, Math.max(0, fp - removed)) - f1Of(tp, fp));
 }
 
 export function resolutionFor(
@@ -1374,6 +1418,32 @@ export function summarise(on, off) {
       })()
     : null;
 
+  /**
+   * **Whether the bar was inside the device's reach before asking whether the device reached it.**
+   *
+   * §76's arithmetic, read off the arm the device was compared against. **`null` when the registration names no deletion
+   * counter, when the arm carries no such counter, or when the arithmetic cannot be supported** - a bound invented from a
+   * missing measurement is the failure `activity: { observed: null }` was written to avoid, so the field is absent rather
+   * than generous.
+   */
+  const reach =
+    registration?.deletionOnly === true
+      ? (() => {
+          const [device, counter] = String(registration.deletionCounter ?? '').split('.');
+          const raw = on?.engineCounters?.[device]?.[counter];
+          const removed = typeof raw === 'number' ? raw : null;
+          if (removed === null) return null;
+          const ceilingGain = deletionCeiling(offArm, removed, goldens);
+          if (ceilingGain === null) return null;
+          return {
+            counter: registration.deletionCounter,
+            removed,
+            ceilingGain,
+            reachable: registeredGain === null ? null : ceilingGain >= registeredGain,
+          };
+        })()
+      : null;
+
   const outcome =
     magnitudeMet === null
       ? 'unregistered: no expectation was written before this run'
@@ -1385,19 +1455,21 @@ export function summarise(on, off) {
             ? registrationResolvable(registration, goldens).reason
             : activity !== null && !activity.met
               ? `not a test: the registration needs ${String(activity.atLeast)} ${String(activity.counter)} before a difference is about the contract, and the arm reported ${activity.observed === null ? 'no such counter' : String(activity.observed)}`
-              : !magnitudeMet
-                ? `falsified: the registered gain was not reached on ${armName}${guardMet === false ? `, and the ${armProse(String(guardArm))} fell by ${String(-guardGain)}` : ''}`
-                : mechanismMet === false
-                  ? 'falsified: the magnitude arrived, the mechanism did not'
-                  : guardMet === false
-                    ? `falsified: ${armName} gained ${String(gain)} and the ${armProse(String(guardArm))} it must not lower fell by ${String(-guardGain)}`
-                    : signed === false
-                      ? significance?.inconsistent
-                        ? `met but not signed: ${String(gain)} F1 on ${armName} clears the ${String(registeredGain)} registered, and the ${String(significance?.pullRequests)} pull-request rows resample to ${String(significance?.mean)}, which is ${String(significance?.sd)} wide against a published delta of ${String(gain)} - the rows and the totals are about two different corpora, so there is nothing to sign`
-                        : `met but not signed: ${String(gain)} F1 on ${armName} clears the ${String(registeredGain)} registered, and over ${String(significance?.pullRequests)} pull requests the paired difference is ${String(significance?.sd)} wide, so the gain is ${String(significance?.z)} standard deviations (p = ${String(significance?.pValue)})`
-                      : signed === null
-                        ? `met but unverifiable: ${String(gain)} F1 on ${armName} clears the ${String(registeredGain)} registered, and the artifacts carry ${String(pairedRows.withRows.length)} paired pull-request rows, which is too few to resample a corpus from`
-                        : `confirmed: at least ${String(registeredGain)} F1 on ${armName}, and the mechanism is precision`;
+              : reach !== null && reach.reachable === false
+                ? `unreachable: the device removed ${String(reach.removed)} claims, and had every one of them been a false positive that reached the reviewer this figure moves by ${String(reach.ceilingGain)} at most, under the ${String(registeredGain)} registered - the pool this corpus gave it could not price that bar, so the shortfall is not the device's`
+                : !magnitudeMet
+                  ? `falsified: the registered gain was not reached on ${armName}${guardMet === false ? `, and the ${armProse(String(guardArm))} fell by ${String(-guardGain)}` : ''}`
+                  : mechanismMet === false
+                    ? 'falsified: the magnitude arrived, the mechanism did not'
+                    : guardMet === false
+                      ? `falsified: ${armName} gained ${String(gain)} and the ${armProse(String(guardArm))} it must not lower fell by ${String(-guardGain)}`
+                      : signed === false
+                        ? significance?.inconsistent
+                          ? `met but not signed: ${String(gain)} F1 on ${armName} clears the ${String(registeredGain)} registered, and the ${String(significance?.pullRequests)} pull-request rows resample to ${String(significance?.mean)}, which is ${String(significance?.sd)} wide against a published delta of ${String(gain)} - the rows and the totals are about two different corpora, so there is nothing to sign`
+                          : `met but not signed: ${String(gain)} F1 on ${armName} clears the ${String(registeredGain)} registered, and over ${String(significance?.pullRequests)} pull requests the paired difference is ${String(significance?.sd)} wide, so the gain is ${String(significance?.z)} standard deviations (p = ${String(significance?.pValue)})`
+                        : signed === null
+                          ? `met but unverifiable: ${String(gain)} F1 on ${armName} clears the ${String(registeredGain)} registered, and the artifacts carry ${String(pairedRows.withRows.length)} paired pull-request rows, which is too few to resample a corpus from`
+                          : `confirmed: at least ${String(registeredGain)} F1 on ${armName}, and the mechanism is precision`;
 
   return {
     measuredAt: new Date().toISOString().slice(0, 10),
@@ -1503,6 +1575,11 @@ export function summarise(on, off) {
       sliceMatches,
       /** The device's own activity against the floor its registration names, or `null` when it names none. */
       activity,
+      /**
+       * **The most this device could have gained, and whether that was inside the bar** - §76's reach arithmetic, or
+       * `null` for a device that is not removal-only and for a run whose artifacts cannot support the bound.
+       */
+      reach,
       /**
        * **Whether the device had the inputs it was registered with**, or `null` when the registration names none.
        * `unionFormed: false` means the merge ran with one side empty, and every figure below is about a different device.

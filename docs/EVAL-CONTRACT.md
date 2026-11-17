@@ -7906,3 +7906,55 @@ that cannot state its own floor is a plan that runs forever.**
 3. **Reading the three papers as a menu.** CIVER needs intervention generation, AR needs a two-role loop, CRScore needs
    claim extraction; **each is a device with its own price**, and the tree above chooses between them by what the corpus
    says rather than by which is most cited.
+
+## §76 The bar a deletion device cannot reach is not a bar it failed
+
+### 76.1 A third verdict, because a shortfall has two causes
+
+Three outcomes were available to a registered device on this comparison: **resolvable** (the bar is above the instrument's
+error bar), **a test** (the device ran and used its inputs), and **falsified** (the bar was not reached). §75.4 leaned on
+all three and none of them could express the case that turned out to matter: **a removal-only device cannot move F1 by
+more than the findings it deletes**, so a bar can be out of a device's reach before it is asked, and the same `falsified:`
+sentence then reports a property of the corpus in the device's name.
+
+**The bound is computable from the two arms.** Had every claim the gate removed been a false positive, and had every one
+of them reached the reviewer, the figure would be `f1(tp, fp − removed)` against the baseline arm's own counts. Two
+charities at once — no true positive lost, no removal truncated — so the number is a ceiling, and a ceiling under the bar
+is a proof that **no** version of this device on this pool could have cleared it. `deletionCeiling` in
+`.github/scripts/aacr-ablation-compare.mjs` computes it; the registration declares `deletionOnly` and `deletionCounter`,
+because a mechanism sentence (`precision rises and recall holds`) describes two devices with different reach.
+
+### 76.2 What the arithmetic says at this corpus, before the v2 arm is read
+
+At §73's baseline — **146 pull requests, 1 054 goldens, 208 true positives, 769 false positives, F1 0.2048** — the ceiling
+as a function of what the gate removes:
+
+| claims the gate removed | best possible gain in F1 | under a 0.02 bar? |
+| ----------------------- | ------------------------ | ----------------- |
+| 40 (§74.4's floor)      | +0.0041                  | yes, by five times |
+| 80                      | +0.0084                  | yes               |
+| 100                     | +0.0106                  | yes               |
+| 150                     | +0.0163                  | yes               |
+| **181**                 | **+0.0200**              | **exactly at it** |
+| 200                     | +0.0224                  | no                |
+| 300                     | +0.0355                  | no                |
+| 557 (§73's gate)        | +0.0774                  | no                |
+
+**Three consequences, and the first is a correction of §74.4.** The activity floor of 40 was justified as "the count at
+which _which ones_ is a question the artifact can answer" — but at 40 removals the ceiling is a fifth of the bar, so a
+run that clears the floor and misses the bar has learned nothing about the device. **The floor that protects a
+registration is the reach floor, and it is 181 here, not 40.** The second: §73's gate could have cleared 0.026 and bought
+−0.046, so **its falsification stands** and the reach arithmetic does not rescue it. The third: the readback of any
+removal device now begins with `reach.removed` and `reach.reachable`, and only a run with `reachable: true` can be read
+as a test of the device's judgement.
+
+### 76.3 What would make this section wrong
+
+1. **Reading the ceiling as an excuse.** It is charitable by construction, and its whole force is that it uses the
+   device's *own* removals: a gate that removes forty of a thousand claims is `unreachable`, and the sentence says so.
+   **If the branch ever fires on a run whose removals were plentiful, the arithmetic is broken, not the corpus.**
+2. **Reading it as a substitute for the paired test.** A reachable run still needs the corpus bar to sign a win; the
+   ceiling says whether the question could be asked, not whether the answer is real.
+3. **Computing it from the difference in emitted findings.** That difference has already had truncation and true-positive
+   losses applied, so a bound built from it would be the result rather than the ceiling — the device would be excused by
+   its own failures.

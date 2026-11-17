@@ -151,6 +151,18 @@ export declare const REPRODUCTION: {
 /** **The smallest gain this project will register**, because a bar under it cannot be signed by any run it can afford. */
 export declare const MINIMUM_REGISTERED_GAIN: number;
 
+/**
+ * **The most a removal-only device could have gained**, from the arm it was compared against: the figure had every claim
+ * it removed been a false positive that reached the reviewer, with no true positive lost.
+ *
+ * `null` when the arm cannot support the arithmetic, so a missing measurement never reads as a bound.
+ */
+export declare function deletionCeiling(
+  without: { truePositives?: number; falsePositives?: number } | null | undefined,
+  removed: number,
+  goldens: number,
+): number | null;
+
 /** What a two-armed comparison cannot resolve at this many goldens. */
 export declare function resolutionFor(
   goldens: number,
