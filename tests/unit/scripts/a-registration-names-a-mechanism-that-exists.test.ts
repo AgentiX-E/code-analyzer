@@ -31,12 +31,12 @@ const WORKFLOW = readFileSync(
 
 /**
  * **The bench job's slot, whether it is written as a constant or as a rate** - §77.1 made it
- * `fromJSON(inputs.max_pull_requests || '146') * 2`, and a parser that reads only `\d+` then binds to the `compare`
+ * `fromJSON(github.event.inputs.max_pull_requests || '146') * 2`, and a parser that reads only `\d+` then binds to the `compare`
  * job's ten minutes, which reads as a corpus that cannot fit its own job.
  */
 const CEILING_MINUTES = (() => {
   const scaled =
-    /timeout-minutes:\s*\$\{\{\s*fromJSON\(inputs\.max_pull_requests\s*\|\|\s*'(\d+)'\)\s*\*\s*(\d+)/.exec(
+    /timeout-minutes:\s*\$\{\{\s*fromJSON\(github\.event\.inputs\.max_pull_requests\s*\|\|\s*'(\d+)'\)\s*\*\s*(\d+)/.exec(
       WORKFLOW,
     );
   if (scaled) return Number(scaled[1]) * Number(scaled[2]);

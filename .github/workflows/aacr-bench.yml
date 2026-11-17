@@ -321,7 +321,7 @@ jobs:
     # 1.26 times the faster one - and at that rate the job fits **183** pull requests at the tolerance this repository
     # confirms with. A dispatch beyond that is refused by the runner rather than by a wrong number in the artifact, and
     # **a run that stops making progress stops being billed at 292 minutes rather than at 340**.
-    timeout-minutes: ${{ fromJSON(inputs.max_pull_requests || '146') * 2 }}
+    timeout-minutes: ${{ fromJSON(github.event.inputs.max_pull_requests || '146') * 2 }}
     strategy:
       # **Both arms are information.** A run that dies takes its half of the comparison with it, and `compare` has to
       # report that rather than a one-sided figure.

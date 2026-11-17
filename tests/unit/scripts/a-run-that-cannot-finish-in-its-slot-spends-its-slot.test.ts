@@ -49,7 +49,7 @@ describe('the slot a bench job is given is about the corpus it was asked for', (
     expect(bench.length).toBeGreaterThan(0);
     for (const entry of bench) {
       expect(entry.value, `${entry.job} has a constant slot of ${entry.value} minutes`).toMatch(
-        /inputs\.max_pull_requests/,
+        /github\.event\.inputs\.max_pull_requests/,
       );
     }
   });

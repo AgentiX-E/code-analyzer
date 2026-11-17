@@ -49,14 +49,14 @@ const WORKFLOW = readFileSync(
 /**
  * **The bench job's slot, whether it is written as a constant or as a rate.**
  *
- * It became `fromJSON(inputs.max_pull_requests || '146') * 2` in §77.1, because a constant slot of 340 admitted a
+ * It became `fromJSON(github.event.inputs.max_pull_requests || '146') * 2` in §77.1, because a constant slot of 340 admitted a
  * 146-pull-request pair for 178 minutes of work and a stuck job for five and a half hours. **A test that reads only a
  * constant then reads the `compare` job's ten minutes instead**, which is what these three failures were: a parser that
  * silently bound to the next job's number rather than to the one it names.
  */
 function jobCeilingMinutes(): number {
   const scaled =
-    /timeout-minutes:\s*\$\{\{\s*fromJSON\(inputs\.max_pull_requests\s*\|\|\s*'(\d+)'\)\s*\*\s*(\d+)/.exec(
+    /timeout-minutes:\s*\$\{\{\s*fromJSON\(github\.event\.inputs\.max_pull_requests\s*\|\|\s*'(\d+)'\)\s*\*\s*(\d+)/.exec(
       WORKFLOW,
     );
   if (scaled) return Number(scaled[1]) * Number(scaled[2]);
