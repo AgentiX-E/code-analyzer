@@ -442,7 +442,11 @@ export type {
 export { addedLinesOf, numberedAddedLines } from './review/adjudication/patch-lines.js';
 export type { NumberedAddedLine } from './review/adjudication/patch-lines.js';
 // Change shape — what a hunk did, decided from the diff rather than from a reader. §79.
-export { classifyChange, classifyPatch, mayCarryFinding } from './review/adjudication/change-shape.js';
+export {
+  classifyChange,
+  classifyPatch,
+  mayCarryFinding,
+} from './review/adjudication/change-shape.js';
 export type {
   ChangeShape,
   ChangeShapeInput,
