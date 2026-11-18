@@ -110,8 +110,53 @@ describe('the block a reader is shown', () => {
     );
   });
 
+  it('omits the field a row does not have, rather than printing an empty one', () => {
+    // The row with nothing to read with, which the literal `none` constraint makes otherwise unretrievable.
+    expect(renderCognitionHits(searchCognitionIndex(INDEX, 'counters gauges'))).toBe(
+      'src/metrics.ts · F: counters and gauges · S: none',
+    );
+  });
+
   it('renders nothing for nothing, rather than a blank line that reads as a row', () => {
     expect(renderCognitionHits([])).toBe('');
     expect(renderCognitionHits(searchCognitionIndex(INDEX, 'none'))).toBe('');
+  });
+});
+
+describe('the orders a tie can take', () => {
+  const row = (path: string, importance: number, responsibility: string): CognitionEntry => ({
+    path,
+    importance,
+    size: 'S',
+    responsibility,
+    readWith: [],
+    dependedOnBy: [],
+    constraint: 'none',
+  });
+
+  it('orders two equal rows by path, in either direction', () => {
+    // **The comparator's first two outcomes**, because a sort whose branches are never exercised is a sort that can
+    // silently stop being deterministic - and determinism is the property that lets two runs be diffed.
+    expect(
+      searchCognitionIndex([row('src/b.ts', 5, 'queue'), row('src/a.ts', 5, 'queue')], 'queue').map(
+        (h) => h.entry.path,
+      ),
+    ).toEqual(['src/a.ts', 'src/b.ts']);
+    expect(
+      searchCognitionIndex([row('src/a.ts', 5, 'queue'), row('src/b.ts', 5, 'queue')], 'queue').map(
+        (h) => h.entry.path,
+      ),
+    ).toEqual(['src/a.ts', 'src/b.ts']);
+  });
+
+  it('says nothing about two rows that are the same in every way it ranks by', () => {
+    // The third outcome: equal score, equal importance, equal path. A comparator that returned `-1` here would make the
+    // sort depend on the input order rather than on the rows.
+    const hits = searchCognitionIndex(
+      [row('src/a.ts', 5, 'queue'), row('src/a.ts', 5, 'queue')],
+      'queue',
+    );
+
+    expect(hits).toHaveLength(2);
   });
 });
