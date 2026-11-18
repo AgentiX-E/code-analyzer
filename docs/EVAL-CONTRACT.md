@@ -8648,3 +8648,110 @@ reviewable, which is why the skip was defined on `whitespaceOnly` rather than on
 
 **A cost device that finds no material is a zero, and a zero reported as a saving is the §77 defect.** The skip stays,
 guarded on the gate's existence, and it is not counted as an improvement until a corpus carries a pure reformat.
+
+## 84. The index could read one language, and the corpus writes five
+
+### 84.1 The count that reframes every earlier reading of the index
+
+The artifact of 2026-11-11 (`m-off`, 36 pull requests, 311 findings) names the path of every finding. Read by
+extension, those paths are:
+
+| extension | findings | true | share |
+| --------- | -------- | ---- | ----- |
+| `.go`     | 91       | 8    | 29.3% |
+| `.c`      | 50       | 17   | 16.1% |
+| `.py`     | 38       | 15   | 12.2% |
+| `.ts`     | 32       | 12   | 10.3% |
+| `.js`     | 22       | 6    | 7.1%  |
+| `.json`   | 12       | 0    | 3.9%  |
+| `.h`      | 11       | 4    | 3.5%  |
+| `.php`    | 10       | 0    | 3.2%  |
+| `.xml`    | 10       | 2    | 3.2%  |
+| `.cpp`    | 8        | 2    | 2.6%  |
+| `.tsx`    | 6        | 0    | 1.9%  |
+| `.cs`     | 4        | 2    | 1.3%  |
+
+`buildSymbolIndex` recognised `function`, `class`, `interface`, `const` - **TypeScript's spellings** - so `func Claim(`
+was not a declaration, `int claim(int x) {` was not a declaration, and `def claim(self, id):` was not a declaration.
+**81 % of the corpus's findings stood in a file whose declarations the index could not name**, and
+`selectIndexedContext` answered each of them with `renderClaim`'s fallback: three raw lines around the claim.
+
+**That is the correct reading of §79's and §81's small numbers, and it is not a defence of them.** A device that is
+idle on four files in five cannot be priced on the fifth: `independent-evidence-v4`'s second block carried a real
+declaration for **20.8 %** of findings and a three-line window for the rest, so the figure §81 published describes a
+sixth of the corpus and a different instrument on the other five sixths.
+
+### 84.2 What was built: five scanners over one shared lexer
+
+| Piece                         | What it reads                                                                                                                                                                   |
+| ----------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `lexemes.ts`                  | words, the identifier a `(` or a `;` is about, an indentation width, Go's export rule - **once, so five scanners cannot disagree about what an identifier is**                  |
+| `symbols-langs.ts` · `go`     | `func Name(`, `func (r *T) Name(`, `type S struct`, `type I interface`, `type A = …`, `const`/`var`, struct fields, interface methods, **generic receiver and type parameters** |
+| `symbols-langs.ts` · `python` | `def`, `async def`, `class` at any indent, decorators, indentation-delimited ranges, methods as members, `__init__` as the class's constructor, module constants                |
+| `symbols-langs.ts` · `c`      | function **definitions** (both brace styles) and not prototypes, `struct`/`union`/`enum`/`class`, members at depth one, `static` as the file keeping a name                     |
+| `symbols-langs.ts` · `csharp` | types at depth one **because a namespace puts them there**, `public` as the export rule, methods and fields at depth two                                                        |
+| `symbols-langs.ts` · `php`    | `class`/`interface`/`trait`, `function` at depth zero, methods and `$fields` as members, `__construct` named after its class                                                    |
+
+**Three decisions are worth their own line, because each was a defect first.**
+
+1. **The argument list is the first paren an identifier touches**, not the last one: `Get(id string) (*Entry, error)` has
+   a second paren for its results, and `void (*handler)(int);` has its first paren after a space. Reading the last one
+   declared an interface method called `string` and a struct field called `handler`.
+2. **A body may open on the next line.** `class Worker` then `{` is how PHP, C# and half the corpus's C are written; a
+   rule of "the brace must be on this line" gave every one of those declarations a range of one line and a member list of
+   nothing.
+3. **A line's own punctuation decides what it is.** `static const int MAX = 5;` declares `MAX` and the word before its
+   `;` is `5`, so `=` is tried before `;`; a Go `onDone func(error)` is a field while `Get(id string)` is a method, and
+   the two are told apart by the character after the name.
+
+**And the failure direction is unchanged.** A Go struct whose closing brace is missing runs to the end of the file, the
+index is marked `uncertain`, and the next top-level `func` is **not** read as one of its methods - a declaration keyword
+in a struct body is the guard. The same rule as `symbols.ts`: extend, never truncate; a symbol that ends early hides the
+guard that would have refuted a claim.
+
+### 84.3 The reading, taken offline and costing nothing
+
+Every finding of the artifact was joined to its file at the pull request's head commit (**247 of 250 files fetched, 36
+pull requests**) and asked one question: does `symbolAt` name the declaration this line stands in? The "before" column
+is the same function applied to the TypeScript scanner, which is byte-for-byte what the old lexer did to every file.
+
+| language   | findings | true | covered before | covered after | TP before | TP after  |
+| ---------- | -------- | ---- | -------------- | ------------- | --------- | --------- |
+| go         | 88       | 8    | 3.4%           | **78.4%**     | 0.0%      | 75.0%     |
+| c          | 73       | 24   | 2.7%           | **53.4%**     | 4.2%      | 58.3%     |
+| python     | 38       | 15   | 2.6%           | **71.1%**     | 0.0%      | 93.3%     |
+| typescript | 38       | 12   | 84.2%          | 84.2%         | 83.3%     | 83.3%     |
+| unknown    | 35       | 9    | 0.0%           | 0.0%          | 0.0%      | 0.0%      |
+| javascript | 22       | 6    | 86.4%          | 86.4%         | 100%      | 100%      |
+| php        | 10       | 0    | 70.0%          | 80.0%         | —         | —         |
+| csharp     | 4        | 2    | 0.0%           | **100%**      | 0.0%      | 100%      |
+| **all**    | **308**  | 76   | **20.8%**      | **64.3%**     | **22.4%** | **68.4%** |
+
+**TypeScript and JavaScript are unchanged to the decimal**, which is the check that the dispatcher did not quietly
+alter the scanner that every published figure was measured with.
+
+**Where the residue is, named rather than rounded off.** Go's 21.6 % is mostly real: the findings stand on a `package`
+line, a blank line, an import string or a doc comment, and `symbolAt` answers those with null on purpose. **C's 46.6 %
+is a defect and it has two causes**: `#ifdef`/`#else` sections whose braces do not balance when both branches are read
+as text, and C++ constructor initialiser lists (`JNIEnvHandler(JavaVM* vm) : vm(vm)`), which are not function
+definitions under any reading this lexer does. **Neither is repaired here, and neither is claimed to be.**
+
+### 84.4 What this iteration changed in the code, and what it deliberately did not
+
+| Piece                                           | Where                            | Held to                                                                                                                              |
+| ----------------------------------------------- | -------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------ |
+| `languageOf`, `SourceLanguage`, `language`      | `symbols.ts`                     | 8 extensions mapped and 3 refusals, because **an index that guessed at a `.json` would invent the fact it was asked for**            |
+| five scanners + `PreparedFile`                  | `symbols-langs.ts`               | 34 tests: Go groups, generic receivers, Python decorators and nesting, C function pointers and K&R braces, C# namespaces, PHP traits |
+| `symbolAt`                                      | `symbols.ts`                     | the one question every consumer asks, answered once instead of three times                                                           |
+| next-line bodies, `=`-before-`;`, `__construct` | `symbols.ts`, `symbols-langs.ts` | three defects found by fixtures the corpus actually writes                                                                           |
+
+Coverage after: `symbols-langs.ts` **98.88 % statements / 96.74 % branches**, `lexemes.ts` 98.11 / 96.29,
+`symbols.ts` 100 / 99.3 - **no `v8 ignore`, no exclusion, 102 tests in the module's own file.**
+
+**No run was bought for this iteration, and the reason is arithmetic rather than thrift.** The only consumer of the index
+today is the gate, which is **5.1 % of the bill** (§82.3), and §83 measured it inert on the corpus it was given. Paying
+for a pair now would price the gate again rather than the index. **What this iteration bought is the precondition**: the
+registered next experiment - the index in the lane's prompt rather than in the gate's - was registered when the block
+would have been three raw lines for four files in five. With this reading, the block is a real declaration for 64.3 % of
+findings and **68.4 % of true ones**, which is the first corpus on which that experiment is about the index rather
+than about its absence.
