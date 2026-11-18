@@ -97,3 +97,37 @@ describe('an index line, read and refused', () => {
     expect(problems).toEqual([]);
   });
 });
+
+describe('the three fields a model is most likely to leave thin', () => {
+  it('refuses a row whose first column is empty, because there is no file it is about', () => {
+    const { problems } = parseCognitionIndex('\tC6M\tF=x\tR=\tA=y\tS=none');
+
+    expect(problems[0]?.reason).toContain('path');
+  });
+
+  it('refuses an F that is present and empty', () => {
+    const { problems } = parseCognitionIndex('src/a.ts\tC6M\tF=\tR=\tA=y\tS=none');
+
+    expect(problems[0]?.reason).toContain('nobody wrote');
+  });
+
+  it('names the tag when a row has no tag at all, rather than the path it does have', () => {
+    const { problems } = parseCognitionIndex('src/only-a-path.ts');
+
+    expect(problems[0]?.path).toBe('src/only-a-path.ts');
+    expect(problems[0]?.reason).toContain('tag');
+  });
+
+  it('ignores a column that is none of the four fields', () => {
+    const { entries, problems } = parseCognitionIndex(`${LINE}\tX=ignored`);
+
+    expect(problems).toEqual([]);
+    expect(entries).toHaveLength(1);
+  });
+
+  it('refuses an S longer than the band its importance buys', () => {
+    const { problems } = parseCognitionIndex(`src/a.ts\tC1S\tF=ok\tR=\tA=y\tS=${'z'.repeat(30)}`);
+
+    expect(problems[0]?.reason).toContain('S spends');
+  });
+});

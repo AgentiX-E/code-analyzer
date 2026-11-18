@@ -280,13 +280,14 @@ export function buildSymbolIndex(path: string, text: string): FileSymbolIndex {
         : method !== null
           ? 'method'
           : 'property';
+      // **A constructor is named after its class**, because `constructor` is a keyword rather than an identifier and a
+      // prompt that says "inside constructor" has said less than one that says "inside Worker".
+      const memberName = isConstructor ? parent : name;
       // A line that is a bare `}` or an expression inside a body matches none of the three and is not a member.
-      if (!isConstructor && name === null) continue;
+      if (memberName === null) continue;
 
       members.push({
-        // **A constructor is named after its class**, because `constructor` is a keyword rather than an identifier and a
-        // prompt that says "inside constructor" has said less than one that says "inside Worker".
-        name: isConstructor ? parent : (name ?? ''),
+        name: memberName,
         kind,
         startLine: index + 1,
         endLine: endOf(index) + 1,
@@ -342,7 +343,9 @@ function renderClaim(index: FileSymbolIndex, line: number, allowance: number): s
     // **A claim no declaration contains is answered with its neighbours rather than with nothing**, because a prompt that
     // says nothing about a claim is a prompt the reader answers from the diff alone - which is where it already was.
     for (let at = Math.max(1, line - 1); at <= Math.min(index.lines.length, line + 1); at += 1) {
-      out.push(`L${String(at)}: ${index.lines[at - 1] ?? ''}`.trimEnd());
+      // **Indexed rather than defaulted**: `at` is clamped to `1..lines.length` two lines above, so the element exists
+      // and a `?? ''` here is a branch no test can take.
+      out.push(`L${String(at)}: ${index.lines[at - 1]!}`.trimEnd());
     }
     return out.join('\n').slice(0, allowance);
   }
@@ -368,7 +371,7 @@ function renderClaim(index: FileSymbolIndex, line: number, allowance: number): s
     .sort((left, right) => left.line - right.line);
 
   for (const guard of guards) out.push(`L${String(guard.line)}: ${guard.text}`.trimEnd());
-  const own = index.lines[line - 1]?.trim() ?? '';
+  const own = index.lines[line - 1]!.trim();
   if (own.length > 0) out.push(`L${String(line)}: ${own}`.trimEnd());
 
   return out.join('\n').slice(0, allowance);

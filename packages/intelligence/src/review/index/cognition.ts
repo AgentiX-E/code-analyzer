@@ -85,14 +85,17 @@ export function parseCognitionIndex(text: string): {
     if (raw.trim().length === 0 || raw.trimStart().startsWith('#')) continue;
 
     const line = at + 1;
-    const columns = raw.split('\t');
-    const path = columns[0]?.trim() ?? '';
+    // **Destructured with defaults rather than indexed with `??`**, because `split` always returns at least one element:
+    // `columns[0]` can never be undefined, and a branch that cannot be taken is a branch the coverage floor charges for
+    // and no test can pay. The tag column genuinely can be missing - a row with no tab has no tag - so that default stays.
+    const [pathColumn = '', tagColumn = '', ...columns] = raw.split('\t');
+    const path = pathColumn.trim();
     if (path.length === 0) {
       problems.push({ line, path: '(none)', reason: 'the row has no path in its first column' });
       continue;
     }
 
-    const tag = columns[1] ?? '';
+    const tag = tagColumn;
     const tagMatch = TAG.exec(tag.trim());
     if (tagMatch === null) {
       problems.push({
@@ -106,7 +109,7 @@ export function parseCognitionIndex(text: string): {
     const size = tagMatch[2] as CognitionEntry['size'];
 
     const fields = new Map<string, string>();
-    for (const column of columns.slice(2)) {
+    for (const column of columns) {
       const match = FIELD.exec(column);
       if (match !== null) fields.set(match[1]!, match[2]!);
     }

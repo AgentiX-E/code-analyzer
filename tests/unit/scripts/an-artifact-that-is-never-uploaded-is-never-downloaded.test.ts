@@ -42,7 +42,8 @@ type ArmKey =
   | 'remarks'
   | 'ensemble'
   | 'second_concern'
-  | 'lane_set';
+  | 'lane_set'
+  | 'change_shape';
 
 /** One inline mapping's body - `profile: advisory, code_context: off` - read as an arm. */
 function armOf(body: string, source: string): Arm {

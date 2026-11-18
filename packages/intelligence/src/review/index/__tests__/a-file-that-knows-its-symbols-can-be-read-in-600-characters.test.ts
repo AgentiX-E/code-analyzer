@@ -24,6 +24,11 @@ import { describe, expect, it } from 'vitest';
 
 import { buildSymbolIndex, selectIndexedContext } from '../symbols.js';
 
+const INDEX_FOR_EXPORTS = buildSymbolIndex(
+  'src/queue.ts',
+  ['export const claim = 1;', 'export const LIMIT = 3;'].join('\n'),
+);
+
 const SERVICE = [
   '// The queue that decides which pull requests are reviewed.',
   "import { open } from './store.js';",
@@ -135,6 +140,77 @@ describe('a lexer that must not be fooled by text that is not code', () => {
       ['render', 5],
       ['after', 6],
     ]);
+  });
+});
+
+describe('the two things a lexer must survive that a line splitter does not', () => {
+  it('reads a block comment as text, including a declaration written inside it', () => {
+    const index = buildSymbolIndex(
+      'src/a.ts',
+      ['/*', 'export function ghost() {', '*/', 'export const real = 1;'].join('\n'),
+    );
+
+    expect(index.symbols.map((symbol) => symbol.name)).toEqual(['real']);
+  });
+
+  it('does not let an escaped quote end a string early', () => {
+    const index = buildSymbolIndex(
+      'src/a.ts',
+      ['const label = "a \\" b {";', 'export const real = 1;'].join('\n'),
+    );
+
+    expect(index.symbols.map((symbol) => symbol.name)).toEqual(['label', 'real']);
+  });
+
+  it('does not end a template literal at an escaped backtick', () => {
+    const index = buildSymbolIndex(
+      'src/a.ts',
+      [
+        'export function r(): string {',
+        '  return `a \\` b {`;',
+        '}',
+        'export const after = 1;',
+      ].join('\n'),
+    );
+
+    expect(index.symbols.map((symbol) => [symbol.name, symbol.endLine])).toEqual([
+      ['r', 3],
+      ['after', 4],
+    ]);
+  });
+
+  it('extends an unterminated declaration to the end of the file, and says it did', () => {
+    // **The wider claim, never the narrower one.** A symbol that ends early hides the guard that would have refuted a
+    // claim; a symbol that runs to the end of the file hides nothing and costs a few characters.
+    const index = buildSymbolIndex(
+      'src/a.ts',
+      ['export function open() {', '  const x = 1;'].join('\n'),
+    );
+
+    expect(index.uncertain).toBe(true);
+    expect(index.symbols[0]?.endLine).toBe(2);
+  });
+});
+
+describe('the tags a declaration can wear', () => {
+  it('reads an enum as a named type rather than as a constant', () => {
+    const index = buildSymbolIndex(
+      'src/a.ts',
+      ['export enum Mode {', '  On,', '  Off,', '}'].join('\n'),
+    );
+
+    expect(index.symbols.map((symbol) => [symbol.name, symbol.kind, symbol.endLine])).toEqual([
+      ['Mode', 'class', 4],
+    ]);
+  });
+});
+
+describe('a request no claim reaches', () => {
+  it('answers with the export surface alone rather than with an empty string', () => {
+    const context = selectIndexedContext({ index: INDEX_FOR_EXPORTS, lines: [] });
+
+    expect(context.text).toBe('exports: claim, LIMIT');
+    expect(context.shown).toEqual([]);
   });
 });
 
