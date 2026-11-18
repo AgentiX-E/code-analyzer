@@ -20,9 +20,62 @@
 // `uncertain` flag: once it has met a construct it cannot lex, every symbol still open at that point is extended to the
 // end of the file rather than truncated at the next `}`.
 
+import { signatureOf } from './lexemes.js';
+import { LANGUAGE_SCANNERS } from './symbols-langs.js';
+
+import type { PreparedFile, ScannedDeclarations } from './symbols-langs.js';
+
 /** What a declaration is, in the four shapes a reader distinguishes when deciding where a claim stands. */
 export type SymbolKind =
   'function' | 'class' | 'interface' | 'type' | 'const' | 'method' | 'constructor' | 'property';
+
+/**
+ * **The languages this index can read, named by the scanner that reads them.**
+ *
+ * `unknown` is a real answer and not a failure: a `.json` baseline has no declarations, and **an index that guessed at
+ * one would be inventing the fact it was asked to establish.** The five that are named are the five the corpus at
+ * `Alibaba-Aone/aacr-bench` is written in, in the order of how many findings stand in them: Go 91, C 50, Python 38,
+ * TypeScript and JavaScript 54 together, PHP 10, C# 4.
+ */
+export type SourceLanguage =
+  'typescript' | 'javascript' | 'go' | 'python' | 'c' | 'csharp' | 'php' | 'unknown';
+
+/** The extensions each language is written with, and no more: a path is the only evidence a caller has. */
+const EXTENSION_LANGUAGE: Readonly<Record<string, SourceLanguage>> = {
+  '.ts': 'typescript',
+  '.tsx': 'typescript',
+  '.mts': 'typescript',
+  '.cts': 'typescript',
+  '.js': 'javascript',
+  '.jsx': 'javascript',
+  '.mjs': 'javascript',
+  '.cjs': 'javascript',
+  '.go': 'go',
+  '.py': 'python',
+  '.pyi': 'python',
+  '.c': 'c',
+  '.h': 'c',
+  '.cc': 'c',
+  '.cpp': 'c',
+  '.cxx': 'c',
+  '.hpp': 'c',
+  '.hh': 'c',
+  '.cs': 'csharp',
+  '.php': 'php',
+};
+
+/**
+ * **Which language a path is written in**, from its extension and from nothing else.
+ *
+ * A content sniff would be a guess dressed as a fact, and **the two files this index is wrong about are a `.h` that is
+ * really C++ and a `.ts` that is really a JSON blob** - both of which read as their extension says and neither of which
+ * is a reason to guess. A file with no extension is `unknown`, which is the honest answer for a `Dockerfile`.
+ */
+export function languageOf(path: string): SourceLanguage {
+  const dot = path.lastIndexOf('.');
+  if (dot < 0) return 'unknown';
+  return EXTENSION_LANGUAGE[path.slice(dot).toLowerCase()] ?? 'unknown';
+}
 
 /** One declaration, with the lines it occupies and the signature a prompt can afford. */
 export interface DeclaredSymbol {
@@ -50,6 +103,12 @@ export interface MemberSymbol {
 /** A file, read as structure. */
 export interface FileSymbolIndex {
   readonly path: string;
+  /**
+   * **Which scanner produced these symbols.** Not a label for a reader: a consumer deciding whether an empty symbol
+   * list means "this file declares nothing" or "nobody here reads this language" has no other way to tell, and the two
+   * call for opposite answers.
+   */
+  readonly language: SourceLanguage;
   readonly symbols: readonly DeclaredSymbol[];
   /** The names the file offers to other files, in source order. */
   readonly exported: readonly string[];
@@ -255,31 +314,27 @@ function readMember(code: string): MemberRead | null {
   return { name, kind: 'property', modifiers };
 }
 
-/** The signature of a declaration, joined from its first line up to the one that opens its body or ends it. */
-function signatureOf(lines: readonly string[], start: number, limit: number): string {
-  const collected: string[] = [];
-  for (let at = start; at <= limit && at < lines.length; at += 1) {
-    const text = lines[at]!.trim();
-    collected.push(text);
-    if (text.includes('{') || text.endsWith(';') || text.endsWith('}')) break;
-  }
-  return collected.join(' ').replace(/\s+/gu, ' ').trim();
-}
-
 /**
- * **Read a file as its declarations.**
+ * **Read a file as its declarations, in the language its path says it is written in.**
  *
  * The walk is over lines rather than over a tree, and the two facts it needs from a line are the depth the line starts
  * at and the depth it ends at. A declaration begins at the depth its line starts at and ends at the first line after it
  * whose *ending* depth returns to that number.
+ *
+ * **The preparation is shared and the recognition is not**, because "what a declaration is spelled like" is the only
+ * thing that differs between TS, Go, C, C#, PHP and Python - while "a brace inside a string is not a brace" has to be
+ * answered once or not at all. §84 is the measurement that made this a dispatcher: on the artifact of 2026-11-11, 81 %
+ * of findings stood in a file whose declarations this function could not name, and the index answered them with the
+ * three raw lines around the claim.
  */
 export function buildSymbolIndex(path: string, text: string): FileSymbolIndex {
+  const language = languageOf(path);
   const lines = text.split('\n');
+  let uncertain = false;
   const codes: string[] = [];
   const depthAtStart: number[] = [];
   const depthAtEnd: number[] = [];
   let state: ScanState = { depth: 0, blockComment: false, template: false };
-  let uncertain = false;
 
   for (const line of lines) {
     depthAtStart.push(state.depth);
@@ -295,11 +350,30 @@ export function buildSymbolIndex(path: string, text: string): FileSymbolIndex {
     state = { ...lexed.state, depth: Math.max(depth, 0) };
   }
 
-  /** The last line a declaration starting at `start` occupies. */
+  /**
+   * The last line a declaration starting at `start` occupies.
+   *
+   * **The body may open on the next line rather than on the declaration's own**, which is how PHP, C# with a namespace
+   * and K&R-style C are written: `class Worker`, then `{`. A rule of "the brace must be on this line" would give every
+   * one of those declarations a range of exactly one line, and a member list of nothing - **an index that says a class
+   * has no members because of where its author put a brace.**
+   */
   const endOf = (start: number): number => {
     const startDepth = depthAtStart[start]!;
-    if (depthAtEnd[start]! > startDepth) {
-      for (let at = start + 1; at < lines.length; at += 1) {
+    let opener = start;
+    if (depthAtEnd[start] === startDepth) {
+      let probe = start + 1;
+      while (probe < codes.length && codes[probe]!.trim().length === 0) probe += 1;
+      if (
+        probe < codes.length &&
+        codes[probe]!.trim().startsWith('{') &&
+        depthAtStart[probe] === startDepth
+      ) {
+        opener = probe;
+      }
+    }
+    if (depthAtEnd[opener]! > startDepth) {
+      for (let at = opener + 1; at < lines.length; at += 1) {
         if (depthAtEnd[at] === startDepth) return at;
       }
       // **Unterminated rather than absent.** The file's last `}` was consumed by something this lexer mis-read.
@@ -309,6 +383,25 @@ export function buildSymbolIndex(path: string, text: string): FileSymbolIndex {
     return start;
   };
 
+  const file: PreparedFile = { path, lines, codes, depthAtStart, depthAtEnd, endOf };
+  const scanned =
+    language === 'typescript' || language === 'javascript'
+      ? scanTypeScript(file)
+      : (LANGUAGE_SCANNERS[language]?.(file) ?? { symbols: [], exported: [] });
+
+  return {
+    path,
+    language,
+    symbols: scanned.symbols,
+    exported: scanned.exported,
+    lines,
+    uncertain,
+  };
+}
+
+/** **The TypeScript and JavaScript scanner**, which is the walk this file shipped with and nothing more. */
+function scanTypeScript(file: PreparedFile): ScannedDeclarations {
+  const { lines, codes, depthAtStart, endOf } = file;
   const symbols: DeclaredSymbol[] = [];
   const exportedNames: string[] = [];
 
@@ -374,7 +467,22 @@ export function buildSymbolIndex(path: string, text: string): FileSymbolIndex {
     return members;
   }
 
-  return { path, symbols, exported: exportedNames, lines, uncertain };
+  return { symbols, exported: exportedNames };
+}
+
+/**
+ * **The declaration a line stands in, or null.**
+ *
+ * The one question every consumer of this index asks, exported so that they ask it once: the falsifier renders the block
+ * around a claim, and a refuter has to know which declaration a claim is *about* before it can be shown to be wrong
+ * about it. **A line no declaration contains is answered with null rather than with the nearest one**, because
+ * "the nearest declaration" is a different claim from "this declaration".
+ */
+export function symbolAt(index: FileSymbolIndex, line: number): DeclaredSymbol | null {
+  for (const symbol of index.symbols) {
+    if (line >= symbol.startLine && line <= symbol.endLine) return symbol;
+  }
+  return null;
 }
 
 /** How much a claim's context may spend, in characters. §78 spent 6 000 on the same question. */
