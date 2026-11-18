@@ -2028,9 +2028,29 @@ async function main() {
     // **What the code-context retrieval asked for and what it got**, filled during the loop: **a window that is missing
     // in half the files is a device measured at half strength**, and a run that could not say so would publish the
     // half-strength number as the device's own.
-    codeContext: CODE_CONTEXT
-      ? { enabled: true, requested: 0, read: 0, absent: 0, failed: 0, chars: 0, reasons: [] }
-      : { enabled: false },
+    /**
+     * **The fetch counters exist whenever a file is fetched, which is not the same as whenever the window is on.**
+     *
+     * `v3` and `v4` read the file for the gate, so a run with `AACR_CODE_CONTEXT=off` still fetches every changed file -
+     * and until this line said `CODE_CONTEXT || NEEDS_FILE_TEXT` the counters were `{ enabled: false }`, so the first
+     * page that failed to fetch wrote `reasons.length` onto an object with no `reasons` and **the run died 35 minutes in
+     * with `Cannot read properties of undefined (reading 'length')`**.
+     *
+     * **`enabled` still means the window**, because that is the arm the figure is compared by; the fields beside it mean
+     * *a file was fetched*, and a run can have one without the other.
+     */
+    codeContext:
+      CODE_CONTEXT || NEEDS_FILE_TEXT
+        ? {
+            enabled: CODE_CONTEXT,
+            requested: 0,
+            read: 0,
+            absent: 0,
+            failed: 0,
+            chars: 0,
+            reasons: [],
+          }
+        : { enabled: false },
     /**
      * **Whether each golden's file is still one the pull request touches**, which is a fact about the corpus and not
      * about the review.
