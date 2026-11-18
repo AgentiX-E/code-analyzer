@@ -741,7 +741,7 @@ export const REGISTRATIONS = Object.freeze({
     /** The same debt as `v3`'s, for the same reason: the rows past R-36b's discovery set cannot price a second reading. */
     confirmation: [],
   },
-  'changeShape:true': {
+  changeShape: {
     section: '§79 (R-39)',
     claim:
       'a gate told which new-side lines the change actually wrote, and allowed to refute a finding standing on none of them, raises the file arm F1 by at least 0.015 on the pull requests R-36b read without lowering recall by more than a golden is worth',

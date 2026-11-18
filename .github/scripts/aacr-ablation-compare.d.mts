@@ -68,7 +68,7 @@ export declare const REGISTRATIONS: Readonly<
   Record<
     | 'adjudicate'
     | 'agent'
-    | 'changeShape:true'
+    | 'changeShape'
     | 'codeContext'
     | 'emissionProfile'
     | 'ensemble'
