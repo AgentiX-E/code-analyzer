@@ -319,7 +319,11 @@ export function selectionContract(ctx: PromptContext): string {
  * lane reads: **removing it where it is passed would fix a prompt by breaking two devices that are not prompts.**
  */
 function showsContext(ctx: PromptContext): boolean {
-  return ctx.fileContext !== undefined && ctx.fileContext.length > 0 && ctx.fileContext !== ctx.diffContent;
+  return (
+    ctx.fileContext !== undefined &&
+    ctx.fileContext.length > 0 &&
+    ctx.fileContext !== ctx.diffContent
+  );
 }
 
 export function describeTarget(ctx: PromptContext): string {

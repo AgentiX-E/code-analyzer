@@ -35,7 +35,8 @@ const PATCH = [
   ' }',
 ].join('\n');
 
-const SURROUNDING = '### src/queue.ts — lines 8-24 of 90 — changed at 12-13\nexport class Worker {\n  private name;\n}';
+const SURROUNDING =
+  '### src/queue.ts — lines 8-24 of 90 — changed at 12-13\nexport class Worker {\n  private name;\n}';
 
 const base: PromptContext = {
   diffContent: PATCH,
