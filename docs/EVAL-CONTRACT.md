@@ -8548,3 +8548,26 @@ is still line-level, so `TINY_TREE_THRESHOLD`-style pruning (do not even classif
 `aoci-code`: the `R` field (files that must be read together) is the one field that makes a _missing companion change_
 expressible at all, and §79.3 named it M2's whole point; and its `Search(doc, keyword, tagFilter)` retrieval over thirty
 whole lines is still unbuilt - the index exists and nothing yet queries it by a finding's own vocabulary.
+
+### 82.6 The index had a quadratic input, and the alert arrived one commit late
+
+`CodeQL` opened `js/polynomial-redos` on `symbols.ts:274` - the member patterns - and `redos-assay` reproduced it at
+**96× growth for twice the input** on `"public $" + " ".repeat(n)`: `\s*` before the modifier group and `\s+` inside it both
+wanted the same spaces, and the engine tried every split.
+
+**A file is library input.** The scanner runs over every changed file of every pull request, so a quadratic matcher there
+is a quadratic bench - and it was shipped one commit before the alert. The three patterns are now one linear scan:
+skip space, read a word, take it as a modifier only when whitespace follows it. The semantics are preserved exactly,
+including the two details that look like accidents and are not - `static(` is a method called `static`, and a property
+needs the modifier it was declared with, which is what separates a declaration from an assignment. **The measured input is
+a test**: 40 000 spaces must answer in under half a second, and the scan answers in under a millisecond.
+
+**And the second alert was right too.** `let whitespaceOnlyForGate = new Set()` is written and thrown away, because both
+branches assign one; it is declared with a type annotation instead, so a branch that forgot to assign is a compile error
+rather than an empty set that skips nothing.
+
+**`GHSA-fc5q-39xc-vjpf` (`picomatch`, ReDoS) is exempt at the audit gate, with its condition written down.** The advisory's
+`first_patched_version` is null, so `Dependency Audit` failed on every push with nothing to upgrade to - **a gate that
+trains its readers to ignore red costs more than the advisory.** The exemption assumes `picomatch` reaches this repository
+only through build tooling matching globs written here, never a pattern from a pull request, a user or a remote; the day
+that stops being true the dependency goes rather than the exemption extended.
