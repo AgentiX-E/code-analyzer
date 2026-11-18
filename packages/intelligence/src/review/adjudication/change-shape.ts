@@ -221,18 +221,43 @@ export interface ShapedHunkSpan {
   readonly addedLines: readonly number[];
   /** The subset of `addedLines` that is genuinely new - empty for every non-substantive shape. */
   readonly novelLines: readonly number[];
+  /**
+   * **Where this hunk's removals land on the new side**: for each removed line, the number of the new-side line that
+   * now occupies its place. A deletion is a change, and this is the only new-side number it can be anchored to.
+   */
+  readonly removedAt: readonly number[];
+  /** The new-side range the hunk covers, `[first, last]`, or `null` for a hunk that removed without adding. */
+  readonly span: readonly [number, number] | null;
 }
 
 /** A whole patch's shape, as the gate consumes it. */
 export interface ShapedPatch {
   readonly hunks: readonly ShapedHunkSpan[];
   /**
-   * **Every new-side line number a finding may stand on**, across all substantive hunks. Empty means the patch changed
-   * nothing a compiler would see, and a review of it can only be a review of whitespace.
+   * **The new-side lines a finding may stand on, as far as the diff can prove.**
+   *
+   * Two sets rather than one, because they answer two questions and the first reading of this device was wrong by
+   * conflating them:
+   *
+   * - `novelLines` - the added lines that are genuinely new. **This is the token set**: what a reader has to see.
+   * - `allowedLines` - every new-side line a change touched, which for a substantive hunk is `span ∪ removedAt`.
+   *   **This is the standing set**: where a finding may be anchored.
+   *
+   * **A deletion writes nothing and still changes everything.** `novelLines` is empty for a hunk that only removed, and
+   * the gate read that emptiness as \"this change wrote nothing here\" and refuted a finding about the removal - the
+   * defect the 30-pull-request reading of `pair: change-shape` paid for (three true positives among 48 removals, all of
+   * them about deletions). `allowedLines` cannot be empty for a substantive hunk, and that is now an invariant with a
+   * test rather than a hope.
    */
   readonly novelLines: ReadonlySet<number>;
+  readonly allowedLines: ReadonlySet<number>;
   /** True when no hunk was substantive: the file is a reformat, a comment edit, or a move. */
   readonly noneSubstantive: boolean;
+  /**
+   * True when every hunk is `reformatted` - whitespace and nothing else. **The one shape with no review in it at all**:
+   * a comment edit is text somebody wrote, a relocation is code that moved, and a re-indent is neither.
+   */
+  readonly whitespaceOnly: boolean;
 }
 
 /**
@@ -250,6 +275,8 @@ export function classifyPatch(
   let removed: string[] = [];
   let added: string[] = [];
   let addedNumbers: number[] = [];
+  let removedAt: number[] = [];
+  let newStart = 0;
   let newLine = 0;
   let inHunk = false;
 
@@ -262,14 +289,26 @@ export function classifyPatch(
       newText: options.newText ?? null,
     });
     const novelSet = new Set(shaped.novelIndexes ?? []);
-    const novelLines =
-      shaped.shape === 'substantive'
-        ? addedNumbers.filter((_line, index) => novelSet.has(index))
-        : [];
-    hunks.push({ shape: shaped.shape, addedLines: [...addedNumbers], novelLines });
+    const substantive = shaped.shape === 'substantive';
+    const novelLines = substantive
+      ? addedNumbers.filter((_line, index) => novelSet.has(index))
+      : [];
+    // **`newLine` is the number the next new-side line would take**, so the lines this hunk consumed are
+    // `newStart .. newLine - 1`. A hunk that only removed consumed none of them, and its span is empty while its
+    // removal points are exactly where the missing lines used to be.
+    const span: readonly [number, number] | null =
+      newLine > newStart ? [newStart, newLine - 1] : null;
+    hunks.push({
+      shape: shaped.shape,
+      addedLines: [...addedNumbers],
+      novelLines,
+      removedAt: substantive ? [...removedAt] : [],
+      span: substantive ? span : null,
+    });
     removed = [];
     added = [];
     addedNumbers = [];
+    removedAt = [];
     inHunk = false;
   };
 
@@ -277,7 +316,8 @@ export function classifyPatch(
     const header = /^@@ -\d+(?:,\d+)? \+(\d+)(?:,\d+)? @@/u.exec(raw);
     if (header !== null) {
       flush();
-      newLine = Number(header[1]);
+      newStart = Number(header[1]);
+      newLine = newStart;
       inHunk = true;
       continue;
     }
@@ -285,6 +325,7 @@ export function classifyPatch(
     if (raw.startsWith('\\')) continue; // "\ No newline at end of file"
     if (raw.startsWith('-')) {
       removed.push(raw.slice(1));
+      removedAt.push(newLine);
       continue;
     }
     if (raw.startsWith('+')) {
@@ -299,11 +340,20 @@ export function classifyPatch(
   flush();
 
   const novelLines = new Set<number>();
-  for (const hunk of hunks) for (const line of hunk.novelLines) novelLines.add(line);
+  const allowedLines = new Set<number>();
+  for (const hunk of hunks) {
+    for (const line of hunk.novelLines) novelLines.add(line);
+    if (hunk.span !== null) {
+      for (let line = hunk.span[0]; line <= hunk.span[1]; line += 1) allowedLines.add(line);
+    }
+    for (const line of hunk.removedAt) allowedLines.add(line);
+  }
 
   return {
     hunks,
     novelLines,
+    allowedLines,
     noneSubstantive: hunks.length > 0 && hunks.every((hunk) => hunk.shape !== 'substantive'),
+    whitespaceOnly: hunks.length > 0 && hunks.every((hunk) => hunk.shape === 'reformatted'),
   };
 }

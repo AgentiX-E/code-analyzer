@@ -89,14 +89,14 @@ describe('a gate told which lines are novel', () => {
       path: 'src/a.ts',
       findings: [finding('the constant is wrong', 9)],
       addedLines: ADDED,
-      novelLines: new Set([12, 13]),
+      touchedLines: new Set([12, 13]),
     });
 
     expect(provider.calls).toBe(0);
     expect(outcome.kept).toEqual([]);
     expect(outcome.dropped).toHaveLength(1);
     expect(outcome.dropped[0]?.reason).toContain('no line this change touched');
-    expect(outcome.report.droppedBecauseNotNovel).toBe(1);
+    expect(outcome.report.droppedBecauseUntouched).toBe(1);
     expect(outcome.report.dropped).toBe(1);
   });
 
@@ -106,12 +106,12 @@ describe('a gate told which lines are novel', () => {
       path: 'src/a.ts',
       findings: [finding('the guard is inverted', 11, 13)],
       addedLines: ADDED,
-      novelLines: new Set([12]),
+      touchedLines: new Set([12]),
     });
 
     expect(provider.calls).toBe(1);
     expect(outcome.kept).toHaveLength(1);
-    expect(outcome.report.droppedBecauseNotNovel).toBe(0);
+    expect(outcome.report.droppedBecauseUntouched).toBe(0);
   });
 
   it('asks about the survivors and leaves the untouched ones out of the prompt', async () => {
@@ -124,13 +124,13 @@ describe('a gate told which lines are novel', () => {
         finding('dropped, far below it', 40),
       ],
       addedLines: ADDED,
-      novelLines: new Set([12]),
+      touchedLines: new Set([12]),
     });
 
     expect(provider.calls).toBe(1);
     expect(outcome.kept).toHaveLength(1);
     expect(outcome.kept[0]?.title).toBe('kept, on the change');
-    expect(outcome.report.droppedBecauseNotNovel).toBe(2);
+    expect(outcome.report.droppedBecauseUntouched).toBe(2);
     // The prompt is the instrument: a dropped claim must not appear in it, or the reader was still paid to read it.
     expect(provider.prompts[0]).toContain('kept, on the change');
     expect(provider.prompts[0]).not.toContain('dropped, far above it');
@@ -142,13 +142,13 @@ describe('a gate told which lines are novel', () => {
       path: 'src/a.ts',
       findings: [finding('one', 2), finding('two', 40)],
       addedLines: ADDED,
-      novelLines: new Set([12]),
+      touchedLines: new Set([12]),
     });
 
     expect(provider.calls).toBe(0);
     expect(outcome.kept).toEqual([]);
     expect(outcome.report.calls).toBe(0);
-    expect(outcome.report.droppedBecauseNotNovel).toBe(2);
+    expect(outcome.report.droppedBecauseUntouched).toBe(2);
   });
 
   it('drops everything when the set is empty, which is a decision and not an absence', async () => {
@@ -159,12 +159,27 @@ describe('a gate told which lines are novel', () => {
       path: 'src/a.ts',
       findings: [finding('one', 12)],
       addedLines: ADDED,
-      novelLines: new Set(),
+      touchedLines: new Set(),
     });
 
     expect(provider.calls).toBe(0);
     expect(outcome.kept).toEqual([]);
-    expect(outcome.report.droppedBecauseNotNovel).toBe(1);
+    expect(outcome.report.droppedBecauseUntouched).toBe(1);
+    // **And it is counted as the file's defect rather than the reader's.** One says the pull request touched a file to
+    // no purpose; the other says a reader wandered away from a change that happened.
+    expect(outcome.report.untouchedFrom).toEqual({ wholeFile: 1, offTheChange: 0 });
+  });
+
+  it('counts a distant finding as the reader wandering, not as an unchanged file', async () => {
+    const provider = new ScriptedFalsifier();
+    const outcome = await new FalsifierGate(provider).gate({
+      path: 'src/a.ts',
+      findings: [finding('one', 2)],
+      addedLines: ADDED,
+      touchedLines: new Set([12]),
+    });
+
+    expect(outcome.report.untouchedFrom).toEqual({ wholeFile: 0, offTheChange: 1 });
   });
 
   it('behaves exactly as before when the caller supplies no set at all', async () => {
@@ -177,7 +192,7 @@ describe('a gate told which lines are novel', () => {
 
     expect(provider.calls).toBe(1);
     expect(outcome.kept).toHaveLength(2);
-    expect(outcome.report.droppedBecauseNotNovel).toBe(0);
+    expect(outcome.report.droppedBecauseUntouched).toBe(0);
   });
 
   it('never filters a file whose text is not a patch', async () => {
@@ -188,12 +203,12 @@ describe('a gate told which lines are novel', () => {
       path: 'src/a.ts',
       findings: [finding('one', 2)],
       addedLines: null,
-      novelLines: new Set<number>(),
+      touchedLines: new Set<number>(),
     });
 
     expect(provider.calls).toBe(0);
     expect(outcome.kept).toHaveLength(1);
-    expect(outcome.report.droppedBecauseNotNovel).toBe(0);
+    expect(outcome.report.droppedBecauseUntouched).toBe(0);
   });
 });
 
@@ -234,7 +249,7 @@ describe('the engine carries the decision to the gate', () => {
       lanes: ['security'],
       parallel: false,
       falsify: 'independent-evidence-v2',
-      novelLinesOf: (path: string) => (path === 'src/a.ts' ? new Set([12, 13]) : undefined),
+      touchedLinesOf: (path: string) => (path === 'src/a.ts' ? new Set([12, 13]) : undefined),
     });
 
     const results = await engine.reviewDiff(DIFF, ENGINE_PATCH);
@@ -242,7 +257,7 @@ describe('the engine carries the decision to the gate', () => {
 
     expect(titles).toContain('the guard inverts the comparison');
     expect(titles).not.toContain('zebra quartz handshake');
-    expect(engine.lastFalsifier?.report.droppedBecauseNotNovel).toBe(1);
+    expect(engine.lastFalsifier?.report.droppedBecauseUntouched).toBe(1);
   });
 
   it('leaves the gate untouched when no shape was computed', async () => {
@@ -264,7 +279,7 @@ describe('the engine carries the decision to the gate', () => {
     const titles = results.flatMap((result) => result.findings.map((item) => item.title));
 
     expect(titles).toHaveLength(2);
-    expect(engine.lastFalsifier?.report.droppedBecauseNotNovel).toBe(0);
+    expect(engine.lastFalsifier?.report.droppedBecauseUntouched).toBe(0);
   });
 });
 
@@ -287,20 +302,20 @@ describe('a caller that hands over a diff and no text', () => {
       parallel: false,
       falsify: 'independent-evidence-v2',
       idioms: true,
-      novelLinesOf: () => undefined,
+      touchedLinesOf: () => undefined,
     });
 
     const results = await engine.reviewDiff(DIFF);
 
     expect(results.length).toBeGreaterThan(0);
     // The gate ran and was given no shape: the fallback path, not a dropped call.
-    expect(engine.lastFalsifier?.report.droppedBecauseNotNovel).toBe(0);
+    expect(engine.lastFalsifier?.report.droppedBecauseUntouched).toBe(0);
   });
 });
 
 describe('a pull request reviewed with the window off', () => {
   it('still reviews, because a switch that is off is not a switch that is broken', async () => {
-    // The other half of §79.7's contract: `novelLinesOf` and `codeContext` are independent, and turning the code window
+    // The other half of §79.7's contract: `touchedLinesOf` and `codeContext` are independent, and turning the code window
     // off must leave a pull-request review running rather than skipping the branch that builds one.
     const provider = new ScriptedFalsifier([JSON.stringify({ findings: [] })]);
     const engine = new LLMReviewEngine(provider, {

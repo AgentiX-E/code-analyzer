@@ -139,15 +139,19 @@ export interface LLMReviewOptions {
    */
   surroundingOf?: (path: string) => string | undefined;
   /**
-   * **The new-side lines this change actually touched, per file, when the caller computed them.**
+   * **The new-side lines this change's findings may stand on, per file, when the caller computed them.**
    *
    * §79: a finding standing entirely outside that set is a finding about code the pull request did not write, and the
    * gate can refute it from the patch without spending a call. **A function rather than a field on the diff**, for the
    * same reason as `surroundingOf` - the shape comes from the unified patch, which the bench has and the diff object
    * does not. **`undefined` means no decision and the gate behaves exactly as it did before this option existed**; an
-   * empty set means the change added nothing, which is a decision and drops everything.
+   * empty set means the file has no substantive hunk, which is a decision and drops everything in it.
+   *
+   * **It is the standing set and not the written-lines set.** The first reading of this device passed the added lines,
+   * a hunk that only deleted contributed none of them, and three true positives about deletions were refuted by a patch
+   * that had in fact changed them. `classifyPatch(...).allowedLines` is the hunk's span plus its deletion points.
    */
-  novelLinesOf?: (path: string) => ReadonlySet<number> | undefined;
+  touchedLinesOf?: (path: string) => ReadonlySet<number> | undefined;
   /**
    * **The file read as structure, per file, for `independent-evidence-v4`.**
    *
@@ -390,7 +394,7 @@ const DEFAULT_OPTIONS: Required<LLMReviewOptions> = {
   // reading an absent option as an empty file.
   surroundingOf: () => undefined,
   fileIndexOf: () => undefined,
-  novelLinesOf: () => undefined,
+  touchedLinesOf: () => undefined,
 };
 
 /**
@@ -715,14 +719,14 @@ export class LLMReviewEngine {
             lines: entries.flatMap((entry) => [entry.finding.startLine, entry.finding.endLine]),
           });
     // **No optional call, because the default proves the field exists.** A `?.` here would be a branch that can never
-    // be false - `DEFAULTS.novelLinesOf` is a function - and an unreachable branch in a file under a per-branch floor
+    // be false - `DEFAULTS.touchedLinesOf` is a function - and an unreachable branch in a file under a per-branch floor
     // is a permanent 0.5 % of the budget spent on a fact the type already states.
-    const novelLines = this.options.novelLinesOf(diff.filePath);
+    const touchedLines = this.options.touchedLinesOf(diff.filePath);
     const outcome = await gate.gate({
       path: diff.filePath,
       findings: entries.map((entry) => entry.finding),
       addedLines,
-      ...(novelLines === undefined ? {} : { novelLines }),
+      ...(touchedLines === undefined ? {} : { touchedLines }),
       ...(indexed === undefined ? {} : { indexed }),
       ...(indexed !== undefined || fullText === undefined || addedLines === null
         ? {}

@@ -147,11 +147,17 @@ export interface FalsifierRequest {
    * pull request did not change**, and the gate can say so without spending a call - which is the only way a review of a
    * 24-file pull request gets cheaper rather than merely better.
    *
+   * **The set is the change's *standing* surface, not its *written* lines.** They were the same thing in the first
+   * reading of this device and the difference cost three true positives: a hunk that only deleted wrote no line, so the
+   * written-lines set was empty and the gate refuted every finding about the removal. `classifyPatch(...).allowedLines`
+   * includes the deletion point and the hunk's own span; a substantive hunk therefore never contributes nothing.
+   *
    * **Absent is not empty.** `undefined`/`null` means the caller made no decision and the gate behaves exactly as it did
-   * before this field existed; an **empty set means the change added nothing**, and a review of it has nothing to say.
-   * The two are kept apart because collapsing them would make a pure reformat the one file the gate cannot see.
+   * before this field existed; an **empty set means the file has no substantive hunk at all** - a pure reformat, or a
+   * relocation - and a review of it has nothing to say. The two are kept apart because collapsing them would make a pure
+   * reformat the one file the gate cannot see, and because the two ways of being untouched are priced differently.
    */
-  novelLines?: ReadonlySet<number> | null;
+  touchedLines?: ReadonlySet<number> | null;
 }
 
 /** One claim the reader says a line contradicts, before the quote is checked. */
@@ -203,7 +209,17 @@ export interface FalsifierReport {
    * refuting a sentence; the other is the diff saying the sentence was never about this change - **and only the second
    * costs nothing.**
    */
-  droppedBecauseNotNovel: number;
+  droppedBecauseUntouched: number;
+  /**
+   * **And the two ways of being untouched, counted apart.**
+   *
+   * `wholeFile` is a file whose every hunk was a reformat, a comment edit or a relocation: the finding was about a file
+   * this pull request did not change in any way a compiler sees. `offTheChange` is a file that did change, at a
+   * distance from the finding. **They are different claims about the corpus** - one says the pull request touched a
+   * file to no purpose, the other says a reader wandered - and a single total cannot tell an iteration which of the two
+   * it removed.
+   */
+  untouchedFrom: { wholeFile: number; offTheChange: number };
   /** Which rules this call ran under, from `FALSIFIER_CONTRACTS`. */
   contract: string;
   /** Claims the reader refuted but the answer could not be read at all. */
@@ -513,7 +529,8 @@ export class FalsifierGate {
       dropped: 0,
       keptBecauseQuoteMissing: 0,
       keptBecauseSelfReferential: 0,
-      droppedBecauseNotNovel: 0,
+      droppedBecauseUntouched: 0,
+      untouchedFrom: { wholeFile: 0, offTheChange: 0 },
       contract,
       unreadable: 0,
       notAsked: 0,
@@ -536,17 +553,20 @@ export class FalsifierGate {
     // set the change touched is refuted by the patch itself: there is no question to ask, and asking it is how a gate
     // spends money to be told about code the pull request did not write. **The test is existential** - one line inside
     // the set is enough, because a finding that spans the change is a finding about the change.
-    const novel = request.novelLines ?? null;
+    const touched = request.touchedLines ?? null;
     const shapeDropped = new Map<number, FalsifierDrop>();
     let askedFindings: ReadonlyArray<LLMFinding> = request.findings;
-    if (novel !== null) {
+    if (touched !== null) {
+      // **Which way of being untouched this file is**, decided once rather than per finding: an empty set means the
+      // file has no substantive hunk, and every finding in it is equally unmoored.
+      const where = touched.size === 0 ? 'wholeFile' : 'offTheChange';
       const survivors: LLMFinding[] = [];
       request.findings.forEach((candidate, at) => {
         const from = Math.min(candidate.startLine, candidate.endLine);
         const to = Math.max(candidate.startLine, candidate.endLine);
         let stands = false;
         for (let line = from; line <= to; line += 1) {
-          if (novel.has(line)) {
+          if (touched.has(line)) {
             stands = true;
             break;
           }
@@ -561,11 +581,14 @@ export class FalsifierGate {
           quoteLine: candidate.startLine,
           quote: '',
           reason:
-            'The finding stands on no line this change touched, so the patch refutes it unread.',
+            where === 'wholeFile'
+              ? 'The file this finding is about changed no line a compiler sees, so the patch refutes it unread.'
+              : 'The finding stands on no line this change touched, so the patch refutes it unread.',
         });
       });
       askedFindings = survivors;
-      report.droppedBecauseNotNovel = shapeDropped.size;
+      report.droppedBecauseUntouched = shapeDropped.size;
+      report.untouchedFrom[where] = shapeDropped.size;
     }
 
     // **Every claim was refuted by the diff.** No call, and the outcome says which device removed them.

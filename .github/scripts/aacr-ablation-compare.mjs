@@ -703,7 +703,7 @@ export const REGISTRATIONS = Object.freeze({
    *
    * **The mechanism is `recall-holds`, and the guard that matters is not in this file.** §79.5 registers the rule the
    * artifact cannot check: **if more than four of the dropped findings are true positives, this is a recall device and has
-   * to be re-registered as one.** The artifact carries `falsifier.droppedBecauseNotNovel` and the shape counters, so the
+   * to be re-registered as one.** The artifact carries `falsifier.droppedBecauseUntouched` and the shape counters, so the
    * share is readable; the four is a judgement this table does not pretend to make.
    */
   /**
@@ -756,7 +756,7 @@ export const REGISTRATIONS = Object.freeze({
      * instrument**, and stating that is the only reading of this entry that survives its own numbers.
      *
      * What is adjudicated instead is the thing §79.5 registers: **how many findings the shape removed and how many of
-     * them were true positives.** `falsifier.droppedBecauseNotNovel` is carried by the artifact and the shape counters
+     * them were true positives.** `falsifier.droppedBecauseUntouched` is carried by the artifact and the shape counters
      * say whether the classifier fired at all, so a run answers the question this device was built for even where F1
      * cannot. **The flag is not a licence to read a met outcome as confirmed** - `registrationResolvable` refuses it -
      * and the next device that can carry this one's gain is the one that will price it.
@@ -765,9 +765,9 @@ export const REGISTRATIONS = Object.freeze({
     mechanism:
       'precision rises and recall does not fall by more than a golden is worth, because a finding on a line the change did not write is rarely a finding about the change',
     mechanismRule: 'recall-holds',
-    activity: { counter: 'falsifier.droppedBecauseNotNovel', atLeast: 110 },
+    activity: { counter: 'falsifier.droppedBecauseUntouched', atLeast: 110 },
     deletionOnly: true,
-    deletionCounter: 'falsifier.droppedBecauseNotNovel',
+    deletionCounter: 'falsifier.droppedBecauseUntouched',
     /**
      * **No confirmation slice, for the reason the third contract has none.** The registration is written against the
      * rows R-36b read, and the corpus holds no rows past them that could price a second reading - so this is a discovery
@@ -775,6 +775,28 @@ export const REGISTRATIONS = Object.freeze({
      */
     confirmation: [],
   },
+  /**
+   * **R-39's first reading, and why it is not a verdict on R-39.**
+   *
+   * Run `44249092363`, `pair: change-shape`, 30 pull requests. The device side read precision 0.2965 / recall 0.1932 /
+   * F1 0.2339 against 0.2857 / 0.2045 / 0.2384 - **F1 −0.0045, with three true positives among the 48 removals.**
+   *
+   * The number that matters is the ratio: break-even for a removal pool at these counts is **7.4 false positives per
+   * true positive**, and the device removed 14 for every 3 - a lift of 0.4 against a requirement of 1.0. **A removal
+   * device that removes at a better than average rate but not five times better loses F1 while improving precision**,
+   * and that is exactly what the two arms show.
+   *
+   * **And the pool was contaminated by a defect in this repository, not in the device.** `novelLines` was the set of
+   * *added* lines, so a hunk that only deleted contributed none of them: `DrawProjGroupItem.h 35-45`, `Public enum
+   * ProjItemType removed from header`, was refuted by a patch that had in fact removed it. Three of the 48 removals are
+   * that shape, and they are true positives by construction. **The reading is therefore about a standing set built from
+   * the wrong side of the diff**, and the corrected set - the hunk's span plus its deletion points - is what the next
+   * dispatch prices.
+   *
+   * **The registration is unchanged**, because the claim was never about added lines: it is about lines the change
+   * touched, and a deletion touches the line its replacement occupies. A registration edited to match a defect would be
+   * the one thing this table exists to prevent.
+   */
 });
 
 /**

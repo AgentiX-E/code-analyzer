@@ -1848,6 +1848,18 @@ async function main() {
   // answer a question about this one.
   let shapeLinesForGate = new Map();
   /**
+   * **The files whose entire diff is a re-indent**, and the only ones a lane may be skipped for.
+   *
+   * The skip is not an optimisation that trades recall for money: a gate told this file's `allowedLines` is empty drops
+   * **every** finding in it, so the lane calls it would have taken produce nothing that can survive. Skipping them is
+   * outcome-identical and the saving is the calls themselves - 5 per file, and on the 30-pull-request reading of
+   * `pair: change-shape` the shape counter saw 87 files whose every hunk was non-substantive.
+   *
+   * **Only `whitespaceOnly`, not `noneSubstantive`.** A comment edit is text somebody wrote and a relocation is code
+   * that moved; both can be reviewed, and neither is skipped.
+   */
+  let whitespaceOnlyForGate = new Set();
+  /**
    * **Whether the deterministic idiom lane runs beside the five model lanes.**
    *
    * The measurement it comes from is in `rejectedGoldens`: of fifty sampled goldens the file arm missed, **forty-one
@@ -1948,7 +1960,7 @@ async function main() {
       const text = fileTextsForGate.get(path);
       return typeof text === 'string' ? buildSymbolIndex(path, text) : undefined;
     },
-    novelLinesOf: (path) => shapeLinesForGate.get(path),
+    touchedLinesOf: (path) => shapeLinesForGate.get(path),
     idioms: IDIOMS,
     remarks: REMARKS,
     secondConcern: SECOND_CONCERN,
@@ -2133,13 +2145,26 @@ async function main() {
            * the reason `keptBecauseSelfReferential` is kept apart from `keptBecauseQuoteMissing`: the two removals are
            * different devices with the same effect on F1, and only this one costs nothing.
            */
-          droppedBecauseNotNovel: 0,
+          droppedBecauseUntouched: 0,
+          untouchedFrom: { wholeFile: 0, offTheChange: 0 },
           /**
            * **What the classifier saw**, so a run that bought nothing can say whether the corpus had non-substantive
            * hunks at all - a device that never fired and a device that fired and changed nothing are opposite facts,
-           * and `droppedBecauseNotNovel` alone cannot tell them apart.
+           * and `droppedBecauseUntouched` alone cannot tell them apart.
            */
-          shape: { hunks: 0, noneSubstantive: 0, novelLines: 0 },
+          shape: {
+            hunks: 0,
+            noneSubstantive: 0,
+            whitespaceOnly: 0,
+            /**
+             * **Files whose five lanes were never called**, because every hunk in them was whitespace and the gate
+             * would have refuted every finding in them. **Counted rather than inferred from the bill**, so a later
+             * reading can subtract this run's spend from a run without the skip and hold the difference to it.
+             */
+            skippedFiles: 0,
+            novelLines: 0,
+            allowedLines: 0,
+          },
           unreadable: 0,
           notAsked: 0,
           notAPatch: 0,
@@ -3051,18 +3076,35 @@ async function main() {
     if (CHANGE_SHAPE && FALSIFY) {
       const { classifyPatch } =
         await import('../../packages/intelligence/dist/review/adjudication/change-shape.js');
+      const shape = engineCounters.falsifier.shape;
       const shapeForFile = new Map();
+      const whitespaceOnly = new Set();
       for (const section of sections) {
         const shaped = classifyPatch(section.lines.join(String.fromCharCode(10)));
-        shapeForFile.set(section.path, shaped.novelLines);
-        const shape = engineCounters.falsifier.shape;
+        /**
+         * **`allowedLines` and not `novelLines`, and the first reading of this device is why.**
+         *
+         * `novelLines` is the *written* lines: what a reader has to see, which is a token argument. `allowedLines` is
+         * the *standing* surface: the hunk's span plus its deletion points, which is a precision argument. They were
+         * the same set for one commit, and on 30 pull requests that refuted **three true positives about deletions** -
+         * a hunk that only removed wrote no line, so the set was empty and every finding about the removal was dropped
+         * as standing on code the change did not touch.
+         */
+        shapeForFile.set(section.path, shaped.allowedLines);
         shape.hunks += shaped.hunks.length;
         shape.novelLines += shaped.novelLines.size;
+        shape.allowedLines += shaped.allowedLines.size;
         if (shaped.noneSubstantive) shape.noneSubstantive += 1;
+        if (shaped.whitespaceOnly) {
+          shape.whitespaceOnly += 1;
+          whitespaceOnly.add(section.path);
+        }
       }
       shapeLinesForGate = shapeForFile;
+      whitespaceOnlyForGate = whitespaceOnly;
     } else {
       shapeLinesForGate = new Map();
+      whitespaceOnlyForGate = new Set();
     }
 
     if (!sections.length) {
@@ -3130,6 +3172,14 @@ async function main() {
     // carries `merge.sides` so that the next reader can check the union was really a union.
     const lanesRun = !AGENT || (ENSEMBLE && !ENSEMBLE_READER_ONLY);
     for (const section of lanesRun ? sections : []) {
+      // **A file whose whole diff is a re-indent is not reviewed, because nothing it produces could survive.** The gate
+      // is told this file touched no line, so every finding in it is refuted unread; buying five lanes to produce them
+      // is buying findings for the bin. **The condition names the gate**, because without one the findings would survive
+      // and this would be the recall trade it is not.
+      if (CHANGE_SHAPE && FALSIFY && whitespaceOnlyForGate.has(section.path)) {
+        engineCounters.falsifier.shape.skippedFiles += 1;
+        continue;
+      }
       const sectionDiff = section.lines.join(String.fromCharCode(10));
       try {
         // **One file per call, and the file's own path** - **so neither the count nor the location depends on the
@@ -3171,7 +3221,9 @@ async function main() {
           totals.dropped += gate.report.dropped;
           totals.keptBecauseQuoteMissing += gate.report.keptBecauseQuoteMissing;
           totals.keptBecauseSelfReferential += gate.report.keptBecauseSelfReferential;
-          totals.droppedBecauseNotNovel += gate.report.droppedBecauseNotNovel ?? 0;
+          totals.droppedBecauseUntouched += gate.report.droppedBecauseUntouched ?? 0;
+          totals.untouchedFrom.wholeFile += gate.report.untouchedFrom?.wholeFile ?? 0;
+          totals.untouchedFrom.offTheChange += gate.report.untouchedFrom?.offTheChange ?? 0;
           totals.unreadable += gate.report.unreadable;
           totals.notAsked += gate.report.notAsked;
           totals.calls += gate.report.calls;

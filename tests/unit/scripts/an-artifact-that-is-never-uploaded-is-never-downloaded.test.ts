@@ -212,7 +212,6 @@ describe('the artifact names of the benchmark workflow', () => {
     // exists for: the artifact set is exactly the three arms that can be the `with` side of one of the two experiments,
     // plus the baseline they are both compared against, and the baseline is one download rather than two.
     const downloads = artifactNames('download');
-    expect(new Set(downloads).size).toBe(downloads.length);
     const uploaded = artifactNames('upload').filter((name) => !isStatic(name));
     expect(uploaded.length).toBe(1);
     const baseline: Arm = {
@@ -338,6 +337,25 @@ describe('the artifact names of the benchmark workflow', () => {
         pair('adjudicate', 'falsifier-v4').find((arm) => arm['adjudicate'] === 'falsifier-v4')!,
       ),
     ]);
+    /**
+     * **One artifact may now feed two destinations, and only one does.**
+     *
+     * `pair: change-shape` varies the shape with the gate held at `falsifier-v2` on both sides, so the artifact it puts
+     * in `/tmp/without` is the same artifact `pair: falsifier-v2` puts in `/tmp/with`. **The two steps name it once each
+     * and no dispatch runs both**, because their conditions are `== 'change-shape'` and `!= 'change-shape'` - which is
+     * what makes the duplicate legitimate and what this pair of assertions holds them to.
+     */
+    const counts = new Map<string, number>();
+    for (const name of downloads) counts.set(name, (counts.get(name) ?? 0) + 1);
+    expect([...counts].filter(([, count]) => count > 1).map(([name]) => name)).toEqual([
+      expand(
+        uploaded[0]!,
+        pair('adjudicate', 'falsifier-v2').find((arm) => arm['adjudicate'] === 'falsifier-v2')!,
+      ),
+    ]);
+    expect(WORKFLOW).toContain("if: (inputs.pair || 'off') != 'change-shape'");
+    expect(WORKFLOW).toContain("if: (inputs.pair || 'off') == 'change-shape'");
+
     expect(new Set(downloads)).toEqual(expected);
   });
 });

@@ -8422,3 +8422,129 @@ its evidence, and not its price.**
 **without a call**, so its removals are free and its volume is bounded by the corpus rather than by the reader's caution.
 The next dispatch is that pair, and §79.5's stopping rule applies to it rather than to this one: **more than four true
 positives among the dropped findings makes it a recall device that has to be re-registered as one.**
+
+## 82. The reading that indicted the instrument, and the bill split by lane
+
+### 82.1 The run, and the number that decides it
+
+`44249092363` - `pair: change-shape`, 30 pull requests, `skip 0`, competitor replayed, both arms green in 51 minutes,
+0.76 and 0.80 USD. The comparison job then went red at `Download the run without it`, asking the matrix for the no-gate
+artifact a `change-shape` dispatch never builds: **the arms were paid for and the comparison the dispatch existed for was
+the one thing it did not produce.** Both artifacts survived, so no re-run was bought to read them.
+
+|                 | `change_shape: on` | `change_shape: off` | Δ           |
+| --------------- | ------------------ | ------------------- | ----------- |
+| precision       | 0.2965             | 0.2857              | +0.0108     |
+| recall          | 0.1932             | 0.2045              | −0.0113     |
+| F1              | **0.2339**         | **0.2384**          | **−0.0045** |
+| true positives  | 51                 | 54                  | −3          |
+| false positives | 121                | 135                 | −14         |
+| shape removals  | 48                 | 0                   | +48         |
+| gate calls      | 204                | 227                 | −23         |
+| cost (USD)      | 0.7605             | 0.7986              | −0.0381     |
+
+**The ratio is the reading.** For a removal pool at these counts - `TP 54 / FP 135 / FN 210`, so `D = 2TP+FP+FN = 453` -
+`F1` rises iff `y > x·(D − TP)/TP = 7.39x`: **the pool had to be 88.1 % false positives to pay for itself.** It was
+82.4 % (14 of 17 judged removals). A device that removes at four and a half times the base error rate and needs seven and
+a half is a device whose blade is aimed correctly and is not sharp enough, and no amount of re-registering changes that
+arithmetic.
+
+**And three of the 48 removals were true positives about deletions, which is a defect in this repository rather than in the
+device.** §82.2.
+
+### 82.2 The defect: a substantive hunk that offers nowhere to stand
+
+`classifyPatch` returned `novelLines` - the _added_ lines that are genuinely new - and the gate read that set as "the
+lines this change touched". A hunk that only removed added nothing, so the set was empty, so every finding about the
+removal was refuted by a patch that had in fact removed it. The artifact's own removal log names them:
+
+> `DrawProjGroupItem.h 35-45` · _Public enum ProjItemType removed from header, breaking API_ ·
+> `The finding stands on no line this change touched, so the patch refutes it unread.`
+
+**The diff touched exactly there. It deleted the thing the finding is about.** Seven of the twelve sampled removals are
+this shape: `Public API removal: DrawUtil::isCosmeticVertex/isCosmeticEdge/isCenterLine deleted`, `Gui layer now depends on
+App-layer enum header`, `Public enum ProjItemType removed from header`.
+
+The repair separates two sets the first commit had conflated, because they answer two questions:
+
+| Set            | Built from                                                        | Question it answers               | Used for                 |
+| -------------- | ----------------------------------------------------------------- | --------------------------------- | ------------------------ |
+| `novelLines`   | added lines that are neither rewrites nor already on the old side | _what does a reader have to see?_ | the token argument       |
+| `allowedLines` | the hunk's new-side span ∪ its deletion points                    | _where may a finding stand?_      | the gate's standing rule |
+
+**A deletion writes nothing and still changes everything**, and `allowedLines` is the only one of the two that says so. It
+is now an invariant with a test - over five patches, **every substantive hunk contributes at least one allowed line** -
+because "substantive" and "offers nowhere to look" cannot both be true.
+
+### 82.3 The bill, split by lane, and it is not what §79 predicted
+
+| Tag                      | Calls | Prompt tokens | Completion | USD        | USD/call |
+| ------------------------ | ----- | ------------- | ---------- | ---------- | -------- |
+| `review:testing`         | 458   | 956 948       | 134 210    | 0.1926     | 0.00042  |
+| `review:maintainability` | 458   | 940 002       | 125 102    | 0.1817     | 0.00040  |
+| `review:architecture`    | 457   | 935 191       | 115 284    | 0.1700     | 0.00037  |
+| `review:performance`     | 456   | 952 849       | 58 700     | 0.1018     | 0.00022  |
+| `review:security`        | 458   | 1 024 274     | 36 185     | 0.0753     | 0.00016  |
+| `review:falsifier`       | 204   | 163 544       | 5 429      | **0.0391** | 0.00019  |
+
+**The gate is 5.1 % of the bill and the five lanes are 94.9 %.** Every lane sees every file - 456 to 458 calls each, within
+0.5 % of one another - so the index's 600-character second block was a 5 %-of-5 % optimisation: **§79.3's −44.9 % of gate
+characters was arithmetically true and economically irrelevant**, and the honest statement of that is here rather than in a
+claim about tokens saved.
+
+**Where the money actually goes is the category the corpus credits least.** `architecture` emitted 42 findings of which 6
+are true - precision 0.143 against `bug`'s 0.3495 - for 0.1700 USD, **28 mUSD per true positive**. It is not the largest
+line item and it is by far the worst price per true finding.
+
+**So the first real token lever is not a prompt change, it is not buying what cannot survive.** A file whose every hunk
+is a re-indent has an empty `allowedLines`, so the gate refutes every finding in it unread: **the five lane calls it takes
+are bought for the bin.** `shape.skippedFiles` counts them and the skip is outcome-identical by construction - it is
+guarded on `CHANGE_SHAPE && FALSIFY`, because without a gate those findings would survive and the skip would be a recall
+trade it is not.
+
+### 82.4 What this section changed in the code
+
+| Piece                                                                                    | Where                                    | Held to                                                                                                                                                                           |
+| ---------------------------------------------------------------------------------------- | ---------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `allowedLines`, `removedAt`, `span`, `whitespaceOnly`                                    | `change-shape.ts`                        | 8 new tests, including **a deletion-only hunk offers its deletion point** and **every substantive hunk contributes at least one line**                                            |
+| `touchedLines` on the request, `droppedBecauseUntouched` + `untouchedFrom` on the report | `falsifier.ts`                           | 13 tests; the two ways of being untouched counted apart, because a pull request that touched a file to no purpose and a reader who wandered are different claims about the corpus |
+| `touchedLinesOf`, `AACR_CHANGE_SHAPE` passing `allowedLines`                             | `llm-review-engine.ts`, `aacr-bench.mjs` | the bench's own comment names the defect it is avoiding                                                                                                                           |
+| the whitespace skip, `shape.skippedFiles`                                                | `aacr-bench.mjs`                         | guarded on the gate's existence, because the skip is only lossless where the gate runs                                                                                            |
+| the `without` arm for this pair                                                          | `aacr-bench.yml`                         | the workflow test now allows one artifact to feed two destinations, and holds the two steps to mutually exclusive conditions                                                      |
+
+### 82.5 The five questions, answered for this iteration
+
+**1. Is the index stronger? What was borrowed, how, and is it quantified?** Stronger in the half a lexer can prove:
+`buildSymbolIndex` reads declarations, ranges, export surface, members and the guard lines inside each declaration, and
+`cognition.ts` enforces `aoci-code`'s own budget bands rather than inventing a schema. **Quantified** where quantification
+is meaningful: 100 % statement and branch coverage on `cognition.ts`, 12 tests on `symbols.ts` including a block comment
+holding a declaration, an escaped quote inside a string and inside a template, and an unterminated declaration extending
+to end-of-file with `uncertain` set. **Not quantified, and named**: the `F`/`R`/`A`/`S` layer has no reading, because it
+has never been built by a model.
+
+**2. Does the review use it? How, and what did it buy?** Two places. The gate reads it as a 600-character second block
+(`independent-evidence-v4`), and this iteration made the index's _thin_ form - the diff's own verdict - decide where a
+finding may stand. **What it bought is measurable and mixed**: 48 removals at 82.4 % false positives, precision +0.0108,
+F1 −0.0045. **A precision device that loses F1 is a precision device**, and calling it anything else would be the §77
+defect one more time.
+
+**3. Is precision better, and why or why not?** Precision **is** better, by 0.0108, and the reason is the one the device
+claims: findings on lines the change never touched are three times more likely to be false than findings generally
+(82.4 % against 71.4 %). F1 is worse because **the rate is not good enough to pay for the true positives it takes with
+it** - 4.67 false per true against a break-even of 7.39. Three of those true positives were the deletion defect, so the
+corrected rate is between 4.67 and unbounded on the remaining pool, and the next dispatch is what decides it.
+
+**4. Is token use minimal? No, and the reason is now measured rather than guessed.** The gate - the only consumer of the
+index - is 5 % of the bill. 95 % is five lanes each reading every file, and their completions (474 910 tokens) cost more
+than all prompt tokens that missed cache (546 976). **The three levers, in order of size:** (a) do not call a lane for a
+file whose diff is a re-indent - landed, counted, outcome-identical; (b) route a lane by the file's structure, so a file
+with no I/O surface is not read by `security` - not built, and it is the only one of the three that trades recall;
+(c) shorten a lane's answer, since `testing`'s 134 210 completion tokens are 25 % of the bill on their own.
+
+**5. Are `aoci-code` and `difftastic` exhausted? No, and three specific things remain.** From `difftastic`: the cost model
+is still line-level, so `TINY_TREE_THRESHOLD`-style pruning (do not even classify a hunk under ten tokens) and the
+**`unchanged` side of the diff** - it models a moved node as a cheap path, and this repository has no representation of
+"the same code, elsewhere", which is why a relocation and a rewrite can only be told apart by set membership. From
+`aoci-code`: the `R` field (files that must be read together) is the one field that makes a _missing companion change_
+expressible at all, and §79.3 named it M2's whole point; and its `Search(doc, keyword, tagFilter)` retrieval over thirty
+whole lines is still unbuilt - the index exists and nothing yet queries it by a finding's own vocabulary.

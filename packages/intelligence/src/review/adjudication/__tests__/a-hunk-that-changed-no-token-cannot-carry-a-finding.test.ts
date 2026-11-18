@@ -283,3 +283,113 @@ describe('a patch read as a whole', () => {
     expect(shaped.hunks[0]?.novelLines).toEqual([3]);
   });
 });
+
+describe('a hunk that only deleted', () => {
+  // **The defect the first 30-pull-request reading paid for.** A deletion writes no line, so a set built from added
+  // lines is empty - and the gate read that emptiness as "this change wrote nothing here" and refuted findings about
+  // the removal. Three true positives among 48 removals, all of them about deletions.
+  const DELETION = [
+    '@@ -40,6 +40,3 @@',
+    ' class A {',
+    ' public:',
+    '-  enum Kind { A, B };',
+    '-  Kind kind() const;',
+    ' };',
+  ].join('\n');
+
+  it('is substantive, because a removal is a change', () => {
+    const shaped = classifyPatch(DELETION);
+
+    expect(shaped.hunks[0]?.shape).toBe('substantive');
+    expect(shaped.noneSubstantive).toBe(false);
+  });
+
+  it('writes no novel line and still offers one to stand on', () => {
+    const shaped = classifyPatch(DELETION);
+
+    // The tokens argument sees nothing to read...
+    expect(shaped.hunks[0]?.novelLines).toEqual([]);
+    expect(shaped.novelLines.size).toBe(0);
+    // ...and the standing argument sees the hunk's own lines, including the place the removals were.
+    expect([...shaped.allowedLines].sort((a, b) => a - b)).toEqual([40, 41, 42]);
+    expect(shaped.hunks[0]?.removedAt).toEqual([42, 42]);
+  });
+
+  it('offers the deletion point when the hunk ends on the removal', () => {
+    // No trailing context: the new-side span is empty, so the removal point is the whole of what the hunk contributes.
+    const shaped = classifyPatch(['@@ -10,2 +9,0 @@', '-b', '-c'].join('\n'));
+
+    expect(shaped.hunks[0]?.shape).toBe('substantive');
+    expect(shaped.hunks[0]?.span).toBeNull();
+    expect([...shaped.allowedLines]).toEqual([9]);
+  });
+
+  it('never lets a substantive hunk contribute nothing', () => {
+    // **The invariant, stated once over the shapes that can reach it.** A substantive hunk that offers no line is a
+    // contradiction: the classifier said the change happened and then gave a reader nowhere to look.
+    const patches = [
+      DELETION,
+      ['@@ -1,2 +1,3 @@', ' a', '+b', ' c'].join('\n'),
+      ['@@ -1,2 +1,2 @@', ' a', '-b', '+c'].join('\n'),
+      ['@@ -7,0 +8,2 @@', '+x', '+y'].join('\n'),
+      ['@@ -1,4 +1,4 @@', ' a', '-b', '-c', '+d', ' e'].join('\n'),
+    ];
+
+    for (const patch of patches) {
+      const shaped = classifyPatch(patch);
+      const substantive = shaped.hunks.filter((hunk) => hunk.shape === 'substantive');
+      expect(substantive.length).toBeGreaterThan(0);
+      expect(shaped.allowedLines.size).toBeGreaterThan(0);
+    }
+  });
+});
+
+describe('a file whose whole diff is a reformat', () => {
+  const REFORMAT = [
+    '@@ -1,3 +1,3 @@',
+    ' function a() {',
+    '-    return 1;',
+    '+  return 1;',
+    ' }',
+  ].join('\n');
+
+  it('offers no line at all, and says which kind of nothing it is', () => {
+    const shaped = classifyPatch(REFORMAT);
+
+    expect(shaped.allowedLines.size).toBe(0);
+    expect(shaped.noneSubstantive).toBe(true);
+    // **`whitespaceOnly` is not `noneSubstantive`**: a comment edit is text somebody wrote, and a relocation is code
+    // that moved. Only a re-indent is nothing at all, and only that shape may skip a lane.
+    expect(shaped.whitespaceOnly).toBe(true);
+  });
+
+  it('does not call a comment edit whitespace', () => {
+    const shaped = classifyPatch(
+      ['@@ -1,2 +1,2 @@', '-// old note', ' function a() {', '// new note'].join('\n'),
+    );
+
+    expect(shaped.noneSubstantive).toBe(true);
+    expect(shaped.whitespaceOnly).toBe(false);
+  });
+
+  it('does not call a patch it could not read whitespace', () => {
+    expect(classifyPatch('not a patch').whitespaceOnly).toBe(false);
+  });
+
+  it('never reports whitespace-only beside a line a finding could stand on', () => {
+    // **The invariant the lane skip rests on.** `aacr-bench` does not call a lane for a `whitespaceOnly` file because the
+    // gate would refute every finding in it; that is only lossless if such a file offers no line at all. If this ever
+    // fails, the skip becomes a silent recall trade.
+    const patches = [
+      REFORMAT,
+      ['@@ -1,3 +1,3 @@', ' a', '-b', '+b ', ' c'].join('\n'),
+      ['@@ -4,2 +4,2 @@', '-  x', '+    x'].join('\n'),
+      ['@@ -1,2 +1,2 @@', '-// a', '+// b', ' c'].join('\n'),
+    ];
+
+    for (const patch of patches) {
+      const shaped = classifyPatch(patch);
+      if (shaped.whitespaceOnly) expect(shaped.allowedLines.size).toBe(0);
+    }
+  });
+});

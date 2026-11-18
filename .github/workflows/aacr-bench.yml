@@ -787,10 +787,27 @@ jobs:
           name: aacr-bench-advisory-off-off-off-off-off-off-off-behaviour-off
           path: /tmp/with
 
+      # **The arm without the device, and for one pair it is not the arm without a gate.**
+      #
+      # Every falsifier pair varies the gate against no gate, so `without` was the bare reader and this step had no
+      # condition. `pair: change-shape` varies the *shape* with the gate held at `falsifier-v2` on both sides, so the
+      # arm it must be compared with is the one with the gate and without the classifier - and the dispatch of
+      # 2026-11-18 ended red at this step, after both arms had been paid for, because the job asked the matrix for an
+      # artifact the matrix never built. **The comparison the run was dispatched for was the only thing it did not
+      # produce.**
       - name: Download the run without it
+        if: (inputs.pair || 'off') != 'change-shape'
         uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8
         with:
           name: aacr-bench-advisory-off-off-off-off-off-off-off-shipped-off
+          path: /tmp/without
+
+      # **And for `change-shape`, the same gate on both sides, differing only in whether the diff was read first.**
+      - name: Download the run whose gate was not told what the change wrote
+        if: (inputs.pair || 'off') == 'change-shape'
+        uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8
+        with:
+          name: aacr-bench-advisory-off-falsifier-v2-off-off-off-off-off-shipped-off
           path: /tmp/without
 
       # **And the merge's own arm, which is the one R-29 could not be.** The registration named a merge of the five lanes
