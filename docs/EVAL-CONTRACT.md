@@ -8015,3 +8015,100 @@ the split by tag; **what was missing was a brake, and a brake is a decision abou
 **What would make this section wrong:** if a thirty-pull-request slice were not predictive of the corpus for the devices
 we register. **It was predictive of §73's gate** — the same sign, the same significance, at a fifth of the corpus — and
 if that stops being true the first rule is the one to drop, not the second.
+
+## §78 The contract worked; it ran out of material
+
+### 78.1 The reading, and the third verdict's first firing
+
+R-36b landed on 146 pull requests, 1 054 goldens, run 44126428791, 190 minutes:
+
+|                                    | precision | recall  | F1          | TP  | FP  | findings |
+| ---------------------------------- | --------- | ------- | ----------- | --- | --- | -------- |
+| **with** `independent-evidence-v2` | 0.2061    | 0.1803  | **0.1923**  | 190 | 732 | 1 461    |
+| **without**                        | 0.2016    | 0.1879  | **0.1945**  | 198 | 784 | 1 638    |
+| **delta**                          | +0.0045   | −0.0076 | **−0.0022** | −8  | −52 | −177     |
+
+Paired test `both 123 / withOnly 67 / withoutOnly 75`, p = 0.5571; the pull-request bootstrap puts the difference at
+−0.0024 with an interval of [−0.0228, +0.0176]. **Nothing was signed.**
+
+**And the run was not falsified either.** `reach` reads **169 removed, ceiling +0.0176, reachable false** against a bar
+that needs 0.0204, so the outcome is `unreachable: the device removed 169 claims, and had every one of them been a false
+positive that reached the reviewer this figure moves by 0.0176 at most`. **§76's third verdict fired for the first time
+on a real run, and its sentence is correct**: the corpus could not price the bar, so the shortfall is not the device's.
+
+### 78.2 Three things the artifact says, and only one of them was the hypothesis
+
+1. **The contract did what it was built to do.** §73's gate removed 557 claims carrying 69 true positives among the 277
+   that could reach a reviewer - **24.9 %**, against a pool rate of 21.3 %, i.e. very slightly anti-selective. `v2`
+   removed 169 carrying 8 - **4.73 %**. §75.3's target is 4 %, and **the pool is now within a fifth of it**. The
+   tautology is gone: 148 refutations were refused for quoting inside the claim's own range
+   (`keptBecauseSelfReferential`), which is exactly the class §74 sampled twelve of twelve from.
+2. **It ran out of things to remove.** 169 removals are worth +0.0176 even if every one were a false positive that
+   reached the reviewer. **The device is not too weak; the hunk is too small.** A three-line hunk contains no independent
+   evidence about those three lines, so a contract that demands independent evidence correctly keeps them.
+3. **The reach floor is not a constant.** §76.2 computed 181 against §73's counts (208 true positives, 769 false
+   positives). R-36b's control read **198 and 784**, and against that pair the count at which a perfect pool reaches
+   +0.0200 is **190**. **A floor quoted from another section's arithmetic is a floor for another corpus**, and this is
+   the second time this stretch that a number outlived its inputs.
+
+### 78.3 What the field says about the shortage, and what it warns about the repair
+
+Three sources, and the third is the constraint rather than the encouragement:
+
+- **`arXiv 2411.03079` (eCPG-Slicer)** builds a per-project _file reference graph_, takes its strongly connected
+  components with Tarjan's algorithm, and derives a **precise and complete** slice before asking a model anything. The
+  point of the SCC pass is that it is computed once and reused, so the context is complete without a whole-program
+  analysis per warning.
+- **`arXiv 2610.36010` (CIVER)** validates a claim by **intervening on the code it names** rather than by reading the
+  claim's own region - 77 % of its verified findings are real defects at AUROC 0.760. That is the same principle as `v2`
+  (`the claim's own line is not evidence`) reached from the opposite direction.
+- **IEEE 11719504 (multi-signal focused verification)** is the warning. It builds a bidirectional call graph and
+  assembles cross-function context for each finding, and then says the quiet part: _"because the bundle aggregates a
+  large amount of surrounding context, the model's judgment can become detached from any single concrete piece of code,
+  and it becomes prone to reporting vulnerabilities that are not borne out by the actual implementation"_ - which is why
+  it adds a proof-of-concept execution layer on top. **The field's context-dump reviewers report 60–80 % of their
+  findings as false for this reason.**
+
+**So the repair is a slice, not a bundle**: `v3` does not hand over the file, it hands over the lines around each claim,
+numbered in the file's own coordinates, capped at half the block the hunk gets.
+
+### 78.4 `independent-evidence-v3`, and why it is a third contract rather than a fourth device
+
+`selectSurrounding` takes each claim's window of `radius` lines (default 40) either side, merges the windows, drops every
+line the hunk already showed, and caps the result at `budget` lines **by distance to the nearest claim** - the nearest
+lines win, because the line that refutes a claim is almost never two hundred lines away. Those lines join the quotable
+set, and **the `v2` subtraction still applies**: a claim's own range is not evidence, whether it was printed under the
+hunk or under the file.
+
+**Three properties make this a test rather than a wish.**
+
+1. **`v3` with no surrounding text is `v2`**, and the artifact says which one ran. A gate that reported
+   `independent-evidence-v3` while measuring `v2` would be §74's instrument defect one device later.
+2. **The fetch belongs to the contract, not to another arm's switch** (`NEEDS_FILE_TEXT`), so a `v3` run fetches the
+   file whether or not `code_context` was asked for - and the two arms of the pair differ in exactly one field.
+3. **The prompt is bounded.** The surrounding block gets `FALSIFIER_CONTEXT_BUDGET = 6 000` characters, half the hunk's
+   block: a contract that spends more on the file than on the change has inverted what the reader is asked about.
+
+### 78.5 R-38's registration, and what would make it wrong
+
+Registered in `.github/scripts/aacr-ablation-compare.mjs` as `falsifier:independent-evidence-v3`, bar **0.02**, mechanism
+`recall-holds`, activity floor **190** (this baseline's reach floor), `deletionOnly`, no confirmation slice - because the
+corpus has 196 rows past the discovery set and the contract needs 340 removals to price a 0.02 bar, so **a confirmation
+here would be §76's defect one level up**.
+
+The arithmetic the registration rests on: `v2` left 183 claims behind (148 self-referential, 35 quote-missing), and
+169 + 183 is **352**. At the toxicity `v2` measured, **340 removals are worth +0.0200** - so the contract has to convert
+roughly two thirds of the refutations it was already making into verified ones, at the same 4.73 % toxicity or better.
+
+**Three ways this is wrong, stated before the run.**
+
+1. **If the 148 were refused because they were wrong rather than because they were unquotable.** They were refutations a
+   reader offered; `v2` refused them for where the quote was, not for what it said. If, given the file, the reader
+   quotes the same self-referential lines again, `keptBecauseSelfReferential` stays at 148 and the removals stay at 169
+   - and the shortfall is then the reader's judgement rather than the hunk's size.
+2. **If the wider evidence makes the pool dirtier.** The toxicity is a property of _which_ claims get removed, and a
+   reader with more context can be wrong in more ways. **4.73 % must not become 10 %**: at 10 % the same 340 removals are
+   worth +0.0190 and the contract buys nothing.
+3. **If the cost is disproportionate.** The surrounding block adds ~50 % to the gate's prompt, and the file fetch is one
+   request per changed file. **A contract that buys 0.02 for a third more spend is still a contract; one that buys it for
+   three times the spend is a contract to price against the alternative.** The spend is recorded by tag either way.

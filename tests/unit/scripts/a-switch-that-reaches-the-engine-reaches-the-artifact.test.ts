@@ -101,8 +101,13 @@ describe('the lane-set switch is wired end to end', () => {
   });
 
   it('reaches the engine as the lane list, which is what makes it a reviewer rather than a log line', () => {
-    const options = BENCH.slice(BENCH.indexOf('new LLMReviewEngine('));
-    expect(options.slice(0, 900)).toContain('lanes: [...LANE_SETS[LANE_SET]]');
+    // **The whole constructor, not a window of it.** This read `slice(0, 900)` until §78 added a fourth option to the
+    // engine and the lane list fell outside the window - a test that fails because the block grew is measuring its own
+    // constant rather than the wiring. It now stops at the closing `});`.
+    const start = BENCH.indexOf('new LLMReviewEngine(');
+    expect(start).toBeGreaterThan(-1);
+    const options = BENCH.slice(start, BENCH.indexOf('\n  });', start));
+    expect(options).toContain('lanes: [...LANE_SETS[LANE_SET]]');
     // **And the list comes from the module that owns it**, so the five the artifact names and the five the engine calls
     // are one list rather than two copies that agree today.
     expect(BENCH).toContain(

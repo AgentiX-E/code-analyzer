@@ -1804,7 +1804,26 @@ async function main() {
       ? 'quoted-falsifier-v1'
       : ADJUDICATE_MODE === 'falsifier-v2'
         ? 'independent-evidence-v2'
-        : false;
+        : ADJUDICATE_MODE === 'falsifier-v3'
+          ? 'independent-evidence-v3'
+          : false;
+  /**
+   * **`v3` reads the file, so the run fetches it whether or not the code-context arm was asked for.**
+   *
+   * **The alternative was a contract that silently degrades**: `v3` with no surrounding text is `v2` with a different
+   * name in the artifact, and a figure that says `independent-evidence-v3` while measuring `v2` is the §74 defect one
+   * device later - a field that cannot record a change. So the fetch is owned by the contract rather than by the other
+   * arm's switch, and the two arms of this pair differ in one field: the gate.
+   */
+  const NEEDS_FILE_TEXT = FALSIFY === 'independent-evidence-v3';
+  /**
+   * **The file text of the pull request being reviewed, read by the gate through a closure.**
+   *
+   * The engine is constructed once and the corpus runs serially through it, so one binding is enough - and binding it
+   * rather than passing it keeps `LLMReviewEngine` free of a transport, which is the property that lets the engine be
+   * tested without a network.
+   */
+  let fileTextsForGate = new Map();
   /**
    * **Whether the deterministic idiom lane runs beside the five model lanes.**
    *
@@ -1893,6 +1912,9 @@ async function main() {
     promptOrder: PROMPT_ORDER,
     adjudicate: ADJUDICATE,
     falsify: FALSIFY,
+    // **Only `v3` reads this**, and it returns `undefined` for every other contract - so a file fetched for the code
+    // context arm is not silently promoted into evidence for a gate that was never asked to use it.
+    surroundingOf: (path) => fileTextsForGate.get(path),
     idioms: IDIOMS,
     remarks: REMARKS,
     secondConcern: SECOND_CONCERN,
@@ -2966,10 +2988,13 @@ async function main() {
     // gets a checkout and pays a clone for it; 249 files over 36 pull requests is 249 small requests, which is the same
     // fact for a fraction of the bytes.
     const fileTexts = new Map();
+    // **The binding the gate reads**, set before the lanes run and cleared per pull request so a path from the previous
+    // pull request cannot answer a question about this one.
+    fileTextsForGate = fileTexts;
     // **The head commit, hoisted out of the retrieval block** because the agent arm needs the same revision and reading it
     // twice is a second request for a fact already in hand.
     let pullHead = null;
-    if (CODE_CONTEXT) {
+    if (CODE_CONTEXT || NEEDS_FILE_TEXT) {
       const head = await fetchPullHead(pr.githubPrUrl);
       pullHead = head.ok ? head : null;
       if (!head.ok) {

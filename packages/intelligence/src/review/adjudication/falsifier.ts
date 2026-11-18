@@ -47,6 +47,7 @@ import type { CompletionOptions, LLMProvider } from '../llm/provider.js';
 export const FALSIFIER_CONTRACTS = {
   v1: 'quoted-falsifier-v1',
   v2: 'independent-evidence-v2',
+  v3: 'independent-evidence-v3',
 } as const;
 
 /**
@@ -69,6 +70,15 @@ export const FALSIFIER_MIN_QUOTE = 10;
 
 /** **How much of a file's added lines the reader is shown**, in characters. */
 export const FALSIFIER_CODE_BUDGET = 12_000;
+
+/**
+ * **How many characters of the file's untouched lines one call may carry.**
+ *
+ * Half the block the hunk gets, because the surrounding lines are context rather than the thing under review: **a
+ * contract that spends more on the file than on the change has inverted what the reader is being asked about**, and the
+ * context-dump reviewers report 60-80 % of their findings as false for exactly that reason.
+ */
+export const FALSIFIER_CONTEXT_BUDGET = 6_000;
 
 /**
  * **How many claims one call may carry.**
@@ -96,6 +106,19 @@ export interface FalsifierRequest {
    * §74 falsified, so that every figure already in this repository stays reproducible from the code that measured it.
    */
   contract?: FalsifierContract;
+  /**
+   * **The lines around each claim that this change did not touch, when the caller has them.**
+   *
+   * `v2` ran out of material rather than out of judgement: on 146 pull requests it removed 169 claims and left 148
+   * behind because the only line the reader could quote lay inside the claim's own range. **A hunk of three lines
+   * carries no independent evidence about those three lines**, so the contract that asks for independent evidence needs
+   * a second place to look - and the file is that place.
+   *
+   * **`null` is a `v2` run, not a broken one.** A caller that cannot produce the surrounding text still gets a gate; it
+   * gets the gate that keeps everything it cannot refute, which is the direction this device has always been allowed to
+   * fail in.
+   */
+  surrounding?: ReadonlyArray<NumberedAddedLine> | null;
 }
 
 /** One claim the reader says a line contradicts, before the quote is checked. */
@@ -180,7 +203,10 @@ function compareForm(value: string): string {
 }
 
 /** Render the added lines the reader may quote, subject to the character budget. */
-function renderLines(lines: ReadonlyArray<NumberedAddedLine>): {
+function renderLines(
+  lines: ReadonlyArray<NumberedAddedLine>,
+  budget: number = FALSIFIER_CODE_BUDGET,
+): {
   body: string;
   shown: number;
 } {
@@ -188,11 +214,58 @@ function renderLines(lines: ReadonlyArray<NumberedAddedLine>): {
   let used = 0;
   for (const line of lines) {
     const one = `${line.line}| ${line.text}\n`;
-    if (used + one.length > FALSIFIER_CODE_BUDGET) break;
+    if (used + one.length > budget) break;
     rendered.push(one);
     used += one.length;
   }
   return { body: rendered.join(''), shown: rendered.length };
+}
+
+/**
+ * **The lines around each claim that the change did not touch, in the file's own numbering.**
+ *
+ * **A window, not a file.** Three sources agree that handing a reviewer the whole of a large file costs precision rather
+ * than buying it: `arXiv 2411.03079` derives a precise and complete slice before asking a model, `arXiv 2610.36010`
+ * verifies a claim by intervening on the code it names, and the field's context-dump reviewers report 60-80 % of their
+ * findings as false. **So each claim gets `radius` lines either side of it, the windows are merged, and the result is
+ * capped at `budget` lines by distance to the nearest claim** - the nearest lines win, because the line that refutes a
+ * claim is almost never two hundred lines away.
+ *
+ * **The added lines are excluded rather than deduplicated by text.** A line the hunk already showed has one number, and
+ * printing it twice under two headings would let a reader quote line 23 as if it were line 41.
+ */
+export function selectSurrounding(request: {
+  fileText: string;
+  findings: ReadonlyArray<LLMFinding>;
+  addedLines: ReadonlyArray<NumberedAddedLine> | null;
+  radius?: number;
+  budget?: number;
+}): NumberedAddedLine[] {
+  const radius = Math.max(0, Math.trunc(Number(request.radius ?? 40)));
+  const budget = Math.max(1, Math.trunc(Number(request.budget ?? 200)));
+  const lines = String(request.fileText ?? '').split('\n');
+  const added = new Set((request.addedLines ?? []).map((line) => line.line));
+
+  const distance = new Map<number, number>();
+  for (const claim of request.findings) {
+    const from = Math.max(1, claim.startLine - radius);
+    const to = Math.min(lines.length, claim.endLine + radius);
+    for (let at = from; at <= to; at += 1) {
+      if (added.has(at)) continue;
+      const away =
+        at < claim.startLine ? claim.startLine - at : at > claim.endLine ? at - claim.endLine : 0;
+      const seen = distance.get(at);
+      if (seen === undefined || away < seen) distance.set(at, away);
+    }
+  }
+
+  const chosen = [...distance.entries()]
+    .sort((left, right) => left[1] - right[1] || left[0] - right[0])
+    .slice(0, budget)
+    .map(([line]) => line)
+    .sort((left, right) => left - right);
+
+  return chosen.map((line) => ({ line, text: lines[line - 1] ?? '' }));
 }
 
 /**
@@ -215,7 +288,7 @@ function renderClaims(
           ? `lines ${finding.startLine}-${finding.endLine}`
           : `line ${finding.startLine}`;
       const head = `[${at + 1}] (${where}) ${finding.title}`;
-      if (contract !== FALSIFIER_CONTRACTS.v2) return head;
+      if (contract === FALSIFIER_CONTRACTS.v1) return head;
       const verb = finding.endLine > finding.startLine ? 'are' : 'is';
       return `${head}\n    claim ${at + 1}'s own ${where} ${verb} not evidence for claim ${at + 1}`;
     })
@@ -235,32 +308,53 @@ export function buildFalsifierPrompt(
 ): string {
   const contract = request.contract ?? FALSIFIER_CONTRACTS.v1;
   const lines = renderLines(request.addedLines);
+  // **The surrounding block exists only under `v3`, and only when the caller could produce it.** A `v2` prompt is
+  // byte-for-byte what it was, so every figure §74 measured stays reproducible from the code that measured it.
+  const surrounding =
+    contract === FALSIFIER_CONTRACTS.v3 && (request.surrounding?.length ?? 0) > 0
+      ? renderLines(request.surrounding ?? [], FALSIFIER_CONTEXT_BUDGET)
+      : { body: '', shown: 0 };
   const claims = renderClaims(request.findings, contract);
   const rules =
-    contract !== FALSIFIER_CONTRACTS.v2
+    contract === FALSIFIER_CONTRACTS.v3
       ? [
-          'Three rules, and they are the whole contract:',
-          '',
-          '1. Only the added lines above are evidence. Code this change did not touch is not evidence, and neither is',
-          '   code you cannot see.',
-          '2. The quote must be one of the lines above, copied exactly. A quote that is not on an added line is not a',
-          '   refutation, and the claim stays.',
-          '3. You may not rewrite a claim, re-anchor it, or lower its severity. A claim is either refuted by a quoted',
-          '   line or kept as it was written.',
-        ]
-      : [
           'Four rules, and they are the whole contract:',
           '',
-          '1. Only the added lines above are evidence. Code this change did not touch is not evidence, and neither is',
-          '   code you cannot see.',
+          '1. **Two blocks are evidence: the added lines, and the surrounding lines of the same file.** Code in neither',
+          '   block is not evidence, and neither is code you cannot see.',
           "2. **A claim's own range is not evidence for that claim.** The line a claim points at is what the claim is",
           '   about, not a reason to disbelieve it: quoting it says the code is the code. The quote has to be a line',
           '   **outside** the range printed under that claim.',
-          '3. The quote must be one of the lines above, copied exactly. A quote that is not on an added line, or that is',
-          '   only inside the claim it attacks, is not a refutation, and the claim stays.',
+          "3. The quote must be one of the lines in either block, copied exactly, and its number is the file's own number.",
+          '   A quote that is not on one of those lines, or that is only inside the claim it attacks, is not a',
+          '   refutation, and the claim stays.',
           '4. You may not rewrite a claim, re-anchor it, or lower its severity. A claim is either refuted by a quoted',
           '   line or kept as it was written.',
-        ];
+        ]
+      : contract === FALSIFIER_CONTRACTS.v2
+        ? [
+            'Four rules, and they are the whole contract:',
+            '',
+            '1. Only the added lines above are evidence. Code this change did not touch is not evidence, and neither is',
+            '   code you cannot see.',
+            "2. **A claim's own range is not evidence for that claim.** The line a claim points at is what the claim is",
+            '   about, not a reason to disbelieve it: quoting it says the code is the code. The quote has to be a line',
+            '   **outside** the range printed under that claim.',
+            '3. The quote must be one of the lines above, copied exactly. A quote that is not on an added line, or that is',
+            '   only inside the claim it attacks, is not a refutation, and the claim stays.',
+            '4. You may not rewrite a claim, re-anchor it, or lower its severity. A claim is either refuted by a quoted',
+            '   line or kept as it was written.',
+          ]
+        : [
+            'Three rules, and they are the whole contract:',
+            '',
+            '1. Only the added lines above are evidence. Code this change did not touch is not evidence, and neither is',
+            '   code you cannot see.',
+            '2. The quote must be one of the lines above, copied exactly. A quote that is not on an added line is not a',
+            '   refutation, and the claim stays.',
+            '3. You may not rewrite a claim, re-anchor it, or lower its severity. A claim is either refuted by a quoted',
+            '   line or kept as it was written.',
+          ];
   return [
     `Contract: ${contract}.`,
     `You are the independent reader of one file's change: ${request.path}.`,
@@ -271,12 +365,21 @@ export function buildFalsifierPrompt(
     'The added lines:',
     lines.body.trimEnd(),
     '',
+    ...(surrounding.body.length > 0
+      ? [
+          "The surrounding lines of the same file, which this change did not touch - the file's own numbers:",
+          surrounding.body.trimEnd(),
+          '',
+        ]
+      : []),
     'The claims:',
     claims.body,
     '',
-    contract !== FALSIFIER_CONTRACTS.v2
-      ? 'Question: which of these claims does one of the added lines directly contradict?'
-      : "Question: which of these claims does one of the added lines outside the claim's own range directly contradict?",
+    contract === FALSIFIER_CONTRACTS.v3
+      ? "Question: which of these claims does a line in either block, outside the claim's own range, directly contradict?"
+      : contract === FALSIFIER_CONTRACTS.v2
+        ? "Question: which of these claims does one of the added lines outside the claim's own range directly contradict?"
+        : 'Question: which of these claims does one of the added lines directly contradict?',
     '',
     "Answer with the claim's number and the exact text of the line that contradicts it, copied character for character",
     'from the list above. If no added line contradicts a claim, do not mention it - a claim you cannot refute is kept.',
@@ -403,9 +506,18 @@ export class FalsifierGate {
     // **The lines the reader was allowed to quote**, in comparison form and carrying the number they were shown, so a
     // quote is checked against what it saw rather than against the whole file's added lines beyond the budget - and so
     // that a removal can say *which* line it stood on.
-    const quotable = addedLines
-      .slice(0, renderLines(addedLines).shown)
-      .map((line) => ({ line: line.line, text: compareForm(line.text) }));
+    const quotable = [
+      ...addedLines
+        .slice(0, renderLines(addedLines).shown)
+        .map((line) => ({ line: line.line, text: compareForm(line.text) })),
+      // **The file's own lines, shown under `v3`, are quotable too** - and they are the only lines that can refute a
+      // claim whose hunk carries no independent evidence, which is 148 of the 183 `v2` left behind on 146 pull requests.
+      ...(contract === FALSIFIER_CONTRACTS.v3
+        ? (request.surrounding ?? [])
+            .slice(0, renderLines(request.surrounding ?? [], FALSIFIER_CONTEXT_BUDGET).shown)
+            .map((line) => ({ line: line.line, text: compareForm(line.text) }))
+        : []),
+    ];
 
     const droppedAt = new Map<number, FalsifierDrop>();
     for (const refutation of read.refuted) {
@@ -432,7 +544,7 @@ export class FalsifierGate {
       // whose every match is inside the claim is the tautology §74 found, so it keeps the claim and is counted.
       const claim = request.findings[at]!;
       const usable =
-        contract !== FALSIFIER_CONTRACTS.v2
+        contract === FALSIFIER_CONTRACTS.v1
           ? matches
           : matches.filter((line) => line.line < claim.startLine || line.line > claim.endLine);
       if (usable.length === 0) {

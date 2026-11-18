@@ -21,7 +21,9 @@ import {
   type RefusedClaim,
 } from '../adjudication/adjudicator.js';
 import {
+  FALSIFIER_CONTRACTS,
   FalsifierGate,
+  selectSurrounding,
   type FalsifierContract,
   type FalsifierDrop,
   type FalsifierReport,
@@ -121,6 +123,19 @@ export interface LLMReviewOptions {
    * range from the quotable set, so the only thing that can refute a sentence is the rest of the change.
    */
   falsify?: false | FalsifierContract;
+  /**
+   * **Where the file's untouched lines come from, for `independent-evidence-v3`.**
+   *
+   * **A function rather than a field on the diff**, because the engine is given text and not a transport - the same
+   * division the provider abstraction follows, and the reason this engine can be unit-tested without a network. A caller
+   * that has fetched the file says so; a caller that has not gets `undefined`, and `v3` then degrades to `v2` rather
+   * than to a gate that quotes a line nobody showed the reader.
+   *
+   * **`v2` ran out of material, not out of judgement**: on 146 pull requests it removed 169 claims and left 148 behind
+   * because the only quotable line lay inside the claim's own range. A hunk of three lines carries no independent
+   * evidence about those three lines, and the file is where the evidence is.
+   */
+  surroundingOf?: (path: string) => string | undefined;
   languageChecklist?: boolean;
   /**
    * **Where the target-and-diff block sits in every lane prompt.** Undefined means `boilerplate-first`, the arrangement
@@ -347,6 +362,9 @@ const DEFAULT_OPTIONS: Required<LLMReviewOptions> = {
   // under it.** The switch is §59's device: a finding of a *different category* whose range overlaps a survivor's is a
   // second concern at the site rather than a duplicate of it, and the run that turns it on says so in its artifact.
   secondConcern: false,
+  // **The default is a function that has nothing to give**, not a missing key: `v3` then degrades to `v2` rather than
+  // reading an absent option as an empty file.
+  surroundingOf: () => undefined,
 };
 
 /**
@@ -649,10 +667,26 @@ export class LLMReviewEngine {
       timeout: this.options.laneTimeout,
       contract: this.options.falsify === false ? undefined : this.options.falsify,
     });
+    const contract = this.options.falsify === false ? undefined : this.options.falsify;
+    const addedLines = numberedAddedLines(patch);
+    // **The surrounding block is built here rather than inside the gate**, because the gate is given text and the lookup
+    // is a transport: a gate that fetched its own context could not be tested without one, and a gate that was handed a
+    // file it never looked at is worse than one that was handed nothing.
+    const fullText =
+      contract === FALSIFIER_CONTRACTS.v3 ? this.options.surroundingOf?.(diff.filePath) : undefined;
     const outcome = await gate.gate({
       path: diff.filePath,
       findings: entries.map((entry) => entry.finding),
-      addedLines: numberedAddedLines(patch),
+      addedLines,
+      ...(fullText === undefined || addedLines === null
+        ? {}
+        : {
+            surrounding: selectSurrounding({
+              fileText: fullText,
+              findings: entries.map((entry) => entry.finding),
+              addedLines,
+            }),
+          }),
     });
 
     this.lastFalsifier = { report: outcome.report, dropped: outcome.dropped };

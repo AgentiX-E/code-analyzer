@@ -303,6 +303,14 @@ describe('the artifact names of the benchmark workflow', () => {
         uploaded[0]!,
         pair('adjudicate', 'falsifier-v2').find((arm) => arm['adjudicate'] === 'falsifier-v2')!,
       ),
+      // **And the third contract's arm**, which is §78's answer to the shortfall rather than a new device: `v2` removed
+      // 169 claims and left 148 behind because the only quotable line lay inside the claim, so `v3` adds the file's
+      // untouched lines around each claim to the evidence. A run that paid for it and downloaded nothing would be the
+      // failure this file exists for, one contract later.
+      expand(
+        uploaded[0]!,
+        pair('adjudicate', 'falsifier-v3').find((arm) => arm['adjudicate'] === 'falsifier-v3')!,
+      ),
       // **And the union's arm**, which is R-37's device side: `lane_set: pair-wide` buys the five lanes as they ship and
       // the same five plus `behaviour`. R-35 measured the substitution and it lost; **this is the same two lanes with the
       // choice removed**, so the comparison's sign answers whether width was the constraint rather than which of the two
@@ -395,7 +403,7 @@ describe('the matrix is one experiment', () => {
       // were 24.9 % true positives against a pool rate of 21.3 %, and every sampled removal quoted the claim it attacked.
       // **And one single and one pair for the union**, which is R-37's device: `lane_set: wide` is the diagnostic dispatch
       // that prices the union without a comparison, and `pair-wide` is the comparison itself.
-    ).toEqual([1, 1, 1, 1, 1, 1, 1, 1, 1, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2]);
+    ).toEqual([1, 1, 1, 1, 1, 1, 1, 1, 1, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2]);
   });
 
   it('varies exactly one key, so that a difference between the arms is the device', () => {
@@ -407,6 +415,7 @@ describe('the matrix is one experiment', () => {
       ['adjudicate', 'on'],
       ['adjudicate', 'falsifier'],
       ['adjudicate', 'falsifier-v2'],
+      ['adjudicate', 'falsifier-v3'],
       ['idioms', 'on'],
       ['agent', 'on'],
       ['second_concern', 'on'],
@@ -636,6 +645,7 @@ describe('a download guard that the next device forgets to extend', () => {
       // `falsifier` explicitly, because that dispatch's device arm is not the one it downloads.
       { input: 'pair', value: 'falsifier', varied: 'adjudicate', armValue: 'falsifier' },
       { input: 'pair', value: 'falsifier-v2', varied: 'adjudicate', armValue: 'falsifier-v2' },
+      { input: 'pair', value: 'falsifier-v3', varied: 'adjudicate', armValue: 'falsifier-v3' },
       { input: 'lane_set', value: 'pair-wide', varied: 'lane_set', armValue: 'wide' },
     ];
 

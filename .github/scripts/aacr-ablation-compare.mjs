@@ -639,6 +639,47 @@ export const REGISTRATIONS = Object.freeze({
     deletionCounter: 'falsifier.dropped',
     confirmation: [{ skip: 50, max: 146 }],
   },
+  /**
+   * **R-38: the same gate with somewhere else to look.**
+   *
+   * §78 reads `v2`'s run as a contract that worked and ran out of material. It removed **169 claims carrying 8 true
+   * positives - 4.73 %**, against the 24.9 % of §73's gate and the 4 % §75.3 asks for, so the pool is clean; and 169
+   * removals move F1 by **0.0176 at most**, under the 0.02 registered, so §76's own arithmetic called the run
+   * `unreachable` rather than falsified.
+   *
+   * **The 183 claims it left behind are the material, and they are one shortage.** 148 were kept because the only line
+   * the reader could quote lay inside the claim's own range, 35 because the quote matched no line it had been shown - and
+   * both are the same fact: a hunk of three added lines carries no independent evidence about those three lines. `v3`
+   * adds the file's untouched lines around each claim to the evidence, so the guard forty lines above the change can
+   * refute a sentence about the change.
+   *
+   * **The bar is the same 0.02 and the floor is a reach floor, but the reach floor moves with the baseline.** §76.2
+   * computed 181 against §73's counts (208 true positives, 769 false positives); R-36b's own control read **198 and
+   * 784**, and against that pair the count at which a perfect deletion pool reaches +0.0200 is **190**. So the floor is
+   * 190 here rather than 40 or 181 - and **a floor copied from another section's arithmetic is a floor for another
+   * corpus**, which is the reason this one is derived rather than quoted.
+   */
+  'falsifier:independent-evidence-v3': {
+    section: '§78 (R-38)',
+    claim:
+      'a gate that may quote the file’s untouched lines around a claim, and still may not quote the claim’s own range, raises the file arm F1 by at least 0.02 on the 146 pull requests R-36b read, without lowering recall by more than a golden is worth',
+    arm: 'file',
+    registeredGain: 0.02,
+    mechanism:
+      'precision rises and recall does not fall by more than a golden is worth, because the removals carry fewer true positives than the pool does',
+    mechanismRule: 'recall-holds',
+    activity: { counter: 'falsifier.dropped', atLeast: 190 },
+    deletionOnly: true,
+    deletionCounter: 'falsifier.dropped',
+    /**
+     * **No confirmation slice, and the reason is arithmetic rather than caution.** The registration is written against
+     * the 146 rows R-36b read, so a confirmation would have to be the hundred that follow - and the corpus is 196 rows
+     * past the discovery set, which is fewer than the 340 removals this contract needs to price a 0.02 bar. **A
+     * confirmation slice that cannot reach the bar is the §76 defect one level up**, so the first reading is a
+     * discovery on the same rows and the confirmation is written when a corpus exists that can price it.
+     */
+    confirmation: [],
+  },
 });
 
 /**
