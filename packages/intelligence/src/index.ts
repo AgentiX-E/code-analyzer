@@ -470,6 +470,14 @@ export type {
 } from './review/index/symbols.js';
 export { parseCognitionIndex, renderCognitionEntry } from './review/index/cognition.js';
 export type { CognitionEntry, CognitionProblem } from './review/index/cognition.js';
+// The index queried by a finding's own words - `aoci-code`'s `Search`, whole rows, no embedding. §82.
+export {
+  COGNITION_SEARCH_LIMIT,
+  queryWords,
+  renderCognitionHits,
+  searchCognitionIndex,
+} from './review/index/cognition-search.js';
+export type { CognitionHit } from './review/index/cognition-search.js';
 
 // Actionability ranking — the order a reader should meet the findings in.
 export {
