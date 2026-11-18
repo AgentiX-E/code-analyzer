@@ -136,6 +136,16 @@ export interface LLMReviewOptions {
    * evidence about those three lines, and the file is where the evidence is.
    */
   surroundingOf?: (path: string) => string | undefined;
+  /**
+   * **The new-side lines this change actually touched, per file, when the caller computed them.**
+   *
+   * §79: a finding standing entirely outside that set is a finding about code the pull request did not write, and the
+   * gate can refute it from the patch without spending a call. **A function rather than a field on the diff**, for the
+   * same reason as `surroundingOf` - the shape comes from the unified patch, which the bench has and the diff object
+   * does not. **`undefined` means no decision and the gate behaves exactly as it did before this option existed**; an
+   * empty set means the change added nothing, which is a decision and drops everything.
+   */
+  novelLinesOf?: (path: string) => ReadonlySet<number> | undefined;
   languageChecklist?: boolean;
   /**
    * **Where the target-and-diff block sits in every lane prompt.** Undefined means `boilerplate-first`, the arrangement
@@ -365,6 +375,7 @@ const DEFAULT_OPTIONS: Required<LLMReviewOptions> = {
   // **The default is a function that has nothing to give**, not a missing key: `v3` then degrades to `v2` rather than
   // reading an absent option as an empty file.
   surroundingOf: () => undefined,
+  novelLinesOf: () => undefined,
 };
 
 /**
@@ -674,10 +685,12 @@ export class LLMReviewEngine {
     // file it never looked at is worse than one that was handed nothing.
     const fullText =
       contract === FALSIFIER_CONTRACTS.v3 ? this.options.surroundingOf?.(diff.filePath) : undefined;
+    const novelLines = this.options.novelLinesOf?.(diff.filePath);
     const outcome = await gate.gate({
       path: diff.filePath,
       findings: entries.map((entry) => entry.finding),
       addedLines,
+      ...(novelLines === undefined ? {} : { novelLines }),
       ...(fullText === undefined || addedLines === null
         ? {}
         : {

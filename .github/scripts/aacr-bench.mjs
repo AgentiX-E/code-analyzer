@@ -329,6 +329,19 @@ const CODE_CONTEXT =
   AGENT || String(process.env['AACR_CODE_CONTEXT'] ?? 'off').toLowerCase() === 'on';
 
 /**
+ * **`AACR_CHANGE_SHAPE=on` classifies every hunk before a lane is paid to read it.**
+ *
+ * §79: a finding standing entirely outside the lines a pull request touched is a finding about code the change did not
+ * write, and the patch can say so without a model call. `on` computes that set per file from the unified diff and hands
+ * it to the gate; `off` is every figure this repository has published, so **the default reproduces the old number
+ * rather than half of a new one** - the same reason `AACR_CODE_CONTEXT` defaults to `off`.
+ *
+ * **It is worth nothing without a gate to consume it**, so the switch reports that rather than pretending: a shape-only
+ * run would compute a set no device reads.
+ */
+const CHANGE_SHAPE = String(process.env['AACR_CHANGE_SHAPE'] ?? 'off').toLowerCase() === 'on';
+
+/**
  * **The pull-request arm's budget, and the arithmetic that chose it before the run.**
  *
  * The file arm fills three slots **per file per lane**; over 199 files it emitted **183 findings carrying 21 goldens**
@@ -1824,6 +1837,9 @@ async function main() {
    * tested without a network.
    */
   let fileTextsForGate = new Map();
+  // **The same per-pull-request binding for the shape**, cleared with it so a path from the previous pull request cannot
+  // answer a question about this one.
+  let shapeLinesForGate = new Map();
   /**
    * **Whether the deterministic idiom lane runs beside the five model lanes.**
    *
@@ -1915,6 +1931,7 @@ async function main() {
     // **Only `v3` reads this**, and it returns `undefined` for every other contract - so a file fetched for the code
     // context arm is not silently promoted into evidence for a gate that was never asked to use it.
     surroundingOf: (path) => fileTextsForGate.get(path),
+    novelLinesOf: (path) => shapeLinesForGate.get(path),
     idioms: IDIOMS,
     remarks: REMARKS,
     secondConcern: SECOND_CONCERN,
@@ -2074,6 +2091,18 @@ async function main() {
           dropped: 0,
           keptBecauseQuoteMissing: 0,
           keptBecauseSelfReferential: 0,
+          /**
+           * **Claims the diff refuted before a reader was paid to look at them** (§79). Kept apart from `dropped` for
+           * the reason `keptBecauseSelfReferential` is kept apart from `keptBecauseQuoteMissing`: the two removals are
+           * different devices with the same effect on F1, and only this one costs nothing.
+           */
+          droppedBecauseNotNovel: 0,
+          /**
+           * **What the classifier saw**, so a run that bought nothing can say whether the corpus had non-substantive
+           * hunks at all - a device that never fired and a device that fired and changed nothing are opposite facts,
+           * and `droppedBecauseNotNovel` alone cannot tell them apart.
+           */
+          shape: { hunks: 0, noneSubstantive: 0, novelLines: 0 },
           unreadable: 0,
           notAsked: 0,
           notAPatch: 0,
@@ -2974,6 +3003,32 @@ async function main() {
     };
 
     const sections = splitDiffByFile(diff);
+
+    /**
+     * **The diff's own verdict, taken before a lane is paid to read the file** (§79).
+     *
+     * The classifier reads each section's unified patch and returns the new-side line numbers a compiler would see as
+     * new. It costs nothing - no call, no token, no parse - and it is cleared per pull request for the same reason the
+     * file texts are: a path that answered last time must not answer now.
+     */
+    if (CHANGE_SHAPE && FALSIFY) {
+      const { classifyPatch } = await import(
+        '../../packages/intelligence/dist/review/adjudication/change-shape.js'
+      );
+      const shapeForFile = new Map();
+      for (const section of sections) {
+        const shaped = classifyPatch(section.lines.join(String.fromCharCode(10)));
+        shapeForFile.set(section.path, shaped.novelLines);
+        const shape = engineCounters.falsifier.shape;
+        shape.hunks += shaped.hunks.length;
+        shape.novelLines += shaped.novelLines.size;
+        if (shaped.noneSubstantive) shape.noneSubstantive += 1;
+      }
+      shapeLinesForGate = shapeForFile;
+    } else {
+      shapeLinesForGate = new Map();
+    }
+
     if (!sections.length) {
       // **A pull request with no per-file sections is a fact about the input**, so **it is recorded rather than
       // counted as a review that found nothing.**
@@ -3080,6 +3135,7 @@ async function main() {
           totals.dropped += gate.report.dropped;
           totals.keptBecauseQuoteMissing += gate.report.keptBecauseQuoteMissing;
           totals.keptBecauseSelfReferential += gate.report.keptBecauseSelfReferential;
+          totals.droppedBecauseNotNovel += gate.report.droppedBecauseNotNovel ?? 0;
           totals.unreadable += gate.report.unreadable;
           totals.notAsked += gate.report.notAsked;
           totals.calls += gate.report.calls;
@@ -3254,6 +3310,7 @@ async function main() {
         // **Stated per call rather than at construction**, so the off-arm is the engine's default and the on-arm is one
         // line a reader can find: the two arms of §20 differ here and in nothing else.
         codeContext: CODE_CONTEXT,
+        changeShape: CHANGE_SHAPE,
       });
       wholePrFindings = prLanes.filter((l) => l.success).flatMap((l) => l.findings);
     } catch (error) {
@@ -4309,6 +4366,7 @@ async function main() {
       // about this switch and **an artifact that does not record which side of it the figure came from is a figure a
       // second run can disagree with without either being wrong.**
       codeContext: CODE_CONTEXT,
+      changeShape: CHANGE_SHAPE,
       // **Which arrangement of the prompt produced this figure**, because §9 and §10 of `EVAL-CONTRACT.md` are two
       // claims about one file and an artifact that does not say which side it came from is a figure without a
       // coordinate.

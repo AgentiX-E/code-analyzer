@@ -38,8 +38,13 @@ describe('the second-concern switch is wired end to end', () => {
     // **A flag the script reads and does not pass is a flag the artifact records and the reviewer never consults** -
     // the failure mode §45 named for a different device, and the one an env-var reading looks least like.
     expect(BENCH).toMatch(/secondConcern: SECOND_CONCERN,/);
-    const options = BENCH.slice(BENCH.indexOf('new LLMReviewEngine('));
-    expect(options.slice(0, 600)).toContain('secondConcern: SECOND_CONCERN');
+    // **The whole constructor, not a window of it.** This read `slice(0, 600)` until §79 added a fifth option and pushed
+    // the key past the window - which is the third time a character count has failed to keep up with an insertion, and
+    // the same repair the test below already made. A window measures the file's length; the constructor measures the
+    // wiring, which is what the switch is supposed to reach.
+    const start = BENCH.indexOf('new LLMReviewEngine(');
+    const options = BENCH.slice(start, BENCH.indexOf('\n  });', start));
+    expect(options).toContain('secondConcern: SECOND_CONCERN');
   });
 
   it('is recorded in the artifact, because that is what the comparison sees', () => {

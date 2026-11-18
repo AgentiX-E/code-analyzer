@@ -119,6 +119,19 @@ export interface FalsifierRequest {
    * fail in.
    */
   surrounding?: ReadonlyArray<NumberedAddedLine> | null;
+  /**
+   * **The new-side line numbers this change actually touched, when the caller computed them.**
+   *
+   * `change-shape` decides from the diff which hunks are `reformatted`, `comment-only` or `moved`; what it leaves is the
+   * set of lines a compiler would see as new. **A finding standing entirely outside that set is a finding about code the
+   * pull request did not change**, and the gate can say so without spending a call - which is the only way a review of a
+   * 24-file pull request gets cheaper rather than merely better.
+   *
+   * **Absent is not empty.** `undefined`/`null` means the caller made no decision and the gate behaves exactly as it did
+   * before this field existed; an **empty set means the change added nothing**, and a review of it has nothing to say.
+   * The two are kept apart because collapsing them would make a pure reformat the one file the gate cannot see.
+   */
+  novelLines?: ReadonlySet<number> | null;
 }
 
 /** One claim the reader says a line contradicts, before the quote is checked. */
@@ -162,6 +175,15 @@ export interface FalsifierReport {
    * is tautological**, and §74 could only infer it by reading twelve sampled rows by hand.
    */
   keptBecauseSelfReferential: number;
+  /**
+   * **Claims removed because no line of them was a line this change touched.**
+   *
+   * Kept apart from `dropped` for the same reason `keptBecauseSelfReferential` is kept apart from
+   * `keptBecauseQuoteMissing`: the two removals are different devices with the same effect on F1. One is the reader
+   * refuting a sentence; the other is the diff saying the sentence was never about this change - **and only the second
+   * costs nothing.**
+   */
+  droppedBecauseNotNovel: number;
   /** Which rules this call ran under, from `FALSIFIER_CONTRACTS`. */
   contract: string;
   /** Claims the reader refuted but the answer could not be read at all. */
@@ -457,6 +479,7 @@ export class FalsifierGate {
       dropped: 0,
       keptBecauseQuoteMissing: 0,
       keptBecauseSelfReferential: 0,
+      droppedBecauseNotNovel: 0,
       contract,
       unreadable: 0,
       notAsked: 0,
@@ -475,10 +498,55 @@ export class FalsifierGate {
     // readings have to be of the same list.
     const addedLines = request.addedLines;
 
-    const asked = Math.min(request.findings.length, FALSIFIER_MAX_CLAIMS);
-    report.notAsked = request.findings.length - asked;
+    // **The diff's verdict, taken before the reader is paid to have one.** A finding whose every line lies outside the
+    // set the change touched is refuted by the patch itself: there is no question to ask, and asking it is how a gate
+    // spends money to be told about code the pull request did not write. **The test is existential** - one line inside
+    // the set is enough, because a finding that spans the change is a finding about the change.
+    const novel = request.novelLines ?? null;
+    const shapeDropped = new Map<number, FalsifierDrop>();
+    let askedFindings: ReadonlyArray<LLMFinding> = request.findings;
+    if (novel !== null) {
+      const survivors: LLMFinding[] = [];
+      request.findings.forEach((candidate, at) => {
+        const from = Math.min(candidate.startLine, candidate.endLine);
+        const to = Math.max(candidate.startLine, candidate.endLine);
+        let stands = false;
+        for (let line = from; line <= to; line += 1) {
+          if (novel.has(line)) {
+            stands = true;
+            break;
+          }
+        }
+        if (stands) {
+          survivors.push(candidate);
+          return;
+        }
+        shapeDropped.set(at, {
+          finding: candidate,
+          claimIndex: at + 1,
+          quoteLine: candidate.startLine,
+          quote: '',
+          reason: 'The finding stands on no line this change touched, so the patch refutes it unread.',
+        });
+      });
+      askedFindings = survivors;
+      report.droppedBecauseNotNovel = shapeDropped.size;
+    }
 
-    const prompt = buildFalsifierPrompt({ ...request, addedLines, contract });
+    // **Every claim was refuted by the diff.** No call, and the outcome says which device removed them.
+    if (askedFindings.length === 0) {
+      report.dropped = shapeDropped.size;
+      return {
+        kept: request.findings.filter((_finding, at) => !shapeDropped.has(at)),
+        dropped: [...shapeDropped.values()],
+        report,
+      };
+    }
+
+    const asked = Math.min(askedFindings.length, FALSIFIER_MAX_CLAIMS);
+    report.notAsked = askedFindings.length - asked;
+
+    const prompt = buildFalsifierPrompt({ ...request, findings: askedFindings, addedLines, contract });
     let raw: string;
     try {
       const options: CompletionOptions = {
@@ -493,14 +561,24 @@ export class FalsifierGate {
       // **A provider that threw is an unreadable answer, not a refutation.** The claims stay, and the count says the
       // gate did not run rather than that it ran and found nothing.
       report.unreadable = 1;
-      return { kept: [...request.findings], dropped: [], report };
+      report.dropped = shapeDropped.size;
+      return {
+        kept: [...askedFindings],
+        dropped: [...shapeDropped.values()],
+        report,
+      };
     }
     report.calls = 1;
 
     const read = readFalsifierAnswer(raw);
     if (read.kind === 'unreadable') {
       report.unreadable = 1;
-      return { kept: [...request.findings], dropped: [], report };
+      report.dropped = shapeDropped.size;
+      return {
+        kept: [...askedFindings],
+        dropped: [...shapeDropped.values()],
+        report,
+      };
     }
 
     // **The lines the reader was allowed to quote**, in comparison form and carrying the number they were shown, so a
@@ -542,7 +620,7 @@ export class FalsifierGate {
       // **`v2`: the claim's own range is not evidence for the claim.** The test is existential - if *any* line carrying
       // that text lies outside the range, the reader has quoted evidence that survives the subtraction - and a quote
       // whose every match is inside the claim is the tautology §74 found, so it keeps the claim and is counted.
-      const claim = request.findings[at]!;
+      const claim = askedFindings[at]!;
       const usable =
         contract === FALSIFIER_CONTRACTS.v1
           ? matches
@@ -552,17 +630,17 @@ export class FalsifierGate {
         continue;
       }
 
-      droppedAt.set(at, {
+      droppedAt.set(request.findings.indexOf(claim), {
         finding: claim,
-        claimIndex: at + 1,
+        claimIndex: request.findings.indexOf(claim) + 1,
         quoteLine: usable[0]!.line,
         quote: refutation.quote,
         reason: refutation.reason,
       });
     }
 
-    report.dropped = droppedAt.size;
-    const kept = request.findings.filter((_finding, at) => !droppedAt.has(at));
-    return { kept: [...kept], dropped: [...droppedAt.values()], report };
+    report.dropped = droppedAt.size + shapeDropped.size;
+    const kept = request.findings.filter((_finding, at) => !droppedAt.has(at) && !shapeDropped.has(at));
+    return { kept: [...kept], dropped: [...shapeDropped.values(), ...droppedAt.values()], report };
   }
 }
