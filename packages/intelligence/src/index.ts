@@ -468,6 +468,8 @@ export type {
   MemberSymbol,
   SymbolKind,
 } from './review/index/symbols.js';
+export { parseCognitionIndex, renderCognitionEntry } from './review/index/cognition.js';
+export type { CognitionEntry, CognitionProblem } from './review/index/cognition.js';
 
 // Actionability ranking — the order a reader should meet the findings in.
 export {
