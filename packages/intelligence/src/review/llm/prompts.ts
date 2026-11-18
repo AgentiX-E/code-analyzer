@@ -310,6 +310,18 @@ export function selectionContract(ctx: PromptContext): string {
  * because rule 2 of its contract asks the model to choose one of them and **a choice the model cannot read is not a
  * choice.**
  */
+/**
+ * **Whether the call carries a block that is not already in the prompt.**
+ *
+ * A caller may pass the diff itself as the context - the harness did, and every file-arm call carried the change twice:
+ * **38.6 % of a 190-line call's characters**, and a block labelled "File context" that was not context at all. The
+ * guard is here rather than at the call site because the same `fileContext` is what the gate parses and what the idiom
+ * lane reads: **removing it where it is passed would fix a prompt by breaking two devices that are not prompts.**
+ */
+function showsContext(ctx: PromptContext): boolean {
+  return ctx.fileContext !== undefined && ctx.fileContext.length > 0 && ctx.fileContext !== ctx.diffContent;
+}
+
 export function describeTarget(ctx: PromptContext): string {
   if (ctx.scope === 'pull-request') {
     const paths = ctx.paths ?? [];
@@ -318,8 +330,8 @@ export function describeTarget(ctx: PromptContext): string {
     // **It is placed before the paths list rather than after it**: a model reading a path list and then eight file
     // bodies has to hold the list while it reads, and one that reads the code first and the list last answers about the
     // file it just read.
-    const window = ctx.fileContext
-      ? `Surrounding code, unchanged lines included (the block each hunk sits in):\n${ctx.fileContext}\n`
+    const window = showsContext(ctx)
+      ? `Surrounding code, unchanged lines included (the block each hunk sits in):\n${ctx.fileContext!}\n`
       : '';
     return `Pull request: ${paths.length} file${paths.length === 1 ? '' : 's'} in one diff.
 ${window}Paths in this pull request:
@@ -328,7 +340,7 @@ ${paths.map((path) => `- ${path}`).join('\n')}
   }
   return `File: ${ctx.filePath}
 Change type: ${ctx.changeType}
-${ctx.fileContext ? `File context:\n${ctx.fileContext}\n` : ''}`;
+${showsContext(ctx) ? `File context:\n${ctx.fileContext!}\n` : ''}`;
 }
 
 /**

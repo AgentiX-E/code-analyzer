@@ -8795,7 +8795,9 @@ feature vector and a score, and the artifact is enough to bucket it:
 
 **Every bucket sits between 0.12 and 0.35 against a base of 0.244**, and the best of them - `score ≥ 0.75` - is a 1.3×
 lift on a third of the emission. **A filter built on any of these removes true findings at very nearly the rate it
-removes false ones**, which is the mechanical explanation of a pattern this repository has now recorded four times:
+removes false ones.** §48 reached the same conclusion from the other end - a logistic model over every field the engine
+records scores **AUC 0.613**, `score` alone **0.541**, `agreement` alone **0.534** - and this table is that fact said in
+counts rather than in an AUC. It is the mechanical explanation of a pattern this repository has now recorded four times:
 the checklist (§15.3), the adjudicator (§44), the change-shape gate (§83) and the merge threshold all traded 1:1 and
 none of them moved F1.
 
@@ -8825,3 +8827,35 @@ repository's recall is **17.7 %**, which is the number the last four iterations 
 **So every device bought in those iterations was a selection device, and selection is capped at 0.301 by the row
 above.** The next registration has to be a generation one, and §84.5 is why it cannot be _"show the lane more of the
 file"_, which is a selection device wearing a prompt's clothes.
+
+### 84.7 And the file arm's prompt was printing the diff twice
+
+Reading the prompt builders for §84.6's density check turned up a defect that has nothing to do with the index. The file
+arm calls `engine.reviewDiff(diff, sectionDiff)` - **the same text as `fileContext` and as `diffContent`** - and
+`describeTarget` printed it under the label _"File context"_ while `sharedPrefix` printed it again under _"Diff
+content"_. Measured over the six lane prompts:
+
+| diff      | total prompt characters | of which the second copy |
+| --------- | ----------------------- | ------------------------ |
+| 40 lines  | 59 218                  | 20.8 %                   |
+| 190 lines | 151 378                 | **38.6 %**               |
+
+**The share grows with the diff, and the second copy is billed on every call**: `boilerplate-first` puts the variable
+half last, outside the cached prefix, so a prompt that carries the change twice pays for the change twice. At §82.4's
+0.78 USD a run with 95 % of it in the five lanes, this is the largest token defect in the repository and it is one
+condition wide.
+
+**Two things were wrong and only one of them was the tokens.** A block labelled "File context" that contains a diff is a
+false statement in the prompt, and a lane told it is reading a file's context while it is reading the change again has
+been told something untrue - the same defect class as §78's window that claimed to be a function.
+
+**The guard is `fileContext !== diffContent`, and it is in `describeTarget` rather than at the call site** because the
+same `fileContext` is what the gate parses (`numberedAddedLines`) and what the idiom lane reads: deleting the argument
+where it is passed would repair a prompt by breaking two devices that are not prompts. Five tests hold it: one copy in
+every lane, the window still printed when it is a window, no context block when there is none, the guard holding in all
+three prompt orders, and **a duplicate costing exactly zero characters** - which is the whole of the repair.
+
+**What this buys is the answer to the fourth question and nothing else.** F1 is expected to be unchanged, and the
+prediction is stated as one: **a pair that measures a prompt with 38.6 % fewer characters must show F1 inside the
+instrument's resolution, or the duplicate was doing work nobody has claimed for it.** The bill, by contrast, has no
+noise floor: it is arithmetic on characters.
