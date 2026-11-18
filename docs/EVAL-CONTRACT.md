@@ -7989,8 +7989,11 @@ in the same day.**
 
 1. **The slot was a constant.** `timeout-minutes: 340` admitted a 146-pull-request pair for 178 minutes of work and a
    stuck job for five and a half hours, so the only thing that ever stopped run 44100493243 was a person watching. It is
-   now `fromJSON(inputs.max_pull_requests || '146') * 2` — **two minutes per pull request against 1.22 observed**, and
-   the assertion that it stays a rate rather than a constant is a test rather than a comment.
+   now **280** — 1.47 times the 190 minutes that pair finally took, i.e. **1.30 minutes per pull request**, and the
+   assertion that it is derived from that measurement is a test rather than a comment. **The first attempt scaled it
+   with the corpus and GitHub refused the field**: `Unexpected symbol: '*' ... Located at position 58 within
+expression`. `timeout-minutes` takes contexts rather than arithmetic, so the scaling lives in `slicesThatFit`, which
+   refuses a dispatch the slot cannot cover (175 pull requests at the confirmation tolerance) before anything is spent.
 2. **The same number was bought repeatedly.** The off arm of every pair re-derives a figure that does not move when the
    on arm changes, and the judge re-decides `finding × golden` pairs whose texts it has already read. **Both are pure
    functions of inputs this repository already stores**, and neither was cached — so every experiment paid twice for the

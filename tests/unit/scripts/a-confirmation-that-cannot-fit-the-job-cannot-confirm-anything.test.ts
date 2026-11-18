@@ -25,7 +25,7 @@
 // on an ordinary slow day**, and the width of an ordinary slow day is now measured rather than assumed: one run
 // dispatched the same 46 pull requests twice and its arms took 56.8 and 64.5 minutes, **1.135×**, and
 // `MEASURED_MINUTES_PER_PULL_REQUEST` is already the slower arm (79.7 of 61.0 and 79.7) of the run it came from. So the
-// guard is `minutes × 1.15 ≤ ceiling`, which at §77.1's rate admits 159 rows and refuses 160 - **inside the full
+// guard is `minutes × 1.15 ≤ ceiling`, which at §77.1's rate admits 152 rows and refuses 153 - **inside the full
 // 196-row corpus, which is the thing it has to refuse.**
 
 import { readFileSync } from 'node:fs';
@@ -107,7 +107,7 @@ describe('a confirmation slice is a promise the runner can keep', () => {
     // tolerance and 160 do not, so the rule that admits R-35's 146 still refuses the whole 196-row corpus in one
     // dispatch - **a guard that admits everything is not a guard, and a guard whose edge is not tested is a comment.**
     const rows = slicesAConfirmationCanFit(ceiling);
-    expect(rows).toBe(159);
+    expect(rows).toBe(152);
     expect(wallClock(rows) * CONFIRMATION_OVERRUN_TOLERANCE).toBeLessThanOrEqual(ceiling);
     expect(wallClock(rows + 1) * CONFIRMATION_OVERRUN_TOLERANCE).toBeGreaterThan(ceiling);
     expect(rows).toBeLessThan(196);
@@ -118,14 +118,14 @@ describe('a confirmation slice is a promise the runner can keep', () => {
 
     // `slicesThatFit` is the arithmetic the workflow's own comment states, and the two must agree.
     const fits = slicesThatFit(ceiling);
-    expect(fits).toBe(183);
+    expect(fits).toBe(175);
     expect(WORKFLOW).toContain(`**${String(fits)}** pull requests at the`);
 
     // **The rate that used to be in this constant, kept as a negative assertion.** 46 minutes over 14 pull requests
     // gives 103, and 103 is what this project believed until it checked the run the rate belonged to: **a rate per pull
     // request is a property of the configuration, and the configuration had changed underneath it.**
     const retired = 46 / 14;
-    expect(Math.floor(ceiling / retired)).toBe(88);
+    expect(Math.floor(ceiling / retired)).toBe(85);
     expect(WORKFLOW).not.toContain('340 minutes is 190 pull requests');
   });
 

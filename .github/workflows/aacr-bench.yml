@@ -317,11 +317,18 @@ jobs:
     # **340 was still the wrong shape, and §77.1 is the correction.** A constant is right for the run that finishes or
     # right for the one that hangs, never both: 340 admitted a 146-pull-request pair for 178 minutes of work, and it
     # also admitted run 44100493243 to spend 128 minutes inside a single step before a person read the clock and
-    # cancelled it. **So the slot is a rate now** - two minutes per pull request, 1.64 times the slower measured arm and
-    # 1.26 times the faster one - and at that rate the job fits **183** pull requests at the tolerance this repository
-    # confirms with. A dispatch beyond that is refused by the runner rather than by a wrong number in the artifact, and
-    # **a run that stops making progress stops being billed at 292 minutes rather than at 340**.
-    timeout-minutes: ${{ fromJSON(github.event.inputs.max_pull_requests || '146') * 2 }}
+    # cancelled it. **The slot below is 1.47 times the pair that finally ran** - 190 minutes for 146 pull requests over
+    # two arms, i.e. **1.30 minutes per pull request** - and 1.08 times the slower arm's own 232.
+    #
+    # **It is a constant because GitHub refuses the expression.** The first version of this line was
+    # `fromJSON(inputs.max_pull_requests || '146') * 2`, then `github.event.inputs` - and a dispatch answered
+    # `(Line: 324, Col: 22): Unexpected symbol: '*' ... Located at position 58 within expression`. **A timeout that
+    # scales with the corpus is the right shape and is not available**: `timeout-minutes` takes contexts, not
+    # arithmetic. So the number is fixed at the corpus this job is dispatched with, and **175** pull requests at the
+    # confirmation tolerance is what it covers - a dispatch beyond that is refused by `slicesThatFit` rather than by the
+    # runner** - the arithmetic that used to
+    # live here now lives in a function a test can call.
+    timeout-minutes: 280
     strategy:
       # **Both arms are information.** A run that dies takes its half of the comparison with it, and `compare` has to
       # report that rather than a one-sided figure.
