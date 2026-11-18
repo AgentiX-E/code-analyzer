@@ -1,26 +1,42 @@
 name: AACR Bench
 
-# **The field's own judge, run by us, on the field's own 50 PRs.**
+# **Two corpora, one runner, and the difference between them stated where the run is dispatched.**
 #
-# **Why this exists, and why the earlier claim was wrong.** A previous version of the audits page said Martian's judge
-# "can only run inside their pipeline". **It cannot - the benchmark is MIT and open-sources the PRs, the golden
-# comments, the judge prompts and the evaluation pipeline**, and its README's "Adding a new tool" section ends:
-# *"If a tool doesn't meet these yet, the harness is public and you're welcome to run it and publish your own
-# results."*
+# **Why this header had to be rewritten.** It said the job *"runs that harness on our output"* over Martian's 50 pull
+# requests, cloning the benchmark and writing the `benchmark_data.json` their pipeline expects. **No such job existed**:
+# the only corpus this workflow has ever read is AACR-Bench, and `AACR_DIR` was a hard-coded `/tmp/aacr-bench`. A
+# comment describing a measurement nobody ran is the same defect class as a figure whose provenance nobody recorded -
+# and it was found by going to look for the job, which is the only way a claim in a comment is ever checked.
 #
-# **So this job runs that harness on our output.** It clones the benchmark, scores the 50 PRs' diffs with our review
-# engine, writes the `benchmark_data.json` the pipeline expects, and runs their judge — **which is what makes our F1
-# comparable with Greptile's rather than merely analogous to it.**
+# **The two corpora answer two different questions and are never pooled.**
 #
-# **And the honest boundary is stated rather than hidden.** We do not run `step0_fork_prs`, because that installs a
-# bot account on GitHub and this job has no such account to install — **so our reviews come from our engine reading
-# each PR's diff, which is the same input the other tools saw** (their reviews are also comments on those diffs).
-# **The artifact records which judge model produced the figure and which scoring profile was active**, because
-# **the benchmark's own documentation says the judge moves the numbers.**
+# - **AACR-Bench** (Alibaba, Apache-2.0, 200 pull requests, 1,505 expert-confirmed issues, ten languages). It is the
+#   corpus this repository's figures have always been measured on, and its caveat is in the artifact: **Alibaba built
+#   both the tool and the benchmark it wins on.**
+# - **Martian's Code Review Bench** (MIT, 50 pull requests across five repositories, 173 golden comments, three judge
+#   models, nineteen tools ranked). **This is the only corpus on which our F1 can be placed beside a competitor's
+#   number** - Greptile 62.3, CodeRabbit 61.0, Qodo 58.4, on the same 173 comments. It is also the corpus whose
+#   answer key the field argues about: 137 comments at launch, 173 after the August audit that *removed two, rewrote
+#   twenty-five and added thirty-eight*.
+#
+# **What we do and do not borrow.** `dataset: martian` reads the committed, converted copy of their golden set
+# (`benchmarks/martian/`, provenance in its README) and scores **our own findings** against it with our own judge. We do
+# not run `step0_fork_prs`, because that installs a bot account on GitHub and this job has none - **so our reviews come
+# from our engine reading each pull request's diff, which is the same input the other tools saw.** And we do not borrow
+# their judge model: the figure this produces is `deepseek-chat` against `claude-opus-4-5` / `gpt-5.2`, a difference the
+# benchmark's own documentation prices at **up to nine F1 points for the top tools**.
 
 on:
   workflow_dispatch:
     inputs:
+      dataset:
+        # **Which answer key this run is scored on.** `aacr` is the default because it is the corpus every earlier
+        # figure was measured on, and **a default that silently changed the corpus would invalidate the comparison the
+        # artifact makes against its own history.** `martian` is the comparability run: same runner, different key.
+        description: 'Corpus: AACR-Bench (our history) or Martian (the field leaderboard)'
+        type: choice
+        options: ['aacr', 'martian']
+        default: aacr
       competitor:
         # **The one input that decides whether this run buys a competitor result.** `replay` (the default) reads the
         # file at `benchmarks/aacr/competitor-baseline.json`; `record` buys one and uploads it for review; `off` removes
@@ -421,11 +437,32 @@ jobs:
       # **A direct competitor's corpus, published under Apache-2.0 with three context levels, the third of which is
       # Repo Level** - so **it measures cross-file behaviour, which is the claim this project makes for itself.**
       - name: Clone the benchmark
+        if: inputs.dataset != 'martian'
         run: |
           set -e
           git clone --depth 1 https://github.com/alibaba/aacr-bench /tmp/aacr-bench
           echo "cloned at $(git -C /tmp/aacr-bench rev-parse HEAD)"
           find /tmp/aacr-bench -name '*.json' | head -10
+
+      # **The other answer key, counted out loud before it is scored against.** The figure this run produces will be
+      # compared with nineteen published ones, so **the log has to show which key it was**: fifty pull requests, one
+      # hundred and seventy-three golden comments, and the three profile counts upstream publishes. **A corpus that is
+      # the wrong size is a comparison nobody can make**, and this step is where that is said rather than discovered
+      # three hours later in a delta.
+      - name: Count the answer key
+        if: inputs.dataset == 'martian'
+        run: |
+          set -e
+          node -e '
+            const rows = JSON.parse(require("fs").readFileSync("benchmarks/martian/positive_samples.json", "utf8"));
+            const comments = rows.flatMap((r) => r.comments);
+            const strict = ["bug", "security", "concurrency", "data", "api"];
+            const core = [...strict, "perf", "test_gap", "doc_defect"];
+            const count = (keep) => comments.filter((c) => keep === null || keep.includes(c.category)).length;
+            console.log(`pull requests ${rows.length} · goldens ${comments.length}`,
+              `· strict ${count(strict)} · core ${count(core)} · all ${count(null)}`);
+            if (rows.length !== 50 || comments.length !== 173) process.exit(1);
+          '
 
       # **No `|| true`, and no fallback.** **A corpus that is not there fails the job**, because **a green run with no
       # data is the failure mode this repository has three rules about.**
@@ -448,7 +485,11 @@ jobs:
           MARTIAN_API_KEY: ${{ secrets.DEEPSEEK_API_KEY }}
           MARTIAN_BASE_URL: https://api.deepseek.com/v1
           MARTIAN_MODEL: deepseek-chat
-          AACR_DIR: /tmp/aacr-bench
+          AACR_DIR: ${{ inputs.dataset == 'martian' && format('{0}/benchmarks/martian', github.workspace) || '/tmp/aacr-bench' }}
+          # **And the artifact says which key it was scored on**, because a figure's corpus is part of the figure: the
+          # two keys share the runner and the judge and share nothing else, and a delta between them would be a delta
+          # between two corpora.
+          AACR_CORPUS_LABEL: ${{ inputs.dataset == 'martian' && 'withmartian/code-review-benchmark (MIT, 50 PRs, 173 goldens)' || 'Alibaba-Aone/aacr-bench (Apache-2.0, public on Hugging Face)' }}
           # **`MAX_PRS` is the corpus size the registration was written against**, and the slice below is where it
           # starts.
           MAX_PRS: ${{ inputs.max_pull_requests || '14' }}

@@ -1396,7 +1396,12 @@ async function main() {
       startedAt: new Date().toISOString(),
     },
     where: 'github-actions',
-    corpus: 'Alibaba-Aone/aacr-bench (Apache-2.0, public on Hugging Face)',
+    // **Which answer key this run was scored on**, read from the job rather than written here: the runner serves two
+    // corpora now, and **a field hard-coded to one of them is a field that will name the wrong one on the day it
+    // matters** - which is the same defect as the workflow header that described a job nobody had written.
+    corpus:
+      process.env['AACR_CORPUS_LABEL'] ??
+      'Alibaba-Aone/aacr-bench (Apache-2.0, public on Hugging Face)',
     judge: { model: MODEL, endpoint: BASE },
     route: 'our engine reading each PR diff; no bot account installed',
     comparisonBasis: 'their published figures, not a run we performed',
