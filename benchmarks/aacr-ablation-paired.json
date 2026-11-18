@@ -1,152 +1,177 @@
 {
-  "measuredAt": "2026-11-17",
+  "measuredAt": "2026-11-18",
   "where": "github-actions",
   "compared": true,
-  "protocol": "two runs of the same job over the same pull requests, the same goldens and the same judge, differing in falsifier",
-  "variedField": "falsifier",
+  "protocol": "two runs of the same job over the same pull requests, the same goldens and the same judge, differing in changeShape",
+  "variedField": "changeShape",
   "arms": {
     "with": true,
     "without": false
   },
   "registration": {
-    "section": "§73 (R-36)",
-    "claim": "a gate asked once per file that removes a claim only when a line the diff added is quoted against it raises the file arm F1 by at least 0.026 on the 146 pull requests R-32, R-33 and R-35 read, and does not lower recall by more than a golden is worth",
+    "section": "§79 (R-39)",
+    "claim": "a gate told which new-side lines the change actually wrote, and allowed to refute a finding standing on none of them, raises the file arm F1 by at least 0.015 on the pull requests R-36b read without lowering recall by more than a golden is worth",
     "arm": "file",
-    "registeredGain": 0.026,
-    "mechanism": "precision rises and recall does not fall by more than a golden is worth",
+    "registeredGain": 0.015,
+    "registeredBelowResolution": true,
+    "mechanism": "precision rises and recall does not fall by more than a golden is worth, because a finding on a line the change did not write is rarely a finding about the change",
     "mechanismRule": "recall-holds",
+    "activity": {
+      "counter": "falsifier.droppedBecauseUntouched",
+      "atLeast": 110
+    },
+    "deletionOnly": true,
+    "deletionCounter": "falsifier.droppedBecauseUntouched",
     "confirmation": []
   },
   "registeredArm": "file",
   "corpus": "Alibaba-Aone/aacr-bench (Apache-2.0, public on Hugging Face)",
-  "pullRequests": 146,
+  "pullRequests": 30,
   "corpusSlice": {
-    "skip": 50,
-    "requested": 146
+    "skip": 0,
+    "requested": 30
   },
-  "goldens": 1054,
-  "resolution": 0.0157,
-  "resolvable": true,
+  "goldens": 264,
+  "resolution": 0.0314,
+  "resolvable": false,
   "byArm": {
     "file": {
       "with": {
-        "precision": 0.1986,
-        "recall": 0.1319,
-        "f1": 0.1585,
-        "truePositives": 139,
-        "falsePositives": 561,
-        "falseNegatives": 915,
-        "findings": 1089
+        "precision": 0.266,
+        "recall": 0.1894,
+        "f1": 0.2212,
+        "truePositives": 50,
+        "falsePositives": 138,
+        "falseNegatives": 214,
+        "findings": 389
       },
       "without": {
-        "precision": 0.2129,
-        "recall": 0.1973,
-        "f1": 0.2048,
-        "truePositives": 208,
-        "falsePositives": 769,
-        "falseNegatives": 846,
-        "findings": 1636
+        "precision": 0.2787,
+        "recall": 0.1932,
+        "f1": 0.2282,
+        "truePositives": 51,
+        "falsePositives": 132,
+        "falseNegatives": 213,
+        "findings": 393
       },
       "delta": {
-        "precision": -0.0143,
-        "recall": -0.0654,
-        "f1": -0.0463
+        "precision": -0.0127,
+        "recall": -0.0038,
+        "f1": -0.007
       }
     },
     "pullRequest": {
       "with": {
-        "precision": 0.1618,
-        "recall": 0.1433,
-        "f1": 0.152,
-        "truePositives": 151,
-        "falsePositives": 782,
-        "falseNegatives": 903,
-        "findings": 933
+        "precision": 0.1942,
+        "recall": 0.1515,
+        "f1": 0.1702,
+        "truePositives": 40,
+        "falsePositives": 166,
+        "falseNegatives": 224,
+        "findings": 206
       },
       "without": {
-        "precision": 0.1538,
-        "recall": 0.1376,
-        "f1": 0.1452,
-        "truePositives": 145,
-        "falsePositives": 798,
-        "falseNegatives": 909,
-        "findings": 943
+        "precision": 0.216,
+        "recall": 0.1742,
+        "f1": 0.1929,
+        "truePositives": 46,
+        "falsePositives": 167,
+        "falseNegatives": 218,
+        "findings": 213
       },
       "delta": {
-        "precision": 0.008,
-        "recall": 0.0057,
-        "f1": 0.0068
+        "precision": -0.0218,
+        "recall": -0.0227,
+        "f1": -0.0227
       }
     }
   },
   "withDevice": {
-    "precision": 0.1986,
-    "recall": 0.1319,
-    "f1": 0.1585,
-    "truePositives": 139,
-    "falsePositives": 561,
-    "falseNegatives": 915,
-    "findings": 1089
+    "precision": 0.266,
+    "recall": 0.1894,
+    "f1": 0.2212,
+    "truePositives": 50,
+    "falsePositives": 138,
+    "falseNegatives": 214,
+    "findings": 389
   },
   "withoutDevice": {
-    "precision": 0.2129,
-    "recall": 0.1973,
-    "f1": 0.2048,
-    "truePositives": 208,
-    "falsePositives": 769,
-    "falseNegatives": 846,
-    "findings": 1636
+    "precision": 0.2787,
+    "recall": 0.1932,
+    "f1": 0.2282,
+    "truePositives": 51,
+    "falsePositives": 132,
+    "falseNegatives": 213,
+    "findings": 393
+  },
+  "removalPool": {
+    "removed": 4,
+    "truePositivesRemoved": 1,
+    "share": 0.25,
+    "target": 0.04,
+    "withinTarget": false
   },
   "delta": {
-    "precision": -0.0143,
-    "recall": -0.0654,
-    "f1": -0.0463,
-    "truePositives": -69,
-    "falsePositives": -208,
-    "findings": -547
+    "precision": -0.0127,
+    "recall": -0.0038,
+    "f1": -0.007,
+    "truePositives": -1,
+    "falsePositives": 6,
+    "findings": -4
   },
   "pairedTest": {
     "view": "the registered operating point of each run, paired on pull request and golden index",
-    "both": 98,
-    "withOnly": 41,
-    "withoutOnly": 110,
-    "pValue": 0,
-    "verdict": "significant at 0.05"
+    "both": 30,
+    "withOnly": 20,
+    "withoutOnly": 21,
+    "pValue": 1,
+    "verdict": "not significant at 0.05"
   },
   "significance": {
     "unit": "pull request",
     "view": "the paired difference in file-arm F1, resampled over the pull requests both arms read",
     "resamples": 4000,
-    "pullRequests": 146,
-    "mean": -0.0465,
-    "sd": 0.0107,
-    "lower": -0.0679,
-    "upper": -0.0255,
-    "positiveRate": 0,
-    "z": -4.3271,
-    "pValue": 0,
+    "pullRequests": 30,
+    "mean": -0.0071,
+    "sd": 0.0253,
+    "lower": -0.0551,
+    "upper": 0.0443,
+    "positiveRate": 0.376,
+    "z": -0.2767,
+    "pValue": 0.782,
     "inconsistent": false,
-    "rowsWithDevice": 146,
-    "rowsWithoutDevice": 146
+    "rowsWithDevice": 30,
+    "rowsWithoutDevice": 30
   },
   "verdict": {
-    "registeredGain": 0.026,
+    "registeredGain": 0.015,
     "registeredArm": "file",
-    "observedGain": -0.0463,
+    "observedGain": -0.007,
     "magnitudeMet": false,
     "mechanismMet": false,
     "sliceMatches": null,
-    "activity": null,
+    "activity": {
+      "counter": "falsifier.droppedBecauseUntouched",
+      "atLeast": 110,
+      "observed": 10,
+      "met": false
+    },
+    "reach": {
+      "counter": "falsifier.droppedBecauseUntouched",
+      "removed": 10,
+      "ceilingGain": 0.0052,
+      "reachable": false
+    },
     "deviceInputs": null,
     "guard": null,
     "confirmable": {
-      "bar": 0.026,
-      "needs": 0.021,
-      "confirmed": true
+      "bar": 0.015,
+      "needs": 0.0496,
+      "confirmed": false
     },
-    "signed": true,
+    "signed": false,
     "confirms": false,
-    "outcome": "falsified: the registered gain was not reached on the file arm",
-    "insideResolution": false
+    "outcome": "unfalsifiable: the registered gain 0.015 sits under the 0.0314 a second corpus of 264 goldens moves the figure by, so the registration asks for less than the instrument resolves",
+    "insideResolution": true
   }
 }

@@ -8571,3 +8571,80 @@ rather than an empty set that skips nothing.
 trains its readers to ignore red costs more than the advisory.** The exemption assumes `picomatch` reaches this repository
 only through build tooling matching globs written here, never a pattern from a pull request, a user or a remote; the day
 that stops being true the dependency goes rather than the exemption extended.
+
+## 83. The corrected instrument says the device was mostly measuring its own bug
+
+### 83.1 The run
+
+`44262493734` - `pair: change-shape` re-dispatched with `allowedLines` (30 pull requests, both arms green, 55 minutes,
+0.76 and 0.78 USD). Both artifacts were paid for; the comparison job refused them twice - first for a missing download,
+then because `changeShape:true` was a registration key no lookup builds - so the arithmetic was run **locally on the same
+two artifacts**: zero further spend, and the script is the script.
+
+|                         | `change_shape: on` | `off`      | Δ           |
+| ----------------------- | ------------------ | ---------- | ----------- |
+| precision               | 0.2660             | 0.2787     | −0.0127     |
+| recall                  | 0.1894             | 0.1932     | −0.0038     |
+| F1                      | **0.2212**         | **0.2282** | **−0.0070** |
+| true positives          | 50                 | 51         | −1          |
+| false positives         | 138                | 132        | +6          |
+| shape removals          | **10**             | 0          | +10         |
+| of which whole-file     | 2                  | —          |             |
+| of which off-the-change | 8                  | —          |             |
+| gate candidates         | 430                | 434        | −4          |
+| cost (USD)              | 0.7640             | 0.7750     | −0.0110     |
+
+**Removals fell from 48 to 10.** The same corpus, the same arms, the same classifier: the only change is that the standing
+set is the hunk's span plus its deletion points instead of its added lines. **Eighty per cent of what the first reading
+"removed" was the classifier refuting changes it had itself written off as additions that were not new** - deletions, and
+rewrites whose only new line was the guard. The device was, for most of its volume, measuring its own defect.
+
+### 83.2 And on the ten it does remove, it does not pay
+
+One true positive among ten removals is a better rate than the corpus average - but ten removals against `TP 51 / FP 132`
+moves F1 by −0.0070, and the paired test is 20 better against 21 worse with `p = 1`. **The device is inert on this
+corpus**, and the mechanism is now measurable rather than arguable: of 961 hunks across 30 pull requests, **87 files had
+no substantive hunk at all, and only 2 findings stood in one of them**; the other 8 were readers who had wandered, against
+430 candidates.
+
+**So §79.5's third way of being wrong has happened, in its exact words**: _"if the character saving is not where the spend
+is"_ - and the companion claim has gone the same way. **A finding rarely stands off the change; the reviewer is looking in
+the right place.** `code-context.ts` measured 91 of 160 rejections landing on the golden's exact line, and this iteration
+is the strongest evidence yet that the correct reading of that number is _"the reader is looking in the right place and
+saying the wrong thing"_ - not _"the reader is looking in the wrong place"_.
+
+**The device is not deleted, and it is not shipped either.** `AACR_CHANGE_SHAPE` defaults to `off`, the only dispatch that
+turns it on is this pair, and the registration now records two readings and no gain. **A filter that removes ten findings
+and costs a pair is a filter that stays off** - but the classifier itself is kept, because it is the only thing in this
+repository that can answer "what did this hunk actually do", and §83.3 is why that question still matters.
+
+### 83.3 What the measurement redirects effort to, with the numbers that force it
+
+The bill, split by tag (§82.3), and the corpus's own credits:
+
+| Lane                     | USD    | Emissions | True | Precision | USD per true positive |
+| ------------------------ | ------ | --------- | ---- | --------- | --------------------- |
+| `review:architecture`    | 0.1700 | 42        | 6    | **0.143** | **0.0283**            |
+| `review:testing`         | 0.1926 | —         | —    | —         | —                     |
+| `review:maintainability` | 0.1817 | 16        | 4    | 0.250     | 0.0454                |
+| `review:security`        | 0.0753 | 6         | 3    | 0.500     | 0.0251                |
+| gate                     | 0.0391 | —         | —    | —         | —                     |
+
+**Architecture is the worst price in the table and the second-largest line item**, and it is the one lane whose subject is
+not visible in the hunk: layering, coupling and dependency direction are facts about _the file in the repository_, not
+about three added lines. **It is also the one lane the index has never been shown to.** Every use of the index so far feeds
+the _judge_; not one feeds the _author_.
+
+**So the next experiment is the index in the lane's prompt rather than in the gate's**, registered before its run: a lane
+given `exports:`, the declaration the claim stands in and the guards inside it should make fewer claims about symbols that
+are not there. It is also the cheapest hypothesis left - 600 characters on a prompt whose median is already two thousand
+tokens, against a lane that costs 0.17 USD to say six true things.
+
+### 83.4 The skip, and an honest zero
+
+`shape.whitespaceOnly` read **0** of 30 pull requests and `shape.skippedFiles` read **0**: not one file in this corpus had
+a diff consisting entirely of re-indentation. The 87 non-substantive files were comment edits and relocations, and both are
+reviewable, which is why the skip was defined on `whitespaceOnly` rather than on `noneSubstantive` in the first place.
+
+**A cost device that finds no material is a zero, and a zero reported as a saving is the §77 defect.** The skip stays,
+guarded on the gate's existence, and it is not counted as an improvement until a corpus carries a pure reformat.

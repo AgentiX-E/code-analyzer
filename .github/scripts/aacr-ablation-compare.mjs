@@ -796,6 +796,15 @@ export const REGISTRATIONS = Object.freeze({
    * **The registration is unchanged**, because the claim was never about added lines: it is about lines the change
    * touched, and a deletion touches the line its replacement occupies. A registration edited to match a defect would be
    * the one thing this table exists to prevent.
+   *
+   * **Second reading (`44262493734`), corrected standing set, and the device is inert.** 10 removals instead of 48 - 2 in
+   * files with no substantive hunk and 8 off the change, against 430 candidates - with one true positive among them, and
+   * F1 −0.0070 against a paired 20/21 at p = 1. **Eighty per cent of the first reading's volume was the classifier
+   * refuting deletions it had written off as additions that were not new.** §83 records it.
+   *
+   * **So this entry is kept as a falsification rather than deleted**, and `AACR_CHANGE_SHAPE` stays `off` on every arm but
+   * this one. What survives is the classifier, not the filter: **a finding rarely stands off the change**, and the filter
+   * that acts on the rare case removes ten findings and costs a pair.
    */
 });
 
