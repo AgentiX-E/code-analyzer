@@ -439,7 +439,11 @@
       "groundTruthIssues": 173,
       "languages": ["python", "go", "typescript", "ruby", "java"],
       "groundTruthSource": "Martian `code-review-benchmark` (MIT, public on GitHub), `offline/golden_comments/`: 50 pull requests across five repositories - Sentry, Grafana, Cal.com, Discourse, Keycloak - carrying 173 human-curated golden comments, with severity and category labels and three scoring profiles (strict 139, core 158, all 173). **Copied byte-for-byte and converted to this harness's row shape** by `scripts/build-martian-corpus.mjs`, whose output is a pure function of the committed raw files; the conversion reproduces upstream's three published profile counts exactly. **It is the same key on which nineteen tools are ranked**, which is why it is here: it is the only corpus on which our F1 can be placed beside a competitor's rather than beside an analogy.",
-      "sources": ["benchmarks/martian/positive_samples.json", "benchmarks/martian/golden_comments"],
+      "sources": [
+        "benchmarks/martian/positive_samples.json",
+        "benchmarks/martian/golden_comments",
+        "benchmarks/martian-bench.json"
+      ],
       "independentValidation": true,
       "caveat": "**Four differences from the field's runs are stated rather than corrected.** (1) The judge: upstream scores with `claude-opus-4-5`, `claude-sonnet-4-5` and `gpt-5.2`; this harness scores with `deepseek-chat`, and upstream's own documentation reports individual tools moving **up to nine F1 points** across judge models. (2) The extraction: upstream dedups a tool's candidates with an LLM before judging and applies `matched-excluded` for goldens outside the active profile; this harness scores what the engine emitted, under its own operating point. (3) The goldens carry **no path and no line**, so every one of the 173 lands in `golden-attribution.mjs`'s `noPath` bucket - the attribution table is uninformative on this corpus, and a diagnosis has to come from reading findings. (4) Contamination: the pull requests are forks of well-known repositories, public since July 2025, and upstream says so itself.",
       "metrics": {
@@ -451,7 +455,29 @@
         "fieldOfflineTopF1": 0.658,
         "fieldOfflineTopTool": "Qodo Extended (Opus 4.5 judge)",
         "fieldOnlineTopF1": 0.655,
-        "fieldRecallCeiling": 0.63
+        "fieldRecallCeiling": 0.63,
+        "runId": "44305914944",
+        "measuredAtRun": "2026-11-18",
+        "shippedPrecision": 0.1935,
+        "shippedRecall": 0.4798,
+        "shippedF1": 0.2757,
+        "shippedTruePositives": 83,
+        "shippedFalsePositives": 346,
+        "shippedComments": 429,
+        "fullEmissionPrecision": 0.1018,
+        "fullEmissionRecall": 0.5549,
+        "fullEmissionF1": 0.172,
+        "fullEmissionComments": 943,
+        "emittedPerPullRequest": 18.9,
+        "coreFullEmissionF1": 0.162,
+        "strictFullEmissionF1": 0.152,
+        "bestCutF1": 0.251,
+        "bestCutPerPullRequest": 10,
+        "precisionAtOne": 0.4,
+        "spanUsd": 1.3187,
+        "spanCny": 9.49,
+        "judgeCalls": 5544,
+        "reviewCalls": 3615
       }
     }
   }

@@ -8982,3 +8982,135 @@ thirteen.** Therefore:
 median - **contradicts the mechanism in this section**, and the emission-volume explanation would have to be withdrawn
 rather than reinterpreted. **What this run cannot do is re-rank the field**: it is our reviewer on their key with a
 different judge, and the artifact says so in its `corpus`, `judge` and `route` fields.
+
+### 86.4 The mechanism §86.3 registered is falsified, by an assay that cost nothing
+
+§86.3 predicted that precision is a function of **emission volume** and named the statistic that would settle it:
+_cut our ranked list to four per pull request - what the field's tools post - and re-score; if precision at four is
+twice precision at thirteen, the gap is volume._ **Both artifacts in hand carry a score per finding and a golden count
+per pull request, so the cut costs nothing.** On `v4pair/without` (30 pull requests, 264 goldens, every switch off) and
+on `m-off` (36 pull requests, 282 goldens):
+
+| findings kept per pull request | emitted | tp     | precision | recall | F1        |
+| ------------------------------ | ------- | ------ | --------- | ------ | --------- |
+| 1                              | 30      | 10     | 0.333     | 0.038  | 0.068     |
+| **4**                          | **106** | **28** | **0.264** | 0.106  | 0.151     |
+| 8                              | 170     | 40     | 0.235     | 0.152  | 0.184     |
+| 12                             | 220     | 51     | 0.232     | 0.193  | 0.211     |
+| all (14.5 per pull request)    | 435     | 66     | 0.152     | 0.250  | **0.189** |
+
+| findings kept per pull request | emitted | tp     | precision | recall | F1        |
+| ------------------------------ | ------- | ------ | --------- | ------ | --------- |
+| 1                              | 36      | 8      | 0.222     | 0.028  | 0.050     |
+| **4**                          | **125** | **39** | **0.312** | 0.138  | 0.192     |
+| 8                              | 190     | 54     | 0.284     | 0.191  | 0.229     |
+| 12                             | 232     | 58     | 0.250     | 0.206  | 0.226     |
+| all (8.6 per pull request)     | 311     | 63     | 0.203     | 0.223  | **0.212** |
+
+**The instrument is `matchedGoldens` rebuilt into maximum bipartite matching per pull request**, the same rebuild §57.3
+used to re-score artifacts already paid for. **It matches after the cut where the harness matches before it**, so its
+"all" row is not the artifact's `fullEmission` and is not offered as one: every comparison below is between rows of one
+table.
+
+**Precision at four is 1.14× precision at fourteen in the first arm and 1.41× in the second, against a registered 2×.**
+And the cut is not free: **at four per pull request F1 is below full emission in both arms** (0.151 against 0.189, 0.192
+against 0.212), because the recall the cut spends is real and the precision it buys is not. **The registration's own
+falsifier fired: the gap is detection quality, not volume.**
+
+**The sentence that survives is sharper than the one that died.** Our **highest-ranked finding in a pull request is
+right 22 to 33 % of the time.** The field's **average posted comment** is right 61 to 80 % of the time. Between rank one
+and rank fourteen our precision moves between 0.22 and 0.33 and back - **the score orders our findings almost not at all**,
+which §48 measured from the other end at AUC 0.541 for `score` alone. **So the eleven-point lift a capping device could
+hope for does not exist**, and every removal device this repository has bought traded one for one because **the input it
+was filtering had no rank structure to exploit**. A filter cannot be better than the ordering it filters.
+
+**What that leaves, stated before the next dispatch rather than after it.** The field's products share one design
+element that is not a filter: **a verification pass that runs before the comment is written** - Qodo 2.0's multi-agent
+expert review, Claude Code Review's verification stage, Copilot's "not guaranteed to spot all problems" disclosure
+notwithstanding. This repository has priced removal-after-emission four times (§44, §84.5, §85, change-shape) and has
+**never priced verification-before-assertion**: a lane that must name the input or state that reaches the defect before
+it may claim the defect exists. **The bar for that experiment is not F1.** It is **precision at rank one per pull
+request** - 0.22 to 0.33 today - because that is the statistic the instrument resolves at thirty pull requests and the
+one the field's numbers are actually made of.
+
+### 86.5 The run: `44305914944`, fifty pull requests on the field's key, 9.49 CNY
+
+|                           | shipped operating point | full emission |
+| ------------------------- | ----------------------- | ------------- |
+| precision                 | **0.1935**              | 0.1018        |
+| recall                    | **0.4798**              | 0.5549        |
+| F1                        | **0.2757**              | 0.1720        |
+| true positives            | 83 of 173               | 96 of 173     |
+| false positives           | 346                     | 847           |
+| comments emitted          | 429                     | 943           |
+| comments per pull request | 8.6                     | 18.9          |
+
+Fifty of fifty pull requests read, no unfetched diffs, no judge failures, 3 615 reviewer calls and 5 544 judge calls,
+**1.3187 USD = 9.49 CNY**, inside the 10 CNY the section registered. Cut to the field's two other profiles by rebuilding
+the matching over the categories each keeps, full emission is **0.162 on Core (158)** and **0.152 on Strict (139)**.
+
+**Where that puts us, on the only axis where the comparison is real:**
+
+| tool (offline, Opus-judged key) | F1       | precision | recall   |
+| ------------------------------- | -------- | --------- | -------- |
+| Qodo Extended                   | **65.8** | 67.1      | 64.6     |
+| cubic                           | 63.6     | 61.5      | 65.8     |
+| Augment                         | 62.2     | 59.5      | 65.2     |
+| CodeRabbit                      | 42.2     | 32.6      | 59.5     |
+| **this engine**                 | **27.6** | **19.4**  | **48.0** |
+| Graphite                        | 14.1     | 100.0     | 7.6      |
+
+**We are 24.4 F1 points under the leader and 14.6 under the worst tool in the top half.** And the split says which half
+of the gap is ours: **recall 0.48 is inside the field's range** - above Graphite's 7.6, Devin's 41.1 and Cursor's 46.8,
+below CodeRabbit's 59.5 and Qodo's 64.6 - while **precision 0.19 is below every listed tool**, the cheapest of which
+(CodeRabbit, 32.6) posts two thirds fewer comments per pull request.
+
+### 86.6 Selection is finished, and this is the first measurement that says so on someone else's key
+
+§86.4 showed on AACR that cutting the emission does not buy precision. **On the field's key the emission curve is
+steeper - and it still does not reach the field.**
+
+| comments kept per pull request | emitted | tp  | precision | recall | F1        | F2        |
+| ------------------------------ | ------- | --- | --------- | ------ | --------- | --------- |
+| 1                              | 50      | 19  | 0.380     | 0.120  | 0.183     | 0.139     |
+| 4                              | 194     | 37  | 0.191     | 0.234  | 0.210     | 0.224     |
+| 8                              | 357     | 63  | 0.176     | 0.399  | 0.245     | 0.319     |
+| 10                             | 424     | 73  | 0.172     | 0.462  | 0.251     | 0.346     |
+| **12**                         | 484     | 79  | 0.163     | 0.500  | **0.246** | **0.354** |
+| all (18.9)                     | 903     | 89  | 0.099     | 0.563  | 0.168     | 0.290     |
+
+The last row is the cut over the 903 findings that carry a lane; **the artifact's own `fullEmission` covers all 943**
+
+- forty were filed without one - and reads 0.1018 / 0.5549 / 0.1720, which is the row §86.5 quotes.
+
+**The curve's maximum is F1 0.251 at ten per pull request (F2 0.354 at twelve), and our shipped rule lands at 0.2757** -
+above the plain cut, because the actionability gate is not a cut but a filter with a recall guard. **Dropping `testing` alone buys +0.023 at matched volume (0.276 against 0.253 at eight per pull request), and
+dropping `architecture` with it LOSES 0.062** - because a `testing` finding carries `bug` as often as it carries `test`,
+so the lanes cannot be removed by name, and a subset chosen by lane is not the subset the categories suggest. **No subset of what we wrote reaches 0.35, and the field's
+median is above 0.42.**
+
+**The counts that explain it, by category of the 943 comments the engine filed:**
+
+| category        | comments | true | precision | share of the false positives |
+| --------------- | -------- | ---- | --------- | ---------------------------- |
+| bug             | 358      | 92   | **0.257** | 33.0 %                       |
+| test            | 200      | 7    | 0.035     | 23.9 %                       |
+| architecture    | 190      | 14   | 0.074     | 21.8 %                       |
+| maintainability | 83       | 3    | 0.036     | 9.9 %                        |
+| security        | 70       | 18   | **0.257** | 6.5 %                        |
+| performance     | 17       | 3    | 0.176     | 1.7 %                        |
+| style           | 14       | 0    | 0.000     | 1.7 %                        |
+| documentation   | 11       | 0    | 0.000     | 1.4 %                        |
+
+**Two categories are worth the corpus's base rate and six are not**, and the six are 50 % of the emission for 24 of 137
+matches. But the reason they cannot simply be deleted is the one §57.3 measured from the other direction: **on AACR,
+`bug` and `security` alone LOSE 0.009**, because that corpus's key is mostly convention remarks. **A category prior is
+a prior about a key, not about code**, which is why the honest version of this table is a diagnosis and not a device.
+
+**And the statistic that decides what to build next.** Our **best-ranked comment in a pull request is right 38 % of the
+time** (All: 0.400 at one per pull request). The field's **average posted comment** is right 61 to 80 % of the time.
+**Our best comment is worse than their average comment**, which no ordering, no cap and no filter can repair - the same
+conclusion §86.4 reached on AACR by a different route, now measured on the key the field is ranked on.
+
+**Cost of a true finding, for the record**: 9.49 CNY for 83 true positives is **0.114 CNY each**; the same run's
+false-positive bill is 346 comments a reader would have to dismiss.
