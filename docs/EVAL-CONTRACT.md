@@ -8920,3 +8920,65 @@ cannot move the score; so a better index fed to it produces a sharper removal fr
 true findings lost. **The index is now strong enough to be worth a consumer that is not a pre-judge filter**, and the
 arithmetic of §84.6 says where that consumer has to sit: on the generation side, where a finding enters the judged set
 in the first place.
+
+## 86. Our F1 has never been comparable with anyone's, and the field publishes a key we can be scored on
+
+### 86.1 The two corpora, and why 0.20 beside 0.61 was never a comparison
+
+Every figure in this document is measured on **AACR-Bench**: 200 pull requests, 1,505 expert-confirmed issues, ten
+languages, published Apache-2.0 by Alibaba - **the vendor of the tool it ranks first**, which the artifact's own
+`comment` field says out loud. Every published AI-review figure in the field is measured on something else. The two
+largest public keys are:
+
+| key                                 | pull requests | goldens | languages                  | who publishes                                     |
+| ----------------------------------- | ------------- | ------- | -------------------------- | ------------------------------------------------- |
+| AACR-Bench                          | 200           | 1,505   | 10                         | Alibaba (vendor of one entrant)                   |
+| Martian Code Review Bench (offline) | 50            | 173     | Python, Go, TS, Ruby, Java | Martian (sells no reviewer), MIT, 19 tools ranked |
+
+**So "we are at 0.20 and CodeRabbit is at 0.61" was a sentence about two different answer keys**, and this document has
+never contained it because it could not have been true or false. §84.6 asked whether selection was capped and answered
+with our own arithmetic; **the question of where we stand in the field had no instrument at all.**
+
+**It has one now.** Martian's key is MIT and public, its judge prompt is public, and its 50 pull requests are public
+forks under `ai-code-review-evaluation/`. `benchmarks/martian/` carries the key converted to the row shape this
+harness reads, with provenance, and the conversion **reproduces upstream's three published profile counts exactly -
+139 strict, 158 core, 173 all** - which is the check that no category was renamed on the way through.
+
+### 86.2 What the field actually scores, before we add a number to it
+
+Three separate published measurements, none of them the same measurement:
+
+| measurement                                | leader                                                                               | ours today      |
+| ------------------------------------------ | ------------------------------------------------------------------------------------ | --------------- |
+| **offline, Opus 4.5 judge, 173 goldens**   | Qodo Extended **65.8** · cubic 63.6 · Augment 62.2 · CodeRabbit 42.2 · Graphite 14.1 | not measured    |
+| **online, developer acted on the comment** | Cubic 65.5 · Greptile 62.3 · Copilot 61.5 · CodeRabbit 61.0 · Qodo 58.4              | not measured    |
+| **on AACR-Bench (our history)**            | Alibaba's own tool, 33.9 % precision as published by its authors                     | F1 0.2154 (§85) |
+
+Two facts from the offline table matter more than its ordering. **No tool finds more than 63 % of the key**, which is
+the field's recall ceiling and not ours alone. And **the precision/recall split is a product choice**: Graphite is
+100 % precise on 7.6 % recall, CodeRabbit the other way round. **A leaderboard ranks a chosen operating point, not a
+capability** - which is the same distinction this repository draws between `fullEmission` and the `keep` rule.
+
+### 86.3 Registered before the run: what `dataset: martian` is expected to say, and what would falsify it
+
+**The run**: one arm, 50 pull requests, every switch off, `AACR_PROFILE=advisory` (the `All` cut, 173 goldens), our own
+judge. Ceiling **10 CNY**.
+
+**The prediction, written before the dispatch.** Our engine emits **12 to 14 findings per pull request** (§85: 435 over
+30). This key carries **3.5 goldens per pull request**. So even a reviewer that found _every_ golden would score a
+precision near `3.5 / 13 = 27 %`, and the field's tools sit at 61-80 % - **because they emit four comments where we emit
+thirteen.** Therefore:
+
+1. **Recall should be respectable** - no less than **0.20** on the core cut, and plausibly above the field's tools,
+   since emitting three times more than everyone else buys recall mechanically.
+2. **Precision should be the binding constraint**, below **0.30**, and F1 between **0.18 and 0.30** - **twenty-five to
+   forty points under the field**, without our reviewer being twenty-five points worse at finding defects.
+3. **The decisive statistic is precision at matched volume**: cut our ranked list to the top **four per pull request**,
+   which is what the field's tools post, and re-score. **If precision at four is at least twice precision at thirteen,
+   the gap is volume** and the next device is a ranking-and-cap device. **If it is not, the gap is detection quality**
+   and no amount of capping will reach the leaderboard.
+
+**The falsifier is stated as one**: a run whose `core` F1 lands above 0.45 - inside fifteen points of the field's
+median - **contradicts the mechanism in this section**, and the emission-volume explanation would have to be withdrawn
+rather than reinterpreted. **What this run cannot do is re-rank the field**: it is our reviewer on their key with a
+different judge, and the artifact says so in its `corpus`, `judge` and `route` fields.
