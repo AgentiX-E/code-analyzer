@@ -8123,24 +8123,24 @@ roughly two thirds of the refutations it was already making into verified ones, 
 Two checkouts, read end to end rather than skimmed, because a mechanism copied from a README is a mechanism whose
 failure modes were not copied with it.
 
-| Checkout | Size | Files read for this section | The mechanism taken from it |
-| --- | --- | --- | --- |
-| `Wilfred/difftastic` @ `4b834ef` | 15 877 lines of Rust, 58 files | `src/diff/{graph,sliders,unchanged,shortest_path,changes}.rs`, `src/parse/syntax.rs` | **A change has structure, and the structure says which lines are novel.** |
-| `aoci-spec/aoci-code` @ depth 1 | 188 020 lines of Go, 847 files | `aoci.code.txt` (its own 628-line index), `aoci.meta.txt`, `spec/public/s-field-discipline.en.txt`, `internal/cognitionbudget/policy.go`, `internal/mcptools/tools_read_search.go`, `docs/managed-scope-and-budget.md` | **A repository can carry a one-line-per-file cognition index that a reader loads instead of searching.** |
+| Checkout                         | Size                           | Files read for this section                                                                                                                                                                                            | The mechanism taken from it                                                                              |
+| -------------------------------- | ------------------------------ | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------- |
+| `Wilfred/difftastic` @ `4b834ef` | 15 877 lines of Rust, 58 files | `src/diff/{graph,sliders,unchanged,shortest_path,changes}.rs`, `src/parse/syntax.rs`                                                                                                                                   | **A change has structure, and the structure says which lines are novel.**                                |
+| `aoci-spec/aoci-code` @ depth 1  | 188 020 lines of Go, 847 files | `aoci.code.txt` (its own 628-line index), `aoci.meta.txt`, `spec/public/s-field-discipline.en.txt`, `internal/cognitionbudget/policy.go`, `internal/mcptools/tools_read_search.go`, `docs/managed-scope-and-budget.md` | **A repository can carry a one-line-per-file cognition index that a reader loads instead of searching.** |
 
 **`difftastic`'s claim, in its own numbers.** Every edge in its diff graph carries a cost: an unchanged node costs
 `1 + min(40, depth_difference)`, an entered unchanged delimiter costs `10 + min(40, depth_difference)`, a novel node
 costs `300`, and a replaced comment or string costs `500 + (100 − levenshtein_pct)`. Dijkstra then finds the cheapest
-route through a graph whose vertices are *pairs of unmatched positions* (`src/diff/graph.rs:324`). **Motion is not
+route through a graph whose vertices are _pairs of unmatched positions_ (`src/diff/graph.rs:324`). **Motion is not
 modelled as delete-plus-insert**: a node that reappears elsewhere is reached by an `UnchangedNode` edge at cost 1, so a
-moved block is a *cheap* route and a rewritten block is an *expensive* one. `src/diff/unchanged.rs` then prunes the
+moved block is a _cheap_ route and a rewritten block is an _expensive_ one. `src/diff/unchanged.rs` then prunes the
 search with `TINY_TREE_THRESHOLD = 10` and `MOSTLY_UNCHANGED_MIN_COMMON_CHILDREN = 4` before the graph is ever built.
 
 **`aoci-code`'s claim, in its own numbers.** Its index is 628 lines for a 188 020-line repository - **one line per
 file**, each carrying `F:` (responsibility), `R:` (files that must be read together), `A:` (what callers depend on),
 `S:` (the constraint that cannot be inferred but must not be violated), plus a tag `[C{importance}{module}{1-9}{L,M,S,T}]`.
-Its whole-index budget is `target 200 000 / warn 300 000 / max 400 000` tokens, and `R`/`S` are capped *by importance
-band*: a `C9` file may spend 90 / 100 tokens on them, a `C1–C4` file only 25 / 20 (`internal/cognitionbudget/policy.go`).
+Its whole-index budget is `target 200 000 / warn 300 000 / max 400 000` tokens, and `R`/`S` are capped _by importance
+band_: a `C9` file may spend 90 / 100 tokens on them, a `C1–C4` file only 25 / 20 (`internal/cognitionbudget/policy.go`).
 Retrieval is `index.Search(doc, keyword, tagFilter)` returning whole lines, truncated at `maxSearchResults = 30`
 (`internal/mcptools/tools_read.go:39`) - **not embeddings, not a vector store: a keyword and a tag filter over thirty
 lines at a time.**
@@ -8158,23 +8158,23 @@ That file then answers with a **wider window**: brace-depth block extraction, `p
 little more of the contract and pays for it in prompt, and the return on the second widening is already negative
 (§78.5, third way to be wrong).
 
-**The two repositories answer the same measurement with the opposite move.** `difftastic` narrows: it computes *which
-lines are novel* and hands over only those. `aoci-code` replaces: it hands over **one line that says what the file is
+**The two repositories answer the same measurement with the opposite move.** `difftastic` narrows: it computes _which
+lines are novel_ and hands over only those. `aoci-code` replaces: it hands over **one line that says what the file is
 for and what must not break**, and nothing else. Neither widens. **A wider window is what you do when you have no
 index; once you have one, a wider window is what you stop doing.**
 
 ### 79.3 Three mechanisms, and the ownership of each
 
-| Mechanism | Taken from | Ownership | What it changes here | Tokens |
-| --- | --- | --- | --- | --- |
-| **M1 `change-shape`** - classify each hunk as `reformatted`, `comment-only`, `moved` or `substantive`, from the diff alone | `difftastic`'s cost model, minus the AST | **Competitor-shared** (GitHub's own "ignore whitespace", `git diff -w`, and every review bot that skips lockfiles do part of it) | Non-substantive hunks stop reaching the gate, and a finding whose anchor sits on a non-novel line loses its standing | **−15 to −25 % of hunk characters** |
-| **M2 `cognition-index`** - one line per file: `F`/`R`/`A`/`S` plus an importance-scale tag, persisted under version control | `aoci-code`'s FRAS v2 | **Competitor-unique to `aoci-code`**; no review product ships a repository-resident semantic index | The gate reads the contract of the file instead of 200 lines around the hunk; `R` makes a *missing companion change* expressible for the first time | **6 000 → ~400 characters per file** |
-| **M3 `index-first retrieval`** - keyword + tag filter over the index, top 30 lines, whole lines only | `aoci-code`'s `aoci_search` | **Competitor-shared in shape** (`open-code-review`'s `code_search`), unique in content (our index is FRAS, theirs is a symbol table) | Before a claim is read, the claim's own vocabulary fetches the invariants that mention it | **0 generative tokens: a substring scan** |
+| Mechanism                                                                                                                   | Taken from                               | Ownership                                                                                                                            | What it changes here                                                                                                                                | Tokens                                    |
+| --------------------------------------------------------------------------------------------------------------------------- | ---------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------ | --------------------------------------------------------------------------------------------------------------------------------------------------- | ----------------------------------------- |
+| **M1 `change-shape`** - classify each hunk as `reformatted`, `comment-only`, `moved` or `substantive`, from the diff alone  | `difftastic`'s cost model, minus the AST | **Competitor-shared** (GitHub's own "ignore whitespace", `git diff -w`, and every review bot that skips lockfiles do part of it)     | Non-substantive hunks stop reaching the gate, and a finding whose anchor sits on a non-novel line loses its standing                                | **−15 to −25 % of hunk characters**       |
+| **M2 `cognition-index`** - one line per file: `F`/`R`/`A`/`S` plus an importance-scale tag, persisted under version control | `aoci-code`'s FRAS v2                    | **Competitor-unique to `aoci-code`**; no review product ships a repository-resident semantic index                                   | The gate reads the contract of the file instead of 200 lines around the hunk; `R` makes a _missing companion change_ expressible for the first time | **6 000 → ~400 characters per file**      |
+| **M3 `index-first retrieval`** - keyword + tag filter over the index, top 30 lines, whole lines only                        | `aoci-code`'s `aoci_search`              | **Competitor-shared in shape** (`open-code-review`'s `code_search`), unique in content (our index is FRAS, theirs is a symbol table) | Before a claim is read, the claim's own vocabulary fetches the invariants that mention it                                                           | **0 generative tokens: a substring scan** |
 
 **The token arithmetic, done before the run rather than after.** A gate call today carries a 12 000-character hunk
 block plus the 6 000-character surrounding block - **18 000 characters**. With M1 dropping one hunk in five and M3
 replacing the surrounding block with a 400-character index extract, the same call carries
-`0.8 × (12 000 + 400) = 9 920` characters: **−44.9 %**. That is the number to beat, and it is a *character* number
+`0.8 × (12 000 + 400) = 9 920` characters: **−44.9 %**. That is the number to beat, and it is a _character_ number
 because §77 registers spend by tag, not by feeling.
 
 **The precision arithmetic, also before the run.** `v2` measured TP 190 / FP 732 over 922 adjudicated findings. If one
@@ -8210,14 +8210,14 @@ Registered as `change-shape` ahead of any run.
 
 1. **If non-substantive hunks carry true positives.** A reformatted hunk can still be the hunk where a reviewer said
    "this rename breaks the public API". The rule is therefore **classify and record, do not silently drop**: the hunk
-   is skipped only when its *every* changed line is accounted for by whitespace, comment text, or relocation, and the
+   is skipped only when its _every_ changed line is accounted for by whitespace, comment text, or relocation, and the
    count of skipped hunks and skipped findings is written to the artifact. **If the dropped findings contain more than
    4 true positives, M1 is a recall device and must be re-registered as one.**
 2. **If "moved" is really "deleted and re-added with an edit".** Relocation is decided by normalised line identity
-   against the *other* side's full text, so an edited copy is not a move. A file larger than the reading budget is
+   against the _other_ side's full text, so an edited copy is not a move. A file larger than the reading budget is
    classified `substantive` rather than guessed at.
 3. **If the character saving is not where the spend is.** The gate's prompt is dominated by hunk blocks only if a
-   typical pull request has few hunks per file; if it has many small ones, the saving is in *calls*, not characters,
+   typical pull request has few hunks per file; if it has many small ones, the saving is in _calls_, not characters,
    and the artifact must show both.
 
 ### 79.6 What is explicitly not being done
@@ -8235,12 +8235,12 @@ Registered as `change-shape` ahead of any run.
 
 **Landed, with tests, in the same commit that wrote this section.**
 
-| Piece | Where | What it can be held to |
-| --- | --- | --- |
-| `classifyChange` / `classifyPatch` | `packages/intelligence/src/review/adjudication/change-shape.ts` | 22 tests; 100 % statements, 98.63 % branches, 100 % functions, 100 % lines |
-| The gate's use of it | `falsifier.ts`, `novelLines` on `FalsifierRequest`, `droppedBecauseNotNovel` on `FalsifierReport` | 7 tests, including **an empty set is a decision and not an absence** and **a file whose text is not a patch is never filtered** |
-| The engine's carriage of it | `llm-review-engine.ts`, `novelLinesOf` | 2 behavioural tests through `reviewDiff`, plus the default `() => undefined` that keeps every published figure reproducible |
-| The bench's switch and counters | `.github/scripts/aacr-bench.mjs`, `AACR_CHANGE_SHAPE`, `engineCounters.falsifier.shape`, `configuration.changeShape` | dry run green; `.github/scripts` suite 855 tests green |
+| Piece                              | Where                                                                                                                | What it can be held to                                                                                                          |
+| ---------------------------------- | -------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------- |
+| `classifyChange` / `classifyPatch` | `packages/intelligence/src/review/adjudication/change-shape.ts`                                                      | 22 tests; 100 % statements, 98.63 % branches, 100 % functions, 100 % lines                                                      |
+| The gate's use of it               | `falsifier.ts`, `novelLines` on `FalsifierRequest`, `droppedBecauseNotNovel` on `FalsifierReport`                    | 7 tests, including **an empty set is a decision and not an absence** and **a file whose text is not a patch is never filtered** |
+| The engine's carriage of it        | `llm-review-engine.ts`, `novelLinesOf`                                                                               | 2 behavioural tests through `reviewDiff`, plus the default `() => undefined` that keeps every published figure reproducible     |
+| The bench's switch and counters    | `.github/scripts/aacr-bench.mjs`, `AACR_CHANGE_SHAPE`, `engineCounters.falsifier.shape`, `configuration.changeShape` | dry run green; `.github/scripts` suite 855 tests green                                                                          |
 
 **Not landed, and named rather than implied.** `AACR_CHANGE_SHAPE` is readable from the environment but **the workflow does
 not yet pass it**, because doing so honestly needs a paired arm, a paired arm needs a distinct artifact name, and a

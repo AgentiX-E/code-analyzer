@@ -3012,9 +3012,8 @@ async function main() {
      * file texts are: a path that answered last time must not answer now.
      */
     if (CHANGE_SHAPE && FALSIFY) {
-      const { classifyPatch } = await import(
-        '../../packages/intelligence/dist/review/adjudication/change-shape.js'
-      );
+      const { classifyPatch } =
+        await import('../../packages/intelligence/dist/review/adjudication/change-shape.js');
       const shapeForFile = new Map();
       for (const section of sections) {
         const shaped = classifyPatch(section.lines.join(String.fromCharCode(10)));

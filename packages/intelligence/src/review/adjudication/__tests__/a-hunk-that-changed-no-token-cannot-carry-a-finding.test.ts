@@ -9,8 +9,12 @@ import { describe, expect, it } from 'vitest';
 
 import { classifyChange, classifyPatch, mayCarryFinding } from '../change-shape.js';
 
-const OLD = ['function a() {', '  return 1;', '}', '', 'function b() {', '  return 2;', '}'].join('\n');
-const NEW = ['function b() {', '  return 2;', '}', '', 'function a() {', '  return 1;', '}'].join('\n');
+const OLD = ['function a() {', '  return 1;', '}', '', 'function b() {', '  return 2;', '}'].join(
+  '\n',
+);
+const NEW = ['function b() {', '  return 2;', '}', '', 'function a() {', '  return 1;', '}'].join(
+  '\n',
+);
 
 describe('a hunk that only changed whitespace', () => {
   it('is reformatted, and carries no finding', () => {
@@ -252,7 +256,9 @@ describe('a patch read as a whole', () => {
   });
 
   it('says a pure reformat carries nothing, rather than saying nothing about it', () => {
-    const shaped = classifyPatch(['@@ -1,3 +1,3 @@', ' function a() {', '-    return 1;', '+  return 1;', ' }'].join('\n'));
+    const shaped = classifyPatch(
+      ['@@ -1,3 +1,3 @@', ' function a() {', '-    return 1;', '+  return 1;', ' }'].join('\n'),
+    );
 
     expect(shaped.hunks).toHaveLength(1);
     expect(shaped.hunks[0]?.shape).toBe('reformatted');

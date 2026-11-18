@@ -169,7 +169,12 @@ export function classifyChange(input: ChangeShapeInput): ShapedHunk {
   // that vanished is a copy plus a deletion, which is an edit.
   const oldLines = lineSet(input.oldText);
   const newLines = lineSet(input.newText);
-  if (oldLines !== null && newLines !== null && input.added.length > 0 && input.removed.length > 0) {
+  if (
+    oldLines !== null &&
+    newLines !== null &&
+    input.added.length > 0 &&
+    input.removed.length > 0
+  ) {
     const addedAllSeen = input.added.every((line) => {
       const normalised = normalise(line);
       return normalised.length === 0 || oldLines.has(normalised);

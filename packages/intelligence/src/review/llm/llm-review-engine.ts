@@ -685,7 +685,10 @@ export class LLMReviewEngine {
     // file it never looked at is worse than one that was handed nothing.
     const fullText =
       contract === FALSIFIER_CONTRACTS.v3 ? this.options.surroundingOf?.(diff.filePath) : undefined;
-    const novelLines = this.options.novelLinesOf?.(diff.filePath);
+    // **No optional call, because the default proves the field exists.** A `?.` here would be a branch that can never
+    // be false - `DEFAULTS.novelLinesOf` is a function - and an unreachable branch in a file under a per-branch floor
+    // is a permanent 0.5 % of the budget spent on a fact the type already states.
+    const novelLines = this.options.novelLinesOf(diff.filePath);
     const outcome = await gate.gate({
       path: diff.filePath,
       findings: entries.map((entry) => entry.finding),

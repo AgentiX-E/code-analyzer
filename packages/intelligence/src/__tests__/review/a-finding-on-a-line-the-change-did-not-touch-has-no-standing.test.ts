@@ -16,7 +16,11 @@ import { numberedAddedLines } from '../../review/adjudication/patch-lines.js';
 import { LLMReviewEngine } from '../../review/llm/llm-review-engine.js';
 
 import type { LLMFinding } from '../../review/llm/prompts.js';
-import type { CompletionOptions, CompletionResult, LLMProvider } from '../../review/llm/provider.js';
+import type {
+  CompletionOptions,
+  CompletionResult,
+  LLMProvider,
+} from '../../review/llm/provider.js';
 
 /** Three added lines on 11, 12 and 13. */
 const PATCH = [
@@ -261,5 +265,93 @@ describe('the engine carries the decision to the gate', () => {
 
     expect(titles).toHaveLength(2);
     expect(engine.lastFalsifier?.report.droppedBecauseNotNovel).toBe(0);
+  });
+});
+
+describe('a caller that hands over a diff and no text', () => {
+  const DIFF = {
+    filePath: 'src/a.ts',
+    oldHash: '',
+    newHash: '',
+    ranges: [{ oldStart: 8, oldEnd: 11, newStart: 8, newEnd: 11, changeType: 'modified' as const }],
+    changeType: 'modified' as const,
+  };
+
+  it('reads the patch out of the diff itself, in both the gate and the deterministic lane', async () => {
+    // **Two branches, one test, because they are the same decision.** `fileContext` is optional, and a call without it
+    // must fall back to the diff's own text rather than to nothing - in the gate that decides whether any quote can be
+    // verified, and in the idiom lane whether any remark can be positioned.
+    const provider = new ScriptedFalsifier([JSON.stringify({ findings: [] })]);
+    const engine = new LLMReviewEngine(provider, {
+      lanes: ['security'],
+      parallel: false,
+      falsify: 'independent-evidence-v2',
+      idioms: true,
+      novelLinesOf: () => undefined,
+    });
+
+    const results = await engine.reviewDiff(DIFF);
+
+    expect(results.length).toBeGreaterThan(0);
+    // The gate ran and was given no shape: the fallback path, not a dropped call.
+    expect(engine.lastFalsifier?.report.droppedBecauseNotNovel).toBe(0);
+  });
+});
+
+describe('a pull request reviewed with the window off', () => {
+  it('still reviews, because a switch that is off is not a switch that is broken', async () => {
+    // The other half of §79.7's contract: `novelLinesOf` and `codeContext` are independent, and turning the code window
+    // off must leave a pull-request review running rather than skipping the branch that builds one.
+    const provider = new ScriptedFalsifier([JSON.stringify({ findings: [] })]);
+    const engine = new LLMReviewEngine(provider, {
+      lanes: ['security'],
+      parallel: false,
+      codeContext: false,
+    });
+
+    const results = await engine.reviewPullRequest([
+      {
+        path: 'src/a.ts',
+        diffText: [
+          'diff --git a/src/a.ts b/src/a.ts',
+          '--- a/src/a.ts',
+          '+++ b/src/a.ts',
+          '@@ -1,2 +1,3 @@',
+          ' const a = 1;',
+          '+const b = 2;',
+          ' export { a, b };',
+        ].join('\n'),
+      },
+    ]);
+
+    expect(results).toHaveLength(1);
+    expect(provider.calls).toBe(1);
+  });
+
+  it('builds the window when the call asks for it, which is the other half of the same branch', async () => {
+    const provider = new ScriptedFalsifier([JSON.stringify({ findings: [] })]);
+    const engine = new LLMReviewEngine(provider, {
+      lanes: ['security'],
+      parallel: false,
+      codeContext: false,
+    });
+
+    const results = await engine.reviewPullRequest(
+      [
+        {
+          path: 'src/a.ts',
+          diffText: ['@@ -1,2 +1,3 @@', ' const a = 1;', '+const b = 2;', ' export { a, b };'].join(
+            '\n',
+          ),
+          fileText: ['const a = 1;', 'const b = 2;', 'export { a, b };'].join('\n'),
+        },
+      ],
+      { codeContext: true },
+    );
+
+    expect(results).toHaveLength(1);
+    expect(provider.calls).toBe(1);
+    // The window reached the prompt, which is what "built" means here.
+    expect(provider.prompts[0]).toContain('const a = 1;');
   });
 });

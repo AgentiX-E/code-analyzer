@@ -526,7 +526,8 @@ export class FalsifierGate {
           claimIndex: at + 1,
           quoteLine: candidate.startLine,
           quote: '',
-          reason: 'The finding stands on no line this change touched, so the patch refutes it unread.',
+          reason:
+            'The finding stands on no line this change touched, so the patch refutes it unread.',
         });
       });
       askedFindings = survivors;
@@ -546,7 +547,12 @@ export class FalsifierGate {
     const asked = Math.min(askedFindings.length, FALSIFIER_MAX_CLAIMS);
     report.notAsked = askedFindings.length - asked;
 
-    const prompt = buildFalsifierPrompt({ ...request, findings: askedFindings, addedLines, contract });
+    const prompt = buildFalsifierPrompt({
+      ...request,
+      findings: askedFindings,
+      addedLines,
+      contract,
+    });
     let raw: string;
     try {
       const options: CompletionOptions = {
@@ -640,7 +646,9 @@ export class FalsifierGate {
     }
 
     report.dropped = droppedAt.size + shapeDropped.size;
-    const kept = request.findings.filter((_finding, at) => !droppedAt.has(at) && !shapeDropped.has(at));
+    const kept = request.findings.filter(
+      (_finding, at) => !droppedAt.has(at) && !shapeDropped.has(at),
+    );
     return { kept: [...kept], dropped: [...shapeDropped.values(), ...droppedAt.values()], report };
   }
 }
