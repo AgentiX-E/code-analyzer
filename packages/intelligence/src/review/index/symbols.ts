@@ -161,11 +161,99 @@ function braceDelta(code: string): number {
   return delta;
 }
 
-const METHOD =
-  /^\s*(?:(?:public|private|protected|static|readonly|async|override|abstract)\s+)*(?<name>[A-Za-z_$][\w$]*)\s*\(/u;
-const CONSTRUCTOR = /^\s*(?:(?:public|private|protected)\s+)*constructor\s*\(/u;
-const PROPERTY =
-  /^\s*(?:(?:public|private|protected|static|readonly|declare|override)\s+)+(?<name>[A-Za-z_$][\w$]*)\s*[?!]?\s*:/u;
+/**
+ * **The words a member may wear before its name, and the reason this is a table rather than a group in a regex.**
+ *
+ * The three patterns this replaced were `^\\s*(?:(?:public|...|abstract)\\s+)*(?<name>...)\\s*\\(` and two neighbours, and
+ * CodeQL measured one of them - `js/polynomial-redos`, alert 1699 - at **96 times the runtime for twice the input** on
+ * `"public $" + " ".repeat(n)`: `\\s*` before the group and `\\s+` inside it both want the same spaces, and the engine
+ * tries every split. **A file is library input**: this scanner runs over every changed file of every pull request, so a
+ * quadratic matcher here is a quadratic bench.
+ *
+ * A token scan has no such freedom. Each character is examined once, the modifiers are consumed only when a word is
+ * followed by whitespace, and the answer is the same answer the patterns gave.
+ */
+const MODIFIERS = new Set([
+  'public',
+  'private',
+  'protected',
+  'static',
+  'readonly',
+  'async',
+  'override',
+  'abstract',
+  'declare',
+]);
+
+/** The three modifiers a constructor may wear, which is the subset `CONSTRUCTOR` allowed and `METHOD` did not. */
+const CONSTRUCTOR_MODIFIERS = new Set(['public', 'private', 'protected']);
+
+/** One member declaration, as the scanner reads it. */
+interface MemberRead {
+  readonly name: string;
+  readonly kind: MemberSymbol['kind'];
+  /** The modifiers consumed before the name, in source order. */
+  readonly modifiers: readonly string[];
+}
+
+/**
+ * **Read one line as a member, or decide it is not one.**
+ *
+ * The three shapes it must reproduce, in the order the patterns were tried:
+ *
+ * 1. `constructor(...)` behind none, or any of `public|private|protected`.
+ * 2. `name(...)`, behind none or any of the nine modifiers - **a method**.
+ * 3. `name: type` or `name?: type`, behind **at least one** modifier - **a property**. The modifier requirement is what
+ *    separates a declaration from an assignment, and it is kept here rather than dropped as an inconvenience.
+ */
+function readMember(code: string): MemberRead | null {
+  let at = 0;
+  const skipSpace = (): boolean => {
+    const from = at;
+    while (at < code.length && /\s/u.test(code[at]!)) at += 1;
+    return at > from;
+  };
+  const word = (): string => {
+    const from = at;
+    while (at < code.length && /[\w$]/u.test(code[at]!)) at += 1;
+    return code.slice(from, at);
+  };
+
+  skipSpace();
+  const modifiers: string[] = [];
+  let name = '';
+  for (;;) {
+    const read = word();
+    // No identifier where one was required: a bare `}`, an expression, a call.
+    if (read.length === 0) return null;
+    const afterWord = at;
+    const spaced = skipSpace();
+    // **A modifier is a word followed by whitespace.** `static(` is a method called `static`, and the patterns this
+    // replaced agreed - their `\\s+` could not match the `(`.
+    if (MODIFIERS.has(read) && spaced) {
+      modifiers.push(read);
+      continue;
+    }
+    // Not a modifier: it is the name, and the scan stands where the word ended.
+    at = afterWord;
+    name = read;
+    break;
+  }
+
+  skipSpace();
+  if (code[at] === '(') {
+    const isConstructor =
+      name === 'constructor' && modifiers.every((modifier) => CONSTRUCTOR_MODIFIERS.has(modifier));
+    return { name, kind: isConstructor ? 'constructor' : 'method', modifiers };
+  }
+
+  // A property needs the modifier it was declared with, and then its type annotation.
+  if (modifiers.length === 0) return null;
+  if (code[at] === '?' || code[at] === '!') at += 1;
+  skipSpace();
+  if (code[at] !== ':') return null;
+  return { name, kind: 'property', modifiers };
+}
 
 /** The signature of a declaration, joined from its first line up to the one that opens its body or ends it. */
 function signatureOf(lines: readonly string[], start: number, limit: number): string {
@@ -269,26 +357,15 @@ export function buildSymbolIndex(path: string, text: string): FileSymbolIndex {
       const code = codes[index]!.trim();
       if (code.length === 0) continue;
 
-      const isConstructor = CONSTRUCTOR.test(code);
-      const method = METHOD.exec(code);
-      const property = PROPERTY.exec(code);
-      const name = isConstructor
-        ? null
-        : (method?.groups?.['name'] ?? property?.groups?.['name'] ?? null);
-      const kind: MemberSymbol['kind'] = isConstructor
-        ? 'constructor'
-        : method !== null
-          ? 'method'
-          : 'property';
-      // **A constructor is named after its class**, because `constructor` is a keyword rather than an identifier and a
-      // prompt that says "inside constructor" has said less than one that says "inside Worker".
-      const memberName = isConstructor ? parent : name;
-      // A line that is a bare `}` or an expression inside a body matches none of the three and is not a member.
-      if (memberName === null) continue;
+      const read = readMember(code);
+      // A line that is a bare `}` or an expression inside a body is not a member.
+      if (read === null) continue;
 
       members.push({
-        name: memberName,
-        kind,
+        // **A constructor is named after its class**, because `constructor` is a keyword rather than an identifier and a
+        // prompt that says "inside constructor" has said less than one that says "inside Worker".
+        name: read.kind === 'constructor' ? parent : read.name,
+        kind: read.kind,
         startLine: index + 1,
         endLine: endOf(index) + 1,
         signature: signatureOf(lines, index, endOf(index)),

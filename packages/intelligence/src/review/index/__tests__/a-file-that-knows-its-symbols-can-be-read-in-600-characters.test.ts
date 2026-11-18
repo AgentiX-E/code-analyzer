@@ -261,3 +261,55 @@ describe('the context a claim is given once the file is indexed', () => {
     expect(context).toContain('run');
   });
 });
+
+describe('the scanner a member line needs, and why it is not a regex', () => {
+  it('reads the modifiers, the name and the kind the patterns read', () => {
+    const index = buildSymbolIndex(
+      'src/a.ts',
+      [
+        'export class Worker {',
+        '  public constructor(name: string) {}',
+        '  private readonly queue: string[] = [];',
+        '  async run(job: string) {',
+        '  }',
+        '  static open(url: string): Worker {',
+        '  }',
+        '  static(x: number) {}',
+        '  plain = 1;',
+        '}',
+      ].join('\n'),
+    );
+
+    expect(index.symbols[0]?.members.map((member) => [member.name, member.kind])).toEqual([
+      ['Worker', 'constructor'],
+      ['queue', 'property'],
+      ['run', 'method'],
+      ['open', 'method'],
+      // **`static(` is a method called `static`**, because the patterns this replaced required whitespace after a
+      // modifier and `(` is not whitespace.
+      ['static', 'method'],
+    ]);
+  });
+
+  it('does not read an assignment as a property, because a property carries the modifier it was declared with', () => {
+    const index = buildSymbolIndex(
+      'src/a.ts',
+      ['export class A {', '  plain = 1;', '  name: string = "x";', '}'].join('\n'),
+    );
+
+    expect(index.symbols[0]?.members).toEqual([]);
+  });
+
+  it('answers the input CodeQL measured in linear time, not in ninety-six times it', () => {
+    // `js/polynomial-redos`, alert 1699: `"public $" + " ".repeat(n)` grew 96× for twice the input, because `\s*` before
+    // the group and `\s+` inside it both wanted the same spaces. **A scanner that runs over every changed file of every
+    // pull request cannot have a quadratic input**, and this is that input.
+    const line = `  ${'public $'}${' '.repeat(40_000)}`;
+    const started = Date.now();
+
+    const index = buildSymbolIndex('src/a.ts', ['export class A {', line, '}'].join('\n'));
+
+    expect(Date.now() - started).toBeLessThan(500);
+    expect(index.symbols[0]?.members).toEqual([]);
+  });
+});

@@ -1857,8 +1857,14 @@ async function main() {
    *
    * **Only `whitespaceOnly`, not `noneSubstantive`.** A comment edit is text somebody wrote and a relocation is code
    * that moved; both can be reviewed, and neither is skipped.
+   *
+   * **Declared without an initial value, because both branches below assign one** and CodeQL is right that a fresh `Set`
+   * here is written and thrown away. The type annotation is what keeps it honest: a branch that forgot to assign would
+   * be a compile error rather than an empty set that skips nothing.
+   *
+   * @type {Set<string>}
    */
-  let whitespaceOnlyForGate = new Set();
+  let whitespaceOnlyForGate;
   /**
    * **Whether the deterministic idiom lane runs beside the five model lanes.**
    *
