@@ -448,7 +448,7 @@ describe('every module a package compiles is reachable from an entry its manifes
       // of the adjudicator** for the reason §45 already paid for: the two devices have opposite contracts - one removes on
       // the reader's word, one only on a quote it can verify - and a file that held both would be a file where the
       // lenient branch and the strict one are one `if` apart.
-      intelligence: 185,
+      intelligence: 186,
       mcp: 39,
       server: 24,
       // **11 since iteration 121**, which added `utils/type-text.ts`: the depth-counted removal of type arguments and

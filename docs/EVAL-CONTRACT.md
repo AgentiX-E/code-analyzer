@@ -8252,3 +8252,107 @@ and until it does, this section's contribution is a device and not a figure.
 characters and +0.019 F1 from M1 alone. **Neither has been measured.** The first available reading is a 30-pull-request
 `pair: change-shape` slice, and the bar is the one §79.5 registers: more than 4 true positives among the dropped findings
 makes M1 a recall device that must be re-registered rather than a precision device that worked.
+
+## 80. The index, and the first contract that reads it
+
+### 80.1 What §79 left undone, stated as a measurement
+
+§79 landed a device that decides **which lines a change wrote** and left the second half of its own diagnosis untouched:
+`code-context.ts` measured 91 of 160 rejections landing **on the golden's exact line**, and both answers to that were
+widens. §80 answers it with the other move - **an index of what the file is**, so a reader is shown a declaration and its
+guards instead of two hundred lines around a hunk.
+
+### 80.2 The boundary `aoci-code` draws, and where this repository draws it differently
+
+`spec/public/s-field-discipline.en.txt` is normative and its clause 0 forbids deriving `F`/`R`/`A`/`S` from an AST, an
+import scan, a path, a filename, a regular expression or a template. The ground is stated in the same clause: **a
+regex-extracted invariant is not an invariant; it is a string that happens to sit next to one.**
+
+That prohibition is about **meaning**, and it says nothing about **structure**. Which name is declared on which lines,
+whether it is exported, and which guard statements sit inside it are facts a lexer can establish and a reader can check
+by opening the file. So the split here is:
+
+| Layer                                     | Source                     | What it may say                                                      | What it costs            | Where it goes                      |
+| ----------------------------------------- | -------------------------- | -------------------------------------------------------------------- | ------------------------ | ---------------------------------- |
+| **Structure** (`review/index/symbols.ts`) | a lexer over the file      | declarations, ranges, export surface, guards                         | nothing                  | the prompt, the artifact, any gate |
+| **Meaning** (`F`/`R`/`A`/`S`)             | a model that read the file | what the file is for, what must be read with it, what must not break | one build per repository | a future contract, never derived   |
+
+**Nothing in this section produces meaning.** There is no `responsibility` field and no `constraint` field, and the day
+one is added it will carry its provenance beside it - `written` rather than `derived` - so that a reader can tell which
+half of the index it is trusting.
+
+**And the failure direction is fixed before the code.** A construct the lexer cannot read - a regex literal holding a
+brace, a generic with a block-shaped default - must never make a symbol **end early**, because a symbol that ends early
+hides the guard that would have refuted a claim. So the scanner carries `uncertain`, and every symbol open when it is set
+runs to the end of the file: **the wider claim, never the narrower one, when the reading is unproven.**
+
+### 80.3 The fourth contract: the same rule on a tenth of the characters
+
+`independent-evidence-v4` keeps §78's evidence rule exactly - **a quote must lie outside the claim's own range, or it is
+the claim agreeing with itself** - and replaces the second block:
+
+|                                     | `v3` (§78)                                  | `v4` (§80)                                                                                  |
+| ----------------------------------- | ------------------------------------------- | ------------------------------------------------------------------------------------------- |
+| Second block                        | up to 6 000 characters of surrounding lines | up to 600 characters of index extract                                                       |
+| What it shows                       | the lines around the hunk                   | `exports:`, the declaration the claim stands in, the guards inside it, the claim's own line |
+| Quotable                            | every surrounding line rendered             | exactly the lines the extract printed, read back out of the rendered text                   |
+| When the caller has no second block | keeps every claim it cannot refute          | falls back to the window, then to `v2`                                                      |
+
+**The read-back is the detail that matters.** `selectIndexedContext` returns `{ text, shown }` together and derives
+`shown` **by parsing the text it is about to send**, so a line cut by the budget is not a line a quote can be verified
+against. Two derivations of "which lines did the reader see" is the defect `renderLines`'s `shown` field already exists to
+prevent, one block over.
+
+### 80.4 What landed, and what it is held to
+
+| Piece                                      | Where                                                                    | Held to                                                                                                                                                             |
+| ------------------------------------------ | ------------------------------------------------------------------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `buildSymbolIndex`, `selectIndexedContext` | `packages/intelligence/src/review/index/symbols.ts`                      | 12 tests: ranges, export surface, members, comments and strings that must not read as code, an open template literal across lines, a claim no declaration contains  |
+| The gate's use of it                       | `falsifier.ts`, `FALSIFIER_CONTRACTS.v4`, `indexed` on the request       | 6 tests: the index in the prompt, the same rule on 40 % of the characters, a quote verified against the extract, a quote the extract never printed kept and counted |
+| The engine's carriage                      | `llm-review-engine.ts`, `fileIndexOf`                                    | 2 behavioural tests through `reviewDiff`: the index reaches the gate, and a caller with none gets the window                                                        |
+| The bench                                  | `AACR_ADJUDICATE=falsifier-v4`, `buildSymbolIndex` over the fetched text | dry run green; the arm is a fourth value on `adjudicate` so §78's figure stays reproducible                                                                         |
+| R-39 and R-40                              | `aacr-ablation-compare.mjs`                                              | self-test green; R-39 registered with `registeredBelowResolution` and §80.5 says why                                                                                |
+
+### 80.5 The two registrations, and the arithmetic that shaped them
+
+**R-39 (`changeShape:true`, §79).** On R-36b's control arm the file arm read TP 198 / FP 784 over 1 054 goldens, so a
+deletion pool of `x` false positives gives `F1(x) = 396 / (2 036 − x)`: **+0.0200 needs 190 removals**, and the
+classifier's own prediction - one finding in five of 922 sitting on a non-substantive hunk - is 184. `F1(184) = 0.2138`,
+which is **+0.0193**. The corpus resolution is 0.0191. **The interval in which a met magnitude would also be outside
+noise is two ten-thousandths wide**, so the entry is registered at 0.015 with `registeredBelowResolution: true` and says
+in its own comment that a bar fitted into that gap would be a coincidence wearing a threshold's clothes.
+
+**R-40 (`falsifier:independent-evidence-v4`, §80).** The same 190 floor, derived from the same pair of counts rather
+than copied from §76's - **a floor borrowed from another section's arithmetic is a floor for another corpus.** The bar is
+0.02, the same one `v3` was given, because a contract that needs a tenth of the prompt and reaches the same pool is the
+same device at a tenth of the price.
+
+### 80.6 The defect the first `v3` dispatch found, and it was not in `v3`
+
+The 30-pull-request `pair: falsifier-v3` slice (`44207037687`) **failed after 34 minutes** with
+
+> `AACR-BENCH failed: Cannot read properties of undefined (reading 'length')`
+
+The message is true of perhaps forty lines in `.github/scripts/aacr-bench.mjs` and identifies none of them, so the run
+bought a symptom and not a location. Two things changed because of it:
+
+1. **The top-level catch prints the first frame in this file beside the message.** A failure that costs a dispatch to
+   locate is a failure this job will keep paying for.
+2. **The next dispatch of any arm is a one-pull-request probe, not a thirty.** A device whose wiring has never reached a
+   review call is a device whose wiring has never been tested; `--dry-run` proves the arithmetic and proves nothing about
+   the path that spends the money.
+
+**What the failure was not.** It was not `v3`'s evidence rule, and it was not a spend: the credit probe before the run read
+121.42 CNY and the run died before its first gate call, so the 34 minutes cost a runner and no tokens. **A run that fails
+at its first call is cheaper than a run that succeeds at its last**, and that is the only respect in which this was good
+news.
+
+### 80.7 What has not been measured
+
+- **The 600-character claim.** §80.3 predicts a tenth of the prompt at the same pool. The test suite asserts the prompt is
+  under 60 % of the window's on a 400-line file; it cannot assert the pool.
+- **The index's effect on F1.** R-40 is registered and unanswered. **No number in this section is a measurement**, and the
+  first one that will be is a one-pull-request probe followed by a 30-pull-request slice, in that order.
+- **The `F`/`R`/`A`/`S` layer.** Not built. The structure layer is what a lexer can prove, and the meaning layer is what
+  `aoci-code` forbids deriving - so it is a model-written artefact, committed once per repository, and its cost is
+  amortised over every pull request that reads it.

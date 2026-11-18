@@ -329,6 +329,13 @@ describe('the artifact names of the benchmark workflow', () => {
         uploaded[0]!,
         pair('change_shape', 'on').find((arm) => arm['change_shape'] === 'on')!,
       ),
+      // **And the contract whose second block is an index** (§80). `pair: falsifier-v4` keeps §78's evidence rule and
+      // replaces its 6 000-character window with a 600-character extract of the file's structure. It is a fourth value
+      // on `adjudicate` rather than a change to the third, so §78's figure stays reproducible.
+      expand(
+        uploaded[0]!,
+        pair('adjudicate', 'falsifier-v4').find((arm) => arm['adjudicate'] === 'falsifier-v4')!,
+      ),
     ]);
     expect(new Set(downloads)).toEqual(expected);
   });
@@ -413,7 +420,7 @@ describe('the matrix is one experiment', () => {
       // were 24.9 % true positives against a pool rate of 21.3 %, and every sampled removal quoted the claim it attacked.
       // **And one single and one pair for the union**, which is R-37's device: `lane_set: wide` is the diagnostic dispatch
       // that prices the union without a comparison, and `pair-wide` is the comparison itself.
-    ).toEqual([1, 1, 1, 1, 1, 1, 1, 1, 1, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2]);
+    ).toEqual([1, 1, 1, 1, 1, 1, 1, 1, 1, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2]);
   });
 
   it('varies exactly one key, so that a difference between the arms is the device', () => {

@@ -454,6 +454,20 @@ export type {
   ShapedHunkSpan,
   ShapedPatch,
 } from './review/adjudication/change-shape.js';
+// File index — the structure a claim stands in, so a reader can be shown a contract instead of a window. §80.
+export {
+  buildSymbolIndex,
+  selectIndexedContext,
+  INDEXED_CONTEXT_BUDGET,
+} from './review/index/symbols.js';
+export type {
+  DeclaredSymbol,
+  FileSymbolIndex,
+  IndexedContext,
+  IndexedContextRequest,
+  MemberSymbol,
+  SymbolKind,
+} from './review/index/symbols.js';
 
 // Actionability ranking — the order a reader should meet the findings in.
 export {

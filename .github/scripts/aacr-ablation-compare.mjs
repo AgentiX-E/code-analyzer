@@ -706,6 +706,41 @@ export const REGISTRATIONS = Object.freeze({
    * to be re-registered as one.** The artifact carries `falsifier.droppedBecauseNotNovel` and the shape counters, so the
    * share is readable; the four is a judgement this table does not pretend to make.
    */
+  /**
+   * **R-40: the third contract's rule, against an index instead of a window.**
+   *
+   * §78 answered "the reader saw too little" with 6 000 characters of surrounding lines and measured −0.0022: **the
+   * reader was not short of lines, it was short of knowing what the lines belong to.** `v4` keeps the evidence rule
+   * exactly - a quote must lie outside the claim's own range or it is the claim agreeing with itself - and replaces the
+   * block with the file's export surface, the declaration each claim stands in, and the guards inside it.
+   *
+   * **Two claims, and only one of them can be read from a paired F1.** The first is that the rule still works when the
+   * second block is 600 characters rather than 6 000, and that is what `registeredGain` states at the same 0.02 bar
+   * `v3` was given: **a contract that needs a tenth of the prompt and reaches the same pool is the same device at a
+   * tenth of the price**, and anything less would make the cheaper block a different experiment. The second claim - that
+   * the prompt falls by an order of magnitude - is carried by the artifact's own character counts and is not a threshold
+   * this table can express.
+   *
+   * **The floor is 190 for the reason `v3`'s is**: it is the count at which a perfect deletion pool reaches +0.0200
+   * against R-36b's control arm (198 true positives, 784 false positives over 1 054 goldens), and it is derived from
+   * those numbers rather than copied from §76's - **a floor borrowed from another section's arithmetic is a floor for
+   * another corpus.**
+   */
+  'falsifier:independent-evidence-v4': {
+    section: '§80 (R-40)',
+    claim:
+      'a gate whose second block is the file’s export surface, the declaration each claim stands in and the guards inside it, rather than 6 000 characters of surrounding lines, reaches the file arm F1 of at least +0.02 on the pull requests R-36b read without lowering recall by more than a golden is worth',
+    arm: 'file',
+    registeredGain: 0.02,
+    mechanism:
+      'precision rises and recall does not fall by more than a golden is worth, because the reader is shown the contract the claim has to keep rather than the lines around it',
+    mechanismRule: 'recall-holds',
+    activity: { counter: 'falsifier.dropped', atLeast: 190 },
+    deletionOnly: true,
+    deletionCounter: 'falsifier.dropped',
+    /** The same debt as `v3`'s, for the same reason: the rows past R-36b's discovery set cannot price a second reading. */
+    confirmation: [],
+  },
   'changeShape:true': {
     section: '§79 (R-39)',
     claim:

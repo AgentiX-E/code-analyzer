@@ -12,6 +12,7 @@ import {
 } from './prompts.js';
 import { collectDiffFacts, diffHeaderPaths, rankFindings } from '../actionability.js';
 import { detectIdioms } from '../idiom-rules.js';
+import { selectIndexedContext } from '../index/symbols.js';
 import { remarkPrompt, selectRemarks, type RemarkSelection } from '../remark-lane.js';
 import { codeContextForSections, type CodeContextLimits } from './code-context.js';
 import {
@@ -32,6 +33,7 @@ import { applyNarrationVeto, type NarrationVetoReport } from '../adjudication/na
 import { addedLinesOf, numberedAddedLines } from '../adjudication/patch-lines.js';
 
 import type { LLMProvider, CompletionOptions } from './provider.js';
+import type { FileSymbolIndex } from '../index/symbols.js';
 import type { ReviewComment, ReviewCategory, Severity, GitDiff } from '@code-analyzer/shared';
 
 // ---------------------------------------------------------------------------
@@ -146,6 +148,18 @@ export interface LLMReviewOptions {
    * empty set means the change added nothing, which is a decision and drops everything.
    */
   novelLinesOf?: (path: string) => ReadonlySet<number> | undefined;
+  /**
+   * **The file read as structure, per file, for `independent-evidence-v4`.**
+   *
+   * §78's gate asked for 6 000 characters of surrounding lines and got −0.0022: **a window shows a reader the lines
+   * around a change without saying what those lines belong to.** The index says what they belong to - the export
+   * surface, the declaration each claim stands in, and the guards inside it - in 600 characters.
+   *
+   * **A function rather than a field on the diff**, for the same reason as `surroundingOf`: the engine is given text and
+   * not a transport. `undefined` means the caller built no index, and `v4` then degrades to the window rather than to a
+   * gate that quotes a line nobody showed the reader.
+   */
+  fileIndexOf?: (path: string) => FileSymbolIndex | undefined;
   languageChecklist?: boolean;
   /**
    * **Where the target-and-diff block sits in every lane prompt.** Undefined means `boilerplate-first`, the arrangement
@@ -375,6 +389,7 @@ const DEFAULT_OPTIONS: Required<LLMReviewOptions> = {
   // **The default is a function that has nothing to give**, not a missing key: `v3` then degrades to `v2` rather than
   // reading an absent option as an empty file.
   surroundingOf: () => undefined,
+  fileIndexOf: () => undefined,
   novelLinesOf: () => undefined,
 };
 
@@ -683,8 +698,22 @@ export class LLMReviewEngine {
     // **The surrounding block is built here rather than inside the gate**, because the gate is given text and the lookup
     // is a transport: a gate that fetched its own context could not be tested without one, and a gate that was handed a
     // file it never looked at is worse than one that was handed nothing.
-    const fullText =
-      contract === FALSIFIER_CONTRACTS.v3 ? this.options.surroundingOf?.(diff.filePath) : undefined;
+    const wantsSecondBlock =
+      contract === FALSIFIER_CONTRACTS.v3 || contract === FALSIFIER_CONTRACTS.v4;
+    const fullText = wantsSecondBlock ? this.options.surroundingOf(diff.filePath) : undefined;
+    // **The index is built before the window, and the window is not built when the index exists**, because the two are
+    // the same answer at ten times the price. A `v4` run that has both would pay for 6 000 characters it never shows.
+    const symbols =
+      contract === FALSIFIER_CONTRACTS.v4 ? this.options.fileIndexOf(diff.filePath) : undefined;
+    const indexed =
+      symbols === undefined
+        ? undefined
+        : selectIndexedContext({
+            index: symbols,
+            // **The claim's whole range, not just its first line**, because a finding anchored at the opening brace of a
+            // function and a finding anchored three lines into it are claims about different declarations inside it.
+            lines: entries.flatMap((entry) => [entry.finding.startLine, entry.finding.endLine]),
+          });
     // **No optional call, because the default proves the field exists.** A `?.` here would be a branch that can never
     // be false - `DEFAULTS.novelLinesOf` is a function - and an unreachable branch in a file under a per-branch floor
     // is a permanent 0.5 % of the budget spent on a fact the type already states.
@@ -694,7 +723,8 @@ export class LLMReviewEngine {
       findings: entries.map((entry) => entry.finding),
       addedLines,
       ...(novelLines === undefined ? {} : { novelLines }),
-      ...(fullText === undefined || addedLines === null
+      ...(indexed === undefined ? {} : { indexed }),
+      ...(indexed !== undefined || fullText === undefined || addedLines === null
         ? {}
         : {
             surrounding: selectSurrounding({

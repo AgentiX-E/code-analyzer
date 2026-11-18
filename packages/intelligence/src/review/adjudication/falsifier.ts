@@ -48,6 +48,15 @@ export const FALSIFIER_CONTRACTS = {
   v1: 'quoted-falsifier-v1',
   v2: 'independent-evidence-v2',
   v3: 'independent-evidence-v3',
+  /**
+   * **The same evidence rule as `v3`, but the second block is an index extract rather than a window.**
+   *
+   * §78 bought its second block with 6 000 characters of surrounding lines and returned −0.0022: **a window shows a
+   * reader the lines around a change without saying what those lines belong to.** `v4` shows the file's export surface,
+   * the declaration each claim stands in and the guards inside it - 600 characters, a tenth of the window, and the only
+   * part of the file that can be about the claim.
+   */
+  v4: 'independent-evidence-v4',
 } as const;
 
 /**
@@ -119,6 +128,17 @@ export interface FalsifierRequest {
    * fail in.
    */
   surrounding?: ReadonlyArray<NumberedAddedLine> | null;
+  /**
+   * **The file as structure, when the caller built an index instead of a window** (`v4`).
+   *
+   * `text` is what the prompt carries and `shown` is what a quote may be verified against; they are returned together by
+   * `selectIndexedContext` because two derivations of "which lines did the reader see" is the defect `renderLines`'s
+   * `shown` field exists to prevent.
+   *
+   * **Empty is a `v3` run rather than a broken one.** A caller with no index still gets a gate, and it gets the gate
+   * whose second block is the window - the direction this device is always allowed to fail in.
+   */
+  indexed?: { readonly text: string; readonly shown: ReadonlyArray<NumberedAddedLine> } | null;
   /**
    * **The new-side line numbers this change actually touched, when the caller computed them.**
    *
@@ -332,18 +352,38 @@ export function buildFalsifierPrompt(
   const lines = renderLines(request.addedLines);
   // **The surrounding block exists only under `v3`, and only when the caller could produce it.** A `v2` prompt is
   // byte-for-byte what it was, so every figure §74 measured stays reproducible from the code that measured it.
-  const surrounding =
-    contract === FALSIFIER_CONTRACTS.v3 && (request.surrounding?.length ?? 0) > 0
-      ? renderLines(request.surrounding ?? [], FALSIFIER_CONTEXT_BUDGET)
-      : { body: '', shown: 0 };
+  /**
+   * **The second block, which is a window under `v3` and an index extract under `v4`.**
+   *
+   * `v4` prefers the index because it is the cheaper of the two by an order of magnitude - 600 characters against
+   * 6 000 - and falls back to the window when the caller built none, so a run without an index still reaches the
+   * evidence rule it was dispatched under.
+   */
+  const secondary: { title: string; body: string } | null =
+    contract === FALSIFIER_CONTRACTS.v4 && (request.indexed?.shown.length ?? 0) > 0
+      ? {
+          title:
+            "The file as an index: what it exports, the declaration each claim stands in, and the guards inside it - the file's own numbers:",
+          body: request.indexed?.text ?? '',
+        }
+      : (contract === FALSIFIER_CONTRACTS.v3 || contract === FALSIFIER_CONTRACTS.v4) &&
+          (request.surrounding?.length ?? 0) > 0
+        ? {
+            title:
+              "The surrounding lines of the same file, which this change did not touch - the file's own numbers:",
+            body: renderLines(request.surrounding ?? [], FALSIFIER_CONTEXT_BUDGET).body,
+          }
+        : null;
   const claims = renderClaims(request.findings, contract);
   const rules =
-    contract === FALSIFIER_CONTRACTS.v3
+    contract === FALSIFIER_CONTRACTS.v3 || contract === FALSIFIER_CONTRACTS.v4
       ? [
           'Four rules, and they are the whole contract:',
           '',
-          '1. **Two blocks are evidence: the added lines, and the surrounding lines of the same file.** Code in neither',
-          '   block is not evidence, and neither is code you cannot see.',
+          secondary === null
+            ? '1. **Only the added lines above are evidence.** No second block was available for this file.'
+            : '1. **Two blocks are evidence: the added lines, and the block below them.** Code in neither block is not',
+          secondary === null ? '' : '   evidence, and neither is code you cannot see.',
           "2. **A claim's own range is not evidence for that claim.** The line a claim points at is what the claim is",
           '   about, not a reason to disbelieve it: quoting it says the code is the code. The quote has to be a line',
           '   **outside** the range printed under that claim.',
@@ -387,17 +427,11 @@ export function buildFalsifierPrompt(
     'The added lines:',
     lines.body.trimEnd(),
     '',
-    ...(surrounding.body.length > 0
-      ? [
-          "The surrounding lines of the same file, which this change did not touch - the file's own numbers:",
-          surrounding.body.trimEnd(),
-          '',
-        ]
-      : []),
+    ...(secondary === null ? [] : [secondary.title, secondary.body.trimEnd(), '']),
     'The claims:',
     claims.body,
     '',
-    contract === FALSIFIER_CONTRACTS.v3
+    contract === FALSIFIER_CONTRACTS.v3 || contract === FALSIFIER_CONTRACTS.v4
       ? "Question: which of these claims does a line in either block, outside the claim's own range, directly contradict?"
       : contract === FALSIFIER_CONTRACTS.v2
         ? "Question: which of these claims does one of the added lines outside the claim's own range directly contradict?"
@@ -596,11 +630,16 @@ export class FalsifierGate {
         .map((line) => ({ line: line.line, text: compareForm(line.text) })),
       // **The file's own lines, shown under `v3`, are quotable too** - and they are the only lines that can refute a
       // claim whose hunk carries no independent evidence, which is 148 of the 183 `v2` left behind on 146 pull requests.
-      ...(contract === FALSIFIER_CONTRACTS.v3
-        ? (request.surrounding ?? [])
-            .slice(0, renderLines(request.surrounding ?? [], FALSIFIER_CONTEXT_BUDGET).shown)
-            .map((line) => ({ line: line.line, text: compareForm(line.text) }))
-        : []),
+      ...(contract === FALSIFIER_CONTRACTS.v4 && (request.indexed?.shown.length ?? 0) > 0
+        ? (request.indexed?.shown ?? []).map((line) => ({
+            line: line.line,
+            text: compareForm(line.text),
+          }))
+        : contract === FALSIFIER_CONTRACTS.v3 || contract === FALSIFIER_CONTRACTS.v4
+          ? (request.surrounding ?? [])
+              .slice(0, renderLines(request.surrounding ?? [], FALSIFIER_CONTEXT_BUDGET).shown)
+              .map((line) => ({ line: line.line, text: compareForm(line.text) }))
+          : []),
     ];
 
     const droppedAt = new Map<number, FalsifierDrop>();

@@ -1812,6 +1812,8 @@ async function main() {
    * change.** It now records what the gate itself reported for the last file it read, which is the only value that can
    * differ between the two arms.
    */
+  const { buildSymbolIndex } =
+    await import('../../packages/intelligence/dist/review/index/symbols.js');
   const FALSIFY =
     ADJUDICATE_MODE === 'falsifier'
       ? 'quoted-falsifier-v1'
@@ -1819,7 +1821,9 @@ async function main() {
         ? 'independent-evidence-v2'
         : ADJUDICATE_MODE === 'falsifier-v3'
           ? 'independent-evidence-v3'
-          : false;
+          : ADJUDICATE_MODE === 'falsifier-v4'
+            ? 'independent-evidence-v4'
+            : false;
   /**
    * **`v3` reads the file, so the run fetches it whether or not the code-context arm was asked for.**
    *
@@ -1828,7 +1832,10 @@ async function main() {
    * device later - a field that cannot record a change. So the fetch is owned by the contract rather than by the other
    * arm's switch, and the two arms of this pair differ in one field: the gate.
    */
-  const NEEDS_FILE_TEXT = FALSIFY === 'independent-evidence-v3';
+  // **`v4` needs the same fetch `v3` does, and for a stronger reason**: it builds an index out of the file rather than a
+  // window, so a run without the text would reach the gate with no second block at all.
+  const NEEDS_FILE_TEXT =
+    FALSIFY === 'independent-evidence-v3' || FALSIFY === 'independent-evidence-v4';
   /**
    * **The file text of the pull request being reviewed, read by the gate through a closure.**
    *
@@ -1931,6 +1938,16 @@ async function main() {
     // **Only `v3` reads this**, and it returns `undefined` for every other contract - so a file fetched for the code
     // context arm is not silently promoted into evidence for a gate that was never asked to use it.
     surroundingOf: (path) => fileTextsForGate.get(path),
+    /**
+     * **The file read as structure, for `independent-evidence-v4`** (§80). Built per file from the text the fetch already
+     * paid for - no call, no token, and the same 600 characters whether the file is forty lines or four thousand. A path
+     * the fetch did not reach returns `undefined`, and `v4` then degrades to the window rather than to a gate with no
+     * evidence beyond the hunk.
+     */
+    fileIndexOf: (path) => {
+      const text = fileTextsForGate.get(path);
+      return typeof text === 'string' ? buildSymbolIndex(path, text) : undefined;
+    },
     novelLinesOf: (path) => shapeLinesForGate.get(path),
     idioms: IDIOMS,
     remarks: REMARKS,
@@ -4846,5 +4863,17 @@ function write(payload) {
 
 main().catch((error) => {
   console.error('AACR-BENCH failed:', error && error.message);
+  /**
+   * **Where it failed, because a message is not a location.**
+   *
+   * The run of 2026-11-18 spent 34 minutes and reported `Cannot read properties of undefined (reading 'length')` - which
+   * is true of perhaps forty lines in this file and identifies none of them. **A failure that costs a dispatch to locate
+   * is a failure this job will keep paying for**, so the first frame in this file is printed beside the message. One
+   * line of log, and the next occurrence is a fix rather than a hunt.
+   */
+  const frame = String((error && error.stack) || '')
+    .split('\n')
+    .find((row) => row.includes('aacr-bench.mjs'));
+  if (frame !== undefined) console.error('AACR-BENCH at:', frame.trim());
   process.exit(1);
 });
