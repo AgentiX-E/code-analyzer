@@ -9249,3 +9249,58 @@ a `=begin` block that holds a `def`, a `do`-block, an unterminated method, a str
 static initialiser that is not a property, an inner type that is not one either, a file with no trailing newline, and the
 two half-written line shapes a diff carries. **No `v8 ignore`, no mock, and the two branches that could not be reached
 were deleted rather than excluded.**
+
+---
+
+## §88 R-41's first half is saturated, and the second half is a prompt change rather than a filter
+
+**This section costs 0 CNY and it contradicts the mechanism §86.7 registered**, which is why it is written before the arm
+is paid for. The instrument is the artifact of §86.5, run again over its own pull-request arm: **321 candidates, 58 of
+them on a golden, 173 goldens in the key**, so the arm's own baseline is precision 0.181, recall 0.335, **F1 0.235**.
+
+### 88.1 The two features the engine already records, priced against the goldens
+
+| the population the arm emitted                              | candidates | on a golden | precision | recall | F1         |
+| ----------------------------------------------------------- | ---------- | ----------- | --------- | ------ | ---------- |
+| everything                                                  | 321        | 58          | 0.181     | 0.335  | **0.2348** |
+| `namesSymbol` (the comment names a declaration or a member) | 305        | 56          | 0.184     | 0.324  | **0.2343** |
+| `quotesDiff` (the comment quotes a line the diff added)     | 35         | 12          | **0.343** | 0.069  | **0.1154** |
+| both                                                        | 35         | 12          | 0.343     | 0.069  | 0.1154     |
+
+**The first row of the device is a no-op, and the reason is that it is already true.** 305 of 321 candidates - **95 %** -
+already name a symbol, and the sixteen that do not are _less_ precise (0.125) than the ones that do. **A comment that
+cannot name what it is about is not the shape this engine emits**, so requiring it costs 2 hits and buys 0.3 points of
+precision: F1 moves from 0.2348 to 0.2343, which is to say it does not move.
+
+**The second row is where the whole effect sits, and as a filter it destroys the run.** A comment that quotes the added
+line is right **2.1 times as often** as one that does not (0.343 against 0.161), and it is only 11 % of the emission -
+so keeping those 35 turns precision +16 points and recall from 0.335 to **0.069**, F1 0.115. **The device is a
+stronger statement of the truth and a worse reviewer**, which is the same trade §85 measured for the falsifier and §86.6
+measured for every re-selection of the ranked list.
+
+### 88.2 What R-41 therefore is, restated before it is bought
+
+**Not a filter, a prompt.** §86.7's sentence - "a candidate without a witness is not emitted" - is the correct _goal_ and
+the wrong _mechanism_: as an emission rule it is worth 0.0005 of F1, and as a requirement on quoting it is worth −0.12.
+**What the numbers say is that the engine already tells you what it is about and does not tell you how the defect is
+reached**, so the arm has to move the second fact **without discarding the 89 % of comments that do not state it**:
+
+1. **The lane prompt requires an anchor, not a witness**: one sentence naming _the added line_ through which the defect
+   is reached, quoted from the diff. §88.1 says a comment that does this is 2.1× as likely to be right.
+2. **The emission rule is unchanged.** If the anchor is absent the comment is still emitted, with its score reduced by
+   the existing `quotesDiff` feature - **a feature weight, not a gate**, because §86.6 has already established that no
+   gate over this population exceeds 0.28.
+3. **The index's role narrows to the half that is not saturated**: the anchor must be a line inside the declaration the
+   comment stands in, which is `symbolAt` and the declaration's extent - the two things §87 just made readable for 83.2 %
+   of the key's paths.
+
+**Prediction, restated.** On the same key, the same judge and the same 173 goldens: **the anchoring rate rises from 11 %
+to at least 45 %**, precision among anchored comments stays **at least 0.30**, and **F1 ≥ 0.28** from 0.2757 on the full
+emission - a smaller claim than §86.7's 0.32, because §88.1 has removed the mechanism that was supposed to carry it.
+
+**Falsifier, unchanged in form and now bounded below by measurement.** F1 below 0.29 with the anchoring rate below 45 %:
+that would mean the prompt cannot raise anchoring, and the arm is retired rather than tuned. **If anchoring rises and F1
+does not, the quote is a symptom of the claim being checkable rather than a cause of it** - which is a result about the
+engine and not about the prompt, and it would end the prompt-side programme rather than extend it.
+
+**Cost.** One arm, fifty pull requests, **ceiling 10 CNY**, baseline already paid. **Not spent as of this section.**
