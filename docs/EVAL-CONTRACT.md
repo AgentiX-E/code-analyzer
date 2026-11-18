@@ -8859,3 +8859,64 @@ three prompt orders, and **a duplicate costing exactly zero characters** - which
 prediction is stated as one: **a pair that measures a prompt with 38.6 % fewer characters must show F1 inside the
 instrument's resolution, or the duplicate was doing work nobody has claimed for it.** The bill, by contrast, has no
 noise floor: it is arithmetic on characters.
+
+## 85. The index learned the corpus's languages and the gate still removed nothing that costs
+
+### 85.1 The run
+
+`44288524845` - `pair: falsifier-v4`, 30 pull requests, both arms green in 55 minutes, **0.6699 and 0.6772 USD
+(4.82 and 4.88 CNY)**. It is the same registration as R-40 and the same corpus; **one input changed** - the lexer now
+names a declaration for 64.3 % of findings instead of 20.8 % (§84.3) - so the differential is the first reading of
+`independent-evidence-v4` taken on an index that is not blind.
+
+|                        | `falsifier-v4` | `off`      | Δ           |
+| ---------------------- | -------------- | ---------- | ----------- |
+| precision              | 0.2447         | 0.2565     | −0.0118     |
+| recall                 | 0.1742         | 0.1856     | −0.0114     |
+| F1                     | **0.2035**     | **0.2154** | **−0.0119** |
+| true positives         | 46             | 49         | −3          |
+| **false positives**    | **142**        | **142**    | **0**       |
+| findings               | 396            | 435        | −39         |
+| gate candidates        | 418            | —          |             |
+| gate removals          | 22             | 0          | +22         |
+| kept: quote missing    | 5              | —          |             |
+| kept: self-referential | 24             | —          |             |
+| bill (USD)             | 0.6699         | 0.6772     | −0.0073     |
+
+**The false-positive count is identical in both arms.** That is not a coincidence and it is not the device being
+conservative: **it is the whole geometry of the instrument.**
+
+### 85.2 A filter placed before the judge is measured on a denominator it cannot move
+
+The `off` arm emitted 435 findings and **191 of them were judged**. The other 244 are neither true nor false in this
+score: the protocol forms (finding, golden) pairs, so **a finding that stands where no golden stands is never asked
+about and never counted**. `precision` is `TP / (TP + FP)` over the judged set only.
+
+A gate that removes a finding before judging therefore does one of two things and nothing else:
+
+1. it removes a finding from the **unscored tail** - which changes no counter at all, and costs a model call; or
+2. it removes a finding that **would have been judged** - which removes a true positive whenever the finding was right,
+   and a false positive only when the finding was wrong.
+
+The run's 22 removals split **3 judged, 19 unscored**. And the arithmetic is unforgiving: with `TP 49 · FP 142 · FN 215`,
+removing `x = 3` true findings pays only if it also removes `y > x·(TP+FP+FN)/TP = 3 × 8.29 = 24.9` false ones.
+**It removed none.** F1 falls to `92 / (92 + 142 + 218) = 0.2035`, which is the published figure to four decimals.
+
+**So R-40 is falsified, and this time the falsification is mechanistic rather than statistical**: the device is not
+insufficiently sharp, it is **aimed at the part of the emission that the score does not read**. §83 reached the same
+verdict from the removal rate (82.4 % false against a break-even of 88.1 %); this run says why that rate was
+unreachable - **the pool the gate can see and the pool the judge scores are different pools**, and the difference is
+53 % of everything the lanes write.
+
+**`falsifier-v4` stays off, and so does every other pre-judge gate in the tree** - `quoted-falsifier-v1` through `v3`,
+and `change-shape`, which §83 already retired. They are kept as ablation references because a corpus that judged every
+finding would price them differently, and **that is the one change to this instrument that would make them measurable
+at all.**
+
+### 85.3 What the index's 64.3 % bought, said plainly
+
+**Nothing measurable, and the reason is 85.2 rather than the index.** The gate was the index's only consumer; the gate
+cannot move the score; so a better index fed to it produces a sharper removal from a pool that does not count, and three
+true findings lost. **The index is now strong enough to be worth a consumer that is not a pre-judge filter**, and the
+arithmetic of §84.6 says where that consumer has to sit: on the generation side, where a finding enters the judged set
+in the first place.
