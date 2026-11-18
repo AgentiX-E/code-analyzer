@@ -8755,3 +8755,73 @@ registered next experiment - the index in the lane's prompt rather than in the g
 would have been three raw lines for four files in five. With this reading, the block is a real declaration for 64.3 % of
 findings and **68.4 % of true ones**, which is the first corpus on which that experiment is about the index rather
 than about its absence.
+
+### 84.5 Two assays that cost nothing, and the registered experiment that died in the first one
+
+**The first assay asks the question §83.3 was going to buy.** That section registered the index in the lane's prompt on
+one mechanism: _"a lane given `exports:`, the declaration the claim stands in and the guards inside it should make
+fewer claims about symbols that are not there."_ **The premise is checkable offline** - every identifier-shaped name in
+a finding's text, against the file the finding stands in - on the 308 findings that have a file at the corpus's head
+commit:
+
+| subset         | n   | tp  | fp  | names ≥1 absent symbol | names ≥2              |
+| -------------- | --- | --- | --- | ---------------------- | --------------------- |
+| all            | 308 | 76  | 232 | tp 38.2 % · fp 37.1 %  | tp 9.2 % · fp 14.2 %  |
+| `architecture` | 77  | 11  | 66  | tp 54.5 % · fp 47.0 %  | tp 18.2 % · fp 12.1 % |
+| `test`         | 56  | 3   | 53  | tp 33.3 % · fp 34.0 %  | tp 33.3 % · fp 11.3 % |
+| `bug`          | 132 | 44  | 88  | tp 27.3 % · fp 31.8 %  | tp 6.8 % · fp 15.9 %  |
+
+**38.2 % against 37.1 % is no discrimination at all**, and on "two or more absent names" the ordering is the wrong way
+round: a refuter built on this would remove 14.2 % of the false findings and 9.2 % of the true ones. **The false
+findings are not more likely than the true ones to name a symbol that is not in the file** - they are the same review
+with the same vocabulary, and the corpus simply did not annotate the same lines.
+
+**So the lane-index experiment is retired before it was funded**, and the retirement is the assay rather than an
+argument. §83.3's prediction named architecture as its target; architecture's own row is 54.5 % against 47.0 %, a 7.5
+point gap on eleven true findings. **A device aimed at that is a device aimed at noise.**
+
+**The second assay asks whether _any_ signal the engine already records separates the two.** Every finding carries a
+feature vector and a score, and the artifact is enough to bucket it:
+
+| bucket                             | precision                     | tp              | n                 |
+| ---------------------------------- | ----------------------------- | --------------- | ----------------- |
+| all                                | 0.244                         | 76              | 311               |
+| severity `high` / `medium` / `low` | 0.340 / 0.166 / 0.269         | 36 / 25 / 14    | 106 / 151 / 52    |
+| `quotesDiff` true / false          | 0.316 / 0.234                 | 12 / 64         | 38 / 273          |
+| score ≥ 0.75 / < 0.4               | 0.322 / 0.118                 | 39 / 2          | 121 / 17          |
+| `grounded` true / false            | 0.251 / 0.167                 | 72 / 4          | 287 / 24          |
+| `hedged` true / false              | 0.208 / 0.251                 | 10 / 66         | 48 / 263          |
+| `agreement` 1 / 2 / 4 / 6          | 0.172 / 0.351 / 0.200 / 0.444 | 15 / 20 / 8 / 8 | 87 / 57 / 40 / 18 |
+
+**Every bucket sits between 0.12 and 0.35 against a base of 0.244**, and the best of them - `score ≥ 0.75` - is a 1.3×
+lift on a third of the emission. **A filter built on any of these removes true findings at very nearly the rate it
+removes false ones**, which is the mechanical explanation of a pattern this repository has now recorded four times:
+the checklist (§15.3), the adjudicator (§44), the change-shape gate (§83) and the merge threshold all traded 1:1 and
+none of them moved F1.
+
+### 84.6 The number that says the next work is recall, and why no filter can reach the target
+
+The corpus's own density, measured from the diff of every pull request in the artifact: **282 goldens over 6 753 added
+lines - 4.18 %**. The run emitted 311 findings, which is **4.61 % of the added lines**: the review writes at almost
+exactly the density the annotators wrote at, and **three findings in four land on code nobody commented on**. That is
+not a claim that the three are wrong; it is the statement that this corpus cannot tell the difference.
+
+The arithmetic uses the artifact's own counts - `TP 50 · FP 174 · FN 232` - which reproduce its published F1 to four
+decimals (`100 / 506 = 0.1976`), and asks what each lever can reach. **The artifact also prints `recall 0.1383`, which
+is 39 of 282 and does not reproduce that F1; the table uses 50 of 282 because it is the figure the three counts state,
+and the discrepancy between them is a defect in the artifact that this section is not the place to repair.**
+
+| what changes                                                 | precision | recall | F1         |
+| ------------------------------------------------------------ | --------- | ------ | ---------- |
+| today                                                        | 0.2232    | 0.1773 | 0.1976     |
+| **every false positive removed, none of the true ones lost** | **1.000** | 0.1773 | **0.3012** |
+| recall 0.29 with nothing wrong in the output at all          | 1.000     | 0.2903 | 0.4499     |
+| recall 0.41 at a precision of 0.50                           | 0.500     | 0.4091 | 0.4510     |
+
+**A perfect precision device on today's findings reaches F1 0.301 and stops there.** The registered competitor figure of
+0.45 needs either recall 29 % with nothing wrong in the output at all, or recall 41 % at a precision of 0.50 - and this
+repository's recall is **17.7 %**, which is the number the last four iterations did not move.
+
+**So every device bought in those iterations was a selection device, and selection is capped at 0.301 by the row
+above.** The next registration has to be a generation one, and §84.5 is why it cannot be _"show the lane more of the
+file"_, which is a selection device wearing a prompt's clothes.
