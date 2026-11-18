@@ -449,20 +449,15 @@ jobs:
       # hundred and seventy-three golden comments, and the three profile counts upstream publishes. **A corpus that is
       # the wrong size is a comparison nobody can make**, and this step is where that is said rather than discovered
       # three hours later in a delta.
-      - name: Count the answer key
+      - name: Rebuild the answer key and refuse to score a stale one
         if: inputs.dataset == 'martian'
         run: |
           set -e
-          node -e '
-            const rows = JSON.parse(require("fs").readFileSync("benchmarks/martian/positive_samples.json", "utf8"));
-            const comments = rows.flatMap((r) => r.comments);
-            const strict = ["bug", "security", "concurrency", "data", "api"];
-            const core = [...strict, "perf", "test_gap", "doc_defect"];
-            const count = (keep) => comments.filter((c) => keep === null || keep.includes(c.category)).length;
-            console.log(`pull requests ${rows.length} · goldens ${comments.length}`,
-              `· strict ${count(strict)} · core ${count(core)} · all ${count(null)}`);
-            if (rows.length !== 50 || comments.length !== 173) process.exit(1);
-          '
+          npm run -s corpus:martian
+          # **The committed corpus must be exactly what the builder produces from the committed raw files.** A figure
+          # compared with nineteen published ones is only a comparison if the key is the key, and the two files can drift
+          # while both look plausible - a category renamed, a row dropped by a filter. `--exit-code` is the whole gate.
+          git diff --exit-code -- benchmarks/martian/positive_samples.json
 
       # **No `|| true`, and no fallback.** **A corpus that is not there fails the job**, because **a green run with no
       # data is the failure mode this repository has three rules about.**

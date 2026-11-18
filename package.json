@@ -88,7 +88,8 @@
     "robustness": "node scripts/corpus-robustness-gate.js",
     "callgraph": "node scripts/callgraph-gate.js",
     "measure:selfcheck": "tsx scripts/callgraph-selfcheck.ts",
-    "selfcheck": "node scripts/callgraph-selfcheck-gate.js"
+    "selfcheck": "node scripts/callgraph-selfcheck-gate.js",
+    "corpus:martian": "node scripts/build-martian-corpus.mjs"
   },
   "devDependencies": {
     "@types/node": "^26.6.6",
