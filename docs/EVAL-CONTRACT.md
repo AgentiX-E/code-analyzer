@@ -8356,3 +8356,69 @@ news.
 - **The `F`/`R`/`A`/`S` layer.** Not built. The structure layer is what a lexer can prove, and the meaning layer is what
   `aoci-code` forbids deriving - so it is a model-written artefact, committed once per repository, and its cost is
   amortised over every pull request that reads it.
+
+## 81. The index's first reading: a clean gate, and a gain that is not the gate's
+
+### 81.1 The run
+
+`44240929597` - `pair: falsifier-v4`, 30 pull requests, `skip 0`, competitor replayed, both arms green, 51 minutes. It is
+the first reading of any third-or-fourth contract that reached its judge, and it exists because §80.6 changed the order of
+operations: **a one-pull-request probe before a thirty, and the probe before it had already found the defect that killed
+the two dispatches before.**
+
+|                 | `v4` (with) | no gate (without) | Δ                     |
+| --------------- | ----------- | ----------------- | --------------------- |
+| precision       | 0.2581      | 0.2189            | **+0.0392**           |
+| recall          | 0.1818      | 0.1667            | +0.0151               |
+| F1              | 0.2133      | 0.1892            | **+0.0241**           |
+| true positives  | 48          | 44                | +4                    |
+| false positives | 138         | 157               | −19                   |
+| findings        | 407         | 442               | −35                   |
+| gate calls      | 225         | —                 | +225                  |
+| prompt tokens   | 5 026 767   | 4 818 632         | +208 135              |
+| cost (USD)      | 0.4019      | 0.3647            | **+0.0102 (+10.2 %)** |
+
+### 81.2 What is hard, and what is noise
+
+**Hard, and it is the result this device was built for.** The removal pool read **35 removals carrying 0 true positives -
+a share of 0 %**, against §75.3's 4 % target and §73's 24.9 %. `keptBecauseSelfReferential` was 18 and
+`keptBecauseQuoteMissing` 9, so the gate was not silent: it read 438 candidates, removed 31 with a verified quote and
+refused 27 more for want of one.
+
+**Noise, and the artifact says so in its own verdict.** The paired test is 16 pull requests better against 12 worse, and
+`outcome` reads `unfalsifiable: the registered gain 0.02 sits under the 0.0314 a second corpus of 264 goldens moves the
+figure by`. **`magnitudeMet: true` beside `resolvable: false` is the pair of fields that stops +0.0241 being reported as a
+win**, and §76's third verdict is why they exist.
+
+**And the arithmetic that attributes the gain.** A deletion pool of 35 false positives against the without arm's
+`TP 44 / FP 157` gives `P = 44/166`, `F1 = 0.2047` - **+0.0155**. The observed +0.0241 is 0.0086 more than the removals can
+explain, and that 0.0086 is the four extra true positives, which are the 16-against-12 the paired test already called
+noise. **So the removal pool explains two thirds of the movement and the rest is not attributable to anything.**
+
+### 81.3 The cost, stated as the opposite of what §79 predicted
+
+§79.3 predicted −44.9 % of gate characters and §80.3 predicted a tenth of the window. **Both are true of the block and
+neither is true of the bill**: this run cost **10.2 % more** than the arm without a gate, because a gate is one extra call
+per file - 225 of them - and 600 characters saved per call is 0.6 % of 5 million prompt tokens.
+
+**The comparison the index actually wins is against `v3`, not against no gate**, and it has not been measured: `v3`'s
+block was 6 000 characters, so 225 calls would have carried about 300 000 more prompt tokens - **roughly 6 % of this
+run's prompt and 1.5 % of its cost.** A device whose saving is 1.5 % of the bill is not a cost device, and **calling the
+index one would be the §77 defect - a spend reported by feeling rather than by tag.**
+
+**What the index buys instead is the thing the 600 characters were for**: the reader quoting _"Line 128 shows the existing
+`getDirsFromFront` takes a `DrawProjGroupItem*` pointer, not a string"_ for a claim anchored at 129-134 - **a refutation
+from outside the claim, from a declaration the extract named.** That is the mechanism working, and it is worth its 10 %.
+
+### 81.4 Why this does not lead to a 146-pull-request run yet
+
+`activity.observed` was 31 removals against the 190 floor, and `reach.ceilingGain` was **0.0135** - below the registered
+0.02 even if every removal had been free. **Scaling 31 removals to 146 pulls gives about 151**, which is still under 190.
+**A 146-pull-request dispatch of this arm would therefore buy the same `unreachable` verdict for five dollars**, and the
+honest reading of this slice is that **the gate is already as clean as it can be and its material is what is scarce - not
+its evidence, and not its price.**
+
+**The material is what §79's M1 was for.** `change-shape` refuses a finding that stands on lines the change did not write,
+**without a call**, so its removals are free and its volume is bounded by the corpus rather than by the reader's caution.
+The next dispatch is that pair, and §79.5's stopping rule applies to it rather than to this one: **more than four true
+positives among the dropped findings makes it a recall device that has to be re-registered as one.**
