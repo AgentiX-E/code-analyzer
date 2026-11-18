@@ -9114,3 +9114,34 @@ conclusion §86.4 reached on AACR by a different route, now measured on the key 
 
 **Cost of a true finding, for the record**: 9.49 CNY for 83 true positives is **0.114 CNY each**; the same run's
 false-positive bill is 346 comments a reader would have to dismiss.
+
+### 86.7 R-41, registered: a comment is not written until it names what reaches the defect
+
+**The device.** Each lane is asked, per candidate, for the **witness** before the claim: the input, state or caller that
+reaches the defect, and the line the diff adds through which it enters. **A candidate without a witness is not
+emitted.** This is the one design element the field's products share and this repository has never priced: Qodo 2.0's
+multi-agent expert review, Claude Code Review's verification stage - as opposed to §44's adjudicator and §85's falsifier,
+which are **removal after emission** and have now failed four times.
+
+**Why it is aimed at the right statistic.** §86.5: our best-ranked comment per pull request is right 38 % of the time
+and the field's average comment 61 to 80 %. §86.6: no re-selection of what we wrote exceeds 0.28. **The only remaining
+place to move is the truth value of an individual comment**, and a witness is the smallest object that can be required
+of one before it exists.
+
+**Prediction, written before the dispatch.** Precision at rank one **0.40 → at least 0.55**; recall **at least 0.40**
+from 0.48, a permitted fall of eight points, because a witness requirement removes candidates that were right by
+accident; F1 on the martian key **at least 0.32** from 0.2757.
+
+**Falsifier.** F1 below 0.29, or recall below 0.40. **Convergence rule**: two consecutive iterations below the falsifier
+retire the five-lane set and rebuild the reviewer around one lane whose comments carry witnesses, rather than adding a
+sixth device to five that do not.
+
+**Cost.** One arm, fifty pull requests, the martian key, **ceiling 10 CNY** - and **the baseline is already paid**: the
+artifact of §86.5 is the comparator, on the same corpus, the same judge and the same goldens, so the comparison costs one
+arm rather than two.
+
+**And the index's job in it, stated so the work is not speculative.** A witness is usually a claim about a declaration -
+_this guard does not cover that case_ - which is `symbolAt`, the declaration's extent and the guard lines inside it. **On
+this key 24.7 % of changed files are Java (15.3 %) and Ruby (9.4 %), which `symbols-langs.ts` does not read**, so the
+witness device is where `languageOf`'s five scanners stop being enough and the corpus says which two to add. **The index
+therefore has a consumer again, and it is not a gate.**
