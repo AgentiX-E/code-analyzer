@@ -224,6 +224,7 @@ describe('the artifact names of the benchmark workflow', () => {
       remarks: 'off',
       second_concern: 'off',
       lane_set: 'shipped',
+      change_shape: 'off',
     };
     const expected = new Set([
       expand(uploaded[0]!, baseline),
@@ -319,6 +320,15 @@ describe('the artifact names of the benchmark workflow', () => {
         uploaded[0]!,
         pair('lane_set', 'wide').find((arm) => arm['lane_set'] === 'wide')!,
       ),
+      // **And the arm whose gate is told what the change wrote** (§79). `pair: change-shape` buys the second contract
+      // twice - once as it ships, once with the classifier switched on - so the comparison can say whether the findings
+      // it drops were findings at all. **It varies neither a reader nor a gate but a fact about the diff**, and it is
+      // downloaded by name for the reason every other arm is: an arm paid for and never read is the failure this file
+      // exists for.
+      expand(
+        uploaded[0]!,
+        pair('change_shape', 'on').find((arm) => arm['change_shape'] === 'on')!,
+      ),
     ]);
     expect(new Set(downloads)).toEqual(expected);
   });
@@ -403,7 +413,7 @@ describe('the matrix is one experiment', () => {
       // were 24.9 % true positives against a pool rate of 21.3 %, and every sampled removal quoted the claim it attacked.
       // **And one single and one pair for the union**, which is R-37's device: `lane_set: wide` is the diagnostic dispatch
       // that prices the union without a comparison, and `pair-wide` is the comparison itself.
-    ).toEqual([1, 1, 1, 1, 1, 1, 1, 1, 1, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2]);
+    ).toEqual([1, 1, 1, 1, 1, 1, 1, 1, 1, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2]);
   });
 
   it('varies exactly one key, so that a difference between the arms is the device', () => {
@@ -624,6 +634,7 @@ describe('a download guard that the next device forgets to extend', () => {
       remarks: 'off',
       second_concern: 'off',
       lane_set: 'shipped',
+      change_shape: 'off',
     };
 
     // **The input, the value a dispatch gives it, and the value the matrix then writes into the row** - three columns

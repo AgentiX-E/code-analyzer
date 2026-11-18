@@ -680,6 +680,66 @@ export const REGISTRATIONS = Object.freeze({
      */
     confirmation: [],
   },
+  /**
+   * **R-39: the diff decides what a finding may stand on, before a reader is paid to look.**
+   *
+   * §79 read `difftastic`'s cost model and `aoci-code`'s index and found one thing both do that this repository does not:
+   * **they narrow, and we widen.** Two answers to "the reviewer looked in the right place and said the wrong thing" had
+   * already been widenings - `code-context.ts`'s block window, then §78's 6 000 characters of surrounding lines - and the
+   * second one returned −0.0022. This device is the first that removes instead of adds: a hunk whose every changed line is
+   * accounted for by whitespace, comment text or relocation **is not a place a finding about this pull request can stand**,
+   * and the patch says so without a call.
+   *
+   * **The bar is 0.015 rather than 0.02, and the arithmetic that forces it is written here so it cannot be revised later.**
+   * On R-36b's control arm the file arm read TP 198 / FP 784 over 1 054 goldens, so `F1(x) = 396 / (2 036 − x)` for a
+   * deletion pool of `x` false positives: **+0.0200 needs 190 removals**, and the classifier's own prediction - one
+   * finding in five sitting on a non-substantive hunk, of the 922 adjudicated - is 184. **A device whose perfect outcome
+   * is 0.0193 cannot be registered against a 0.02 bar**; that is §76's lesson applied before the run rather than after it.
+   * 0.015 is 78 % of the reachable ceiling, and it is the number a narrowing device can be held to.
+   *
+   * **The floor is 110, and it is the floor below which the prediction itself is wrong.** 110 is 60 % of 184: a run that
+   * drops fewer findings than that has said the corpus's hunks are substantive, not that the device failed, and the
+   * reading is `unreachable` rather than falsified - the third verdict §76 added for exactly this.
+   *
+   * **The mechanism is `recall-holds`, and the guard that matters is not in this file.** §79.5 registers the rule the
+   * artifact cannot check: **if more than four of the dropped findings are true positives, this is a recall device and has
+   * to be re-registered as one.** The artifact carries `falsifier.droppedBecauseNotNovel` and the shape counters, so the
+   * share is readable; the four is a judgement this table does not pretend to make.
+   */
+  'changeShape:true': {
+    section: '§79 (R-39)',
+    claim:
+      'a gate told which new-side lines the change actually wrote, and allowed to refute a finding standing on none of them, raises the file arm F1 by at least 0.015 on the pull requests R-36b read without lowering recall by more than a golden is worth',
+    arm: 'file',
+    registeredGain: 0.015,
+    /**
+     * **Registered below the corpus bar, and the reason is the arithmetic above rather than caution.**
+     *
+     * The bar this device can reach is 0.0193 and the corpus resolution is 0.0191, so the interval in which a met
+     * magnitude would also be outside noise is `(0.0191, 0.0193]` - a gap two ten-thousandths wide, which is not a bar
+     * but a coincidence. **A device whose entire headroom is smaller than the instrument cannot be adjudicated by the
+     * instrument**, and stating that is the only reading of this entry that survives its own numbers.
+     *
+     * What is adjudicated instead is the thing §79.5 registers: **how many findings the shape removed and how many of
+     * them were true positives.** `falsifier.droppedBecauseNotNovel` is carried by the artifact and the shape counters
+     * say whether the classifier fired at all, so a run answers the question this device was built for even where F1
+     * cannot. **The flag is not a licence to read a met outcome as confirmed** - `registrationResolvable` refuses it -
+     * and the next device that can carry this one's gain is the one that will price it.
+     */
+    registeredBelowResolution: true,
+    mechanism:
+      'precision rises and recall does not fall by more than a golden is worth, because a finding on a line the change did not write is rarely a finding about the change',
+    mechanismRule: 'recall-holds',
+    activity: { counter: 'falsifier.droppedBecauseNotNovel', atLeast: 110 },
+    deletionOnly: true,
+    deletionCounter: 'falsifier.droppedBecauseNotNovel',
+    /**
+     * **No confirmation slice, for the reason the third contract has none.** The registration is written against the
+     * rows R-36b read, and the corpus holds no rows past them that could price a second reading - so this is a discovery
+     * and the confirmation is written when a corpus exists that can carry one.
+     */
+    confirmation: [],
+  },
 });
 
 /**
