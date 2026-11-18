@@ -27,7 +27,7 @@
 
 import { describe, expect, it } from 'vitest';
 
-import { declaringParen, wordBefore, words } from '../lexemes.js';
+import { declaringWord, wordBefore, words } from '../lexemes.js';
 import { buildSymbolIndex, languageOf, symbolAt } from '../symbols.js';
 
 const GO = [
@@ -373,9 +373,11 @@ describe('C#, because the corpus carries it and its declarations live inside a n
 
   it('reads a method and a field at depth two as members', () => {
     const worker = index.symbols.find((symbol) => symbol.name === 'Worker')!;
+    // **`public Worker(...)` is a constructor and not a method called `Worker`**, which is what C# means by a member
+    // named after its type - the same fact §87 taught Java and Ruby to read.
     expect(worker.members.map((member) => `${member.kind}:${member.name}`)).toEqual([
       'property:name',
-      'method:Worker',
+      'constructor:Worker',
       'method:Claim',
     ]);
   });
@@ -399,6 +401,20 @@ describe('PHP, because the corpus carries it too', () => {
 
   it('reads public as exported and private as not', () => {
     expect(index.exported).toEqual(['Worker', 'shared']);
+  });
+
+  it('reads an interface as an interface and a trait as the class a trait is', () => {
+    const shapes = buildSymbolIndex(
+      'app/Shapes.php',
+      ['interface Shape {', '    public function area();', '}', '', 'trait Label {', '}', ''].join(
+        '\n',
+      ),
+    );
+    expect(shapes.symbols.map((symbol) => `${symbol.kind}:${symbol.name}`)).toEqual([
+      'interface:Shape',
+      'class:Label',
+    ]);
+    expect(shapes.symbols[0]!.members.map((member) => member.name)).toEqual(['area']);
   });
 });
 
@@ -454,8 +470,8 @@ describe('the branches a scanner has to answer rather than assume', () => {
 
   it('answers a punctuation that is not on the line with no word rather than the last one', () => {
     expect(wordBefore(words('int claim(int id) {'), ';', 'int claim(int id) {')).toBeUndefined();
-    expect(declaringParen('if (x) {')).toBe(-1);
-    expect(declaringParen('void (*handler)(int);')).toBe(-1);
+    expect(declaringWord(words('if (x) {'), 'if (x) {')).toBe(-1);
+    expect(declaringWord(words('void (*handler)(int);'), 'void (*handler)(int);')).toBe(-1);
   });
 
   it('reads no function from a definition that opens a body with a pointer to one', () => {

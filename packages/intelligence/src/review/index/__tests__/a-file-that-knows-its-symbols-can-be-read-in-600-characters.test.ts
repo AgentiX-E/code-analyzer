@@ -252,6 +252,17 @@ describe('the context a claim is given once the file is indexed', () => {
     expect(context).toContain('L1: const a = 1;');
   });
 
+  it('renders a claim whose own line is blank without a line of its own', () => {
+    // A finding filed against a blank line - the shape a hunk whose added block starts with an empty line leaves.
+    const blank = buildSymbolIndex(
+      'src/a.ts',
+      ['export function run() {', '', '  return 1;', '}', ''].join('\n'),
+    );
+    const context = selectIndexedContext({ index: blank, lines: [2] }).text;
+    expect(context).toContain('L1: export function run() {');
+    expect(context).not.toContain('L2:');
+  });
+
   it('spends its whole budget on several claims before it spends a line beyond it', () => {
     const context = selectIndexedContext({ index, lines: [15, 29], budget: 400 }).text;
 

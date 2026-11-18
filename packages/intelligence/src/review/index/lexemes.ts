@@ -127,17 +127,21 @@ export function wordEndingAt(words: readonly Word[], at: number): Word | undefin
 }
 
 /**
- * **The parenthesis a declaration's name sits before, which is the first one an identifier touches.**
+ * **The word a declaration's argument list is about, as an index into the line's words, or `-1`.**
  *
  * The last `(` is the wrong one in both directions, and the corpus has a case of each: `Get(id string) (*Entry, error)`
  * has a *second* paren for its result list, and `void (*callback)(void);` has its first paren after a space. **The
  * argument list is the first paren whose preceding character is part of a word**, which is true of `Get(`,
  * `Claim(string id)` and `claim($id)` and false of `(id string)`, `(*callback)` and `if (x)`.
+ *
+ * **The answer is an index rather than a position, and that is the whole point of the signature.** Asking for the
+ * column and then looking up the word that ends there left a lookup that could not fail and a branch no input could
+ * take - the shape of dead code this package refuses to keep. A word is followed by `(` exactly when the character
+ * after it is `(`, so the question is answered while walking the words and never needs a second question.
  */
-export function declaringParen(line: string): number {
-  for (let at = 1; at < line.length; at += 1) {
-    if (line[at] !== '(') continue;
-    if (isWordChar(line[at - 1]!)) return at;
+export function declaringWord(words: readonly Word[], line: string): number {
+  for (let index = 0; index < words.length; index += 1) {
+    if (line[words[index]!.end] === '(') return index;
   }
   return -1;
 }

@@ -33,12 +33,23 @@ export type SymbolKind =
  * **The languages this index can read, named by the scanner that reads them.**
  *
  * `unknown` is a real answer and not a failure: a `.json` baseline has no declarations, and **an index that guessed at
- * one would be inventing the fact it was asked to establish.** The five that are named are the five the corpus at
- * `Alibaba-Aone/aacr-bench` is written in, in the order of how many findings stand in them: Go 91, C 50, Python 38,
- * TypeScript and JavaScript 54 together, PHP 10, C# 4.
+ * one would be inventing the fact it was asked to establish.** **Nine are named, and the two corpora are why.** The five
+ * `Alibaba-Aone/aacr-bench` is written in - Go 91 findings, C 50, Python 38, TypeScript and JavaScript 54 together, PHP
+ * 10, C# 4 - and the two `withmartian/code-review-benchmark` files most of its findings in, which are **Java (75 of its
+ * 481 paths) and Ruby (58)**. §87 is the measurement: those two took the share of changed files this index can name from
+ * 52.8 % to 83.2 %.
  */
 export type SourceLanguage =
-  'typescript' | 'javascript' | 'go' | 'python' | 'c' | 'csharp' | 'php' | 'unknown';
+  | 'typescript'
+  | 'javascript'
+  | 'go'
+  | 'python'
+  | 'c'
+  | 'csharp'
+  | 'php'
+  | 'java'
+  | 'ruby'
+  | 'unknown';
 
 /** The extensions each language is written with, and no more: a path is the only evidence a caller has. */
 const EXTENSION_LANGUAGE: Readonly<Record<string, SourceLanguage>> = {
@@ -50,6 +61,9 @@ const EXTENSION_LANGUAGE: Readonly<Record<string, SourceLanguage>> = {
   '.jsx': 'javascript',
   '.mjs': 'javascript',
   '.cjs': 'javascript',
+  // **`.js.es6` is a JavaScript file and the extension that says so is the last one**, which Sprockets writes for every
+  // asset in a Rails application: 13 of the 481 paths the martian artifact filed against end this way.
+  '.es6': 'javascript',
   '.go': 'go',
   '.py': 'python',
   '.pyi': 'python',
@@ -62,6 +76,14 @@ const EXTENSION_LANGUAGE: Readonly<Record<string, SourceLanguage>> = {
   '.hh': 'c',
   '.cs': 'csharp',
   '.php': 'php',
+  '.java': 'java',
+  '.rb': 'ruby',
+  // **Ruby's family, by the files it is actually written in rather than by the one extension it is famous for**: a
+  // Rakefile task, a Rackup config, a gemspec and a Thor task are Ruby and declare what Ruby declares.
+  '.rake': 'ruby',
+  '.ru': 'ruby',
+  '.gemspec': 'ruby',
+  '.thor': 'ruby',
 };
 
 /**
@@ -383,7 +405,17 @@ export function buildSymbolIndex(path: string, text: string): FileSymbolIndex {
     return start;
   };
 
-  const file: PreparedFile = { path, lines, codes, depthAtStart, depthAtEnd, endOf };
+  const file: PreparedFile = {
+    path,
+    lines,
+    codes,
+    depthAtStart,
+    depthAtEnd,
+    endOf,
+    markUncertain: () => {
+      uncertain = true;
+    },
+  };
   const scanned =
     language === 'typescript' || language === 'javascript'
       ? scanTypeScript(file)
@@ -479,10 +511,16 @@ function scanTypeScript(file: PreparedFile): ScannedDeclarations {
  * "the nearest declaration" is a different claim from "this declaration".
  */
 export function symbolAt(index: FileSymbolIndex, line: number): DeclaredSymbol | null {
+  let found: DeclaredSymbol | null = null;
   for (const symbol of index.symbols) {
-    if (line >= symbol.startLine && line <= symbol.endLine) return symbol;
+    if (line < symbol.startLine || line > symbol.endLine) continue;
+    // **The last declaration that contains the line is the innermost one**, and that is a fact about the order every
+    // scanner emits rather than about the ranges: a declaration that contains another one starts before it, so the
+    // container is always read first. **A span comparison said the same thing and needed a second question** - "is this
+    // one narrower than the one I have" - whose answer is never `no` on a well-formed file: a branch no input can take.
+    found = symbol;
   }
-  return null;
+  return found;
 }
 
 /** How much a claim's context may spend, in characters. §78 spent 6 000 on the same question. */
@@ -516,15 +554,13 @@ const GUARD = /\b(?:throw|assert|invariant|guard|expect|return|continue|break)\b
 
 /** One rendered block, so the budget can be shared between claims instead of spent on the first. */
 function renderClaim(index: FileSymbolIndex, line: number, allowance: number): string {
-  const symbol = index.symbols.find(
-    (candidate) => line >= candidate.startLine && line <= candidate.endLine,
-  );
+  const symbol = symbolAt(index, line);
   const member = symbol?.members.find(
     (candidate) => line >= candidate.startLine && line <= candidate.endLine,
   );
   const out: string[] = [];
 
-  if (symbol === undefined) {
+  if (symbol === null) {
     // **A claim no declaration contains is answered with its neighbours rather than with nothing**, because a prompt that
     // says nothing about a claim is a prompt the reader answers from the diff alone - which is where it already was.
     for (let at = Math.max(1, line - 1); at <= Math.min(index.lines.length, line + 1); at += 1) {

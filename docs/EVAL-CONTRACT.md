@@ -9145,3 +9145,107 @@ _this guard does not cover that case_ - which is `symbolAt`, the declaration's e
 this key 24.7 % of changed files are Java (15.3 %) and Ruby (9.4 %), which `symbols-langs.ts` does not read**, so the
 witness device is where `languageOf`'s five scanners stop being enough and the corpus says which two to add. **The index
 therefore has a consumer again, and it is not a gate.**
+
+---
+
+## §87 The two languages the field writes most, which the index could not read
+
+**§86.7 ended with a wait rather than a device**: R-41 needs a witness, a witness names a declaration, and **on this key
+24.7 % of changed files were Java (15.3 %) and Ruby (9.4 %)**, which `symbols-langs.ts` did not read. This section is the
+prerequisite, it costs **0 CNY**, and it is measured before the paid arm rather than after it.
+
+### 87.1 What the count said, before anything was changed
+
+**The instrument is the path list, not an opinion.** The 943 ranked findings in `benchmarks/martian-bench.json` name
+**481 distinct paths**; `languageOf` was asked about every one of them, and this is what it answered:
+
+| result                                                              | paths | share      |
+| ------------------------------------------------------------------- | ----- | ---------- |
+| read by a scanner                                                   | 254   | **52.8 %** |
+| `.java`                                                             | 75    | 15.6 %     |
+| `.rb`                                                               | 57    | 11.9 %     |
+| `.js.es6`                                                           | 13    | 2.7 %      |
+| everything else (`.scss`, `.properties`, `.hbs`, `.yml`, `.sql`, …) | 82    | 17.0 %     |
+
+**The first three rows are one defect rather than three.** `.js.es6` is a JavaScript file that Sprockets names by its
+last extension, `.rb` is Ruby, `.java` is Java - and all three were `unknown`, which is the one answer the index gives
+that a consumer cannot tell apart from "this file declares nothing".
+
+### 87.2 What was added, and the answer each language owes
+
+| language                          | paths read | `exported` means                                                                    | a constructor is                    | a block ends at                      |
+| --------------------------------- | ---------- | ----------------------------------------------------------------------------------- | ----------------------------------- | ------------------------------------ |
+| Java (`JAVA_PREFIX`, `JAVA_TYPE`) | 75         | the `public` modifier; package-private is not exported                              | a method named after its class      | its `}`                              |
+| Ruby (`RUBY_TYPE`, `RUBY_DEF`)    | 58         | **nothing** - every top-level declaration is reachable from a file that requires it | `initialize`, named after its class | the `end` that balances its keywords |
+| JavaScript (`.es6`)               | 13         | the `export` keyword, as it already did                                             | —                                   | its `}`                              |
+
+**Ruby's `exported` is the answer that is true rather than borrowed.** The other six languages each have a rule for
+keeping a name to one file - Go's letter, Python's underscore, C's `static`, C#'s and Java's modifiers, PHP's `public` -
+and **Ruby has none for a top-level definition**, so the honest answer is "offered", which is what the field says.
+
+### 87.3 The shared member reader, and the three defects two languages exposed
+
+Adding Java and Ruby put three shapes through `memberFrom` that the corpus had not yet asked it:
+
+1. **An initialiser outranks a call.** `private final Map<String, Entry> byId = new ConcurrentHashMap<>();` declares
+   `byId`; a reader that looked for a `(` first answered **`load`**-shaped nonsense - a name that is in the file and is
+   not the member's. The comparison is now between the positions of `=` and `(`, not between the marks present.
+2. **A constructor is spelled as a method named after its class.** `public ClaimStore(List<Entry> seed)` was read as a
+   method called `ClaimStore` in Java, C# and Ruby alike. It is a `constructor`, and the rule is `read.name === parent`
+   **only when the line was read as a method**, because a Java field may legally carry the class's own name.
+3. **A type declared inside a type is a declaration, not a property of its neighbour.** `public static class Inner {` at
+   member depth was being reported as a property called `Inner`. `TYPE_HEAD` now refuses the five type keywords in all
+   four member-reading languages.
+
+**And two branches were deleted rather than covered.** `declaringParen(line): number` became
+`declaringWord(words, line): number`: asking for a column and then looking up the word that ends there left **a lookup
+that could not fail and a branch no file could take**, and the same was true of the keyword guard in `cFunction`, because
+`if (`, `for (`, `while (` and `switch (` are written with a space and touch no word at all. What remains is one guard
+(`nameFrom`) whose reachable input is real: **`static {` opens a static initialiser and is not a property called
+`static`** - which is now a test.
+
+### 87.4 Ruby's `end`, and the four things that fake one
+
+**The failure direction is the one every scanner here keeps: wide, never short.** A block that ends early hides the guard
+that would have refuted a claim, so the counter is asymmetric on purpose:
+
+| the shape                                            | the answer       | why                                                                   |
+| ---------------------------------------------------- | ---------------- | --------------------------------------------------------------------- |
+| an opener after `=` (`x = if cond`)                  | **counted**      | missing an opener ends the block early                                |
+| a modifier `if` (`raise X if y`)                     | **not counted**  | it opens nothing; counting it would only run wide                     |
+| a `do` at the end of a line                          | counted          | `items.each do                                                        | item | `owes an`end` |
+| an `end` that starts a line                          | counted          | `; end` is not counted, which runs wide rather than short             |
+| a heredoc body (`sql = <<~SQL` … `SQL`)              | **blanked**      | its lines may start with `end`; this is the shape that would truncate |
+| a `=begin` … `=end` block                            | blanked          | Ruby's other comment form, and it may hold `def`                      |
+| a `#` comment                                        | cut              | the shared lexer knows `//` and `/* */` and not Ruby's marker         |
+| a balance of zero on a line indented **differently** | **not accepted** | a stray `end` closes the wrong block; the scan keeps going            |
+
+A block that never balances runs to the file's last line and the index is marked **`uncertain`** - through
+`PreparedFile.markUncertain`, which is the one addition to the shared interface, because the brace languages say this
+with `endOf` and Ruby has no brace to point at.
+
+### 87.5 The readback, and what it does not prove
+
+| measurement                                          | before             | after                                                                                                                        |
+| ---------------------------------------------------- | ------------------ | ---------------------------------------------------------------------------------------------------------------------------- |
+| distinct paths the index can name                    | 254 / 481 (52.8 %) | **400 / 481 (83.2 %)**                                                                                                       |
+| languages read                                       | 5                  | **7** (`typescript` 147, `java` 75, `python` 69, `ruby` 58, `go` 33, `javascript` 18, `c`/`csharp`/`php` in the AACR corpus) |
+| statements / lines / functions on `symbols-langs.ts` | 100 / 100 / 100    | 100 / 100 / 100                                                                                                              |
+| branches on `symbols-langs.ts`                       | 96.1 %             | **99.3 %**                                                                                                                   |
+| branches on `symbols.ts` and `lexemes.ts`            | 98.6 / 96.3        | **100 / 100**                                                                                                                |
+
+**What this does not prove, written down before the paid arm so that it cannot be claimed later.** No F1 was measured
+here: **the index is upstream of the witness device and is not priced by itself**. §86.6 already showed that re-selecting
+what we wrote cannot exceed 0.28 on the martian key, so **an index that reads two more languages is a precondition for
+R-41 and not a result** - and if R-41 lands below the falsifier, this section is the reason it failed for a reason other
+than the index being blind to a quarter of the files.
+
+**Budget: 0 CNY.** The instrument is the artifact of §86.5, already paid for; the four readbacks above are computed from
+its path list.
+
+**Tests.** `the-two-languages-the-field-writes-most.test.ts`, 36 cases, written before the scanners: the declarations and
+ranges of both languages, `initialize` named after its class, `attr_reader` as properties, a heredoc that holds an `end`,
+a `=begin` block that holds a `def`, a `do`-block, an unterminated method, a stray `end` at the wrong indentation, a
+static initialiser that is not a property, an inner type that is not one either, a file with no trailing newline, and the
+two half-written line shapes a diff carries. **No `v8 ignore`, no mock, and the two branches that could not be reached
+were deleted rather than excluded.**
