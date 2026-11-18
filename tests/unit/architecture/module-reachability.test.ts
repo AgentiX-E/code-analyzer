@@ -448,7 +448,12 @@ describe('every module a package compiles is reachable from an entry its manifes
       // of the adjudicator** for the reason §45 already paid for: the two devices have opposite contracts - one removes on
       // the reader's word, one only on a quote it can verify - and a file that held both would be a file where the
       // lenient branch and the strict one are one `if` apart.
-      intelligence: 188,
+      // **190 since iteration 148**, which added `review/index/lexemes.ts` and `review/index/symbols-langs.ts`: the
+      // arithmetic five scanners share, and the five themselves. They are modules rather than branches of `symbols.ts`
+      // because **a file is library input and the alternative was a 1 200-line scanner whose four languages were tested
+      // against one another's fixtures** - §84 records the count that forced them: 81 % of the corpus's findings stood
+      // in a file whose declarations the index could not name.
+      intelligence: 190,
       mcp: 39,
       server: 24,
       // **11 since iteration 121**, which added `utils/type-text.ts`: the depth-counted removal of type arguments and
