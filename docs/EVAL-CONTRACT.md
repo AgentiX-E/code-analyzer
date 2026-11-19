@@ -9542,3 +9542,132 @@ programme on better evidence than a failed filter would have.
 `agent off`, `ensemble off`, `remarks off`, `second_concern off`, `lane_set shipped`, `change_shape off`), **ceiling
 10 CNY**, of which ≈0.9 is the prompt. **The dispatch is recorded with its run id in §91**, because a claim about a run
 is a claim about a number somebody can open.
+
+**Two sentences of this section are wrong and §91 says so with the numbers.** The **0.9 CNY estimate** priced the
+contract's 478 characters and forgot that every finding would then carry a quoted line, so the device cost **12.62
+CNY** - fourteen times the estimate and **22.11 CNY for the run against the 10 registered**. And the **size guard's
+band** in §90.3 was reported as moved to 6 400-6 800; with the rule reverted the measurement is **6 061** and the band
+is **5 900-6 400**, which is the same argument applied to the number that survived. **Nothing else in §90 needed
+correcting**: the field, the verification and the "weight and not a gate" wiring were all built as described, and §91
+is why they no longer exist.
+
+---
+
+## §91 R-41 read back: the lanes answered the anchor 88.5 % of the time and F1 fell 0.029, which is the other branch of the falsifier
+
+**The run is `44446595437`, fifty pull requests on the Martian key, the shipped configuration, one arm.** Artifact:
+`benchmarks/r41-anchor.json`. Reader: `scripts/anchor-rate.mjs`, whose own baseline row is measured on the artifact that
+predates the field (§91.1). **The device did what it was asked and the prediction failed anyway**, and this section is
+about the difference between those two sentences.
+
+### 91.1 The four numbers, and the baseline they are read against
+
+| figure                                | before (`aacr-bench.json`)           | **after (`r41-anchor.json`)** |
+| ------------------------------------- | ------------------------------------ | ----------------------------- |
+| anchoring rate over emitted comments  | **0.0000** (the field did not exist) | **0.8854** (340 of 384)       |
+| shipped precision / recall / F1       | 0.1935 / 0.4798 / **0.2757**         | 0.1724 / 0.4335 / **0.2467**  |
+| true positives / false positives      | 83 / 346                             | **75 / 360**                  |
+| full emission precision / recall / F1 | 0.1018 / 0.5549 / 0.1720             | 0.1012 / 0.5376 / 0.1703      |
+| 50 pull requests, spend               | 9.49 CNY                             | **22.11 CNY**                 |
+
+**The anchoring rate is the prediction and it over-performed by a factor of two**: §88.2 registered _11 % → at least
+45 %_ and the lanes returned **88.5 %**. **The precision among anchored comments is 0.1647 against 0.0227 among the 44
+that failed to name one** - a 7.3× separation, and the first evidence in this repository that the anchor is a real
+signal rather than a phrasing habit.
+
+**And the shipped point fell 0.029.**
+
+### 91.2 Why: a field every comment fills is a field that selects nothing
+
+The 2×2 is the whole mechanism:
+
+|                | right | wrong   |
+| -------------- | ----- | ------- |
+| **anchored**   | 56    | **284** |
+| **unanchored** | 1     | 43      |
+
+**284 of the 340 anchored comments are wrong.** The anchor is therefore not a _witness_ - a fact the lane had to
+establish - but **a restatement it can always produce**, because a comment about a defect on an added line can always
+quote that line. §88.1 had already seen this shape from the other side: 95 % of comments named a symbol, and requiring
+it bought 0.0005 of F1. **The anchor is the same object at a higher compliance rate.**
+
+**And it did damage on the way**, which is the part worth keeping: the anchor was wired into the `quotesDiff` term - the
+mechanism §88.2 chose so that the weight table could stay untouched - and **the term is now true for 88.5 % of the
+emission**, so it stopped discriminating. A weighted sum whose largest conditional term is a constant is a sum with one
+fewer term, and the ordering underneath it is the one §48 measured at AUC 0.541. **The gate it feeds
+(`grounded && (proposesChange || quotesDiff)`) therefore admitted more, and the cut it orders got worse**: precision
+0.1724 against 0.1935, recall 0.4335 against 0.4798 - **both fell, so this is not the precision-for-recall trade every
+earlier device made.**
+
+### 91.3 The verdict, stated as the registration stated it
+
+§88.2's falsifier had two branches and **the second one fired**:
+
+- _F1 below 0.29 with the anchoring rate below 45 %_ - **not this**: the rate was 88.5 %.
+- _If anchoring rises and F1 does not, the quote is a symptom of the claim being checkable rather than a cause of it -
+  which is a result about the engine and not about the prompt, and it would end the prompt-side programme rather than
+  extend it._ - **this.**
+
+**So the prompt-side programme ends.** Not because a prompt cannot change what a lane writes - it changed it on 88.5 %
+of comments - but because **what the lane writes when asked is not what the engine needs**. A device that raises
+precision has to make a claim **harder to make**, and every field the contract adds is a field the lane can fill.
+
+### 91.4 What came back out, and the one thing the same commit keeps
+
+**The device is reverted**, in the same branch that measured it:
+
+| what                                         | state    | why                                                                       |
+| -------------------------------------------- | -------- | ------------------------------------------------------------------------- |
+| `NAME_THE_ANCHOR`, rules 7 and 10            | **gone** | it bought −0.029 F1 and 12.62 CNY per run                                 |
+| `LLMFinding.anchor`, both schemas            | **gone** | a field nothing reads is a field that will be read again                  |
+| `features.anchored`, the `quotesDiff` wiring | **gone** | the wiring is what removed the term's information                         |
+| the twelve-character floor, named            | **kept** | it is the only part of the device that was ever a measurement             |
+| **the schema's missing closing quote**       | **kept** | `"suggestion": "…                                                         | null` was invalid JSON in every call ever made |
+| `scripts/anchor-rate.mjs`, the artifact      | **kept** | §91.1's rows have to be rebuildable after the code that made them is gone |
+
+**A test file stays with the revert** - `the-anchor-was-retired-and-nothing-reads-it.test.ts`, six cases. Two of them
+send a finding that still carries an `anchor` and assert **the score and the feature set are unchanged**, so the device
+cannot come back through a cached prompt or a stale client; three assert neither scope asks for it and the rule
+numbering has no hole; one asserts the schema's quote is closed. **A retirement that is only a deletion is a retirement
+that gets re-proposed.**
+
+### 91.5 What the run cost, and how wrong the estimate was
+
+**§90.3 estimated ≈0.9 CNY for the rule. The run cost 22.11 CNY against §86.5's 9.49 for the same 3 615 reviewer calls,
+so the device's own bill is 12.62 CNY - fourteen times the estimate.** The mechanism is not the 478 characters of
+contract:
+
+| token class            | this run           | §86.5      |
+| ---------------------- | ------------------ | ---------- |
+| reviewer prompt tokens | 8 209 462          | -          |
+| of which cache hits    | 4 553 088 (55.5 %) | -          |
+| **completion tokens**  | **1 274 234**      | -          |
+| judge calls            | 5 592              | 5 544      |
+| total                  | **3.0727 USD**     | 1.3187 USD |
+
+**Every emitted finding now carries a quoted line, and output is priced about four times input**, so a field that costs
+60 characters of prompt costs 300 characters of generation on every finding of every call. **The estimate priced the
+contract and forgot the answer**, which is the same error as measuring a filter by what it removes rather than by what
+it emits - and it is written down here because **the next device's cost estimate has to be a sum over both sides of the
+call.**
+
+**The ceiling was breached and the breach is not argued away.** §88.2 registered _ceiling 10 CNY_; the run spent
+22.11, inside the workflow's own 7.5 USD guard and outside the registration. **A registration that names a figure it
+did not derive from a call count is a figure that a device can break without breaking anything else**, and the only
+honest reading is that the ceiling was written from the previous run's total rather than from its composition.
+
+### 91.6 What this leaves for the next device
+
+**Three sentences, each of which the next registration has to answer.**
+
+1. **The field is fillable.** A lane asked to copy a line will copy a line 88.5 % of the time, including for comments
+   that are wrong. **So a witness has to be a fact the lane must _establish_** - a caller that exists, a guard that does
+   not, a path from input to sink that the index can check - **and the check has to be cheaper than the lane's
+   compliance.**
+2. **A term that saturates is worse than a term that is absent.** The wiring was chosen to keep the weight table stable
+   and it removed a term's information instead. **Any future device that feeds a new field into an existing term has to
+   report that term's distribution before and after**, or it is measuring the sum of two changes.
+3. **The index is still unused by the review.** §88.2's third item - the anchor must lie inside the declaration the
+   comment stands in - was deferred to R-41b because a lane call has no file, and **that deferral is now the only
+   surviving part of the plan**, with the difference that it is no longer about anchoring a comment: it is about
+   **widening detection**, which is where the field's 24 points actually are.

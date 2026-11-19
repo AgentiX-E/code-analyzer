@@ -160,12 +160,12 @@ export function collectDiffFacts(unified: string): DiffFacts {
 // ---------------------------------------------------------------------------
 
 /**
- * **The shortest string that identifies a line, in characters, and the two checks that share it.**
+ * **The shortest string that identifies a line, in characters.**
  *
- * A quote and an anchor are held to the same floor because they are the same test at two strengths: `}` and `return`
- * appear in almost every file, so a fragment that short matches anything and a comment carrying it has demonstrated
- * nothing. **Twelve is where `quotesDiff` has always been**, and it is named now so the second reader of the constant
- * cannot pick a different number and quietly make the two features incomparable.
+ * `}` and `return` appear in almost every file, so a fragment that short matches anything and a comment carrying it has
+ * demonstrated nothing. **Twelve is where this check has always been**; it is named now because §91 removed a second
+ * check that was held to the same floor, and **the floor is the part of that device that survives** - a future reader
+ * that adds a third quotation check should start from this number rather than pick one.
  */
 const MINIMUM_QUOTABLE = 12;
 
@@ -254,15 +254,6 @@ function identifiers(text: string): Set<string> {
 export interface ActionabilityFeatures {
   grounded: boolean;
   quotesDiff: boolean;
-  /**
-   * **Whether the lane named an added line through which the defect is reached, and the reader checked it.**
-   *
-   * **Verified, not trusted**: true only when `finding.anchor` is one of the *added* lines of the path the finding
-   * names, so a recalled line counts as no anchor at all. **Recorded rather than gated**, because §88.2 registered the
-   * anchor as a prompt change and **a device that dropped the 89 % of comments without one would be the filter §88.1
-   * had already priced at F1 0.115.**
-   */
-  anchored: boolean;
   namesSymbol: boolean;
   proposesChange: boolean;
   hedged: boolean;
@@ -306,10 +297,7 @@ export function weighFinding(located: LocatedFinding, facts: DiffFacts): Actiona
   const added = facts.added.get(path) ?? new Map<number, string>();
   const addedLines = [...added.values()];
   const narrative = `${finding.title} ${finding.description}`;
-  // **The anchor joins the quotable text on purpose, and it is the mechanism §88.2 registered**: a lane that names an
-  // added line has *already* satisfied `quotesDiff`, and letting that happen through the existing term is what keeps
-  // the weight table - and every figure measured against it - comparable across the two contracts.
-  const quoted = `${finding.snippet ?? ''} ${finding.anchor ?? ''} ${narrative}`.trim();
+  const quoted = `${finding.snippet ?? ''} ${narrative}`.trim();
 
   // **Grounding is a range intersection, and an inverted range is grounded in nothing.**
   let grounded = false;
@@ -330,11 +318,6 @@ export function weighFinding(located: LocatedFinding, facts: DiffFacts): Actiona
     return text.length >= MINIMUM_QUOTABLE && trimmedQuote.includes(text);
   });
 
-  // **The anchor is held to the same floor as a quote, and for the reason the floor exists**: `}` or `return` appears in
-  // almost every file, so a fragment that short identifies no line and would let any comment pass the check.
-  const anchorText = (finding.anchor ?? '').trim();
-  const anchored =
-    anchorText.length >= MINIMUM_QUOTABLE && addedLines.some((line) => line.includes(anchorText));
 
   const symbolSet = identifiers(narrative);
   const namesSymbol = addedLines.some((line) =>
@@ -399,7 +382,6 @@ export function weighFinding(located: LocatedFinding, facts: DiffFacts): Actiona
     features: {
       grounded,
       quotesDiff,
-      anchored,
       namesSymbol,
       proposesChange,
       hedged,
