@@ -40,6 +40,13 @@
       "agree": 10,
       "unjudged": 0
     },
+    "javascript": {
+      "files": 2,
+      "ours": 2,
+      "theirs": 2,
+      "agree": 2,
+      "unjudged": 0
+    },
     "python": {
       "files": 2,
       "ours": 9,
@@ -49,5 +56,5 @@
     }
   },
   "disagreement": [],
-  "files": 18
+  "files": 20
 }

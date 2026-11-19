@@ -24,6 +24,7 @@
 
 import { readImportSpecifier } from '../import-specifier.js';
 import {
+  readCommonJsRequires,
   readLanguageImports,
   resolveJvmSpecifier,
   resolvePythonSpecifier,
@@ -415,6 +416,25 @@ export function buildRepoIndex(files: readonly RepoFile[]): RepoIndex {
         );
       }
       continue;
+    }
+
+    /**
+     * **A `.js` file uses two import forms and the corpus does not say which**: `require('./m')` and
+     * `import … from './m'` are both legal in the same file, so both readers run and the statement lists are
+     * concatenated in source order. **`require` is deliberately not read for `.ts`** - §95.1 judges that language's
+     * relative specifiers against `ts.resolveModuleName`, which resolves `import` declarations and not `require`
+     * calls, and adding specifiers the judge does not see would lower the agreement that measurement exists to keep.
+     */
+    if (index.language === 'javascript') {
+      for (const statement of readCommonJsRequires(lines, codes)) {
+        // **A bare specifier is a package and a relative one is a path**, which is the rule the ESM path already states:
+        // `require('node:fs')` is a dependency and `require('./nowhere')` is a bug in this repository, and reporting the
+        // first as `missing` would attribute a defect to a repository over its own dependencies. The first run did
+        // exactly that, and a test asserting `externalImports` found it.
+        const relative = isRelative(statement.specifier);
+        const target = relative ? resolveSpecifier(statement.specifier, path, byPath) : null;
+        record(path, statement, target, relative ? 'missing' : 'external');
+      }
     }
 
     for (let at = 0; at < lines.length; at += 1) {

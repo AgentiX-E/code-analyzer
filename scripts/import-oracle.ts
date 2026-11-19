@@ -27,7 +27,10 @@ import { readFileSync, readdirSync, writeFileSync } from 'node:fs';
 import { createRequire } from 'node:module';
 import { extname, join } from 'node:path';
 
-import { readLanguageImports } from '../packages/intelligence/src/review/index/imports-langs.js';
+import {
+  readCommonJsRequires,
+  readLanguageImports,
+} from '../packages/intelligence/src/review/index/imports-langs.js';
 
 const require = createRequire(import.meta.url);
 const ROOT = new URL('..', import.meta.url).pathname;
@@ -45,6 +48,7 @@ const GRAMMAR: Record<string, { module: string; nested?: boolean }> = {
   python: { module: 'tree-sitter-python' },
   swift: { module: 'tree-sitter-swift' },
   groovy: { module: 'tree-sitter-groovy', nested: true },
+  javascript: { module: 'tree-sitter-javascript' },
 };
 
 /** The extensions this measurement covers, which are the five languages the edge layer just learned. */
@@ -56,6 +60,7 @@ const LANGUAGE_OF: Record<string, string> = {
   '.gradle': 'groovy',
   '.py': 'python',
   '.swift': 'swift',
+  '.js': 'javascript',
 };
 
 interface Snapshot {
@@ -92,6 +97,13 @@ function parserFor(language: string): { parse: (text: string) => unknown } | nul
  */
 function specifiersOfText(text: string, language: string): string[] {
   const flat = text.replace(/\s+/gu, ' ').trim();
+  if (language === 'javascript') {
+    // **A `require` call names one specifier, and only when its argument is a string literal.** A template literal with
+    // no substitutions is still a `template_string` node in this grammar and not a `string`, so it is refused here for
+    // the same reason the reader refuses it: `require('./' + name)` is a call whose target is unknown at read time.
+    const call = /^require\s*\(\s*(['"])([^'"\n]+)\1\s*\)$/u.exec(flat);
+    return call === null ? [] : [call[2]!];
+  }
   if (language === 'python') {
     const from = /^from\s+([.\w]+)\s+import\b/u.exec(flat);
     if (from !== null) return [from[1]!];
@@ -159,6 +171,15 @@ function oracleSpecifiers(language: string, text: string): string[] | null {
     if (node.isNamed !== false && IMPORT_STATEMENT.test(node.type)) {
       out.push(...specifiersOfText(node.text, language));
     }
+    /**
+     * **CommonJS's import is a call and the grammar says so**, which is the second reason this walk is written over node
+     * types rather than over lines: a `require` inside a string is a `string` node and never a `call_expression`, so the
+     * judge refuses it by construction where the reader has to know it from the mask. **Two mechanisms, one fact** - if
+     * they disagree, one of them is wrong, and that is what a judge is for.
+     */
+    if (language === 'javascript' && node.isNamed !== false && node.type === 'call_expression') {
+      out.push(...specifiersOfText(node.text, language));
+    }
     // **Children rather than `namedChildren`**: Python's `from .mod import (a)` puts the module in a named child but the
     // parentheses in anonymous ones, and a walker that skipped anonymous nodes would still be complete - so the cheaper
     // list is used and the visit order is made irrelevant by sorting the result.
@@ -197,6 +218,63 @@ function corpus(): Array<{ path: string; language: string }> {
   return out;
 }
 
+/**
+ * **The same line with comments and string literals blanked, written here rather than imported.**
+ *
+ * `imports-langs.ts` decides whether a `require` is code by reading a mask, and **a judge reusing the subject's masker
+ * would only be able to agree with it.** This one is a state machine over quotes, backticks and the two comment forms,
+ * thirteen lines of it, and it exists to be wrong in a different way.
+ */
+function maskStringsAndComments(text: string): string[] {
+  const out: string[] = [];
+  let state: 'code' | 'line' | 'block' | 'single' | 'double' | 'template' = 'code';
+  for (const raw of text.split('\n')) {
+    let line = '';
+    for (let at = 0; at < raw.length; at += 1) {
+      const two = raw.slice(at, at + 2);
+      const char = raw[at]!;
+      if (state === 'code') {
+        if (two === '//') state = 'line';
+        else if (two === '/*') state = 'block';
+        else if (char === "'") state = 'single';
+        else if (char === '"') state = 'double';
+        else if (char === '`') state = 'template';
+        if (state === 'code') {
+          line += char;
+          continue;
+        }
+        line += ' ';
+        if (two === '//' || two === '/*') at += 1;
+        continue;
+      }
+      if (state === 'line' || (state === 'block' && two === '*/')) {
+        if (two === '*/') {
+          state = 'code';
+          at += 1;
+        }
+        line += ' ';
+        continue;
+      }
+      if (char === '\\') {
+        line += '  ';
+        at += 1;
+        continue;
+      }
+      if (
+        (state === 'single' && char === "'") ||
+        (state === 'double' && char === '"') ||
+        (state === 'template' && char === '`')
+      ) {
+        state = 'code';
+      }
+      line += ' ';
+    }
+    if (state === 'line') state = 'code';
+    out.push(line);
+  }
+  return out;
+}
+
 function measure(): {
   rows: Snapshot[];
   byLanguage: Record<
@@ -210,9 +288,14 @@ function measure(): {
     const lines = text.split('\n');
     const theirs = oracleSpecifiers(language, text);
     if (theirs === null) continue;
-    const ours = readLanguageImports(language, lines, lines).map(
-      (statement) => statement.specifier,
-    );
+    // **JavaScript is read by the CommonJS reader**, and the mask it needs is built here rather than borrowed from the
+    // module under test: a judge that reuses its subject's lexer can only agree with it about strings.
+    const ours =
+      language === 'javascript'
+        ? readCommonJsRequires(lines, maskStringsAndComments(text)).map(
+            (statement) => statement.specifier,
+          )
+        : readLanguageImports(language, lines, lines).map((statement) => statement.specifier);
     rows.push({ language, file: path.slice(ROOT.length), ours, theirs });
   }
 

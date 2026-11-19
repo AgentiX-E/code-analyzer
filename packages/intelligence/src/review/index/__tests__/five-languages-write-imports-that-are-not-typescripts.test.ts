@@ -244,4 +244,47 @@ describe('resolution', () => {
   it('stops an unterminated parenthesised plain import at the bound', () => {
     expect(read('python', 'import (a')).toHaveLength(1);
   });
+
+  it('reads only the import lines of a Swift file, because its body is not an import', () => {
+    // **The branch this covers is the common case rather than an edge case**: a Swift file is mostly declarations, and
+    // every one of them reaches the same guard an unmatched import line does.
+    const statements = read(
+      'swift',
+      [
+        'import Foundation',
+        '',
+        'struct Shapes {',
+        '  let names: [String]',
+        '  func count() -> Int { names.count }',
+        '}',
+      ].join('\n'),
+    );
+    expect(statements.map((statement) => statement.specifier)).toEqual(['Foundation']);
+    expect(statements[0]?.kind).toBe('module');
+  });
+
+  it('chooses between two files with the same class name, and picks the package the import names', () => {
+    // **The suffix index has more than one entry per basename the moment a repository holds two classes called `C`**, and
+    // that is the case a first-match rule gets wrong: `x.y.C` and `a.b.C` share a name and not a package.
+    const index = buildRepoIndex([
+      {
+        path: 'src/x/y/C.java',
+        text: 'package x.y;\npublic class C { public static int m() { return 1; } }\n',
+      },
+      {
+        path: 'src/a/b/C.java',
+        text: 'package a.b;\npublic class C { public static int m() { return 2; } }\n',
+      },
+      {
+        path: 'src/a/b/Use.java',
+        text: 'package a.b;\nimport a.b.C;\nclass Use { int v = C.m(); }\n',
+      },
+    ]);
+    expect(index.references).toContainEqual({
+      fromPath: 'src/a/b/Use.java',
+      fromLine: 3,
+      toPath: 'src/a/b/C.java',
+      toName: 'C',
+    });
+  });
 });

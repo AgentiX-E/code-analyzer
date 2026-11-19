@@ -10366,3 +10366,129 @@ the C family still write imports nothing here reads, and **the corpus is five fi
 of this layer is a repository rather than a fixture set.
 
 **The bill is zero**: 18 local files, five grammars already installed, no model and no network.
+
+## §98 The edge layer reads CommonJS, and the judge had to grow a mask to check it
+
+**§97.3 ended with a refusal that was a measurement waiting to happen**: _JavaScript's `require()` is not read, so every
+CJS edge is missing._ A `.js` file that imported its neighbours with `require` looked, to this index, exactly like a file
+with no imports at all - and `impactOf` answered _nobody calls this_ for a helper that three files require, which is the
+question a review asks immediately before it says a change is safe.
+
+### 98.1 The fact, and the two mechanisms that have to agree about it
+
+`readCommonJsRequires` reads two shapes and refuses the rest:
+
+- **`const { a, b: c } = require('./m')`** names the bindings that cross, and makes an edge to `m` for each of them that
+  the target declares and the importer uses;
+- **`const m = require('./m')`** names nothing about which name crosses, so it is a **statement with no edge** - the same
+  refusal the ESM reader makes for `import * as m`, and for the same reason: following `m.a` is scope analysis, and a name
+  inferred from a property access is a guess.
+
+**The mask decides whether a call is code, and the unmasked line decides what it names.** `codes[at]` has comments and
+string literals blanked, so a `require('./x')` inside a comment or a string is not a call - the defect §95.1 found in
+`benchmark-fixtures.ts`, in its third language - while the specifier itself is blanked by that same mask and is therefore
+read from source at the offset the mask located. **Bookkeeping on masked text, literals from source**, and the two are
+never mixed.
+
+**The judge needed the same ability and could not borrow it.** `scripts/import-oracle.ts` now reads JavaScript, and the
+two mechanisms that decide _is this a call_ are deliberately different: tree-sitter reports a `require` inside a string as
+a `string` node and never as a `call_expression`, so the judge refuses it structurally, while the reader has to know it
+from the mask. **A judge reusing its subject's masker could only agree with it** - so the oracle carries a thirteen-line
+state machine of its own, and if the two disagree one of them is wrong.
+
+| language   | files  | statements (ours) | statements (tree-sitter) | agree  | disagreements |
+| ---------- | ------ | ----------------- | ------------------------ | ------ | ------------- |
+| java       | 4      | 6                 | 6                        | **6**  | 0             |
+| kotlin     | 3      | 10                | 10                       | **10** | 0             |
+| groovy     | 5      | 7                 | 7                        | **7**  | 0             |
+| python     | 2      | 9                 | 9                        | **9**  | 0             |
+| swift      | 4      | 4                 | 4                        | **4**  | 0             |
+| javascript | 2      | 2                 | 2                        | **2**  | 0             |
+| **total**  | **20** | **38**            | **38**                   | **38** | **0**         |
+
+**The JavaScript row is two statements from one file**, which is the honest size of it: `legacy-require.js` was written
+for this measurement and holds a destructuring call, a whole-module call, a call inside a double-quoted string, a
+commented-out call, a call inside a template literal, `require.resolve`, and a call whose argument is a template. **The
+judge and the reader both find exactly the two that are code**, and they find them for different reasons.
+
+### 98.2 The defect a test found on the first run
+
+**`require('node:fs')` was classified `missing`.** The reader passed every statement to the recorder with `missing` as the
+reason, and a bare specifier names a package rather than a path in this repository - so **every CJS repository would have
+been reported as having a defect per dependency**, which is the exact inversion of the "a bare specifier is `external`,
+not `missing`" rule `repo-index.ts` states at its top for the ESM path. The rule now lives in one place per reader and the
+test that caught it asserts `externalImports` rather than the absence of an error.
+
+### 98.3 What this does not claim
+
+**It does not claim the edge layer covers CJS.** It covers `require` with a string literal on one line: a computed
+`require('./' + name)` is refused, a `require` split across lines is not joined, and **a whole-module binding makes no
+edge at all** - so a repository that writes `const util = require('./util')` and calls `util.helper()` still answers
+_nobody calls this_ for `helper`. That is the largest remaining gap in this layer and it is stated rather than implied.
+
+**It does not claim `.ts` files are read the same way.** `require` is deliberately not read for TypeScript: §95.1 judges
+that language's relative specifiers against `ts.resolveModuleName`, which resolves `import` declarations and not `require`
+calls, and adding specifiers the judge cannot see would lower an agreement that measurement exists to keep.
+
+### 98.4 The reference layer's figures moved because the corpus did
+
+**§95.1's table is the run it describes** - 482 files, 1 256 relative specifiers, 1 282 edges - and this iteration added
+one file to this repository (a test), so the same measurement now reads **483 files, 1 876 imports of which 1 258 resolve,
+1 286 edges, and 1 258 / 1 258 = 1.000 agreement with `ts.resolveModuleName`.** `benchmarks/cross-file-index.json` is
+regenerated rather than left at the old count, **because an artifact that no longer equals its corpus is how a figure
+becomes folklore** - and the historical delta in §95.1 (`missing` 1 → 0, edges 1 318 → 1 282) stays as the run it was.
+
+**The bill is zero**: one local fixture, one installed grammar, no model and no network.
+
+## §99 The budget has a price list, and the tail of the ranking is nearly free of goldens
+
+**§95.4 chose twelve findings per pull request by replaying four budgets and keeping the best F1.** That answered which
+budget scores highest and **said nothing about what the higher ones cost** - and F1 alone cannot answer it, because F1
+rises, flattens and falls while the bill only rises. `scripts/budget-frontier.mjs` re-ranks the one paid run at eight
+budgets and prints both columns.
+
+### 99.1 The curve, on 452 goldens and the 387 findings the gate raised
+
+| budget | kept | goldens matched | precision | recall | F1         | tokens | goldens per 1k tokens | marginal |
+| ------ | ---- | --------------- | --------- | ------ | ---------- | ------ | --------------------- | -------- |
+| 2      | 92   | 34              | 0.3696    | 0.0752 | 0.1250     | 7 359  | 4.62                  | -        |
+| 4      | 157  | 64              | 0.4076    | 0.1416 | 0.2102     | 12 548 | 5.10                  | 5.78     |
+| 6      | 204  | 80              | 0.3922    | 0.1770 | 0.2439     | 16 308 | 4.91                  | 4.26     |
+| 8      | 231  | 87              | 0.3766    | 0.1925 | 0.2548     | 18 458 | 4.71                  | 3.26     |
+| 10     | 254  | 91              | 0.3583    | 0.2013 | 0.2578     | 20 295 | 4.48                  | 2.18     |
+| **12** | 273  | 96              | 0.3516    | 0.2124 | **0.2648** | 21 804 | 4.40                  | 3.32     |
+| 14     | 289  | 96              | 0.3322    | 0.2124 | 0.2591     | 23 084 | 4.16                  | **0.00** |
+| 16     | 299  | 97              | 0.3244    | 0.2146 | 0.2583     | 23 884 | 4.06                  | 1.25     |
+
+**Three facts in that table, and the third is the one worth keeping:**
+
+1. **The highest F1 is at twelve** - 0.2648, which is the budget §95.4 chose by a different route on a different basis.
+   **Two readings of one run agreeing is the reason to believe either**, and this one did not have to be told.
+2. **Fourteen spends 1 280 tokens and matches no golden it did not already have.** Sixteen more findings, zero new true
+   positives: the tail of the ranking is where precision goes to pay for recall it does not collect.
+3. **Everything above twelve, in one row: 26 findings bought 1 golden for 2 080 tokens, and F1 fell 0.0065.** That is the
+   measured form of "the budget was already long enough", and it is the row a reader can check.
+
+### 99.2 The cost axis is modelled, and the model is stated
+
+**The artifact records no token counts**, so the bill is the finding text in characters divided by four. **That constant is
+a proxy**; it is applied to both sides of every ratio, so **the shape of the curve is the finding and the absolute numbers
+are an estimate**. What the proxy cannot do is compare this run to a vendor's: **no competitor publishes a token bill
+except CodeRabbit** (`docs/LEADERBOARDS.md` §1), so the cost column of the head-to-head table remains unfillable.
+
+**The cap above sixteen is not measured.** The run that produced the artifact used a budget of sixteen
+(`configuration.pullRequestBudget`), so a larger cap would re-rank the same emitted findings rather than buy a larger
+budget - **which is why the table stops where it does** and why `runBudgetSitsAtBestF1` is `false`: the run is the one this
+curve says to shorten.
+
+### 99.3 What this changes for the next arm
+
+**R-43's objective is written in goldens per thousand tokens rather than in F1**, because the two are not the same
+purchase. The 47-pull-request comparison in §96.3 puts the competitor at 77 goldens from 110 findings against our 98 from
+378 on the same corpus: **at equal precision their finding text is a third of ours**, and a rewriter that reaches 0.55
+precision while writing twice as much would not be the arm this table says is worth building.
+
+**It does not claim the budget should not rise.** It says a rise above twelve must be justified by goldens and priced in
+tokens, and that on the run measured so far the justification is not there.
+
+**The bill is zero**: one artifact already on disk, one script, one test.

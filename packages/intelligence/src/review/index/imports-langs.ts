@@ -201,6 +201,78 @@ export function readLanguageImports(
   return out;
 }
 
+/** `require('./m')` - the one import form JavaScript has that TypeScript's reader cannot see. */
+const CJS_REQUIRE = /require\s*\(\s*(['"])([^'"\n]+)\1\s*\)/gu;
+
+/** `const { a, b: c } = require('./m')`, which names what crosses where a bare call names nothing. */
+const CJS_DESTRUCTURE =
+  /(?:const|let|var)\s*\{([^}]*)\}\s*=\s*require\s*\(\s*(['"])([^'"\n]+)\2\s*\)/gu;
+
+/**
+ * **Every `require()` call in one file, in source order - the edges a CommonJS repository actually has.**
+ *
+ * §97.3 stated the refusal this function removes: *JavaScript's `require()` is not read, so every CJS edge is missing.*
+ * A `.js` file that imports its neighbours with `require` looked, to this index, exactly like a file with no imports at
+ * all, and `impactOf` answered *nobody calls this* for a helper that three files require.
+ *
+ * **The mask decides whether a call is code, and the unmasked line decides what it names.** `codes[at]` has comments
+ * and string literals replaced by blanks, so a `require('./x')` inside a comment or inside a string is not a call - the
+ * defect §95.1 found in `benchmark-fixtures.ts`, which this file inherits rather than re-learns. The specifier itself
+ * is blanked by that same mask, so it is read from `lines[at]` at the offset the mask located - **bookkeeping on masked
+ * text, literals from source**, and the two are never mixed.
+ *
+ * **A bare call is a namespace and a destructuring pattern is a name list**, which is the distinction the ESM reader
+ * already draws between `import * as m` and `import { a }`. `const m = require('./m')` says nothing about which names
+ * cross, so it makes a statement of `kind: 'namespace'` and no edge - following `m.a` afterwards would be scope
+ * analysis, and a name inferred from a property access is a guess this layer does not make.
+ */
+export function readCommonJsRequires(
+  lines: readonly string[],
+  codes: readonly string[],
+): LanguageImportStatement[] {
+  const out: LanguageImportStatement[] = [];
+  for (let at = 0; at < lines.length; at += 1) {
+    const masked = codes[at]!;
+    if (masked.trim().length === 0) continue;
+    const line = lines[at]!;
+
+    /** The names each `require` on this line is bound to, keyed by the specifier it was called with. */
+    const destructured = new Map<string, { imported: string; local: string }[]>();
+    for (const match of line.matchAll(CJS_DESTRUCTURE)) {
+      destructured.set(
+        match[3]!,
+        match[1]!
+          .split(',')
+          .map((piece) => piece.trim())
+          .filter((piece) => piece.length > 0)
+          .map((piece) => {
+            const [imported = '', local] = piece.split(/\s+as\s+|\s*:\s*/u);
+            return { imported: imported.trim(), local: (local ?? imported).trim() };
+          })
+          .filter((name) => name.imported.length > 0),
+      );
+    }
+
+    for (const match of line.matchAll(CJS_REQUIRE)) {
+      const start = match.index ?? 0;
+      // **Whether this is code is decided on the mask at the same offset**, which is the only reading that keeps a
+      // `require` inside a string from becoming an edge.
+      if (masked.slice(start, start + 'require'.length) !== 'require') continue;
+      const specifier = match[2]!;
+      const names = destructured.get(specifier) ?? [];
+      out.push({
+        specifier,
+        names,
+        namespace: names.length === 0,
+        startLine: at + 1,
+        endLine: at + 1,
+        kind: 'file',
+      });
+    }
+  }
+  return out;
+}
+
 /** The extensions each family resolves a specifier to, in the order a resolver tries them. */
 const FAMILY_EXTENSIONS: Readonly<Record<string, readonly string[]>> = {
   java: ['.java'],

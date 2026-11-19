@@ -12,23 +12,23 @@
     "vscode",
     "web"
   ],
-  "files": 482,
-  "lines": 185055,
+  "files": 483,
+  "lines": 185548,
   "stats": {
-    "files": 482,
-    "symbols": 4293,
-    "imports": 1874,
-    "resolvedImports": 1256,
+    "files": 483,
+    "symbols": 4307,
+    "imports": 1876,
+    "resolvedImports": 1258,
     "externalImports": 618,
     "missingImports": 0,
     "namespaceImports": 0,
-    "edges": 1282
+    "edges": 1286
   },
-  "elapsedMs": 361,
+  "elapsedMs": 555,
   "agreement": {
-    "compared": 1256,
+    "compared": 1258,
     "bareSpecifiers": 618,
-    "agreed": 1256,
+    "agreed": 1258,
     "rate": 1,
     "weResolveTheyDoNot": 0,
     "theyResolveWeDoNot": 0,
@@ -40,10 +40,10 @@
     "bothResolveDifferently": []
   },
   "coverage": {
-    "declarations": 4293,
-    "readFromAnotherFile": 661,
-    "share": 0.154,
-    "meanCallers": 1.9395,
+    "declarations": 4307,
+    "readFromAnotherFile": 665,
+    "share": 0.1544,
+    "meanCallers": 1.9338,
     "topFanOut": [
       ["ParsedImport", 34],
       ["namedChildrenOf", 26],
