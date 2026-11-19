@@ -135,10 +135,14 @@ describe('the block that changes with the file', () => {
 
     // The boilerplate does not move when the diff does: it is the same string in every call the lane ever makes.
     expect(boilerplate(500)).toBe(boilerplate(8000));
-    // **5 218, and the band is wide enough to survive a wording change and narrow enough to catch a device added
-    // back**: the checklist put this above 7 000 and is the only thing that has ever moved it by that much.
-    expect(boilerplate(500)).toBeGreaterThan(5000);
-    expect(boilerplate(500)).toBeLessThan(6200);
+    // **6 605, and the band moved with the contract rather than around it.** The previous ceiling was 6 200 against a
+    // measurement of 5 218, and **the contract grew to 6 123 before R-41's rule existed** - four rules' worth of
+    // wording since that figure - so the old ceiling was already being cleared by the shipped text and would have
+    // failed on the next commit whatever it said. **The anchor rule is 478 of the 6 605**, and the band is kept two-sided
+    // and 400 wide so that **the next device added to the shared prefix still fails here first**: a rule costs hundreds
+    // of characters, a rewording costs tens.
+    expect(boilerplate(500)).toBeGreaterThan(6400);
+    expect(boilerplate(500)).toBeLessThan(6800);
 
     const share = (n: number): number => {
       const context = ctx({ diffContent: 'x'.repeat(n) });
@@ -148,8 +152,10 @@ describe('the block that changes with the file', () => {
     // **A small diff is mostly boilerplate**, which is the finding: the block §9 moved is **10 %** of such a call,
     // 0.102 measured - inside the hundredth the assertion allows and no further.
     expect(share(500)).toBeLessThan(0.11);
-    // **Only at the truncation cap does the diff become most of the call**: 0.608 measured.
-    expect(share(8000)).toBeGreaterThan(0.55);
+    // **Only at the truncation cap does the diff become most of the call**: 0.608 before the contract grew, **0.5497
+    // with R-41's rule in it** - still more than half, and the threshold moves to the sentence rather than to the figure,
+    // because the claim is *most of the call* and a claim pinned to the third decimal is a claim about the wording.
+    expect(share(8000)).toBeGreaterThan(0.54);
   });
 
   it('differs across files, which is why it cannot be the prefix that ships', () => {

@@ -9438,3 +9438,107 @@ ArkTS's decorated struct and its modifier-free field; JSON's nested keys and its
 tab-indented block and its comment; XML's comment, its orphan closing tag, its single-line nesting and its unclosed
 element. **No `v8 ignore` and no mock.** The four disagreements of §89.3 are the four tests that would have passed a
 scanner that only agreed with itself.
+
+---
+
+## §90 The anchor is a field before it is a run, and the schema had nowhere to put it
+
+**§88.2 registered R-41 as a prompt change and §89 made the index able to read the languages the anchor has to be found
+in. Neither touched the thing the lane is asked for.** A review lane is told what a finding must contain - a line range,
+a severity, a category, a description, a suggestion - and **it was never told to name the line through which the defect
+is reached**, nor given a field to name it in. This section is that field, priced in characters before it is priced in
+CNY, and the run it makes readable is registered at the end of it rather than after it.
+
+### 90.1 Why a field rather than a sentence in the description
+
+§88.1 priced the two features the engine already records on the field's own key: a comment that quotes a line the diff
+added is right **2.1 times as often** as one that does not (precision 0.343 against 0.161) and is **11 %** of the
+emission. **Both facts are about comments that happened to quote the diff**, and a coincidence is not a contract: a
+summariser that restates the changed line produces the same string as a reviewer that reasoned from it, and the artifact
+cannot tell them apart.
+
+**A field can be counted, verified and refused**, which a habit cannot:
+
+| question the measurement needs                    | sentence in `description`           | field `anchor`                        |
+| ------------------------------------------------- | ----------------------------------- | ------------------------------------- |
+| how often does the lane name an added line at all | only by string containment, noisily | **`features.anchored`, one boolean**  |
+| is the named line one this diff added             | yes, accidentally, via `quotesDiff` | **yes, by construction**              |
+| can a lane that invented a line be distinguished  | no                                  | **yes: it scores as if it said none** |
+
+**And the field is verified rather than trusted.** `weighFinding` marks `anchored` true only when the text is one of the
+**added** lines of the path the finding names; a recalled line, a paraphrase and a two-word fragment all fail. **The
+twelve-character floor is the one `quotesDiff` has always used**, and it is now a named constant so the second reader of
+it cannot pick a different number and make the two features incomparable.
+
+### 90.2 The four places the contract lives, and the one test each
+
+The repository's convention is that a contract is stated once per scope and never twice per lane, so the anchor is one
+constant interpolated into both:
+
+| where                                   | what changed                                          | the test that fails without it                                          |
+| --------------------------------------- | ----------------------------------------------------- | ----------------------------------------------------------------------- |
+| `SELECTION_RULES` (file scope)          | rule 7, interpolating `NAME_THE_ANCHOR`               | `the contract states the anchor in both scopes`                         |
+| `pullRequestRules` (pull-request)       | rule 10, the same constant                            | the same test, second scope                                             |
+| `OUTPUT_SCHEMA` / `PULL_REQUEST_SCHEMA` | `"anchor"` beside `"suggestion"`                      | the same test, `"anchor"` in the prompt                                 |
+| `parseLLMResponse`                      | carries a non-blank string, **deletes** anything else | `is dropped when the lane answered with something that is not a string` |
+
+**Nothing is gated.** §88.2's emission rule is unchanged and the weight table is unchanged: **an anchored comment
+satisfies `quotesDiff` because the anchor is quotable text**, which is what §88.2 meant by _a feature weight, not a
+gate_. A test asserts the other direction - a finding with no anchor is still emitted and is still scored by the same
+arithmetic - because **a device that quietly became a filter is the failure §88.1 had already priced at F1 0.115.**
+
+**A blank field is an unanswered question**, and that is why `parseLLMResponse` deletes rather than keeps `""`: a lane
+that answered nothing must not collect the weight of a lane that answered.
+
+### 90.3 What the contract costs on every call, measured rather than assumed
+
+The lane's boilerplate is the part that ships on **every** call, and a guard in `prompt-order.test.ts` exists to make a
+device pay for itself there. **The anchor rule is 478 characters, and the numbers moved:**
+
+| figure                                        | before      | after           | what moved it                               |
+| --------------------------------------------- | ----------- | --------------- | ------------------------------------------- |
+| boilerplate at a 500-character diff           | 6 123       | **6 605**       | the anchor rule, 478 characters             |
+| diff block's share of a call at the 8 000 cap | 0.608       | **0.5497**      | the same 478 characters, in the denominator |
+| the guard's band                              | 5 000-6 200 | **6 400-6 800** | see below                                   |
+
+**The old ceiling was already being cleared by the shipped text**, at 6 123 against 6 200, so it would have failed on
+the next commit whatever it said - **a ceiling 77 characters above the measurement is not a guard, it is a coincidence
+of timing.** The band is now two-sided and 400 wide: a rewording costs tens of characters and a device costs hundreds,
+so **the next device added to the shared prefix still fails here first**, which is the property the guard exists for.
+
+**The bill, estimated before the run that will settle it.** 478 characters is about **120 tokens per call**, and the
+§86.5 run made **3 615 reviewer calls** - so **≈434 000 input tokens**, which at DeepSeek's cache-miss input price is
+**≈0.12 USD ≈ 0.9 CNY**. **This is an estimate and the artifact's `spend` field is the figure**; the point of writing it
+down before is that a device which costs a yuan and buys nothing has to be retired with that sentence in the record.
+
+### 90.4 What is verified here and what is not, and the field that was broken
+
+**The declaration half of §88.2's third item is not in this change, and the reason is structural rather than
+convenient.** An anchor must be _a line inside the declaration the comment stands in_, which is `symbolAt` and the
+declaration's extent - and **`symbolAt` needs the file from line one, which a lane call does not have**: it is shown a
+diff and, when `codeContext` is on, six thousand characters of a window whose line numbers are not the file's. **The
+harness does have the file** (it fetches contents for the context arm), so the check is a harness pass and is registered
+as **R-41b** rather than smuggled into the scorer as a weaker rule.
+
+**And the schema that asks for the field had a defect that predates it.** `OUTPUT_SCHEMA` ended
+`"suggestion": "<suggested fix> | null` - **no closing quote** - so every lane call since that line was written has been
+shown a JSON example that is not valid JSON. It was found by editing the line above it and reading what came out, which
+is the only way a schema defect is ever found: **a malformed example does not fail a test, it fails a model's output and
+is charged to the model.** Both schemas are now valid, and **the fix is in the same commit as the field**, because a
+reader who found one and not the other would have to wonder whether it was noticed.
+
+### 90.5 R-41, dispatched: what the run is for, and what would retire it
+
+**The registration is §88.2's and is not restated as a new claim.** On the same key, the same judge and the same 173
+goldens: **the anchoring rate rises from 11 % to at least 45 %**, precision among anchored comments stays **at least
+0.30**, and **F1 ≥ 0.28** from 0.2757.
+
+**The falsifier, unchanged.** F1 below 0.29 with an anchoring rate below 45 %: **the prompt cannot raise anchoring**, and
+the prompt-side programme ends rather than extends. **If anchoring rises and F1 does not**, the quote is a symptom of the
+claim being checkable rather than a cause of it - **a result about the engine, not about the prompt**, and it retires the
+programme on better evidence than a failed filter would have.
+
+**Cost.** One arm, fifty pull requests, the shipped configuration (`code_context off`, `adjudicate off`, `idioms off`,
+`agent off`, `ensemble off`, `remarks off`, `second_concern off`, `lane_set shipped`, `change_shape off`), **ceiling
+10 CNY**, of which ≈0.9 is the prompt. **The dispatch is recorded with its run id in §91**, because a claim about a run
+is a claim about a number somebody can open.

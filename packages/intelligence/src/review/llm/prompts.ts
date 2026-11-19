@@ -37,6 +37,21 @@ export interface LLMFinding {
   /** Optional code snippet showing the problematic code. */
   snippet?: string;
   /**
+   * **The added line through which the defect is reached, copied out of this diff - the one field R-41 asks for.**
+   *
+   * **Why a field and not a sentence.** §88.1 measured the whole effect of "a comment that quotes the diff" on the
+   * field's key: such a comment is right **2.1 times as often** (precision 0.343 against 0.161), and only 11 % of the
+   * emission does it - so as a *filter* it destroys the run (F1 0.115) and as a *weight* it is the strongest term the
+   * score already has. What the engine never did was **ask** for it, in a place where an answer is required. A quote
+   * that appears inside a description is a coincidence of summarising; a quote in a field the contract names is an
+   * answer, and it is one a reader can check against the diff without a second model.
+   *
+   * **Verified, never trusted.** `weighFinding` marks it `anchored` only when the text is one of the *added* lines of
+   * the path the finding names, so a recalled line scores as an absent one. **And it is not a gate**: §88.2's emission
+   * rule is unchanged, which is why an anchorless comment is still emitted and simply collects no `quotesDiff` weight.
+   */
+  anchor?: string;
+  /**
    * **The file this finding is about, present only when one call covered more than one file.**
    *
    * In a file call the path is the argument and repeating it would be a second copy of the same fact. **A pull-request
@@ -130,7 +145,8 @@ const OUTPUT_SCHEMA = `{
       "category": "bug" | "security" | "performance" | "maintainability" | "test" | "architecture" | "style" | "documentation" | "other",
       "title": "<one-line summary>",
       "description": "<detailed explanation>",
-      "suggestion": "<suggested fix> | null
+      "suggestion": "<suggested fix> | null",
+      "anchor": "<one added line, copied exactly, through which the defect is reached>"
     }
   ]
 }`;
@@ -187,6 +203,25 @@ const DESCRIBE_THE_FAILURE = `**The description names the failure, not the fix.*
    **Do not report fewer findings because of this rule**: a defect you found and could not phrase is one this reviewer
    exists to phrase, not one to leave out.`;
 
+/**
+ * **The anchor, stated once for both scopes, because the two scopes disagree about the budget and not about this.**
+ *
+ * R-41 registered the goal (*a comment is not written until it names what reaches the defect*) and §88.2 corrected the
+ * mechanism (*a prompt, not a filter*), and this constant is that prompt. **It asks for a field rather than a habit**:
+ * §88.1's 2.1× precision difference was measured on comments that happened to quote the diff, and a habit cannot be
+ * counted while a field can. **The wording is the wording of the measurement** - "the added line through which the
+ * defect is reached" - because a lane told to "quote the code" quotes whatever is nearest, and the fact being bought is
+ * narrower than that.
+ *
+ * **And it says what to do when there is no such line**, because a rule that only describes success is a rule that
+ * invites an invented answer, and an invented anchor is caught by verification and then scores as if the lane had said
+ * nothing - which is the correct outcome for a lane that could not find one.
+ */
+const NAME_THE_ANCHOR = `**The anchor.** Every finding carries "anchor": the added line through which the defect is reached,
+   copied exactly from a line this diff adds, without its "+". Not the defect's own line, and not a paraphrase - a
+   reader must find it by reading the diff. A defect no single added line reaches (a missing guard, an absence) takes
+   the nearest added line that would have to change. **If none can be copied, omit the field rather than invent one.**`;
+
 const SELECTION_RULES = `
 How to choose and how many to return - this is part of the contract, not advice:
 
@@ -214,6 +249,7 @@ How to choose and how many to return - this is part of the contract, not advice:
    levels, choose the lower one**, because **a severity that is claimed and not justified costs precision on every
    row of the measurement that filters by it.**
 6. ${DESCRIBE_THE_FAILURE}
+7. ${NAME_THE_ANCHOR}
 `;
 
 // ---------------------------------------------------------------------------
@@ -271,6 +307,7 @@ ${paths.map((path) => `   - ${path}`).join('\n')}
 8. **An empty findings array is a valid and useful answer.** A pull request that only renames a variable does not
    contain ${budget} defects, and saying so is the correct output rather than a failure of the exercise.
 9. ${DESCRIBE_THE_FAILURE}
+10. ${NAME_THE_ANCHOR}
 `;
 }
 
@@ -285,7 +322,8 @@ const PULL_REQUEST_SCHEMA = `{
       "category": "bug" | "security" | "performance" | "maintainability" | "test" | "architecture" | "style" | "documentation" | "other",
       "title": "<one-line summary>",
       "description": "<detailed explanation>",
-      "suggestion": "<suggested fix> | null
+      "suggestion": "<suggested fix> | null",
+      "anchor": "<one added line, copied exactly, through which the defect is reached>"
     }
   ]
 }`;
@@ -863,7 +901,15 @@ export function parseLLMResponse(raw: string): LLMFinding[] {
         // number in that field would be a `path` the type promises is a path. **The engine decides whether the path
         // names a file the call showed** - this only refuses to carry a value that is not one.
         const raw: Record<string, unknown> = f as unknown as Record<string, unknown>;
-        return typeof raw['path'] === 'string' ? { ...base, path: raw['path'] } : base;
+        const withPath = typeof raw['path'] === 'string' ? { ...base, path: raw['path'] } : base;
+        // **And an anchor only when it is a non-blank string**, for the same reason and one more: **a blank field is an
+        // unanswered question**, and carrying `""` would let a lane score an empty anchor as if it had answered. The
+        // spread has already copied whatever was there, so the field is deleted rather than merely not added.
+        const anchor = raw['anchor'];
+        if (typeof anchor === 'string' && anchor.trim() !== '') return { ...withPath, anchor };
+        const cleaned: LLMFinding = { ...withPath };
+        delete cleaned.anchor;
+        return cleaned;
       });
   } catch {
     return [];
