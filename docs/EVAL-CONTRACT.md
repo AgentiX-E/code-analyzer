@@ -10698,7 +10698,40 @@ catch bodies** that only a filesystem that refuses a read can reach.
 collapses short arrays: **an artifact a gate rewrites is an artifact whose regeneration is a diff**, so the script now
 formats through the same prettier the gate uses.
 
-### 101.7 The bill is zero
+### 101.7 The first run of the arm measured coverage, not the device
+
+**One dispatch, fourteen pull requests, `reach: on`** — and the counters say the supply worked and the corpus could not
+use it.
+
+| what the run recorded                  | figure                            |
+| -------------------------------------- | --------------------------------- |
+| pull requests with a repository        | 14 of 14                          |
+| clones that failed                     | 0                                 |
+| files indexed                          | 50 224                            |
+| index build time, all fourteen         | 58 873 ms (≈4.2 s a pull request) |
+| files refused by the 64 MiB byte cap   | 1 335                             |
+| changed files the lanes reviewed       | 680                               |
+| changed files that got a reach note    | **42 (6.2 %)**                    |
+| characters the notes cost, whole slice | **2 080 ≈ 520 tokens**            |
+
+**The notes cost 0.015 % of the run's 3 512 951 prompt tokens**, which settles the price side: the device is free at the
+scale it fired.
+
+**And 6.2 % is the finding.** The slice's findings stand in **181 `.cpp`, 46 `.h`, 51 `.go`, 10 `.ts`/`.mts`** — and this
+index reads none of C++ and none of Go. **The notes that appeared were on the ten TypeScript files.** So the arm's
+figure (**P 0.2661, R 0.1706, F1 0.2079, 29 tp / 80 fp / 141 fn, 0.390 USD**) is **not** a reading of the device: a
+device that can speak about 6.2 % of the file-reviews cannot deliver a registered **+12 %** on goldens even if every
+review it touched improved. **The control arm was dispatched and then cancelled rather than bought** — ≈2.8 CNY saved —
+because a pair whose treatment is bounded at 6.2 % of the population is a pair that can only produce noise, and the
+registered effect is larger than the population the device reaches.
+
+**What this says about the next device, and it is not the one §100 registered.** The constraint is **language coverage**:
+the corpus this project measures on is C++ and Go, and the index reads TypeScript and five JVM/Python/Swift languages.
+A `#include` reader and a Go `import` reader are the same shape as §97's five (`imports-langs.ts` plus a tree-sitter
+judge), and they are what makes R-44's population exist. **R-44 is not falsified; it is unmeasured, for a reason that
+is now a number.**
+
+### 101.8 The bill
 
 One module, one test file, one call site in a report script, one import and one gated block in the bench, one dispatch
-input. **No model call, no judge, no dispatch.**
+input — plus **one diagnostic run at 0.390 USD ≈ 2.8 CNY**, which bought a coverage figure rather than a verdict.
