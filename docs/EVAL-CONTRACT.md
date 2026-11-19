@@ -10669,7 +10669,23 @@ of what it cost to get there: two iterations, no model calls, and the discovery 
 something supplies its input** — which is the same sentence as §100's _"an index whose only reader is its own report is
 not an index in the product"_, one layer down.
 
-### 101.5 The bill is zero
+### 101.5 The guard fired, and it was right
+
+**The fetch block's counters were initialised from `CODE_CONTEXT || NEEDS_FILE_TEXT` while the fetch was gated on the same
+expression**, and a test pins the two to one another — because the first run of the version that let them drift died 34
+minutes in with `Cannot read properties of undefined (reading 'length')` (§79.4). **`AACR_REACH` is a third reader of
+the fetch**, so the condition gained a term, **and the guard failed on the first run after the change**:
+
+```
+expected '// The corpus a direct competitor pub…' to match /if \(CODE_CONTEXT \|\| NEEDS_FILE_TEXT\) \{/
+```
+
+**It is worth stating what it caught, because nothing else could have.** A `reach` arm run with `AACR_CODE_CONTEXT=off`
+— the arm every published figure was measured under — would have fetched each changed file into `{ enabled: false }` and
+died at the first absent one, **after every pull request before it had been paid for.** The repair is one term in two
+places, and the test now names all three readers rather than a count.
+
+### 101.6 The bill is zero
 
 One module, one test file, one call site in a report script, one import and one gated block in the bench, one dispatch
 input. **No model call, no judge, no dispatch.**

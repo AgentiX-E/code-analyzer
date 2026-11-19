@@ -31,9 +31,11 @@ const BENCH = readFileSync(
 
 describe('the fetch counters and the fetch', () => {
   it('are owned by the same condition, because a fetch with no counter is a throw', () => {
-    // The initialiser must not be reachable from `CODE_CONTEXT` alone while the fetch is reachable from either.
-    expect(BENCH).toMatch(/codeContext:\s*\n?\s*CODE_CONTEXT \|\| NEEDS_FILE_TEXT/);
-    expect(BENCH).toMatch(/if \(CODE_CONTEXT \|\| NEEDS_FILE_TEXT\) \{/);
+    // The initialiser must be reachable from exactly what the fetch is reachable from. Since §101 there is a third
+    // reader - `AACR_REACH` needs the head commit and therefore the fetch block - and **the guard found it on the first
+    // run after the change**, which is the whole reason the two lines are pinned to one another rather than to a count.
+    expect(BENCH).toMatch(/codeContext:\s*\n?\s*CODE_CONTEXT \|\| NEEDS_FILE_TEXT \|\| REACH/);
+    expect(BENCH).toMatch(/if \(CODE_CONTEXT \|\| NEEDS_FILE_TEXT \|\| REACH\) \{/);
   });
 
   it('still says whether the window was on, because that is the arm a figure is compared by', () => {

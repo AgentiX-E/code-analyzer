@@ -2157,7 +2157,7 @@ async function main() {
      * *a file was fetched*, and a run can have one without the other.
      */
     codeContext:
-      CODE_CONTEXT || NEEDS_FILE_TEXT
+      CODE_CONTEXT || NEEDS_FILE_TEXT || REACH
         ? {
             enabled: CODE_CONTEXT,
             requested: 0,
