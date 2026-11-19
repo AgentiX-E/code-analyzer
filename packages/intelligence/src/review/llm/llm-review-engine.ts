@@ -12,7 +12,7 @@ import {
 } from './prompts.js';
 import { collectDiffFacts, diffHeaderPaths, rankFindings } from '../actionability.js';
 import { detectIdioms } from '../idiom-rules.js';
-import { selectIndexedContext } from '../index/symbols.js';
+import { reachLine, type ReachNote } from '../index/cross-file.js';
 import { remarkPrompt, selectRemarks, type RemarkSelection } from '../remark-lane.js';
 import { codeContextForSections, type CodeContextLimits } from './code-context.js';
 import {
@@ -31,6 +31,7 @@ import {
 } from '../adjudication/falsifier.js';
 import { applyNarrationVeto, type NarrationVetoReport } from '../adjudication/narration.js';
 import { addedLinesOf, numberedAddedLines } from '../adjudication/patch-lines.js';
+import { selectIndexedContext } from '../index/symbols.js';
 
 import type { LLMProvider, CompletionOptions } from './provider.js';
 import type { FileSymbolIndex } from '../index/symbols.js';
@@ -227,6 +228,20 @@ export interface LLMReviewOptions {
    * without it, and `AACR_REMARKS` in the benchmark is how a run says which side of the switch it was.
    */
   remarks?: boolean;
+  /**
+   * **Where a lane's cross-file reach comes from, or `null` for a review that has no repository to consult.**
+   *
+   * **The index had one caller and it was a report** (§100): `buildRepoIndex` was measured by
+   * `scripts/cross-file-report.mjs` and read by nothing that reviews. Four devices were built on top of it and all four
+   * were null as selectors, **and the reason they were selectors is that all four ran after the sentences existed.**
+   * This option is the same fact placed before the sentence: the lane is told which names the file it is reading are
+   * read elsewhere and where, so *"the caller still passes two arguments"* becomes a sentence it can write.
+   *
+   * **A provider rather than an index**, because the engine must not depend on one: a caller with no checkout passes
+   * nothing, and every figure this repository has published was measured with nothing. `reachNoteOf` in
+   * `review/index/cross-file.ts` is the implementation for a caller that has one.
+   */
+  reach?: (path: string) => ReachNote | null;
 }
 
 /** Result of an LLM review for a single diff. */
@@ -414,6 +429,10 @@ const DEFAULT_OPTIONS: Required<LLMReviewOptions> = {
   surroundingOf: () => undefined,
   fileIndexOf: () => undefined,
   touchedLinesOf: () => undefined,
+  // **A provider that answers `null`**, so the default is *this review has no repository to consult* rather than a
+  // missing key: a caller that sets nothing gets prompts byte-identical to the ones every published figure was measured
+  // on, which is the only defensible default for a device that changes what the model is told.
+  reach: () => null,
 };
 
 /**
@@ -491,6 +510,30 @@ export class LLMReviewEngine {
   // -------------------------------------------------------------------------
 
   /**
+   * **The reach block one call carries, or `undefined` when the caller has no repository to consult.**
+   *
+   * **One line per file, and the file's path is part of the line when there is more than one.** A pull-request call
+   * that listed five files' reach without naming them would be a list of names a model cannot attribute, and
+   * **attribution is the whole value of the fact**: *`withinLimit` is read from `src/caller.js:7`* is a sentence with a
+   * file in it, and *`withinLimit` is read somewhere* is not.
+   *
+   * **A provider that throws is not caught here.** A repository index that fails is a caller's bug and every figure
+   * downstream of it would be a figure about a review that silently lost its context; this is the one place in the
+   * engine where failing loudly is cheaper than the alternative.
+   */
+  private reachFor(paths: readonly string[]): string | undefined {
+    const lines: string[] = [];
+    for (const path of paths) {
+      const note: ReachNote | null = this.options.reach(path);
+      if (note === null) continue;
+      const line = reachLine(note);
+      if (line.length === 0) continue;
+      lines.push(paths.length === 1 ? line : `${path}: ${line}`);
+    }
+    return lines.length === 0 ? undefined : lines.join('\n');
+  }
+
+  /**
    * Review a single git diff using LLM-powered analysis.
    * Runs the specified review lanes and returns aggregated results.
    */
@@ -509,7 +552,8 @@ export class LLMReviewEngine {
 
     const lanes = this.options.lanes;
 
-    const results = await this.runLanes(ctx, lanes);
+    const reach = this.reachFor([diff.filePath]);
+    const results = await this.runLanes(reach === undefined ? ctx : { ...ctx, reach }, lanes);
     // **The deterministic lane joins the list before the merge, not after it.** A remark that both a lane and this
     // pass made is one remark, and a merge that ran first would file it twice - which costs a reader's attention and,
     // on the corpus, a false positive.
@@ -1263,7 +1307,11 @@ export class LLMReviewEngine {
       ...(codeContext.length > 0 ? { fileContext: codeContext } : {}),
     };
 
-    const results = await this.runLanes(ctx, this.options.lanes);
+    const reach = this.reachFor(paths);
+    const results = await this.runLanes(
+      reach === undefined ? ctx : { ...ctx, reach },
+      this.options.lanes,
+    );
 
     const parsed = [...this.parsedByLane.values()].reduce((sum, count) => sum + count, 0);
     const deduplicated = this.deduplicateAcrossLanes(results);

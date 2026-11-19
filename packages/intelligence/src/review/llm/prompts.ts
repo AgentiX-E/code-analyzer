@@ -115,6 +115,18 @@ export interface PromptContext {
    * and without it. See `composeLanePrompt` for the three arrangements and the measurements behind them.
    */
   promptOrder?: PromptOrder;
+  /**
+   * **What this file's names reach, rendered by the caller from the repository index.**
+   *
+   * **The one fact a diff cannot carry.** A lane reads one file's change and the caller that still passes the old
+   * arity is in another file, so *"three call sites still pass two arguments"* - the remark a repo-level reviewer
+   * sells - was a sentence this engine had no way to make. The index knows it before the call and for free (§100).
+   *
+   * **A string rather than an index, because the prompt layer must not depend on one.** The engine takes a
+   * provider (`LLMReviewOptions.reach`) and renders it here; a caller with no repository index passes nothing and
+   * every prompt this repository has measured stays byte-identical.
+   */
+  reach?: string;
 }
 
 // ---------------------------------------------------------------------------
@@ -326,6 +338,21 @@ function showsContext(ctx: PromptContext): boolean {
   );
 }
 
+/**
+ * **What the reach block says about itself**, which is the difference between evidence and a claim.
+ *
+ * A list of call sites is an invitation to report a defect that is not there: a name read from three files is three
+ * *correct* call sites unless one of them passes something the change no longer accepts. **So the block names its own
+ * status** - *this is evidence, not a finding* - because a model told to review and handed a list of callers will
+ * otherwise report the list.
+ */
+function reachSection(ctx: PromptContext): string {
+  if (ctx.reach === undefined || ctx.reach.length === 0) return '';
+  return `Cross-file reach, from the repository's import graph and not from this diff - **a call site here is correct unless the change makes it wrong, and reporting that a name has callers is not a finding:**
+${ctx.reach}
+`;
+}
+
 export function describeTarget(ctx: PromptContext): string {
   if (ctx.scope === 'pull-request') {
     const paths = ctx.paths ?? [];
@@ -338,13 +365,13 @@ export function describeTarget(ctx: PromptContext): string {
       ? `Surrounding code, unchanged lines included (the block each hunk sits in):\n${ctx.fileContext!}\n`
       : '';
     return `Pull request: ${paths.length} file${paths.length === 1 ? '' : 's'} in one diff.
-${window}Paths in this pull request:
+${window}${reachSection(ctx)}Paths in this pull request:
 ${paths.map((path) => `- ${path}`).join('\n')}
 `;
   }
   return `File: ${ctx.filePath}
 Change type: ${ctx.changeType}
-${showsContext(ctx) ? `File context:\n${ctx.fileContext!}\n` : ''}`;
+${showsContext(ctx) ? `File context:\n${ctx.fileContext!}\n` : ''}${reachSection(ctx)}`;
 }
 
 /**

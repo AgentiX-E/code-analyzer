@@ -460,8 +460,12 @@ describe('every module a package compiles is reachable from an entry its manifes
       // second against `ts.resolveModuleName` rather than against its own rules, which is only possible while the two are
       // separate modules with separate tests. **192 since §97**, which added `imports-langs.ts`: five more languages'
       // import syntax, in a module of its own because it is judged by a second implementation (`scripts/import-oracle.ts`)
-      // and a judge and its subject have to be separable files.
-      intelligence: 192,
+      // and a judge and its subject have to be separable files. **193 since §100**, which added
+      // `review/index/cross-file.ts`: the reach a prompt carries. A module rather than a function in `repo-index.ts`
+      // because the two answer different questions - the index answers *which file*, this one answers *what a sentence
+      // can say about it* - and because the rendering is the part a token budget is set against, which is a testable
+      // claim only while it is separable from the graph.
+      intelligence: 193,
       mcp: 39,
       server: 24,
       // **11 since iteration 121**, which added `utils/type-text.ts`: the depth-counted removal of type arguments and

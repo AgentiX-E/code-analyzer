@@ -20,6 +20,7 @@ import { join, relative, resolve } from 'node:path';
 import ts from 'typescript';
 
 import { buildRepoIndex, impactOf } from '../packages/intelligence/dist/review/index/repo-index.js';
+import { reachLine, reachNoteOf } from '../packages/intelligence/dist/review/index/cross-file.js';
 
 const ROOT = process.cwd();
 const args = process.argv.slice(2);
@@ -132,6 +133,40 @@ const fanOut = new Map();
 for (const row of index.references) fanOut.set(row.toName, (fanOut.get(row.toName) ?? 0) + 1);
 const topFanOut = [...fanOut.entries()].sort((left, right) => right[1] - left[1]).slice(0, 8);
 
+/**
+ * **What the block costs, measured before it is put in a prompt.**
+ *
+ * §100 hands the index to the reviewer as one line per changed file. **A context device is a token purchase**, and the
+ * purchase has to be priced on a repository that exists before the run that tests it: this walks every source file,
+ * renders the line a prompt would carry, and reports how long it is. **Characters divided by four is a proxy and it is
+ * labelled one** — the same proxy §99.2 uses for the finding text, applied here so the two are comparable, and the only
+ * claim that does not depend on it is the distribution of characters, which is what a budget is set against.
+ */
+const reachLengths = [];
+let filesWithReach = 0;
+let importersTotal = 0;
+for (const path of paths) {
+  const note = reachNoteOf(index, path);
+  if (note === null) continue;
+  filesWithReach += 1;
+  importersTotal += note.importers;
+  reachLengths.push(reachLine(note).length);
+}
+reachLengths.sort((left, right) => left - right);
+const quantile = (q) =>
+  reachLengths[Math.min(reachLengths.length - 1, Math.floor(q * reachLengths.length))] ?? 0;
+const reach = {
+  files: filesWithReach,
+  withoutNote: index.stats.files - filesWithReach,
+  chars: reachLengths.reduce((sum, value) => sum + value, 0),
+  medianChars: quantile(0.5),
+  p90Chars: quantile(0.9),
+  maxChars: reachLengths.at(-1) ?? 0,
+  meanImporters: round4(importersTotal / Math.max(1, filesWithReach)),
+  tokensByProxy: Math.round(reachLengths.reduce((sum, value) => sum + value, 0) / 4),
+  medianTokensByProxy: Math.round(quantile(0.5) / 4),
+};
+
 const report = {
   generatedBy: 'scripts/cross-file-report.mjs',
   packages,
@@ -160,6 +195,7 @@ const report = {
     meanCallers: round4(index.stats.edges / Math.max(1, referenced.size)),
     topFanOut,
   },
+  reach,
 };
 
 if (asJson)
@@ -190,3 +226,11 @@ for (const [label, rows] of Object.entries(report.samples)) {
 }
 console.log('\ntop fan-out:');
 for (const [name, count] of topFanOut) console.log(`  ${name} ${count}`);
+
+console.log('\nreach block (the line §100 puts in a prompt):');
+console.log(
+  `  files with a note ${reach.files}  silent ${reach.withoutNote}  median ${reach.medianChars} chars  p90 ${reach.p90Chars}  max ${reach.maxChars}  mean importers ${reach.meanImporters}`,
+);
+console.log(
+  `  total ${reach.chars} chars = ${reach.tokensByProxy} tokens by the chars/4 proxy  (median call ${reach.medianTokensByProxy})`,
+);

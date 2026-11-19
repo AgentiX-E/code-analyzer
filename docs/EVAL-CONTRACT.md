@@ -10471,6 +10471,14 @@ budgets and prints both columns.
 
 ### 99.2 The cost axis is modelled, and the model is stated
 
+**§99.2 said the artifact records no token counts, and that sentence was false** — corrected here rather than quietly
+rewritten. `benchmarks/aacr-bench.json` carries `spend`, and §77.1 already quotes it: **6 694 741 prompt tokens at
+56.85 % cache hit, 766 374 completion tokens, 3 195 lane calls, 0.9045 USD.** What the artifact does _not_ carry is a
+**per-finding** token count, and that is the only thing the proxy is used for: the table above prices the **finding
+text** — what a reviewer writes — while `spend` prices the **reading**, which is five lanes per file and does not move
+when the budget does. **The two are different purchases and only one of them was dimensioned above**; §100.2 puts the
+reading side beside it.
+
 **The artifact records no token counts**, so the bill is the finding text in characters divided by four. **That constant is
 a proxy**; it is applied to both sides of every ratio, so **the shape of the curve is the finding and the absolute numbers
 are an estimate**. What the proxy cannot do is compare this run to a vendor's: **no competitor publishes a token bill
@@ -10492,3 +10500,93 @@ precision while writing twice as much would not be the arm this table says is wo
 tokens, and that on the run measured so far the justification is not there.
 
 **The bill is zero**: one artifact already on disk, one script, one test.
+
+## §100 The index had one caller and it was a report, so the fact arrived after the sentence
+
+**§95 built the edge layer, measured it against `ts.resolveModuleName` at 1.000, and then measured four devices on top of
+it — and all four were null.** §96 explained the gap as generation rather than selection: **254 of 452 goldens (56.2 %)
+were lost with one of our comments already standing on the right file**, so no reordering and no filter could recover
+them. **This section reads the four nulls together and finds the thing they had in common: every one of them was a
+filter.** `crossesFile`, `crossesTwoFiles`, the witness and the ceiling all ran _after_ the sentences existed.
+
+**And the index had exactly one caller.** `buildRepoIndex` is imported by `scripts/cross-file-report.mjs` and by
+nothing that reviews. **An index whose only reader is its own report is not an index in the product**, which is the
+institutional form of the same defect: a fact with no path to a prompt cannot change a sentence, and every device built
+after the sentences was measuring the sentences.
+
+### 100.1 The same fact, placed before the sentence
+
+`packages/intelligence/src/review/index/cross-file.ts` turns the graph into the one line a prompt can carry:
+
+```
+withinLimit ← src/caller.ts:4 · 3 names declared here are read by no other file
+```
+
+**Three decisions are in that line.**
+
+1. **One line per name, with `path:line` for each reader**, capped at three sites and six names, and **the cap says what
+   it hid** — `(+2)` and _"2 more names read outside this file"_. A list that silently stops is a list whose reader
+   cannot tell a small file from a clipped one, and a block that costs tokens has to be tunable against a measurement.
+2. **A file nothing reads still gets a sentence.** _"read by no other file"_ is half the answer: it is what a review says
+   when a change is contained, and an empty string would be indistinguishable from _unknown_.
+3. **The block names its own status** — _a call site here is correct unless the change makes it wrong, and reporting that
+   a name has callers is not a finding._ A model handed a list of callers reports the list; the sentence is part of the
+   device rather than politeness.
+
+**Placement is the cost decision.** The block goes inside `describeTarget`, which `sharedPrefix` appends **after** the
+lane boilerplate, so the reusable prefix the five lanes share is byte-identical with and without it and **the line is
+paid once per file rather than once per lane.** A block placed before the boilerplate would have broken the cache that
+§77.1 measured at 56.85 %.
+
+### 100.2 What it costs, measured on this repository before any run
+
+`scripts/cross-file-report.mjs` now renders the line for every source file it indexes and reports the distribution —
+**a context device is a token purchase, and the purchase is priced before the run that tests it.**
+
+| measured over `packages/*/src` (484 files, 185 738 lines) | figure                            |
+| --------------------------------------------------------- | --------------------------------- |
+| files that get a line                                     | 462                               |
+| files with nothing to say (no declarations)               | 22                                |
+| **median** line                                           | **109 characters ≈ 27 tokens**    |
+| p90 line                                                  | 393 characters ≈ 98 tokens        |
+| longest line                                              | 919 characters ≈ 230 tokens       |
+| mean importing files per file                             | 1.50                              |
+| whole-repository total, if every file were reviewed       | 75 769 characters ≈ 18 942 tokens |
+
+**The price against the bill §77.1 measured**: 3 195 lane calls spent 6 694 741 prompt tokens, so **one call reads
+≈2 095 prompt tokens** and the median reach line is **1.3 % of it** — p90 is 4.7 % and the worst file in the repository
+is 11 %. **Characters divided by four is a proxy**, the same one §99.2 uses, applied here so the two axes are
+comparable; the claim that does not depend on it is the character distribution, which is what the caps were set against.
+
+**And the index numbers moved with the corpus, as §98.4 said they would**: 484 files, 1 879 import statements, 1 261
+resolved (1 261/1 261 agreement with `ts.resolveModuleName`, zero in either direction), 1 289 edges, 668 declarations
+read across a file boundary (15.48 %), 421 ms. The one file this section adds is `cross-file.ts`, and the tests are not
+in `packages/*/src`.
+
+### 100.3 What proves the wiring, and what would refute the device
+
+**`tests/e2e/a-review-is-told-what-a-change-reaches.test.ts` is the wiring proof and it is deliberately a story**: an
+exported guard gains a parameter, the caller in another file still passes one argument, and the lane **names that caller
+only when the reach block is in the prompt** — the same engine, the same provider, the same diff, one option apart.
+Three things it asserts that a unit test of the note cannot: the sentence exists at all, the answer changes because of
+the block rather than because of the script, and **the call count does not move** (_the fact is free and the bill is the
+same_).
+
+**What this does not claim.** **No arm was run.** The device changes what the model is told, and the only figure that can
+settle it is a paired dispatch. **R-44 is registered here, before the run**, on the corpus §96 used:
+
+- **target**: matched goldens rise **≥ 12 %** (98 → ≥ 110 at budget 12) **with prompt tokens up ≤ 5 %** (≤ 7.03 M);
+- **refuted if** goldens move less than 12 % and tokens move more than 5 %, **or if goldens rise while precision falls
+  below 0.30** — a device that buys recall by writing about call sites is the failure mode §95's `crossesFile` filter
+  warned about, one step earlier in the pipeline;
+- **price**: a 14-pull-request slice at §77.1's 0.027 USD per pull request is **≈0.38 USD ≈ 2.7 CNY**, and the
+  confirmation on fifty is **≈1.35 USD ≈ 9.7 CNY**. The slice is dispatched first, per §77.3.
+
+**It does not claim the index now earns its keep.** It claims the index has a path into a prompt, that the path costs
+1.3 % of a call at the median, and that its effect is a registered question rather than an argument.
+
+### 100.4 The bill is zero
+
+One module, one option on the engine (`LLMReviewOptions.reach`, defaulting to a provider that answers `null`), one
+section in `describeTarget`, one measurement added to a report script that already existed, two test files. **No model
+call, no judge, no dispatch.**

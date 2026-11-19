@@ -479,6 +479,15 @@ export type {
   ResolvedImport,
   UnresolvedImport,
 } from './review/index/repo-index.js';
+// What a file's names reach, in the shape a prompt carries — the index placed before the sentence rather than after
+// it, which is the one thing the four null selectors of §88, §91, §93 and §95 had in common. §100.
+export {
+  NAMES_PER_NOTE,
+  SITES_PER_NAME,
+  reachLine,
+  reachNoteOf,
+} from './review/index/cross-file.js';
+export type { ReachName, ReachNote } from './review/index/cross-file.js';
 export { parseCognitionIndex, renderCognitionEntry } from './review/index/cognition.js';
 export type { CognitionEntry, CognitionProblem } from './review/index/cognition.js';
 // The index queried by a finding's own words - `aoci-code`'s `Search`, whole rows, no embedding. §82.
