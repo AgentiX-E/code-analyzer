@@ -219,15 +219,7 @@
       "oursCount": 31,
       "both": 24,
       "missing": [],
-      "nested": [
-        "descend",
-        "visit",
-        "collect",
-        "call_target",
-        "classify",
-        "ambiguous",
-        "ratio"
-      ],
+      "nested": ["descend", "visit", "collect", "call_target", "classify", "ambiguous", "ratio"],
       "phantom": []
     },
     {
