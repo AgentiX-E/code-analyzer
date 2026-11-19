@@ -142,4 +142,106 @@ describe('resolution', () => {
     expect(impactOf(index, 'src/main/java/a/b/C.java', ['C']).callers).toEqual([]);
     expect(impactOf(index, 'pkg/mod.py', ['helper']).paths).toEqual(['pkg/use.py']);
   });
+
+  it('reads a backslash continuation, which is how Python wraps an import without parentheses', () => {
+    const statements = read('python', 'import very.long.module, \\\n    another.module');
+    expect(statements.map((statement) => statement.specifier)).toEqual([
+      'very.long.module',
+      'another.module',
+    ]);
+  });
+
+  it('refuses a relative import that walks above the root, rather than resolving it to something', () => {
+    const files = new Set(['mod.py']);
+    expect(resolvePythonSpecifier('...mod', 'top.py', files)).toBeNull();
+  });
+
+  it('resolves a from-import of the package itself, which is what a lone dot means', () => {
+    const files = new Set(['pkg/__init__.py']);
+    expect(resolvePythonSpecifier('.', 'pkg/a.py', files)).toBe('pkg/__init__.py');
+  });
+
+  it('reads Swift’s modified forms and ignores a language it does not answer', () => {
+    expect(read('swift', 'import class UIKit.UIView')[0]?.specifier).toBe('UIKit.UIView');
+    expect(readLanguageImports('typescript', ['import a from "b"'], ['import a from "b"'])).toEqual(
+      [],
+    );
+  });
+
+  it('reads a JVM import with no semicolon, which Groovy allows', () => {
+    expect(read('groovy', 'import groovy.transform.CompileStatic')[0]?.specifier).toBe(
+      'groovy.transform.CompileStatic',
+    );
+  });
+
+  it('refuses a lone dot at the root, where there is no package to mean', () => {
+    expect(resolvePythonSpecifier('.', 'a.py', new Set(['__init__.py']))).toBeNull();
+  });
+
+  it('resolves an absolute Python import from the root, where there are no segments to walk', () => {
+    const files = new Set(['pkg/mod.py']);
+    expect(resolvePythonSpecifier('pkg.mod', 'a.py', files)).toBe('pkg/mod.py');
+  });
+
+  it('reads a static import with an alias, and a Kotlin script’s extension', () => {
+    const [statement] = read('kotlin', 'import static a.b.C.m as n');
+    expect(statement?.specifier).toBe('a.b.C');
+    expect(statement?.names).toEqual([{ imported: 'm', local: 'n' }]);
+    const byBase = new Map([['build.gradle.kts', ['build.gradle.kts']]]);
+    expect(resolveJvmSpecifier('kotlin', 'build.gradle', byBase)).toBeNull();
+  });
+
+  it('stops a continuation at the end of the file rather than reading past it', () => {
+    expect(read('python', 'import a\\')).toHaveLength(1);
+    expect(read('python', 'from a import (b')).toHaveLength(1);
+  });
+
+  it('skips an empty piece in a Python list, which a trailing comma produces', () => {
+    expect(read('python', 'from a import b,')).toHaveLength(1);
+  });
+
+  it('answers nothing for an empty Python specifier, which a malformed line produces', () => {
+    expect(resolvePythonSpecifier('', 'a.py', new Set(['a.py']))).toBeNull();
+  });
+
+  it('answers a JVM specifier whose file sits at the source root, with no prefix to end with', () => {
+    expect(resolveJvmSpecifier('java', 'C', new Map([['C.java', ['C.java']]]))).toBe('C.java');
+  });
+
+  it('leaves a wildcard external, because a package is not one file and an edge to one would be invented', () => {
+    const index = buildRepoIndex([
+      { path: 'a/b/C.java', text: 'package a.b;\npublic class C {}' },
+      { path: 'a/b/Use.java', text: 'package a.b;\nimport a.b.*;\nclass Use {}' },
+    ]);
+    expect(index.stats.externalImports).toBe(1);
+    expect(index.stats.resolvedImports).toBe(0);
+    expect(index.references).toEqual([]);
+  });
+
+  it('declines an edge when the target does not declare the imported name, or the importer never uses it', () => {
+    const index = buildRepoIndex([
+      { path: 'pkg/mod.py', text: 'def other():\n    return 1\n' },
+      { path: 'pkg/use.py', text: 'from .mod import missing, other\n' },
+    ]);
+    expect(index.references).toEqual([]);
+    expect(index.stats.resolvedImports).toBe(1);
+  });
+
+  it('answers nothing when neither a module nor a package answers the specifier', () => {
+    expect(resolvePythonSpecifier('nope', 'a.py', new Set(['pkg/mod.py']))).toBeNull();
+  });
+
+  it('reads a static wildcard, which names a type’s members rather than a type', () => {
+    const [statement] = read('java', 'import static a.b.*;');
+    expect(statement?.specifier).toBe('a');
+    expect(statement?.namespace).toBe(true);
+  });
+
+  it('has no extension table for a language it does not resolve', () => {
+    expect(resolveJvmSpecifier('swift', 'a.b.C', new Map([['C.java', ['C.java']]]))).toBeNull();
+  });
+
+  it('stops an unterminated parenthesised plain import at the bound', () => {
+    expect(read('python', 'import (a')).toHaveLength(1);
+  });
 });
