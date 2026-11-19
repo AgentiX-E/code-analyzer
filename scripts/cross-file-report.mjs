@@ -14,13 +14,14 @@
 // Usage:
 //   node scripts/cross-file-report.mjs [--packages a,b] [--json]
 
-import { readdirSync, readFileSync, statSync, writeFileSync } from 'node:fs';
+import { readdirSync, statSync, writeFileSync } from 'node:fs';
 import { join, relative, resolve } from 'node:path';
 
 import ts from 'typescript';
 
 import { buildRepoIndex, impactOf } from '../packages/intelligence/dist/review/index/repo-index.js';
 import { reachLine, reachNoteOf } from '../packages/intelligence/dist/review/index/cross-file.js';
+import { readRepoFiles } from '../packages/intelligence/dist/review/index/repo-files.js';
 
 const ROOT = process.cwd();
 const args = process.argv.slice(2);
@@ -33,35 +34,23 @@ const packages =
         return statSync(join(ROOT, 'packages', name)).isDirectory();
       });
 
-/** Every `.ts` file under `packages/<name>/src`, repo-relative. */
-function collectSources() {
-  const out = [];
-  const walk = (dir) => {
-    for (const entry of readdirSync(join(ROOT, dir), { withFileTypes: true })) {
-      const path = `${dir}/${entry.name}`;
-      if (entry.isDirectory()) {
-        if (entry.name === 'node_modules' || entry.name === 'dist' || entry.name === '__tests__')
-          continue;
-        walk(path);
-        continue;
-      }
-      if (!/\.(?:ts|tsx|mts|cts)$/u.test(entry.name)) continue;
-      if (/\.d\.ts$/u.test(entry.name)) continue;
-      out.push(path);
-    }
-  };
-  for (const name of packages) {
-    try {
-      walk(`packages/${name}/src`);
-    } catch {
-      // A package with no `src` is not a finding.
-    }
-  }
-  return out;
-}
-
-const paths = collectSources();
-const files = paths.map((path) => ({ path, text: readFileSync(join(ROOT, path), 'utf8') }));
+/**
+ * **The corpus, read by the reader the product uses** (§101), rather than by a glob written for this report.
+ *
+ * The two did the same thing until the reader existed: a walk with a skip list, an extension list and a second read of
+ * every file. **A report that reads the corpus differently from the product measures a corpus the product never
+ * sees**, and the difference would be exactly the files one of them forgot to skip.
+ */
+const tree = readRepoFiles(ROOT, {
+  extensions: ['.ts', '.tsx', '.mts', '.cts'],
+  maxFiles: 5_000,
+  accept: (path) =>
+    !path.endsWith('.d.ts') &&
+    !path.includes('/__tests__/') &&
+    packages.some((name) => path.startsWith(`packages/${name}/src/`)),
+});
+const files = tree.files;
+const paths = files.map((file) => file.path);
 
 const started = Date.now();
 const index = buildRepoIndex(files);
@@ -196,6 +185,7 @@ const report = {
     topFanOut,
   },
   reach,
+  reader: tree.stats,
 };
 
 if (asJson)

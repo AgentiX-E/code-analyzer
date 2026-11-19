@@ -126,6 +126,21 @@ on:
         type: choice
         options: ['off', 'pair']
         default: 'off'
+      reach:
+        # **The repository graph, for the lanes** (§100's device, §101's supply).
+        #
+        # §100 moved the index in front of the sentence and registered R-44 - **and the device could not be run, because
+        # no arm had a repository.** The benchmark fetches the changed files and nothing else, so *"three callers still
+        # pass two arguments"* was a sentence no lane could produce. `on` clones the pull request's head commit, walks it
+        # once, and hands each changed file the one line describing what it reaches.
+        #
+        # **`off` is every figure this repository has published**, and the artifact's `configuration.reach` says which
+        # side a figure came from. The price is bandwidth and a few hundred milliseconds per repository, recorded as
+        # `reach.indexMs` and `reach.filesIndexed` beside the figure it may move.
+        description: 'Repository graph for the lanes: off (every published figure) or on (R-44)'
+        type: choice
+        options: ['off', 'on']
+        default: 'off'
       agent:
         # **The arm the head-to-head made necessary: a reviewer that can read the repository.**
         #
@@ -527,6 +542,11 @@ jobs:
           # the reason every arm here is: an input would be one value chosen once and given to both arms, which is the
           # arrangement that made R-18 a comparison across two dispatches rather than inside one.
           AACR_CHANGE_SHAPE: ${{ matrix.change_shape }}
+          # **And whether the lanes are told what each changed file reaches** (§101). A dispatch input rather than a
+          # matrix dimension, because this arm is being measured for the first time: **a pair costs two full runs and a
+          # device whose price is not yet known is bought once** - the second one is the confirmation, and it is a
+          # dispatch somebody has to read the first artifact before making.
+          AACR_REACH: ${{ inputs.reach || 'off' }}
           # **The profile the artifact will record**, passed explicitly rather than left to the script's default, so the
           # workflow and the artifact cannot disagree about which reviewer produced the figure.
           AACR_PROFILE: ${{ matrix.profile }}

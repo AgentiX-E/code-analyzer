@@ -12,23 +12,23 @@
     "vscode",
     "web"
   ],
-  "files": 483,
-  "lines": 185548,
+  "files": 485,
+  "lines": 185970,
   "stats": {
-    "files": 483,
-    "symbols": 4307,
-    "imports": 1876,
-    "resolvedImports": 1258,
-    "externalImports": 618,
+    "files": 485,
+    "symbols": 4323,
+    "imports": 1885,
+    "resolvedImports": 1265,
+    "externalImports": 620,
     "missingImports": 0,
     "namespaceImports": 0,
-    "edges": 1286
+    "edges": 1290
   },
-  "elapsedMs": 555,
+  "elapsedMs": 414,
   "agreement": {
-    "compared": 1258,
-    "bareSpecifiers": 618,
-    "agreed": 1258,
+    "compared": 1265,
+    "bareSpecifiers": 620,
+    "agreed": 1265,
     "rate": 1,
     "weResolveTheyDoNot": 0,
     "theyResolveWeDoNot": 0,
@@ -40,19 +40,64 @@
     "bothResolveDifferently": []
   },
   "coverage": {
-    "declarations": 4307,
-    "readFromAnotherFile": 665,
-    "share": 0.1544,
-    "meanCallers": 1.9338,
+    "declarations": 4323,
+    "readFromAnotherFile": 669,
+    "share": 0.1548,
+    "meanCallers": 1.9283,
     "topFanOut": [
-      ["ParsedImport", 34],
-      ["namedChildrenOf", 26],
-      ["childrenOf", 26],
-      ["TreeSitterSyntaxNode", 24],
-      ["lineOf", 24],
-      ["TreeSitterLanguage", 22],
-      ["TreeSitterBaseProvider", 21],
-      ["ExecutablePhase", 19]
+      [
+        "ParsedImport",
+        34
+      ],
+      [
+        "namedChildrenOf",
+        26
+      ],
+      [
+        "childrenOf",
+        26
+      ],
+      [
+        "TreeSitterSyntaxNode",
+        24
+      ],
+      [
+        "lineOf",
+        24
+      ],
+      [
+        "TreeSitterLanguage",
+        22
+      ],
+      [
+        "TreeSitterBaseProvider",
+        21
+      ],
+      [
+        "ExecutablePhase",
+        19
+      ]
     ]
+  },
+  "reach": {
+    "files": 463,
+    "withoutNote": 22,
+    "chars": 75884,
+    "medianChars": 109,
+    "p90Chars": 393,
+    "maxChars": 919,
+    "meanImporters": 1.5032,
+    "tokensByProxy": 18971,
+    "medianTokensByProxy": 27
+  },
+  "reader": {
+    "readable": true,
+    "considered": 485,
+    "read": 485,
+    "bytes": 6922238,
+    "skippedBySize": 0,
+    "skippedOverCap": 0,
+    "skippedUnreadable": 0,
+    "directoriesSkipped": 34
   }
 }

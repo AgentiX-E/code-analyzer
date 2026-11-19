@@ -488,6 +488,8 @@ export {
   reachNoteOf,
 } from './review/index/cross-file.js';
 export type { ReachName, ReachNote } from './review/index/cross-file.js';
+export { readRepoFiles } from './review/index/repo-files.js';
+export type { RepoFileLimits, RepoTree, RepoTreeStats } from './review/index/repo-files.js';
 export { parseCognitionIndex, renderCognitionEntry } from './review/index/cognition.js';
 export type { CognitionEntry, CognitionProblem } from './review/index/cognition.js';
 // The index queried by a finding's own words - `aoci-code`'s `Search`, whole rows, no embedding. §82.

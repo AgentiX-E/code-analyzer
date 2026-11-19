@@ -342,6 +342,26 @@ const CODE_CONTEXT =
 const CHANGE_SHAPE = String(process.env['AACR_CHANGE_SHAPE'] ?? 'off').toLowerCase() === 'on';
 
 /**
+ * **`AACR_REACH=on` supplies the repository graph the lanes were never given** (§100 registered it, §101 built the
+ * supply).
+ *
+ * §100 moved the index in front of the sentence and the device could not be run: **`buildRepoIndex` had no caller that
+ * had a repository.** The benchmark fetches the changed files and nothing else, so *"three callers still pass two
+ * arguments"* was a sentence no arm could produce. This switch gives the lanes a checkout: the pull request's head
+ * commit is cloned once, every file the index can read is walked once, and each changed file is handed the one line
+ * describing what it reaches.
+ *
+ * **`off` is the default and it is every figure this repository has published**, for the reason `AACR_CODE_CONTEXT`
+ * says it: a default that silently turned the device on would make the next run incomparable with the last one rather
+ * than with itself.
+ *
+ * **It is not free.** A clone per pull request is bandwidth, and the index is a few hundred milliseconds per
+ * repository; **the artifact records both**, because a device whose price is not in the artifact is a device nobody can
+ * decide to keep.
+ */
+const REACH = String(process.env['AACR_REACH'] ?? 'off').toLowerCase() === 'on';
+
+/**
  * **The pull-request arm's budget, and the arithmetic that chose it before the run.**
  *
  * The file arm fills three slots **per file per lane**; over 199 files it emitted **183 findings carrying 21 goldens**
@@ -1738,6 +1758,24 @@ async function main() {
   // **The lane set comes from the module that owns it**, so the list a run puts to a diff and the list a test asserts on
   // are one list. A copy here would drift, and the artifact would name a question whose sentence nobody could find.
   const { LANE_SETS } = await import('../../packages/intelligence/dist/review/llm/prompts.js');
+  /**
+   * **The graph, imported rather than re-implemented** (§101). The walk, the caps and the note are the package's, so the
+   * line this run puts in a prompt is the line the product will put in one - **a harness with its own copy of a device
+   * measures the copy.**
+   */
+  const { readRepoFiles } = REACH
+    ? await import('../../packages/intelligence/dist/review/index/repo-files.js')
+    : {};
+  const { buildRepoIndex } = REACH
+    ? await import('../../packages/intelligence/dist/review/index/repo-index.js')
+    : {};
+  const { reachNoteOf, reachLine } = REACH
+    ? await import('../../packages/intelligence/dist/review/index/cross-file.js')
+    : {};
+  /** One index per head commit, because two pull requests can share a commit and a rebuild would be the same answer. */
+  const reachIndexes = new Map();
+  /** The index the lane's `reach` closure reads, and `null` whenever this pull request has none. */
+  let reachIndex = null;
   const {
     ACTIONABILITY_WEIGHTS,
     collectDiffFacts,
@@ -1980,6 +2018,22 @@ async function main() {
     falsify: FALSIFY,
     // **Only `v3` reads this**, and it returns `undefined` for every other contract - so a file fetched for the code
     // context arm is not silently promoted into evidence for a gate that was never asked to use it.
+    /**
+     * **The graph, handed to the lane as one line per file** (§100), **and `null` when the arm is off or the checkout
+     * failed** - the engine treats `null` as *no note* and omits the section, so the off-arm's prompt is byte-identical
+     * to the prompt every published figure was measured on.
+     */
+    reach: (path) => {
+      if (reachIndex === null) return null;
+      const note = reachNoteOf(reachIndex, path);
+      if (note === null) {
+        reachCounters.filesWithoutNote += 1;
+        return null;
+      }
+      reachCounters.notesServed += 1;
+      reachCounters.chars += reachLine(note).length;
+      return note;
+    },
     surroundingOf: (path) => fileTextsForGate.get(path),
     /**
      * **The file read as structure, for `independent-evidence-v4`** (§80). Built per file from the text the fetch already
@@ -2052,6 +2106,26 @@ async function main() {
   // **The engine's counters belong to the engine.** **The first version wrote them onto `competitor`, which is the
   // other reviewer's record, so the artifact reported 199 files under the competitor's name** - **a unit-of-attribution
   // defect in the file that exists to attribute.**
+  /**
+   * **What the graph cost and what it was asked**, and the split exists for the same reason every other counter here
+   * does: a run whose `notesServed` is zero is a run without the device, and one whose `noCheckout` is fourteen is a run
+   * whose clones failed - **those two produce the same F1 and need opposite repairs.**
+   */
+  const reachCounters = REACH
+    ? {
+        enabled: true,
+        pullsWithIndex: 0,
+        indexBuilds: 0,
+        filesIndexed: 0,
+        indexMs: 0,
+        noCheckout: 0,
+        notesServed: 0,
+        filesWithoutNote: 0,
+        chars: 0,
+        firstFailure: null,
+      }
+    : { enabled: false };
+
   const engineCounters = {
     filesReviewed: 0,
     emptyDiffs: 0,
@@ -3158,7 +3232,7 @@ async function main() {
     // **The head commit, hoisted out of the retrieval block** because the agent arm needs the same revision and reading it
     // twice is a second request for a fact already in hand.
     let pullHead = null;
-    if (CODE_CONTEXT || NEEDS_FILE_TEXT) {
+    if (CODE_CONTEXT || NEEDS_FILE_TEXT || REACH) {
       const head = await fetchPullHead(pr.githubPrUrl);
       pullHead = head.ok ? head : null;
       if (!head.ok) {
@@ -3186,6 +3260,45 @@ async function main() {
         }
       }
     }
+    /**
+     * **The repository, walked once per head commit, and its price recorded** (§101).
+     *
+     * **A pull request whose clone fails is reviewed without a graph and counted**, because `noCheckout` is the only
+     * field that separates *the device found nothing* from *the device was not there* - and those two produce the same
+     * F1. **The clone counter is the agent arm's**, and that is deliberate: `checkoutAt` already owns the clone, and a
+     * second one would be a second copy of the retry policy rather than a second checkout.
+     */
+    reachIndex = null;
+    if (REACH) {
+      const checkout = pullHead === null ? null : checkoutAt(pr.githubPrUrl, pullHead.sha);
+      if (checkout === null) {
+        reachCounters.noCheckout += 1;
+        if (reachCounters.firstFailure === null) reachCounters.firstFailure = 'no checkout';
+      } else {
+        const cached = reachIndexes.get(pullHead.sha);
+        if (cached !== undefined) {
+          reachIndex = cached;
+        } else {
+          const startedIndex = Date.now();
+          const tree = readRepoFiles(checkout, {
+            maxFiles: 20_000,
+            maxTotalBytes: 64 * 1024 * 1024,
+          });
+          reachIndex = buildRepoIndex(tree.files);
+          reachCounters.indexBuilds += 1;
+          reachCounters.filesIndexed += tree.stats.read;
+          reachCounters.indexMs += Date.now() - startedIndex;
+          if (tree.stats.skippedOverCap > 0 || tree.stats.skippedOverBytes > 0) {
+            if (reachCounters.firstFailure === null) {
+              reachCounters.firstFailure = `${String(tree.stats.skippedOverCap)} over the file cap, ${String(tree.stats.skippedOverBytes)} over the byte cap`;
+            }
+          }
+          reachIndexes.set(pullHead.sha, reachIndex);
+        }
+        reachCounters.pullsWithIndex += 1;
+      }
+    }
+
     const lanes = [];
     // **The lanes do not run when the agent is the arm under test, unless the arm is a merge of the two.**
     //
@@ -4486,6 +4599,9 @@ async function main() {
       // second run can disagree with without either being wrong.**
       codeContext: CODE_CONTEXT,
       changeShape: CHANGE_SHAPE,
+      // **Whether the lanes were told what each changed file reaches** (§100's device, §101's supply), because a figure
+      // from either side of this switch is a different reviewer and the artifact has to say which one produced it.
+      reach: REACH,
       // **Which arrangement of the prompt produced this figure**, because §9 and §10 of `EVAL-CONTRACT.md` are two
       // claims about one file and an artifact that does not say which side it came from is a figure without a
       // coordinate.
@@ -4909,6 +5025,14 @@ async function main() {
     // file**, and comments **the filter removed** - a reviewer that improves by reading and one that improves by deleting
     // its own output produce the same F1 and different entries here.
     agent: agentCounters,
+    /**
+     * **What the repository graph cost and what it was asked for** (§101), published beside the figure it might move.
+     *
+     * `notesServed` is the device; `pullsWithIndex` is the denominator it was served for; `indexMs` and `filesIndexed`
+     * are the price in a currency that is not tokens. **A run whose notes are zero and a run whose checkouts failed
+     * produce the same F1**, and only these fields tell them apart.
+     */
+    reach: reachCounters,
     merge: mergeCounters,
     skipped: null,
   });

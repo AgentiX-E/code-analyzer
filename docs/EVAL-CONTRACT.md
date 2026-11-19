@@ -10433,8 +10433,9 @@ calls, and adding specifiers the judge cannot see would lower an agreement that 
 ### 98.4 The reference layer's figures moved because the corpus did
 
 **§95.1's table is the run it describes** - 482 files, 1 256 relative specifiers, 1 282 edges - and this iteration added
-one file to this repository (a test), so the same measurement now reads **483 files, 1 876 imports of which 1 258 resolve,
-1 286 edges, and 1 258 / 1 258 = 1.000 agreement with `ts.resolveModuleName`.** `benchmarks/cross-file-index.json` is
+one file to this repository (a test), so the same measurement then read **483 files, 1 876 imports of which 1 258 resolve,
+1 286 edges, and 1 258 / 1 258 = 1.000 agreement with `ts.resolveModuleName`** - and **485 files, 1 885 imports, 1 265
+resolving, 1 290 edges at §101**, which is the same two-module arithmetic one iteration later. `benchmarks/cross-file-index.json` is
 regenerated rather than left at the old count, **because an artifact that no longer equals its corpus is how a figure
 becomes folklore** - and the historical delta in §95.1 (`missing` 1 → 0, edges 1 318 → 1 282) stays as the run it was.
 
@@ -10543,7 +10544,7 @@ paid once per file rather than once per lane.** A block placed before the boiler
 `scripts/cross-file-report.mjs` now renders the line for every source file it indexes and reports the distribution —
 **a context device is a token purchase, and the purchase is priced before the run that tests it.**
 
-| measured over `packages/*/src` (484 files, 185 738 lines) | figure                            |
+| measured over `packages/*/src` (485 files, 185 970 lines) | figure                            |
 | --------------------------------------------------------- | --------------------------------- |
 | files that get a line                                     | 462                               |
 | files with nothing to say (no declarations)               | 22                                |
@@ -10558,10 +10559,10 @@ paid once per file rather than once per lane.** A block placed before the boiler
 is 11 %. **Characters divided by four is a proxy**, the same one §99.2 uses, applied here so the two axes are
 comparable; the claim that does not depend on it is the character distribution, which is what the caps were set against.
 
-**And the index numbers moved with the corpus, as §98.4 said they would**: 484 files, 1 879 import statements, 1 261
-resolved (1 261/1 261 agreement with `ts.resolveModuleName`, zero in either direction), 1 289 edges, 668 declarations
-read across a file boundary (15.48 %), 421 ms. The one file this section adds is `cross-file.ts`, and the tests are not
-in `packages/*/src`.
+**And the index numbers moved with the corpus, as §98.4 said they would**: the figures above are the re-read at §101,
+where the corpus is 485 files, 1 885 import statements, 1 265 resolved (1 265/1 265 agreement with `ts.resolveModuleName`,
+zero in either direction), 1 290 edges, 669 declarations read across a file boundary (15.48 %), 412 ms. The two files
+these sections add are `cross-file.ts` and `repo-files.ts`, and the tests are not in `packages/*/src`.
 
 ### 100.3 What proves the wiring, and what would refute the device
 
@@ -10590,3 +10591,85 @@ settle it is a paired dispatch. **R-44 is registered here, before the run**, on 
 One module, one option on the engine (`LLMReviewOptions.reach`, defaulting to a provider that answers `null`), one
 section in `describeTarget`, one measurement added to a report script that already existed, two test files. **No model
 call, no judge, no dispatch.**
+
+## §101 The device had no supply: the walk that turns a checkout into an index, and the caps it refuses with
+
+**§100 put the index in front of the sentence and registered R-44, and the device could not be run.** The reason is not
+a selector this time: **`buildRepoIndex` had no caller that had a repository.** Its two callers were a report that
+globbed `packages/*/src` and a set of tests that build their corpus by hand, and the one vehicle that buys LLM reviews —
+`.github/scripts/aacr-bench.mjs` — fetches the changed files through the API (**249 files over 36 pull requests**) and
+never holds a tree. **So _"three callers still pass two arguments"_ was a sentence no lane could produce, and four nulls
+followed by a device that cannot run is a fifth shape of the same problem: the fact has to arrive from somewhere.**
+
+### 101.1 The walk, and the four things it refuses
+
+`packages/intelligence/src/review/index/repo-files.ts` turns a directory into the `{path, text}` pairs the index takes.
+**Every refusal is a cap whose effect is counted**, because a walk that quietly reads less than it was given produces an
+index that reports a smaller repository as a fact.
+
+| refused                           | why                                                                                                                                                             | counted as                           |
+| --------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------ |
+| a directory on the skip list      | `node_modules` alone holds more files than every source tree in it; an index over it reports rates about other people's code                                    | `directoriesSkipped`                 |
+| a compiled artefact               | `dist/`, `build/`, `target/` hold copies of files the walk already read — reading both doubles every count and makes `impactOf` answer with a file nobody edits | `directoriesSkipped`                 |
+| a file over the size cap          | a truncated generated file yields an import whose specifier is cut in half, which is a **wrong** edge rather than a missing one                                 | `skippedBySize`                      |
+| a file over a cap                 | the file cap and the byte cap bind for different repositories (a monorepo, a vendored tree)                                                                     | `skippedOverCap`, `skippedOverBytes` |
+| a symbolic link, a socket, a fifo | a checkout can hold a link to its own parent, and a walk that followed one would index the repository once per link                                             | not counted — it is not a file       |
+
+**Sorted, not in `readdir` order**, because an index built twice from one repository has to be the same index: the edge
+list is sorted by path, and a walk that handed back the filesystem's order would make two runs' statistics differ for a
+reason nobody could reproduce. **Synchronous**, because the caller is about to spend a model call on the result and a
+promise here would only make every test of the index asynchronous.
+
+### 101.2 What it costs on this repository, measured before any run
+
+`scripts/cross-file-report.mjs` now collects its corpus **through this reader rather than through its own glob** — a
+report that reads the corpus differently from the product measures a corpus the product never sees, and the difference
+would be exactly the files one of them forgot to skip.
+
+| measured on this checkout             | figure                                                       |
+| ------------------------------------- | ------------------------------------------------------------ |
+| files considered / read               | 485 / 485                                                    |
+| bytes read                            | 6 922 238                                                    |
+| directories refused                   | 34                                                           |
+| files refused by either cap           | 0                                                            |
+| `buildRepoIndex` over them            | 412 ms, 1 885 import statements, 1 265 resolved, 1 290 edges |
+| agreement with `ts.resolveModuleName` | 1 265 / 1 265, zero in either direction                      |
+| files with a reach note               | 463 of 485; median line 109 characters ≈ 27 tokens           |
+
+### 101.3 The vehicle, which is what R-44 was missing
+
+`AACR_REACH=on` — a dispatch input on the bench workflow — gives the lanes the graph:
+
+- **one clone per head commit**, through the `checkoutAt` the agent arm already owned (`--filter=blob:none`,
+  `--no-checkout`, then a checkout of the sha), **reused across pull requests that share a commit**;
+- **one index per head commit**, from `readRepoFiles` with `maxFiles: 20 000` and `maxTotalBytes: 64 MiB`;
+- **one line per changed file** handed to the lane through the `reach` option §100 added, and `null` on every path that
+  has no note — so **the off-arm prompt is byte-identical to the prompt every published figure was measured on**;
+- **counters in the artifact**, because a run whose `notesServed` is zero and a run whose clones failed produce the same
+  F1: `reach.pullsWithIndex`, `indexBuilds`, `filesIndexed`, `indexMs`, `notesServed`, `filesWithoutNote`, `chars`,
+  `noCheckout`, `firstFailure`.
+
+**The clone counter stays the agent arm's** (`agentCounters.checkoutFailures`) rather than being duplicated: `checkoutAt`
+already owns the clone and its retry policy, and a second copy would be a second policy. `reach.noCheckout` is the arm's
+own count of pull requests that ran without a graph.
+
+### 101.4 What proves the wiring, and what would refute the device
+
+**The proof that costs nothing**: 16 cases over a real temporary tree — the skip list, the extension list, the caller's
+own refusal (`.d.ts`), the file cap, the byte cap, the size cap, determinism, a root that is a file, a root that is
+absent, a pipe, a symlink, and a directory the OS refuses to list (skipped where the runner is root, because **a test
+that claims to have produced a refusal it did not produce is worse than a skipped test**). **The end-to-end case is that
+the reader feeds `buildRepoIndex` and `impactOf` then answers with the file that reads the name** — which is the whole
+chain §100 needed and did not have.
+
+**R-44 is unchanged and still unrun.** Its target, its refutation and its price were registered before this section
+existed: matched goldens **≥ +12 %** at **≤ +5 %** prompt tokens, refuted if the goldens move alone or if precision falls
+below 0.30 once call sites are described. **What this section adds is the ability to run it**, and the honest statement
+of what it cost to get there: two iterations, no model calls, and the discovery that **a device is not runnable until
+something supplies its input** — which is the same sentence as §100's _"an index whose only reader is its own report is
+not an index in the product"_, one layer down.
+
+### 101.5 The bill is zero
+
+One module, one test file, one call site in a report script, one import and one gated block in the bench, one dispatch
+input. **No model call, no judge, no dispatch.**
