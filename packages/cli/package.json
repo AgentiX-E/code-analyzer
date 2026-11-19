@@ -57,7 +57,7 @@
     "@code-analyzer/infra": "workspace:*",
     "@code-analyzer/analyzer": "workspace:*",
     "@code-analyzer/intelligence": "workspace:*",
-    "commander": "^14.0.3"
+    "commander": "^15.1.0"
   },
   "devDependencies": {
     "typescript": "^6.0.3",
