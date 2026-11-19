@@ -463,18 +463,19 @@ describe('JSON, read as the keys a line stands in', () => {
     expect(index.symbols[4]!.endLine).toBe(12);
   });
 
-  it('names the key a line starts with, and does not name a second key sharing that line', () => {
+  it('names both keys when a line holds two, and holds the inner one under the outer', () => {
     const index = buildSymbolIndex(
       'a.json',
       ['{', '  "a": { "b": 1 },', '  "c": 2', '}', ''].join('\n'),
     );
-    // **`b` is on `a`'s line and is not claimed**, because the index answers "which key does line N stand in" and a line
-    // that holds two keys has two answers. A minified manifest is the same fact at the scale of the whole file: it is
-    // read as having no key at all, which is the answer that says nothing rather than the one that says something false.
+    // **This test used to assert that `b` was not claimed**, on the argument that a line holding two keys has two
+    // answers. **The argument is about `symbolAt`, not about the index**: naming both is what lets `symbolAt` answer the
+    // innermost, which is the answer a comment on that line needs - and the alternative, claiming nothing, is how a
+    // **minified manifest** was read as a document with no keys at all.
     expect(
       index.symbols.map((symbol) => `${symbol.name}@${symbol.startLine}-${symbol.endLine}`),
-    ).toEqual(['a@2-2', 'c@3-3']);
-    expect(symbolAt(buildSymbolIndex('a.json', '{"a":1,"b":2}'), 1)).toBeNull();
+    ).toEqual(['a@2-2', 'b@2-2', 'c@3-3']);
+    expect(symbolAt(buildSymbolIndex('a.json', '{"a":1,"b":2}'), 1)?.name).toBe('b');
   });
 
   it('reads a file whose top level is an array as having no key of its own', () => {

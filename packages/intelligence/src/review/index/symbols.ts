@@ -197,8 +197,53 @@ export interface FileSymbolIndex {
 interface ScanState {
   depth: number;
   blockComment: boolean;
+  /** Whether a backtick-delimited string is open, which only the four languages that have one may set. */
   template: boolean;
+  /** The `"""` or `'''` a multi-line string is open with, or null. **A string written over several lines is one string.** */
+  long: string | null;
 }
+
+/**
+ * **What a backtick and a triple quote mean in the language being read.**
+ *
+ * **The lexer had one answer for twelve languages and it was TypeScript's.** A backtick in a Python docstring opened a
+ * template literal that never closed, and every line under it - including the declarations the file exists for - was
+ * blanked as string content: `cmd.py` from the Python 3.11 library indexed as **zero symbols** for a `\`foo'` on line
+ * eight, and `configparser.py`, `code.py` and `compileall.py` do the same thing for the same reason.
+ *
+ * **A triple quote is a string in six of them and three quotes in the rest**, where `""""` is an empty string followed
+ * by a string: the state exists only where the language has the construct, because a rule that applied everywhere would
+ * turn `""""` into an unterminated string and blank the file from there.
+ */
+interface LexRules {
+  readonly template: boolean;
+  readonly longQuote: boolean;
+}
+
+const TS_RULES: LexRules = { template: true, longQuote: true };
+const GO_RULES: LexRules = { template: true, longQuote: false };
+const TRIPLE_RULES: LexRules = { template: false, longQuote: true };
+const PLAIN_RULES: LexRules = { template: false, longQuote: false };
+
+const LEX_RULES: Readonly<Record<SourceLanguage, LexRules>> = {
+  typescript: TS_RULES,
+  javascript: TS_RULES,
+  arkts: TS_RULES,
+  go: GO_RULES,
+  python: TRIPLE_RULES,
+  kotlin: TRIPLE_RULES,
+  swift: TRIPLE_RULES,
+  groovy: TRIPLE_RULES,
+  java: TRIPLE_RULES,
+  csharp: TRIPLE_RULES,
+  php: TRIPLE_RULES,
+  c: PLAIN_RULES,
+  ruby: PLAIN_RULES,
+  json: PLAIN_RULES,
+  yaml: PLAIN_RULES,
+  xml: PLAIN_RULES,
+  unknown: PLAIN_RULES,
+};
 
 /**
  * **The keywords a declaration opens with, in the two dialects that share this scanner.**
@@ -207,8 +252,16 @@ interface ScanState {
  * cannot drift: a word added to one of them is added to the other, which is the property a second hand-written pattern
  * would not have.
  */
+/**
+ * **The words a TypeScript declaration opens with, longest first.**
+ *
+ * `const enum` is one keyword and it has to be tried before `const`, because the alternation takes the first branch that
+ * matches: the table declared a symbol called `enum` for `export const enum Fast`, **one name missed and one invented on
+ * a single line**. There is no `const class` and no `const interface`, so the two-word branch is the only one whose
+ * order matters and the only one written this way.
+ */
 const DECLARATION_KEYWORDS =
-  'async\\s+function\\*?|function\\*?|class|interface|enum|type|const|let|var';
+  'async\\s+function\\*?|function\\*?|class|interface|const\\s+enum|enum|type|const|let|var';
 
 const DECLARATION = new RegExp(
   [
@@ -249,16 +302,35 @@ const DECORATOR = /^@[\w.]+(?:\([^)]*\))?\s*/u;
  * Blanked rather than removed so that a `{` inside a string occupies no column but the line's length is unchanged -
  * which is what lets a signature be taken from the *original* line by the same offsets the scanner computed.
  */
-function lexLine(line: string, incoming: ScanState): { code: string; state: ScanState } {
+function lexLine(
+  line: string,
+  incoming: ScanState,
+  rules: LexRules,
+): { code: string; state: ScanState } {
   const out: string[] = [];
   let blockComment = incoming.blockComment;
-  let template = incoming.template;
+  let template = incoming.template && rules.template;
+  let long = incoming.long;
   let quote: '"' | "'" | null = null;
 
   for (let at = 0; at < line.length; at += 1) {
     const char = line[at]!;
     const next = line[at + 1];
 
+    // **A multi-line string is still open from the line before**, and nothing inside it is code - not a brace, not a
+    // quote, not a comment opener. The closing delimiter may sit on this line, and what follows it is code again.
+    if (long !== null) {
+      const close = line.indexOf(long, at);
+      if (close < 0) {
+        out.push(' '.repeat(line.length - at));
+        at = line.length;
+        continue;
+      }
+      out.push(' '.repeat(close + long.length - at));
+      at = close + long.length - 1;
+      long = null;
+      continue;
+    }
     if (blockComment) {
       out.push(' ');
       if (char === '*' && next === '/') {
@@ -300,12 +372,24 @@ function lexLine(line: string, incoming: ScanState): { code: string; state: Scan
       blockComment = true;
       continue;
     }
+    if (
+      rules.longQuote &&
+      line.startsWith(char + char + char, at) &&
+      (char === '"' || char === "'")
+    ) {
+      out.push('   ');
+      at += 2;
+      long = char + char + char;
+      continue;
+    }
     if (char === '"' || char === "'") {
       out.push(' ');
       quote = char;
       continue;
     }
-    if (char === '`') {
+    // **A backtick opens a string only where the language says it does**: in Python, Ruby, Java and the other eight it is
+    // a character in a docstring or a command in a shell, and a state opened for it never closes.
+    if (char === '`' && rules.template) {
       out.push(' ');
       template = true;
       continue;
@@ -313,7 +397,7 @@ function lexLine(line: string, incoming: ScanState): { code: string; state: Scan
     out.push(char);
   }
 
-  return { code: out.join(''), state: { ...incoming, blockComment, template } };
+  return { code: out.join(''), state: { ...incoming, blockComment, template, long } };
 }
 
 /** The number of `{` minus `}` in a line of code, ignoring the ones a template literal or comment already removed. */
@@ -440,11 +524,12 @@ export function buildSymbolIndex(path: string, text: string): FileSymbolIndex {
   const codes: string[] = [];
   const depthAtStart: number[] = [];
   const depthAtEnd: number[] = [];
-  let state: ScanState = { depth: 0, blockComment: false, template: false };
+  const rules = LEX_RULES[language];
+  let state: ScanState = { depth: 0, blockComment: false, template: false, long: null };
 
   for (const line of lines) {
     depthAtStart.push(state.depth);
-    const lexed = lexLine(line, state);
+    const lexed = lexLine(line, state, rules);
     const before = state;
     const delta = braceDelta(lexed.code);
     const depth = before.depth + delta;
@@ -544,7 +629,7 @@ function scanTypeScript(file: PreparedFile, arkts = false): ScannedDeclarations 
         ? 'class'
         : keyword === 'interface'
           ? 'interface'
-          : keyword === 'enum'
+          : keyword.endsWith('enum')
             ? 'class'
             : keyword === 'type'
               ? 'type'

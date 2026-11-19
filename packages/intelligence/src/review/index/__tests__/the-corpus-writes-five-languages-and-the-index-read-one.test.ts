@@ -446,7 +446,12 @@ describe('and the failure direction is the same in every language', () => {
   });
 
   it('reads nothing from a language it does not know, and claims nothing about it', () => {
-    const index = buildSymbolIndex('a.json', '{"a": 1}');
+    // **`.json` was this test's example until §89 taught the index to read it**, and a test that named it would now be
+    // asserting the opposite of what the module does. `.scss` is the language a review actually meets and the index does
+    // not read: it declares variables and mixins, and a scanner that guessed at them would be inventing the fact it was
+    // asked to establish.
+    const index = buildSymbolIndex('a.scss', '$primary: #333;');
+    expect(index.language).toBe('unknown');
     expect(index.symbols).toEqual([]);
     expect(index.exported).toEqual([]);
     expect(index.uncertain).toBe(false);
@@ -787,9 +792,16 @@ describe('the declarations a corpus has and a fixture forgets', () => {
     ]);
   });
 
-  it('reads a Python annotation constant and a module-level assignment that is not one', () => {
-    const index = buildSymbolIndex('a.py', ['RETRY: int = 3', 'lower = 4', ''].join('\n'));
-    expect(index.symbols.map((symbol) => symbol.name)).toEqual(['RETRY']);
+  it('reads a Python module assignment whatever case it is written in, and no comparison', () => {
+    // **This test used to assert that `lower = 4` declared nothing**, because the rule was `[A-Z][A-Z0-9_]*` - a
+    // convention rather than a syntax. It is a syntax: a name assigned at module level is a name the module has, and
+    // §89's own oracle counted the same file differently. **`if x == 1:` is what the old rule was protecting against**,
+    // and it is the second line of this fixture now.
+    const index = buildSymbolIndex(
+      'a.py',
+      ['RETRY: int = 3', 'lower = 4', 'if lower == 4:', '    pass', ''].join('\n'),
+    );
+    expect(index.symbols.map((symbol) => symbol.name)).toEqual(['RETRY', 'lower']);
   });
 });
 

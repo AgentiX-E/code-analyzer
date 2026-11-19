@@ -1,0 +1,21 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<?xml-stylesheet type="text/xsl" href="layout.xsl"?>
+<!DOCTYPE configuration SYSTEM "config.dtd" [
+  <!ENTITY app "bundle">
+  <!ELEMENT configuration (service*, plugin?)>
+]>
+<configuration xmlns="http://example.com/config" xmlns:meta="http://example.com/meta">
+  <!-- the comment below must not become an element: <service name="ghost"/> -->
+  <meta:info owner="platform" note="a &gt; b" />
+  <service name="api" port="8080">
+    <dependency artifact="lib-core" version="1.2.3"/>
+    <description><![CDATA[<service name="cdata-ghost"> is literal text here]]></description>
+    <nested>
+      <level attribute="value" />
+    </nested>
+  </service>
+  <service name="worker">
+    <dependency artifact="lib-jobs" version="2.0.0" />
+  </service>
+  <plugin id="metrics" enabled="true"/>
+</configuration>

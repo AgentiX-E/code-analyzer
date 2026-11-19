@@ -64,6 +64,10 @@ const WRAPPERS = new Set([
   'export_statement',
   'decorated_definition',
   'declaration_list',
+  // **`declare function assertNode(...)` is a `.d.ts` file's whole content**, and tree-sitter-typescript wraps each one in
+  // an `ambient_declaration`: a walker that did not know the name read `@babel/types`' 1 673 declared functions as 342
+  // and charged the difference to this lexer, which had them right. Found by the 318-file run, not by a fixture.
+  'ambient_declaration',
 ]);
 
 function grammarFor(language) {
@@ -103,16 +107,59 @@ function nameOf(node) {
   return null;
 }
 
+/**
+ * **The declarations the suffix rule cannot see**, because their grammar does not call them one.
+ *
+ * tree-sitter-kotlin spells `typealias Handler = (Int) -> Unit` as `type_alias`, and a rule keyed on `_declaration`
+ * therefore answered that a file exporting an alias exports nothing - **the same miss this repository's lexer had, which
+ * is the reason a second implementation is worth having and also the reason it is not an authority.**
+ */
+const ALSO_A_DECLARATION = new Set([
+  'type_alias',
+  // **`declare function f(): void;` is a `function_signature`**, which is what tree-sitter-typescript calls a function
+  // with no body - a declaration file's entire content, and also an overload's first line.
+  'function_signature',
+]);
+
 function isDeclarationNode(node) {
-  if (!NAMED_SUFFIX.test(node.type)) return false;
+  if (!NAMED_SUFFIX.test(node.type) && !ALSO_A_DECLARATION.has(node.type)) return false;
   if (NOT_A_DECLARATION.test(node.type)) return false;
   return nameOf(node) !== null;
 }
 
-function collect(node, out) {
+/**
+ * **The statements that hold declarations without being one**, and that a name inside them still reaches the module.
+ *
+ * `if sys.version_info >= (3, 11): def guarded():` declares a module-level function in a block a reader can see. A walker
+ * that only visited direct children answered that the file declares nothing there - **an oracle miss, and one this
+ * lexer did not share**, which is why the two implementations are compared rather than one being believed.
+ *
+ * `class_definition` and its cousins are deliberately absent: a method is a member and not a declaration of the file.
+ */
+const ROOT_CONTROL_FLOW = new Set([
+  'if_statement',
+  'try_statement',
+  'with_statement',
+  'for_statement',
+  'while_statement',
+]);
+
+function collect(node, out, atRoot = false) {
   for (const child of node.namedChildren) {
     if (WRAPPERS.has(child.type)) {
-      collect(child, out);
+      collect(child, out, atRoot);
+      continue;
+    }
+    if (atRoot && ROOT_CONTROL_FLOW.has(child.type)) {
+      for (const inner of child.namedChildren) {
+        if (
+          inner.type === 'block' ||
+          WRAPPERS.has(inner.type) ||
+          ROOT_CONTROL_FLOW.has(inner.type)
+        ) {
+          collect(inner, out, true);
+        }
+      }
       continue;
     }
     if (child.type === 'lexical_declaration' || child.type === 'variable_declaration') {
@@ -128,9 +175,16 @@ function collect(node, out) {
     // four names this oracle missed on `callgraph-oracle.py` were `BUILTIN_NAMES` and its three neighbours, which the
     // comparison first read as four names the lexer had invented.
     if (child.type === 'expression_statement') {
-      const assignment = child.namedChildren.find((node) => node.type === 'assignment');
-      const left = assignment?.childForFieldName('left');
-      if (left !== undefined && left !== null && left.type === 'identifier') out.push(left.text);
+      // **`DEFAULT_TIMEOUT = MAX_RETRIES = 3` declares two names and one `assignment` node**: the second is the right
+      // side of the first, so the walk follows the chain rather than reading only its leftmost name - which is what this
+      // oracle did until a 326-file run scored the second name as one the lexer had invented.
+      let assignment = child.namedChildren.find((node) => node.type === 'assignment');
+      while (assignment !== undefined) {
+        const left = assignment.childForFieldName('left');
+        if (left !== undefined && left !== null && left.type === 'identifier') out.push(left.text);
+        const right = assignment.childForFieldName('right');
+        assignment = right?.type === 'assignment' ? right : undefined;
+      }
       continue;
     }
     if (isDeclarationNode(child)) {
@@ -177,21 +231,29 @@ function documentsViaPython(file, language) {
           '            walk(item)',
           // **`BaseLoader` leaves every scalar as the text the file wrote**, which is what a key is: `safe_load` reads an
           // unquoted `on:` as the boolean `True`, because YAML 1.1 said so and every CI file since has disagreed.
-          'walk(yaml.load(open(sys.argv[1], encoding="utf-8"), Loader=yaml.BaseLoader))',
+          // **A YAML stream may hold several documents**, and `load` refuses one that does: a CI file with a `---` between
+          // a job library and its pipeline is legal YAML and the single-document reader raised on it, which would have
+          // been read as a scanner failure. `load_all` walks every document and skips the empty ones a trailing `---`
+          // produces - each is legitimately a document and none of them declares a key.
+          'for document in yaml.load_all(open(sys.argv[1], encoding="utf-8"), Loader=yaml.BaseLoader):',
+          '    walk(document)',
           'print(json.dumps(seen))',
         ].join('\n')
       : [
-          'import sys, json, xml.etree.ElementTree as ET',
+          'import sys, json',
+          'from xml.dom import minidom, Node',
           'seen = []',
-          'root = ET.parse(sys.argv[1]).getroot()',
-          'def walk(element):',
-          // **ElementTree rewrites a namespaced tag to `{uri}tag`**, which is how it stores the name rather than what the
-          // file says; the tag a reader sees is the local part, and comparing against the URI would score every element
-          // of a Maven pom as missing.
-          '    seen.append(element.tag.rsplit("}", 1)[-1])',
-          '    for child in element:',
-          '        walk(child)',
-          'walk(root)',
+          'doc = minidom.parse(sys.argv[1])',
+          'def walk(node):',
+          '    for child in node.childNodes:',
+          // **`minidom` keeps the qualified name the file wrote**, and `ElementTree` does not: it rewrites `<meta:info>`
+          // to `{uri}info`, so the previous oracle reported the local part and scored the prefix this lexer keeps as a
+          // miss. **The name a reader sees is the qualified one**, and an oracle that resolves it is answering a
+          // different question - the same lesson the YAML branch taught about `on:` and the boolean `True`.
+          '        if child.nodeType == Node.ELEMENT_NODE:',
+          '            seen.append(child.tagName)',
+          '            walk(child)',
+          'walk(doc)',
           'print(json.dumps(seen))',
         ].join('\n');
   const out = execFileSync('python3', ['-c', program, file], { encoding: 'utf8' });
@@ -208,7 +270,9 @@ export function declarations(file, language) {
   parser.setLanguage(grammar);
   const tree = parser.parse(text);
   const names = [];
-  collect(tree.rootNode, names);
+  // **The root is asked with `atRoot`, the rest without**: only a statement at the top of the file can hold a
+  // declaration that is still the file's, and a `block` deep inside a method holds names that are not.
+  collect(tree.rootNode, names, true);
   return names;
 }
 

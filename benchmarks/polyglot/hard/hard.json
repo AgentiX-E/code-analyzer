@@ -1,0 +1,28 @@
+{
+  "name": "constructs",
+  "version": "1.0.0",
+  "private": true,
+  "scripts": {
+    "build": "tsc -p .",
+    "test:unit": "vitest run",
+    "release": "node scripts/release.mjs --tag \"v$npm_package_version\""
+  },
+  "keywords": ["index", "review"],
+  "quoted:key": "a colon inside a name",
+  "escaped\"quote": "value",
+  "argv": "echo \"ghost\": 1",
+  "unicode-名前": "値",
+  "nested": {
+    "deep": {
+      "deeper": {
+        "value": 1
+      }
+    }
+  },
+  "matrix": [
+    { "os": "linux", "arch": "x64" },
+    { "os": "darwin", "arch": "arm64" }
+  ],
+  "empty": {},
+  "list": []
+}

@@ -14,91 +14,91 @@
   "summary": [
     {
       "language": "arkts",
-      "oracle": 11,
-      "ours": 11,
-      "both": 11,
+      "oracle": 17,
+      "ours": 17,
+      "both": 17,
       "recall": 1,
       "precision": 1
     },
     {
       "language": "groovy",
-      "oracle": 5,
-      "ours": 5,
-      "both": 5,
+      "oracle": 12,
+      "ours": 14,
+      "both": 12,
       "recall": 1,
-      "precision": 1
+      "precision": 0.8571428571428571
     },
     {
       "language": "java",
-      "oracle": 6,
-      "ours": 6,
-      "both": 6,
+      "oracle": 12,
+      "ours": 13,
+      "both": 12,
       "recall": 1,
-      "precision": 1
+      "precision": 0.9230769230769231
     },
     {
       "language": "javascript",
-      "oracle": 8,
-      "ours": 8,
-      "both": 8,
+      "oracle": 19,
+      "ours": 19,
+      "both": 19,
       "recall": 1,
       "precision": 1
     },
     {
       "language": "json",
-      "oracle": 126,
-      "ours": 126,
-      "both": 126,
+      "oracle": 148,
+      "ours": 148,
+      "both": 148,
       "recall": 1,
       "precision": 1
     },
     {
       "language": "kotlin",
-      "oracle": 4,
-      "ours": 4,
-      "both": 4,
+      "oracle": 17,
+      "ours": 19,
+      "both": 17,
       "recall": 1,
-      "precision": 1
+      "precision": 0.8947368421052632
     },
     {
       "language": "python",
-      "oracle": 24,
-      "ours": 31,
-      "both": 24,
+      "oracle": 37,
+      "ours": 44,
+      "both": 37,
       "recall": 1,
-      "precision": 0.7741935483870968
+      "precision": 0.8409090909090909
     },
     {
       "language": "swift",
-      "oracle": 10,
-      "ours": 10,
-      "both": 10,
+      "oracle": 21,
+      "ours": 21,
+      "both": 21,
       "recall": 1,
       "precision": 1
     },
     {
       "language": "typescript",
-      "oracle": 29,
-      "ours": 29,
-      "both": 29,
+      "oracle": 45,
+      "ours": 45,
+      "both": 45,
       "recall": 1,
       "precision": 1
     },
     {
       "language": "xml",
-      "oracle": 113,
-      "ours": 113,
-      "both": 113,
+      "oracle": 121,
+      "ours": 121,
+      "both": 121,
       "recall": 1,
       "precision": 1
     },
     {
       "language": "yaml",
-      "oracle": 47,
-      "ours": 55,
-      "both": 47,
+      "oracle": 79,
+      "ours": 79,
+      "both": 79,
       "recall": 1,
-      "precision": 0.8545454545454545
+      "precision": 1
     }
   ],
   "rows": [
@@ -195,9 +195,9 @@
     {
       "language": "typescript",
       "path": "packages/intelligence/src/review/index/symbols.ts",
-      "oracleCount": 29,
-      "oursCount": 29,
-      "both": 29,
+      "oracleCount": 35,
+      "oursCount": 35,
+      "both": 35,
       "missing": [],
       "nested": [],
       "phantom": []
@@ -219,15 +219,23 @@
       "oursCount": 31,
       "both": 24,
       "missing": [],
-      "nested": ["descend", "visit", "collect", "call_target", "classify", "ambiguous", "ratio"],
+      "nested": [
+        "descend",
+        "visit",
+        "collect",
+        "call_target",
+        "classify",
+        "ambiguous",
+        "ratio"
+      ],
       "phantom": []
     },
     {
       "language": "json",
       "path": "package.json",
-      "oracleCount": 126,
-      "oursCount": 126,
-      "both": 126,
+      "oracleCount": 127,
+      "oursCount": 127,
+      "both": 127,
       "missing": [],
       "nested": [],
       "phantom": []
@@ -236,19 +244,129 @@
       "language": "yaml",
       "path": ".github/workflows/ci.yml",
       "oracleCount": 47,
-      "oursCount": 55,
+      "oursCount": 47,
       "both": 47,
       "missing": [],
+      "nested": [],
+      "phantom": []
+    },
+    {
+      "language": "java",
+      "path": "benchmarks/polyglot/hard/hard.java",
+      "oracleCount": 6,
+      "oursCount": 7,
+      "both": 6,
+      "missing": [],
       "nested": [
-        "body += `| ${dim} | ${d.covered || 0} | ${d.total || 0} | ${pct}% | ${pass ? '✅'",
-        "body += allPass ? '\\n✅ All dimensions pass.\\n'",
-        "const { data",
-        "owner",
-        "repo",
-        "issue_number",
-        "comment_id",
-        "body"
+        "Inner"
       ],
+      "phantom": []
+    },
+    {
+      "language": "kotlin",
+      "path": "benchmarks/polyglot/hard/hard.kt",
+      "oracleCount": 13,
+      "oursCount": 15,
+      "both": 13,
+      "missing": [],
+      "nested": [
+        "Ok",
+        "Pending"
+      ],
+      "phantom": []
+    },
+    {
+      "language": "swift",
+      "path": "benchmarks/polyglot/hard/hard.swift",
+      "oracleCount": 11,
+      "oursCount": 11,
+      "both": 11,
+      "missing": [],
+      "nested": [],
+      "phantom": []
+    },
+    {
+      "language": "groovy",
+      "path": "benchmarks/polyglot/hard/hard.groovy",
+      "oracleCount": 7,
+      "oursCount": 9,
+      "both": 7,
+      "missing": [],
+      "nested": [
+        "Nested"
+      ],
+      "phantom": [
+        "Greeter"
+      ]
+    },
+    {
+      "language": "javascript",
+      "path": "benchmarks/polyglot/hard/hard.js",
+      "oracleCount": 11,
+      "oursCount": 11,
+      "both": 11,
+      "missing": [],
+      "nested": [],
+      "phantom": []
+    },
+    {
+      "language": "typescript",
+      "path": "benchmarks/polyglot/hard/hard.ts",
+      "oracleCount": 10,
+      "oursCount": 10,
+      "both": 10,
+      "missing": [],
+      "nested": [],
+      "phantom": []
+    },
+    {
+      "language": "python",
+      "path": "benchmarks/polyglot/hard/hard.py",
+      "oracleCount": 13,
+      "oursCount": 13,
+      "both": 13,
+      "missing": [],
+      "nested": [],
+      "phantom": []
+    },
+    {
+      "language": "arkts",
+      "path": "benchmarks/polyglot/hard/hard.ets",
+      "oracleCount": 6,
+      "oursCount": 6,
+      "both": 6,
+      "missing": [],
+      "nested": [],
+      "phantom": []
+    },
+    {
+      "language": "json",
+      "path": "benchmarks/polyglot/hard/hard.json",
+      "oracleCount": 21,
+      "oursCount": 21,
+      "both": 21,
+      "missing": [],
+      "nested": [],
+      "phantom": []
+    },
+    {
+      "language": "yaml",
+      "path": "benchmarks/polyglot/hard/hard.yaml",
+      "oracleCount": 32,
+      "oursCount": 32,
+      "both": 32,
+      "missing": [],
+      "nested": [],
+      "phantom": []
+    },
+    {
+      "language": "xml",
+      "path": "benchmarks/polyglot/hard/hard.xml",
+      "oracleCount": 8,
+      "oursCount": 8,
+      "both": 8,
+      "missing": [],
+      "nested": [],
       "phantom": []
     }
   ]

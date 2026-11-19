@@ -375,6 +375,92 @@ interface PythonDecl {
   readonly indent: number;
 }
 
+/**
+ * **A module-level assignment, whatever case its name is written in.**
+ *
+ * The rule was `[A-Z][A-Z0-9_]*` - a convention rather than a syntax - so `_cache: dict[str, int] = {}` declared nothing
+ * and the tree-sitter oracle counted one name more than this scanner did. **A name assigned at module level is a name
+ * the module has**, and the case it is spelled in is a style the file is free to break.
+ *
+ * **`=(?!=)` is the reason this is a regex and not a search for an equals sign**: `if x == 1:` holds the character and
+ * declares nothing, and a rule that read it as one would invent a symbol on every comparison in the file.
+ */
+const PYTHON_ASSIGNMENT = /^[A-Za-z_]\w*\s*(?::[^=]+)?=(?!=)/u;
+
+/** One link of a chained assignment: `NAME =`, `NAME: type =`, and nothing that is a comparison. */
+const PYTHON_ASSIGNED = /^([A-Za-z_]\w*)\s*(?::[^=]+)?=\s*/u;
+
+/** The statements that hold a module-level assignment without being a scope, so `try:` and `if:` are not functions. */
+const PYTHON_MODULE_BLOCK = /^(?:if|elif|else|try|except|finally|for|while|with|match|case)\b/u;
+
+/** Every name a line assigns, left to right, which is one for `x = 1` and two for `x = y = 1`. */
+function pythonAssigned(code: string): string[] {
+  const found: string[] = [];
+  let rest = code;
+  for (;;) {
+    const link = PYTHON_ASSIGNED.exec(rest);
+    if (link === null) break;
+    found.push(link[1]!);
+    rest = rest.slice(link[0].length);
+  }
+  return found;
+}
+
+/**
+ * **Whether a line at an indent is still the module's, or is inside a function or a class.**
+ *
+ * The constant rule was `indent === 0`, which is **not a rule about scope but about layout**: `codecs.py` assigns its
+ * four error handlers inside a module-level `try:` and `ctypes/__init__.py` assigns `BOM` inside a module-level `if`,
+ * and both were invisible. The walk finds the nearest line written at a smaller indent - the block header - and asks what
+ * it is: a `def` or a `class` closes the module, and a control-flow header at column zero keeps it open.
+ */
+function pythonModuleScope(file: PreparedFile, at: number, indent: number): boolean {
+  let column = indent;
+  for (let probe = at - 1; probe >= 0; probe -= 1) {
+    const code = file.codes[probe]!;
+    if (code.trim().length === 0) continue;
+    const headerIndent = indentOf(code);
+    if (headerIndent >= column) continue;
+    const header = code.trim();
+    if (/^(?:async\s+)?(?:def|class)\b/u.test(header)) return false;
+    if (headerIndent === 0) return PYTHON_MODULE_BLOCK.test(header);
+    column = headerIndent;
+  }
+  return true;
+}
+
+/** The words that start a statement rather than name a variable, so a `name = value` on their line is not a constant. */
+const PYTHON_NOT_A_NAME = new Set([
+  'if',
+  'elif',
+  'else',
+  'while',
+  'for',
+  'try',
+  'except',
+  'finally',
+  'with',
+  'return',
+  'yield',
+  'assert',
+  'raise',
+  'del',
+  'pass',
+  'break',
+  'continue',
+  'global',
+  'nonlocal',
+  'lambda',
+  'import',
+  'from',
+  'class',
+  'def',
+  'async',
+  'await',
+  'match',
+  'case',
+]);
+
 /** **Python, read as declarations.** */
 export function scanPython(file: PreparedFile): ScannedDeclarations {
   const declarations: PythonDecl[] = [];
@@ -387,16 +473,27 @@ export function scanPython(file: PreparedFile): ScannedDeclarations {
     const indent = indentOf(code);
     const def = /^(?:async\s+)?def\s+([A-Za-z_]\w*)\s*\(/u.exec(trimmed);
     const klass = /^class\s+([A-Za-z_]\w*)/u.exec(trimmed);
-    const constant = indent === 0 ? /^([A-Z][A-Z0-9_]*)\s*(?::[^=]+)?=/u.exec(trimmed) : null;
-    let read: { name: string; kind: SymbolKind } | null = null;
-    if (def !== null) read = { name: def[1]!, kind: 'function' };
-    else if (klass !== null) read = { name: klass[1]!, kind: 'class' };
-    else if (constant !== null) read = { name: constant[1]!, kind: 'const' };
-    if (read === null) continue;
+    // **A chained assignment declares every name it writes**, and a name it writes inside a module-level `try:` is as
+    // much the module's as one at column zero.
+    const assigned =
+      PYTHON_ASSIGNMENT.test(trimmed) && pythonModuleScope(file, at, indent)
+        ? pythonAssigned(trimmed).filter((name) => !PYTHON_NOT_A_NAME.has(name))
+        : [];
+    const reads: { name: string; kind: SymbolKind }[] = [];
+    if (def !== null) reads.push({ name: def[1]!, kind: 'function' });
+    else if (klass !== null) reads.push({ name: klass[1]!, kind: 'class' });
+    else for (const name of assigned) reads.push({ name, kind: 'const' });
+    if (reads.length === 0) continue;
 
     const end = pythonBlockEnd(file, at, indent);
-    declarations.push({ name: read.name, kind: read.kind, start: at, end, indent });
-    if (!read.name.startsWith('_')) exported.push(read.name);
+    for (const read of reads) {
+      // **One name is declared once**: `FAST_PATH = True` in the `try` and `FAST_PATH = False` in the `except` are one
+      // declaration of one name, and a list that carried it twice would make the recall of a file depend on how often
+      // its author wrote the assignment.
+      if (declarations.some((other) => other.name === read.name)) continue;
+      declarations.push({ name: read.name, kind: read.kind, start: at, end, indent });
+      if (!read.name.startsWith('_')) exported.push(read.name);
+    }
   }
 
   const symbols: DeclaredSymbol[] = declarations
@@ -1232,7 +1329,15 @@ export function scanGroovy(file: PreparedFile): ScannedDeclarations {
 const SWIFT_MODIFIERS =
   /^(?:(?:@[\w.]+(?:\([^)]*\))?|public|private|fileprivate|internal|open|final|indirect|static|override|required|convenience|lazy|weak|unowned|nonisolated|mutating|nonmutating|prefix|postfix|infix|dynamic|optional)\s+)*/u;
 
-const SWIFT_TYPE = /^(class|struct|enum|protocol|extension|actor)\s+([A-Za-z_]\w*)/u;
+/**
+ * **The seven words Swift declares a type with, and `typealias` is one of them.**
+ *
+ * `public typealias Completion = (Result<Void, Error>) -> Void` declares a name, and it is the name a reader asks about
+ * when a signature mentions `Completion`. The table had the six that open a body and not the one that does not, so
+ * **a file whose only export was an alias answered that it exports nothing** - measured by the tree-sitter oracle on
+ * `benchmarks/polyglot/hard/hard.swift`, which is the first corpus that contained one.
+ */
+const SWIFT_TYPE = /^(class|struct|enum|protocol|extension|actor|typealias)\s+([A-Za-z_]\w*)/u;
 
 /** `func identity(` and `func identity<T>(` are one rule: the name stops where the paren or the generic clause does. */
 const SWIFT_FUNC = /^func\s+([A-Za-z_]\w*)/u;
@@ -1265,7 +1370,11 @@ export function scanSwift(file: PreparedFile): ScannedDeclarations {
       const end = file.endOf(at);
       const keyword = type[1]!;
       const kind: SymbolKind =
-        keyword === 'protocol' ? 'interface' : keyword === 'enum' ? 'type' : 'class';
+        keyword === 'protocol'
+          ? 'interface'
+          : keyword === 'enum' || keyword === 'typealias'
+            ? 'type'
+            : 'class';
       // **An extension offers nothing**, so it is neither in the exported list nor a second entry in it.
       const offers = isExported && keyword !== 'extension';
       symbols.push({
@@ -1429,7 +1538,72 @@ function enclosingRecord(
   return -1;
 }
 
-const JSON_KEY = /^"((?:[^"\\]|\\.)*)"\s*:/u;
+/**
+ * **Every key a JSON line writes, read with the quote state the text implies.**
+ *
+ * Three defects are fixed by walking the line instead of matching its start, and **the third one is what makes the walk
+ * necessary rather than convenient**:
+ *
+ * 1. A key anchored at the start of the line is invisible the moment a brace precedes it, so `{ "os": "linux" }` - the
+ *    shape of every compact object in every array of objects - declared nothing.
+ * 2. The name a key has is the string it decodes to: the file writes `"escaped\"quote"` and the key is `escaped"quote`,
+ *    and **a name that carries its own backslash is a name no consumer can match** - not a JSON pointer, not a field
+ *    lookup, not a prompt.
+ * 3. A quoted word inside a *value* is not a key. `"argv": "echo \"ghost\": 1"` holds the characters of one, so a
+ *    scanner that searched the line for `"…":` would invent `ghost` - **which is why the walk tracks whether it is
+ *    inside a string rather than searching for a pattern**.
+ *
+ * The decode is `JSON.parse` on the literal this function has already balanced, and it is allowed to fail: a `.jsonc` or
+ * a file with a stray control character is still a document whose keys a reader can see, so a failed decode falls back
+ * to the raw body rather than dropping the key.
+ */
+function jsonKeysIn(line: string): string[] {
+  const found: string[] = [];
+  const seen = new Set<string>();
+  let at = 0;
+  while (at < line.length) {
+    if (line[at] !== '"') {
+      at += 1;
+      continue;
+    }
+    const start = at;
+    let probe = at + 1;
+    let escaped = false;
+    while (probe < line.length) {
+      const char = line[probe]!;
+      if (escaped) {
+        escaped = false;
+        probe += 1;
+        continue;
+      }
+      if (char === '\\') {
+        escaped = true;
+        probe += 1;
+        continue;
+      }
+      if (char === '"') break;
+      probe += 1;
+    }
+    // **An unterminated quote ends the walk**: a string that does not close cannot be a key, and continuing from the
+    // next character would read the rest of the line as if it were code.
+    if (probe >= line.length) break;
+    const literal = line.slice(start, probe + 1);
+    at = probe + 1;
+    let colon = at;
+    while (colon < line.length && (line[colon] === ' ' || line[colon] === '\t')) colon += 1;
+    if (line[colon] !== ':') continue;
+    let name = literal.slice(1, -1);
+    try {
+      name = JSON.parse(literal) as string;
+    } catch {
+      // A key that is not valid JSON is still a name the file wrote; the raw body is the closer answer.
+    }
+    if (seen.has(name)) continue;
+    seen.add(name);
+    found.push(name);
+  }
+  return found;
+}
 
 /**
  * **JSON, read as keys.**
@@ -1441,21 +1615,31 @@ const JSON_KEY = /^"((?:[^"\\]|\\.)*)"\s*:/u;
 export function scanJson(file: PreparedFile): ScannedDeclarations {
   const depthAt: number[] = [];
   const depthAfter: number[] = [];
-  let depth = 0;
+  /**
+   * **The brackets still open at the start of each line, as the characters that opened them.**
+   *
+   * A depth is not enough to say whether a key is the document's: `{` and `[{` both put a line one level in, and the
+   * first holds a key of the file while the second holds a key of an array element. **The stack is the only thing that
+   * tells them apart**, and it is what lets the reader answer `[{ "a": 1 }]` with nothing without also answering
+   * `{ "a": 1 }` with nothing.
+   */
+  const openAt: string[] = [];
+  const stack: string[] = [];
   for (const code of file.codes) {
-    depthAt.push(depth);
+    depthAt.push(stack.length);
+    openAt.push(stack.slice(-8).join(''));
     for (const char of code) {
-      if (char === '{' || char === '[') depth += 1;
-      else if (char === '}' || char === ']') depth -= 1;
+      if (char === '{' || char === '[') stack.push(char);
+      else if (char === '}' || char === ']') stack.pop();
     }
-    depthAfter.push(depth);
+    depthAfter.push(stack.length);
   }
   const records: KeyRecord[] = [];
   for (let at = 0; at < file.codes.length; at += 1) {
-    // **The key is read from the file's own line and not from the lexed one**, because the shared lexer blanks a quoted
+    // **The keys are read from the file's own line and not from the lexed one**, because the shared lexer blanks a quoted
     // body - which is what makes `"a":"b{c}"` safe to count braces over and what would turn every key into blanks.
-    const match = JSON_KEY.exec(file.lines[at]!.trim());
-    if (match === null) continue;
+    const keys = jsonKeysIn(file.lines[at]!);
+    if (keys.length === 0) continue;
     let end = at;
     if (depthAfter[at]! > depthAt[at]!) {
       const target = depthAt[at]!;
@@ -1463,12 +1647,16 @@ export function scanJson(file: PreparedFile): ScannedDeclarations {
       while (probe < file.codes.length && depthAfter[probe]! > target) probe += 1;
       end = Math.min(probe, file.codes.length - 1);
     }
-    records.push({
-      name: match[1]!,
-      start: at,
-      end,
-      parent: enclosingRecord(records, { start: at, end }),
-    });
+    for (const name of keys) {
+      const parent = enclosingRecord(records, { start: at, end });
+      // **A key belongs to the file when a recorded key holds it, or when the only thing holding it is the document's
+      // own root object.** `[{ "a": 1 }]` is the case this branch exists for: the document is an array, the objects in it
+      // are its elements, and **an element's key is not a key of the document** - naming it would put a name in the
+      // top-level list that no reader can address from the root.
+      const root = openAt[at] === '' || openAt[at] === '{';
+      if (parent < 0 && !root) continue;
+      records.push({ name, start: at, end, parent });
+    }
   }
   return keySymbols(records, file);
 }
@@ -1517,6 +1705,60 @@ function yamlLine(line: string): YamlLine | null {
 }
 
 /**
+ * **The keys a flow mapping writes between its braces, and nothing a scalar holds.**
+ *
+ * `flow: { a: 1, b: 2 }` is a mapping with two keys written on one line, and a reader that only counts columns sees one
+ * key called `flow`. **The walk tracks quotes as well as depth**, because `quoted: "key: with a colon"` holds the
+ * characters of a key and names none - the same trap the JSON reader was rewritten for, in the same week.
+ *
+ * **The depth is counted from the opening brace**, so a nested flow mapping's keys belong to the key that opened them
+ * and not to the document - which is the answer `enclosingRecord` would give if it could see a second key on one line.
+ */
+function yamlFlowKeys(value: string): string[] {
+  if (!value.startsWith('{')) return [];
+  const found: string[] = [];
+  const seen = new Set<string>();
+  let depth = 0;
+  let at = 0;
+  while (at < value.length) {
+    const char = value[at]!;
+    if (char === '"' || char === "'") {
+      // **A quoted scalar is skipped whole**, so the colon inside `"key: with a colon"` is never read as a separator.
+      let probe = at + 1;
+      while (probe < value.length && value[probe] !== char) {
+        probe += value[probe] === '\\' && char === '"' ? 2 : 1;
+      }
+      const text = value.slice(at + 1, probe);
+      let after = probe + 1;
+      while (after < value.length && value[after] === ' ') after += 1;
+      if (depth === 1 && value[after] === ':' && !seen.has(text)) {
+        seen.add(text);
+        found.push(text);
+      }
+      at = probe + 1;
+      continue;
+    }
+    if (char === '{' || char === '[') depth += 1;
+    else if (char === '}' || char === ']') depth -= 1;
+    if (depth === 1 && /[A-Za-z0-9_.-]/u.test(char)) {
+      let probe = at;
+      while (probe < value.length && /[A-Za-z0-9_.-]/u.test(value[probe]!)) probe += 1;
+      let after = probe;
+      while (after < value.length && value[after] === ' ') after += 1;
+      const text = value.slice(at, probe);
+      if (value[after] === ':' && !seen.has(text)) {
+        seen.add(text);
+        found.push(text);
+      }
+      at = probe;
+      continue;
+    }
+    at += 1;
+  }
+  return found;
+}
+
+/**
  * **YAML, read by indentation.**
  *
  * **A key with nothing after its colon opens the block that follows; a key with a value on its own line occupies that
@@ -1524,28 +1766,55 @@ function yamlLine(line: string): YamlLine | null {
  * the two are siblings in a sequence item, and an indentation-only rule would make the second a child of the first
  * because it is written two columns deeper.
  */
+/**
+ * **A key whose value is a block scalar, which is a value and not a table.**
+ *
+ * `command: |` says the lines under it are text. **Text is not a mapping**, so a line inside it that happens to look like
+ * `echo "starting: app"` declares nothing - and the scanner, reading the file by columns, filed it under `command` as a
+ * key. On this repository's own `.github/workflows/ci.yml` the same defect turned four lines of a shell script into four
+ * keys, and the containment check that hid them (they *are* inside `run`) is the reason it took a corpus with a script
+ * in it to see them.
+ */
+const YAML_BLOCK_SCALAR = /^[|>][+-]?\d*$/u;
+
 export function scanYaml(file: PreparedFile): ScannedDeclarations {
   const read = file.lines.map(yamlLine);
   const meaningful = read.flatMap((line, at) => (line === null ? [] : [at]));
   const indents = read.map((line) => line?.indent ?? -1);
   const records: KeyRecord[] = [];
+  // **A block scalar's body is text**, and the lines in it are skipped rather than read: the marker's own range is the
+  // key's, and every line under it belongs to the value.
+  const literal = new Set<number>();
   for (let entry = 0; entry < meaningful.length; entry += 1) {
     const at = meaningful[entry]!;
+    if (literal.has(at)) continue;
     const indent = indents[at]!;
     const text = read[at]!.text.trim();
     const match = YAML_KEY.exec(text);
     if (match === null) continue;
     const name = match[1] ?? match[2] ?? match[3]!;
     const value = text.slice(match[0].length).trim();
+    const isLiteral = YAML_BLOCK_SCALAR.test(value);
     let end = at;
-    if (value.length === 0) {
+    if (value.length === 0 || isLiteral) {
       // The block ends before the next meaningful line written at this key's own indentation or shallower.
       const next = meaningful.slice(entry + 1).find((probe) => indents[probe]! <= indent);
       end = next === undefined ? meaningful[meaningful.length - 1]! : next - 1;
       // **A blank line after the block is not part of it**, because a claim filed against one would render nothing.
       while (end > at && indents[end]! < 0) end -= 1;
     }
-    records.push({ name, start: at, end, parent: enclosingRecord(records, { start: at, end }) });
+    if (isLiteral) {
+      for (let line = at + 1; line <= end; line += 1) literal.add(line);
+    }
+    const parent = enclosingRecord(records, { start: at, end });
+    records.push({ name, start: at, end, parent });
+    // **A flow mapping's keys are the members of the key that opened it**, and their parent is written here rather than
+    // searched for: two keys on one line have the same range, so `enclosingRecord` would offer the sibling that was
+    // pushed a line earlier. **The index of the record just written is the only correct answer.**
+    const owner = records.length - 1;
+    for (const inner of yamlFlowKeys(value)) {
+      records.push({ name: inner, start: at, end: at, parent: owner });
+    }
   }
   return keySymbols(records, file);
 }

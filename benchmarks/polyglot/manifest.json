@@ -17,8 +17,9 @@
     "",
     "**What this does not prove.** Recall here is against one file per language. **It is a measurement of the scanner and",
     "not of the field**: an index that names every declaration in `JsonNull.java` has proved it reads Java, not that it",
-    "reads the Java a review meets. The field measurement is the martian artifact of \u00a786, which is where the language",
-    "share is measured over 193 real changed paths."
+    "reads the Java a review meets. The field measurement is the martian artifact of §86, which is where the language",
+    "share is measured over 193 real changed paths.",
+    "**A second wave, and a different question.** The fourteen files above answer *does the scanner read this language at all*. The eleven below answer *does it read the constructs a reviewer files comments against* - an overload set, an annotation type, a merge key, a CDATA section - and they are written for this measurement, which is why they are marked `construct` rather than `fetched`. The author's expectation is not the truth in either wave: tree-sitter and ElementTree judge these too, so a fixture only has to *contain* the construct, and a disagreement is still a disagreement between two implementations."
   ],
   "measuredAt": "2026-11-19",
   "files": [
@@ -127,6 +128,94 @@
       "language": "yaml",
       "path": ".github/workflows/ci.yml",
       "origin": "this-repository"
+    },
+    {
+      "language": "java",
+      "path": "benchmarks/polyglot/hard/hard.java",
+      "origin": "construct",
+      "repo": "AgentiX-E/code-analyzer",
+      "license": "Apache-2.0",
+      "why": "Several top-level types in one file, a sealed hierarchy, a record with a compact constructor, an enum whose constants have bodies, an annotation type and a static initializer."
+    },
+    {
+      "language": "kotlin",
+      "path": "benchmarks/polyglot/hard/hard.kt",
+      "origin": "construct",
+      "repo": "AgentiX-E/code-analyzer",
+      "license": "Apache-2.0",
+      "why": "A sealed class with a nested data class and an object, a data class, an object with a @JvmStatic member, an annotation class, a value class, a typealias, a receiver function and a generic function."
+    },
+    {
+      "language": "swift",
+      "path": "benchmarks/polyglot/hard/hard.swift",
+      "origin": "construct",
+      "repo": "AgentiX-E/code-analyzer",
+      "license": "Apache-2.0",
+      "why": "A typealias, a protocol with an associated type, a struct with a static member, an enum with raw values, an extension, an attributed final class, an actor, an open class and a global let."
+    },
+    {
+      "language": "groovy",
+      "path": "benchmarks/polyglot/hard/hard.groovy",
+      "origin": "construct",
+      "repo": "AgentiX-E/code-analyzer",
+      "license": "Apache-2.0",
+      "why": "An annotation type, a trait, an enum, an abstract class, a @CompileStatic class with a static nested class, an untyped top-level method and a typed one."
+    },
+    {
+      "language": "javascript",
+      "path": "benchmarks/polyglot/hard/hard.js",
+      "origin": "construct",
+      "repo": "AgentiX-E/code-analyzer",
+      "license": "Apache-2.0",
+      "why": "Default export of a class, a generator, an async generator, a class with private fields and a private method, a subclass and a destructuring-free arrow."
+    },
+    {
+      "language": "typescript",
+      "path": "benchmarks/polyglot/hard/hard.ts",
+      "origin": "construct",
+      "repo": "AgentiX-E/code-analyzer",
+      "license": "Apache-2.0",
+      "why": "An overload set (two signatures and one body), a re-export, a const enum, a namespace, a declared module, an abstract class and a default export."
+    },
+    {
+      "language": "python",
+      "path": "benchmarks/polyglot/hard/hard.py",
+      "origin": "construct",
+      "repo": "AgentiX-E/code-analyzer",
+      "license": "Apache-2.0",
+      "why": "Decorated sync and async functions, a nested class, a property, a module constant and a module-level dict annotation."
+    },
+    {
+      "language": "arkts",
+      "path": "benchmarks/polyglot/hard/hard.ets",
+      "origin": "construct",
+      "repo": "AgentiX-E/code-analyzer",
+      "license": "Apache-2.0",
+      "why": "A @Component struct with @State and @Prop fields, an @Entry struct, a @Builder function and an exported class and interface."
+    },
+    {
+      "language": "json",
+      "path": "benchmarks/polyglot/hard/hard.json",
+      "origin": "construct",
+      "repo": "AgentiX-E/code-analyzer",
+      "license": "Apache-2.0",
+      "why": "A key with a colon in it, a key with an escaped quote, a non-ASCII key, four levels of nesting, an array of objects, an empty object and an empty array."
+    },
+    {
+      "language": "yaml",
+      "path": "benchmarks/polyglot/hard/hard.yaml",
+      "origin": "construct",
+      "repo": "AgentiX-E/code-analyzer",
+      "license": "Apache-2.0",
+      "why": "An anchor and a merge key, a block scalar whose body looks like keys, a flow mapping, a quoted key containing a colon, a sequence of maps and a second document."
+    },
+    {
+      "language": "xml",
+      "path": "benchmarks/polyglot/hard/hard.xml",
+      "origin": "construct",
+      "repo": "AgentiX-E/code-analyzer",
+      "license": "Apache-2.0",
+      "why": "A DOCTYPE with an internal subset, a processing instruction, a default namespace and a prefixed one, a comment containing a tag, a CDATA section containing a tag and an attribute with an escaped greater-than."
     }
   ]
 }

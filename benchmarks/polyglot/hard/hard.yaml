@@ -1,0 +1,49 @@
+# The constructs a YAML review meets: anchors, merge keys, block scalars, flow mappings and several documents.
+
+defaults: &defaults
+  timeout: 30
+  retries: 3
+
+service:
+  <<: *defaults
+  image: registry.local/app:1.0
+  ports:
+    - '8080:8080'
+  command: |
+    echo "starting: app"
+    exec /app --port 8080
+  healthcheck:
+    test: ['CMD', 'curl', '-f', 'http://localhost:8080/healthz']
+    interval: 30s
+
+flow: { a: 1, b: 2 }
+
+quoted: 'key: with a colon'
+
+steps:
+  - name: checkout
+    uses: actions/checkout@v4
+  - name: build
+    run: make build
+    env:
+      CI: 'true'
+
+matrix:
+  include:
+    - os: linux
+      node: 22
+    - os: darwin
+      node: 22
+
+anchored_list:
+  - &first
+    name: one
+  - *first
+
+on:
+  push:
+    branches: [master]
+---
+second: document
+nested:
+  field: value
