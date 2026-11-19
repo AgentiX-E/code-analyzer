@@ -187,7 +187,6 @@ const DESCRIBE_THE_FAILURE = `**The description names the failure, not the fix.*
    **Do not report fewer findings because of this rule**: a defect you found and could not phrase is one this reviewer
    exists to phrase, not one to leave out.`;
 
-
 const SELECTION_RULES = `
 How to choose and how many to return - this is part of the contract, not advice:
 

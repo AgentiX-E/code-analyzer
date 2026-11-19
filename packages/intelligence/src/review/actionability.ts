@@ -318,7 +318,6 @@ export function weighFinding(located: LocatedFinding, facts: DiffFacts): Actiona
     return text.length >= MINIMUM_QUOTABLE && trimmedQuote.includes(text);
   });
 
-
   const symbolSet = identifiers(narrative);
   const namesSymbol = addedLines.some((line) =>
     [...identifiers(line)].some((token) => symbolSet.has(token)),
