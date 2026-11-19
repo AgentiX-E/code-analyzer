@@ -89,7 +89,8 @@
     "callgraph": "node scripts/callgraph-gate.js",
     "measure:selfcheck": "tsx scripts/callgraph-selfcheck.ts",
     "selfcheck": "node scripts/callgraph-selfcheck-gate.js",
-    "corpus:martian": "node scripts/build-martian-corpus.mjs"
+    "corpus:martian": "node scripts/build-martian-corpus.mjs",
+    "bench:polyglot": "tsx scripts/polyglot-bench.ts"
   },
   "devDependencies": {
     "@types/node": "^26.6.6",

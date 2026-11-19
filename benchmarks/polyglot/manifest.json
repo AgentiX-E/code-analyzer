@@ -1,0 +1,132 @@
+{
+  "comment": [
+    "The eleven languages the field asks about, one real file each, with the oracle that judges them.",
+    "",
+    "**What the files are.** Seven of the eleven are source files fetched from a public repository at the ref named beside",
+    "them, kept in `benchmarks/polyglot/files/` so that the measurement runs offline and the bytes do not change under it.",
+    "**Five are this repository's own files**, which is a deliberate choice and not a convenience: a file written for this",
+    "measurement would be a file written to be parsed, and the least useful corpus there is. The ArkTS one is the",
+    "fixture the analyzer package already keeps for its own provider tests - ArkTS has no public corpus this project can",
+    "fetch, and the alternative was to write one, which would have measured the author rather than the scanner.",
+    "",
+    "**What the oracle is.** `scripts/polyglot-oracle.mjs` reads the same file with a grammar somebody else wrote -",
+    "tree-sitter for the eight code languages, Python's `ElementTree` and `PyYAML` for XML and YAML - and answers the one",
+    "question both implementations can be asked: which names does this file declare at its top level. It does not compare",
+    "ranges, kinds or exports, because those are answers the two compute differently and a disagreement about them would",
+    "be a disagreement about the question.",
+    "",
+    "**What this does not prove.** Recall here is against one file per language. **It is a measurement of the scanner and",
+    "not of the field**: an index that names every declaration in `JsonNull.java` has proved it reads Java, not that it",
+    "reads the Java a review meets. The field measurement is the martian artifact of \u00a786, which is where the language",
+    "share is measured over 193 real changed paths."
+  ],
+  "measuredAt": "2026-11-19",
+  "files": [
+    {
+      "language": "java",
+      "path": "benchmarks/polyglot/files/Matrix.java",
+      "origin": "fixture",
+      "repo": "AgentiX-E/code-analyzer",
+      "upstreamPath": "packages/analyzer/src/__tests__/support/language-support-matrix.ts",
+      "license": "Apache-2.0",
+      "why": "The fetched Java file declares one class; this one declares a class, an interface, an enum, an annotation type and a base class, which is what recall needs to be able to fail on."
+    },
+    {
+      "language": "swift",
+      "path": "benchmarks/polyglot/files/matrix.swift",
+      "origin": "fixture",
+      "repo": "AgentiX-E/code-analyzer",
+      "upstreamPath": "packages/analyzer/src/__tests__/support/language-support-matrix.ts",
+      "license": "Apache-2.0",
+      "why": "The fetched Swift file declares one type and one extension; this one declares a struct, a protocol, an enum, a class and three functions."
+    },
+    {
+      "language": "groovy",
+      "path": "benchmarks/polyglot/files/matrix.groovy",
+      "origin": "fixture",
+      "repo": "AgentiX-E/code-analyzer",
+      "upstreamPath": "packages/analyzer/src/__tests__/support/language-support-matrix.ts",
+      "license": "Apache-2.0",
+      "why": "The fetched Groovy file declares one annotation type, which is the shape that exposed the @interface gap; this one declares four types."
+    },
+    {
+      "language": "java",
+      "path": "benchmarks/polyglot/files/JsonNull.java",
+      "origin": "fetched",
+      "repo": "google/gson",
+      "ref": "main",
+      "upstreamPath": "gson/src/main/java/com/google/gson/JsonNull.java",
+      "license": "Apache-2.0"
+    },
+    {
+      "language": "kotlin",
+      "path": "benchmarks/polyglot/files/KotlinExtensions.kt",
+      "origin": "fetched",
+      "repo": "square/retrofit",
+      "ref": "trunk",
+      "upstreamPath": "retrofit/src/main/java/retrofit2/KotlinExtensions.kt",
+      "license": "Apache-2.0"
+    },
+    {
+      "language": "groovy",
+      "path": "benchmarks/polyglot/files/AutoExternalize.groovy",
+      "origin": "fetched",
+      "repo": "apache/groovy",
+      "ref": "master",
+      "upstreamPath": "src/main/groovy/groovy/transform/AutoExternalize.groovy",
+      "license": "Apache-2.0"
+    },
+    {
+      "language": "swift",
+      "path": "benchmarks/polyglot/files/AlamofireExtended.swift",
+      "origin": "fetched",
+      "repo": "Alamofire/Alamofire",
+      "ref": "master",
+      "upstreamPath": "Source/Features/AlamofireExtended.swift",
+      "license": "MIT"
+    },
+    {
+      "language": "xml",
+      "path": "benchmarks/polyglot/files/gson-pom.xml",
+      "origin": "fetched",
+      "repo": "google/gson",
+      "ref": "main",
+      "upstreamPath": "pom.xml",
+      "license": "Apache-2.0"
+    },
+    {
+      "language": "arkts",
+      "path": "benchmarks/polyglot/files/matrix.ets",
+      "origin": "fixture",
+      "repo": "AgentiX-E/code-analyzer",
+      "upstreamPath": "packages/analyzer/src/__tests__/support/language-support-matrix.ts",
+      "license": "Apache-2.0",
+      "why": "ArkTS has no public corpus this project can fetch, and a file written for this measurement would measure its author."
+    },
+    {
+      "language": "typescript",
+      "path": "packages/intelligence/src/review/index/symbols.ts",
+      "origin": "this-repository"
+    },
+    {
+      "language": "javascript",
+      "path": "scripts/build-martian-corpus.mjs",
+      "origin": "this-repository"
+    },
+    {
+      "language": "python",
+      "path": "scripts/callgraph-oracle.py",
+      "origin": "this-repository"
+    },
+    {
+      "language": "json",
+      "path": "package.json",
+      "origin": "this-repository"
+    },
+    {
+      "language": "yaml",
+      "path": ".github/workflows/ci.yml",
+      "origin": "this-repository"
+    }
+  ]
+}

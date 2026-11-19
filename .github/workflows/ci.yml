@@ -443,6 +443,16 @@ jobs:
       - run: pnpm install --frozen-lockfile
       - name: Run benchmarks
         run: pnpm bench:ci
+      # **Eleven languages, judged by tree-sitter and by Python's own libraries** - the measurement §89 added, and the
+      # only one here whose oracle is a parser this repository did not write. PyYAML is installed rather than assumed:
+      # `ElementTree` is in the standard library and PyYAML is not, and a job that failed on the second would have been
+      # read as the index being broken.
+      - name: Install the document oracle's parser
+        # **Pinned, because a reader that changes under the corpus is not a reader**: the same rule the workflow that
+        # fetches a dataset follows, applied to the one library that reads it.
+        run: python3 -m pip install --quiet pyyaml==6.0.3
+      - name: Measure the index against eleven languages
+        run: pnpm bench:polyglot
       # **The paid job's arithmetic, checked on every push for nothing.**
       #
       # `aacr-bench.mjs --dry-run` runs ranking, matching, the curve and the paired test over a six-finding fixture

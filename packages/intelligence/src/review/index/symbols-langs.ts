@@ -940,7 +940,697 @@ function rubyMembers(
   return members;
 }
 
-/** What a scanner is given and what it returns, so the dispatcher can hold seven of them in one table. */
+// ---------------------------------------------------------------------------
+// Kotlin
+// ---------------------------------------------------------------------------
+
+/**
+ * **The modifiers Kotlin writes before a declaration, consumed rather than listed as declarations.**
+ *
+ * `enum` is here for `enum class Color`, which is one declaration and not a declaration of an `enum` and a `class`;
+ * `data`, `sealed`, `value` and `annotation` are the same shape. **`fun` is not here**, because `fun interface Foo` is
+ * an interface declaration and a table that ate the `fun` would read it as one called `interface`.
+ */
+const KOTLIN_MODIFIERS =
+  /^(?:(?:public|private|protected|internal|open|final|sealed|abstract|data|enum|annotation|value|inside|inline|suspend|operator|infix|tailrec|external|override|lateinit|const|actual|expect|companion|noinline|crossinline|vararg|reified)\s+)*/u;
+
+const KOTLIN_TYPE = /^(class|interface|object|typealias)\s+([A-Za-z_]\w*)/u;
+
+/** `fun <T> identity(`, `fun String.shout(` and `fun topLevel(` are one rule, with the receiver optional. */
+const KOTLIN_FUN =
+  /^fun\s+(?:<[^>]*>\s*)?(?:(?:[A-Za-z_][\w]*(?:<[^>]*>)?)\.)?([A-Za-z_]\w*)\s*(?:<[^>]*>)?\s*\(/u;
+
+const KOTLIN_PROPERTY = /^(?:val|var)\s+([A-Za-z_]\w*)/u;
+
+/** A `val` or `var` in a class's primary constructor, which is a property of that class and nothing else. */
+const KOTLIN_PRIMARY = /\b(?:val|var)\s+([A-Za-z_]\w*)/gu;
+
+/**
+ * **Kotlin, read as declarations.**
+ *
+ * Two of its rules are not shared with any language here. **`internal` is module-private**, so a name carrying it is not
+ * offered - the same answer C# gives a type without `public`. And **a class's primary constructor declares properties**:
+ * `data class Widget(val label: String)` has a member called `label`, and it is the only member of that declaration that
+ * is not written inside its body.
+ */
+export function scanKotlin(file: PreparedFile): ScannedDeclarations {
+  const symbols: DeclaredSymbol[] = [];
+  const exported: string[] = [];
+  for (let at = 0; at < file.lines.length; at += 1) {
+    const depth = file.depthAtStart[at]!;
+    if (depth > 1) continue;
+    const code = file.codes[at]!.trim();
+    if (code.length === 0 || code.startsWith('@')) continue;
+    const isExported = !/\b(?:private|internal)\b/u.test(code);
+    const rest = code.replace(KOTLIN_MODIFIERS, '');
+
+    // **`fun interface` is an interface**, and the two words are one declaration rather than a function called
+    // `interface`.
+    const isFunInterface = /^fun\s+interface\s+([A-Za-z_]\w*)/u.exec(rest);
+    const type = isFunInterface === null ? KOTLIN_TYPE.exec(rest) : null;
+    const keyword = isFunInterface?.[1] !== undefined ? 'interface' : (type?.[1] ?? '');
+    const name = isFunInterface?.[1] ?? type?.[2];
+    if (name !== undefined && name !== null && name.length > 0) {
+      const end = file.endOf(headerEnd(file.codes, at));
+      const kind: SymbolKind =
+        keyword === 'interface'
+          ? 'interface'
+          : keyword === 'typealias' || /\benum\s+class\b/u.test(code)
+            ? 'type'
+            : 'class';
+      symbols.push({
+        name,
+        kind,
+        startLine: at + 1,
+        endLine: end + 1,
+        exported: isExported,
+        signature: signatureOf(file.lines, at, end),
+        members: kotlinMembers(file, at, end, name),
+      });
+      if (isExported) exported.push(name);
+      continue;
+    }
+
+    // **A function or a property one level in is a member**, and reading it as a top-level declaration would put `draw`
+    // and `size` beside `Widget` in the list of what the file declares - the answer that made `exported` grow two names
+    // the file does not have. **A type one level in is still a declaration**, which is why this check is here and not at
+    // the top of the loop.
+    if (depth === 1) continue;
+    const call = KOTLIN_FUN.exec(rest);
+    if (call !== null) {
+      const end = file.endOf(at);
+      symbols.push({
+        name: call[1]!,
+        kind: 'function',
+        startLine: at + 1,
+        endLine: end + 1,
+        exported: isExported,
+        signature: signatureOf(file.lines, at, end),
+        members: [],
+      });
+      if (isExported) exported.push(call[1]!);
+      continue;
+    }
+
+    const property = KOTLIN_PROPERTY.exec(rest);
+    if (property !== null) {
+      const end = file.endOf(at);
+      symbols.push({
+        name: property[1]!,
+        kind: 'const',
+        startLine: at + 1,
+        endLine: end + 1,
+        exported: isExported,
+        signature: signatureOf(file.lines, at, end),
+        members: [],
+      });
+      if (isExported) exported.push(property[1]!);
+    }
+  }
+  return { symbols, exported };
+}
+
+/**
+ * **The line on which a declaration's own parentheses close**, which is where its body may open.
+ *
+ * `class Widget(` followed by two parameter lines and `) {` opens a body on its third line, and the shared `endOf`
+ * looks exactly one line ahead - so it answers `class Widget(` with a range of one line and no members. **The balance is
+ * counted here rather than in `endOf`** because widening that rule would make a one-line `int x;` swallow the next
+ * function's body, and the two declarations look nothing alike to a brace counter.
+ */
+function headerEnd(codes: readonly string[], at: number): number {
+  let balance = 0;
+  for (let line = at; line < codes.length; line += 1) {
+    for (const char of codes[line]!) {
+      if (char === '(') balance += 1;
+      else if (char === ')') balance -= 1;
+    }
+    if (balance <= 0) return line;
+  }
+  return at;
+}
+
+/** The properties a primary constructor declares, in the order the parameters are written. */
+function kotlinPrimary(file: PreparedFile, at: number, parent: string): MemberSymbol[] {
+  const line = file.codes[at]!;
+  const open = line.indexOf('(');
+  if (open < 0) return [];
+  // **The parameter list is read from the declaration's own line**, because that is where a primary constructor is
+  // written; a list that wrapped onto the next line is a shape this scanner answers with nothing rather than a guess.
+  const close = line.lastIndexOf(')');
+  const parameters = close > open ? line.slice(open, close) : line.slice(open);
+  const members: MemberSymbol[] = [];
+  for (const read of parameters.matchAll(KOTLIN_PRIMARY)) {
+    members.push({
+      name: read[1]!,
+      kind: 'property',
+      startLine: at + 1,
+      endLine: at + 1,
+      signature: `${parent}(${parameters.slice(1).trim()})`.slice(0, 120),
+    });
+  }
+  return members;
+}
+
+/** The members of a Kotlin class: its primary constructor's properties, then everything its body declares at depth one. */
+function kotlinMembers(
+  file: PreparedFile,
+  at: number,
+  end: number,
+  parent: string,
+): MemberSymbol[] {
+  const members = kotlinPrimary(file, at, parent);
+  for (let line = at + 1; line <= end; line += 1) {
+    if (file.depthAtStart[line] !== file.depthAtStart[at]! + 1) continue;
+    const code = file.codes[line]!.trim();
+    if (code.length === 0 || code.startsWith('@')) continue;
+    const rest = code.replace(KOTLIN_MODIFIERS, '');
+    const block = file.endOf(line);
+    const call = KOTLIN_FUN.exec(rest);
+    if (call !== null) {
+      members.push({
+        name: call[1]!,
+        kind: 'method',
+        startLine: line + 1,
+        endLine: block + 1,
+        signature: signatureOf(file.lines, line, block),
+      });
+      continue;
+    }
+    const property = KOTLIN_PROPERTY.exec(rest);
+    if (property !== null) {
+      members.push({
+        name: property[1]!,
+        kind: 'property',
+        startLine: line + 1,
+        endLine: block + 1,
+        signature: signatureOf(file.lines, line, block),
+      });
+      continue;
+    }
+    // **`constructor(` is a secondary constructor and is named after its class**, for the reason every scanner here gives:
+    // a prompt that says "inside constructor" has said less than one that says which type it constructs.
+    if (rest.startsWith('constructor')) {
+      members.push({
+        name: parent,
+        kind: 'constructor',
+        startLine: line + 1,
+        endLine: block + 1,
+        signature: signatureOf(file.lines, line, block),
+      });
+    }
+  }
+  return members;
+}
+
+// ---------------------------------------------------------------------------
+// Groovy
+// ---------------------------------------------------------------------------
+
+/** The modifiers and annotations Groovy writes before a declaration. */
+const GROOVY_MODIFIERS =
+  /^(?:(?:@(?!interface\b)[\w.]+(?:\([^)]*\))?|public|protected|private|static|final|abstract|synchronized|transient|volatile|strictfp)\s+)*/u;
+
+/**
+ * `class`, `interface`, `trait`, `enum` and **`@interface`**, which Groovy shares with Java and which the first real
+ * Groovy file this scanner was pointed at declared - `AutoExternalize.groovy` is an annotation type and nothing else, so a
+ * table without it reported that the file declared nothing.
+ */
+const GROOVY_TYPE = /^(@?)(class|interface|trait|enum)\s+([A-Za-z_$][\w$]*)/u;
+
+/** `def topLevel(` - the untyped form, which is how a Gradle build and a Jenkinsfile write almost everything. */
+const GROOVY_DEF = /^def\s+([A-Za-z_$][\w$]*)\s*\(/u;
+
+/** `void main(String[] args) {` - the typed form, whose name is the word before the paren and not the type. */
+const GROOVY_TYPED = /^[A-Za-z_$][\w$.<>[\]]*\s+([A-Za-z_$][\w$]*)\s*\(/u;
+
+/**
+ * **Groovy, read as declarations.**
+ *
+ * It is the language a build script and a Jenkinsfile are written in, and **it is read with the Java scanner's two
+ * shapes plus `def`**: a type keyword, and a name before a paren. Its `trait` is a type that can be implemented, which is
+ * why it is reported as an interface rather than as a class - the distinction a reader would make.
+ */
+export function scanGroovy(file: PreparedFile): ScannedDeclarations {
+  const symbols: DeclaredSymbol[] = [];
+  const exported: string[] = [];
+  for (let at = 0; at < file.lines.length; at += 1) {
+    const depth = file.depthAtStart[at]!;
+    if (depth > 1) continue;
+    const code = file.codes[at]!.trim();
+    // **`@interface` is a declaration and `@Deprecated` is not**, which is why this guard names the annotation type
+    // rather than treating every `@` as a decorator that declares nothing.
+    if (code.length === 0 || (code.startsWith('@') && !code.startsWith('@interface'))) continue;
+    const isExported = !/\b(?:private|protected)\b/u.test(code);
+    const rest = code.replace(GROOVY_MODIFIERS, '');
+    const type = GROOVY_TYPE.exec(rest);
+    if (type !== null) {
+      const end = file.endOf(at);
+      const keyword = type[2]!;
+      const kind: SymbolKind =
+        keyword === 'interface' || keyword === 'trait'
+          ? 'interface'
+          : keyword === 'enum'
+            ? 'type'
+            : 'class';
+      symbols.push({
+        name: type[3]!,
+        kind,
+        startLine: at + 1,
+        endLine: end + 1,
+        exported: isExported,
+        signature: signatureOf(file.lines, at, end),
+        members: membersAtDepth(file, at + 1, end, depth + 1, type[3]!),
+      });
+      if (isExported) exported.push(type[3]!);
+      continue;
+    }
+    if (depth === 1) continue;
+    const call = GROOVY_DEF.exec(rest) ?? GROOVY_TYPED.exec(rest);
+    if (call === null) continue;
+    const end = file.endOf(at);
+    symbols.push({
+      name: call[1]!,
+      kind: 'function',
+      startLine: at + 1,
+      endLine: end + 1,
+      exported: isExported,
+      signature: signatureOf(file.lines, at, end),
+      members: [],
+    });
+    if (isExported) exported.push(call[1]!);
+  }
+  return { symbols, exported };
+}
+
+// ---------------------------------------------------------------------------
+// Swift
+// ---------------------------------------------------------------------------
+
+/** The modifiers and attributes Swift writes before a declaration. **`class` is absent on purpose**: `class Widget` is
+ * a declaration, while `class func` only occurs inside a type and is read there. */
+const SWIFT_MODIFIERS =
+  /^(?:(?:@[\w.]+(?:\([^)]*\))?|public|private|fileprivate|internal|open|final|indirect|static|override|required|convenience|lazy|weak|unowned|nonisolated|mutating|nonmutating|prefix|postfix|infix|dynamic|optional)\s+)*/u;
+
+const SWIFT_TYPE = /^(class|struct|enum|protocol|extension|actor)\s+([A-Za-z_]\w*)/u;
+
+/** `func identity(` and `func identity<T>(` are one rule: the name stops where the paren or the generic clause does. */
+const SWIFT_FUNC = /^func\s+([A-Za-z_]\w*)/u;
+
+const SWIFT_INIT = /^init[?!]?\s*\(/u;
+
+const SWIFT_BINDING = /^(?:let|var)\s+([A-Za-z_]\w*)/u;
+
+/**
+ * **Swift, read as declarations.**
+ *
+ * `struct` and `extension` are the two shapes it has that no language here had. **`struct` is a type and is reported as
+ * a class**, and **`extension` is a range in the type it extends**: it declares no new name, so it is a symbol whose
+ * lines a witness can point at and whose name is not offered twice.
+ */
+export function scanSwift(file: PreparedFile): ScannedDeclarations {
+  const symbols: DeclaredSymbol[] = [];
+  const exported: string[] = [];
+  for (let at = 0; at < file.lines.length; at += 1) {
+    const depth = file.depthAtStart[at]!;
+    if (depth > 1) continue;
+    const code = file.codes[at]!.trim();
+    if (code.length === 0 || code.startsWith('@')) continue;
+    // **Only `public` and `open` are offered**, because Swift's default is `internal` and `internal` stops at the module
+    // boundary - the same answer Kotlin's `internal` gets and the same answer C# gives a type without a modifier.
+    const isExported = /\b(?:public|open)\b/u.test(code);
+    const rest = code.replace(SWIFT_MODIFIERS, '');
+    const type = SWIFT_TYPE.exec(rest);
+    if (type !== null) {
+      const end = file.endOf(at);
+      const keyword = type[1]!;
+      const kind: SymbolKind =
+        keyword === 'protocol' ? 'interface' : keyword === 'enum' ? 'type' : 'class';
+      // **An extension offers nothing**, so it is neither in the exported list nor a second entry in it.
+      const offers = isExported && keyword !== 'extension';
+      symbols.push({
+        name: type[2]!,
+        kind,
+        startLine: at + 1,
+        endLine: end + 1,
+        exported: offers,
+        signature: signatureOf(file.lines, at, end),
+        members: swiftMembers(file, at, end, type[2]!),
+      });
+      if (offers) exported.push(type[2]!);
+      continue;
+    }
+    if (depth === 1) continue;
+    const call = SWIFT_FUNC.exec(rest);
+    if (call !== null) {
+      const end = file.endOf(at);
+      symbols.push({
+        name: call[1]!,
+        kind: 'function',
+        startLine: at + 1,
+        endLine: end + 1,
+        exported: isExported,
+        signature: signatureOf(file.lines, at, end),
+        members: [],
+      });
+      if (isExported) exported.push(call[1]!);
+      continue;
+    }
+    const binding = SWIFT_BINDING.exec(rest);
+    if (binding !== null) {
+      const end = file.endOf(at);
+      symbols.push({
+        name: binding[1]!,
+        kind: 'const',
+        startLine: at + 1,
+        endLine: end + 1,
+        exported: isExported,
+        signature: signatureOf(file.lines, at, end),
+        members: [],
+      });
+      if (isExported) exported.push(binding[1]!);
+    }
+  }
+  return { symbols, exported };
+}
+
+/** The members a Swift type or extension declares at depth one, including `init` and a stored property with no `=`. */
+function swiftMembers(file: PreparedFile, at: number, end: number, parent: string): MemberSymbol[] {
+  const members: MemberSymbol[] = [];
+  const base = file.depthAtStart[at]!;
+  for (let line = at + 1; line <= end; line += 1) {
+    if (file.depthAtStart[line] !== base + 1) continue;
+    const code = file.codes[line]!.trim();
+    if (code.length === 0 || code.startsWith('@')) continue;
+    const rest = code.replace(SWIFT_MODIFIERS, '');
+    const block = file.endOf(line);
+    if (SWIFT_INIT.test(rest)) {
+      members.push({
+        name: parent,
+        kind: 'constructor',
+        startLine: line + 1,
+        endLine: block + 1,
+        signature: signatureOf(file.lines, line, block),
+      });
+      continue;
+    }
+    const call = SWIFT_FUNC.exec(rest.replace(/^class\s+/u, ''));
+    if (call !== null) {
+      members.push({
+        name: call[1]!,
+        kind: 'method',
+        startLine: line + 1,
+        endLine: block + 1,
+        signature: signatureOf(file.lines, line, block),
+      });
+      continue;
+    }
+    const binding = SWIFT_BINDING.exec(rest);
+    if (binding !== null) {
+      members.push({
+        name: binding[1]!,
+        kind: 'property',
+        startLine: line + 1,
+        endLine: block + 1,
+        signature: signatureOf(file.lines, line, block),
+      });
+    }
+  }
+  return members;
+}
+
+// ---------------------------------------------------------------------------
+// The three documents
+// ---------------------------------------------------------------------------
+
+/** One key of a document, with the lines it stands for and the key that holds it. */
+interface KeyRecord {
+  readonly name: string;
+  /** 0-based, inclusive. */
+  readonly start: number;
+  readonly end: number;
+  /** The index of the record that holds this one, or -1 for a top-level key. */
+  readonly parent: number;
+}
+
+/** One element of an XML file, with the element that holds it, kept by identity until every one of them is read. */
+interface XmlElement {
+  readonly id: number;
+  readonly name: string;
+  readonly start: number;
+  readonly end: number;
+  readonly parent: number;
+}
+
+/**
+ * **A document's records turned into the symbols a witness can name, and the members that hold them together.**
+ *
+ * The three readers below produce ranges and parents rather than symbols, because **the difference between JSON, YAML and
+ * XML is how a key's range is found and not what a key is** - the assembly is written once so that a reader cannot
+ * disagree with its neighbours about what a `key` means.
+ */
+function keySymbols(records: readonly KeyRecord[], file: PreparedFile): ScannedDeclarations {
+  const symbols: DeclaredSymbol[] = records.map((record, at) => ({
+    name: record.name,
+    kind: 'key',
+    startLine: record.start + 1,
+    endLine: record.end + 1,
+    // **A document offers its top-level keys and nothing else**: an inner key is reachable only through the key above it.
+    exported: record.parent < 0,
+    signature: signatureOf(file.lines, record.start, record.end),
+    members: records
+      .map((candidate, index) => ({ candidate, index }))
+      .filter((entry) => entry.candidate.parent === at)
+      .map((entry) => ({
+        name: entry.candidate.name,
+        kind: 'key' as const,
+        startLine: entry.candidate.start + 1,
+        endLine: entry.candidate.end + 1,
+        signature: signatureOf(file.lines, entry.candidate.start, entry.candidate.end),
+      })),
+  }));
+  return { symbols, exported: records.filter((r) => r.parent < 0).map((r) => r.name) };
+}
+
+/**
+ * **The record that holds a candidate**, which is the nearest earlier one whose range contains it.
+ *
+ * The nearest rather than the widest, because a document nests: `scripts` and its own `test` both contain the line
+ * `"test": "vitest run"`, and the answer a witness needs is the one the claim is written inside.
+ */
+function enclosingRecord(
+  records: readonly KeyRecord[],
+  candidate: { start: number; end: number },
+): number {
+  for (let back = records.length - 1; back >= 0; back -= 1) {
+    const other = records[back]!;
+    if (other.start <= candidate.start && other.end >= candidate.end) return back;
+  }
+  return -1;
+}
+
+const JSON_KEY = /^"((?:[^"\\]|\\.)*)"\s*:/u;
+
+/**
+ * **JSON, read as keys.**
+ *
+ * A key's range is the block its value opens, and the depth it opens is counted over **braces and brackets together**,
+ * because `"files": [` returns to its own depth only after the `]` - a counter that watched braces alone would end the
+ * key on the line that opens it and lose every key inside the array.
+ */
+export function scanJson(file: PreparedFile): ScannedDeclarations {
+  const depthAt: number[] = [];
+  const depthAfter: number[] = [];
+  let depth = 0;
+  for (const code of file.codes) {
+    depthAt.push(depth);
+    for (const char of code) {
+      if (char === '{' || char === '[') depth += 1;
+      else if (char === '}' || char === ']') depth -= 1;
+    }
+    depthAfter.push(depth);
+  }
+  const records: KeyRecord[] = [];
+  for (let at = 0; at < file.codes.length; at += 1) {
+    // **The key is read from the file's own line and not from the lexed one**, because the shared lexer blanks a quoted
+    // body - which is what makes `"a":"b{c}"` safe to count braces over and what would turn every key into blanks.
+    const match = JSON_KEY.exec(file.lines[at]!.trim());
+    if (match === null) continue;
+    let end = at;
+    if (depthAfter[at]! > depthAt[at]!) {
+      const target = depthAt[at]!;
+      let probe = at + 1;
+      while (probe < file.codes.length && depthAfter[probe]! > target) probe += 1;
+      end = Math.min(probe, file.codes.length - 1);
+    }
+    records.push({
+      name: match[1]!,
+      start: at,
+      end,
+      parent: enclosingRecord(records, { start: at, end }),
+    });
+  }
+  return keySymbols(records, file);
+}
+
+/** A YAML key: `key:`, `"key":` or `'key':`, with anything after the colon being its value rather than its block. */
+const YAML_KEY = /^(?:"((?:[^"\\]|\\.)*)"|'([^']*)'|([^\s:#][^:#]*?))\s*:(?:\s|$)/u;
+
+/** One YAML line, as the column it starts at and the text left once its dashes are taken off. */
+interface YamlLine {
+  readonly indent: number;
+  readonly text: string;
+}
+
+/**
+ * **The indentation a YAML line is written at, and the text that is left once its sequence markers are removed.**
+ *
+ * -1 - which is `null` here - is a line that declares nothing: a blank one, or a comment. **A sequence marker is not part
+ * of a key**: `- name: Checkout` names `name` at the column its `-` stands at plus two, and reading the dash as part of
+ * the name is how a scanner reports a key called `- name`.
+ */
+function yamlLine(line: string): YamlLine | null {
+  const trimmed = line.replace(/\s+$/u, '');
+  if (trimmed.trim().length === 0 || trimmed.trimStart().startsWith('#')) return null;
+  let indent = 0;
+  let rest = trimmed;
+  const spaces = (): void => {
+    while (rest[0] === ' ') {
+      indent += 1;
+      rest = rest.slice(1);
+    }
+  };
+  spaces();
+  // **Tabs are not YAML indentation**, and a file that has one is answered as if it were four spaces - wide rather than
+  // narrow, because a block that ends early hides the guard inside it.
+  while (rest[0] === '\t') {
+    indent += 4;
+    rest = rest.slice(1);
+    spaces();
+  }
+  while (rest.startsWith('- ')) {
+    indent += 2;
+    rest = rest.slice(2);
+    spaces();
+  }
+  return { indent, text: rest };
+}
+
+/**
+ * **YAML, read by indentation.**
+ *
+ * **A key with nothing after its colon opens the block that follows; a key with a value on its own line occupies that
+ * line and nothing else.** That one rule is what keeps `name: Checkout` from swallowing the `uses:` written under it -
+ * the two are siblings in a sequence item, and an indentation-only rule would make the second a child of the first
+ * because it is written two columns deeper.
+ */
+export function scanYaml(file: PreparedFile): ScannedDeclarations {
+  const read = file.lines.map(yamlLine);
+  const meaningful = read.flatMap((line, at) => (line === null ? [] : [at]));
+  const indents = read.map((line) => line?.indent ?? -1);
+  const records: KeyRecord[] = [];
+  for (let entry = 0; entry < meaningful.length; entry += 1) {
+    const at = meaningful[entry]!;
+    const indent = indents[at]!;
+    const text = read[at]!.text.trim();
+    const match = YAML_KEY.exec(text);
+    if (match === null) continue;
+    const name = match[1] ?? match[2] ?? match[3]!;
+    const value = text.slice(match[0].length).trim();
+    let end = at;
+    if (value.length === 0) {
+      // The block ends before the next meaningful line written at this key's own indentation or shallower.
+      const next = meaningful.slice(entry + 1).find((probe) => indents[probe]! <= indent);
+      end = next === undefined ? meaningful[meaningful.length - 1]! : next - 1;
+      // **A blank line after the block is not part of it**, because a claim filed against one would render nothing.
+      while (end > at && indents[end]! < 0) end -= 1;
+    }
+    records.push({ name, start: at, end, parent: enclosingRecord(records, { start: at, end }) });
+  }
+  return keySymbols(records, file);
+}
+
+/** An XML start tag, an end tag or a self-closing one, with the attributes in between. */
+const XML_TAG = /<(\/?)([A-Za-z_][\w.:-]*)((?:"[^"]*"|'[^']*'|[^>"'])*?)(\/?)>/gu;
+
+/**
+ * **XML, read as the elements a line stands in.**
+ *
+ * The nesting is a stack rather than an indent or a depth, because **an element's extent is its closing tag** and nothing
+ * else says so. **A comment is stripped before the tags are read**, since `<!-- <foo> -->` is the one shape that would
+ * otherwise declare an element no parser finds.
+ */
+export function scanXml(file: PreparedFile): ScannedDeclarations {
+  const closed: XmlElement[] = [];
+  const stack: Array<{ id: number; name: string; start: number; parent: number }> = [];
+  let nextId = 0;
+  let inComment = false;
+
+  for (let at = 0; at < file.lines.length; at += 1) {
+    let text = file.lines[at]!;
+    if (inComment) {
+      const close = text.indexOf('-->');
+      if (close < 0) continue;
+      text = text.slice(close + 3);
+      inComment = false;
+    }
+    text = text.replace(/<!--[\s\S]*?-->/gu, ' ');
+    const opened = text.lastIndexOf('<!--');
+    if (opened >= 0) {
+      text = text.slice(0, opened);
+      inComment = true;
+    }
+    XML_TAG.lastIndex = 0;
+    for (let match = XML_TAG.exec(text); match !== null; match = XML_TAG.exec(text)) {
+      const name = match[2]!;
+      if (match[1] === '/') {
+        // **The innermost open element with this name is the one it closes.** A closing tag with no open element of that
+        // name is ignored rather than closing something it did not open.
+        for (let back = stack.length - 1; back >= 0; back -= 1) {
+          if (stack[back]!.name !== name) continue;
+          const element = stack[back]!;
+          stack.length = back;
+          closed.push({
+            id: element.id,
+            name,
+            start: element.start,
+            end: at,
+            parent: element.parent,
+          });
+          break;
+        }
+        continue;
+      }
+      const parent = stack.at(-1)?.id ?? -1;
+      if (match[4] === '/') {
+        closed.push({ id: nextId, name, start: at, end: at, parent });
+        nextId += 1;
+        continue;
+      }
+      stack.push({ id: nextId, name, start: at, parent });
+      nextId += 1;
+    }
+  }
+
+  // **Every element is ordered before any parent is resolved**, because a parent's extent is only known when its closing
+  // tag arrives - which is after its children's. A child that pointed at a list position would point at the wrong
+  // element for every file that nests one.
+  // **Three keys, because two elements can share both ends**: `<a><b>x</b></a>` writes them on one line, and the one that
+  // opened first is the one that encloses the other - which is what the identity they were given records.
+  const order = [...closed].sort(
+    (left, right) => left.start - right.start || right.end - left.end || left.id - right.id,
+  );
+  const position = new Map(order.map((element, at) => [element.id, at]));
+  const records: KeyRecord[] = order.map((element) => ({
+    name: element.name,
+    start: element.start,
+    end: element.end,
+    parent: element.parent < 0 ? -1 : (position.get(element.parent) ?? -1),
+  }));
+  return keySymbols(records, file);
+}
+
+/** What a scanner is given and what it returns, so the dispatcher can hold sixteen of them in one table. */
 export type Scanner = (file: PreparedFile) => ScannedDeclarations;
 
 /** The scanners, by the language a path is written in; `unknown` is absent because it reads nothing. */
@@ -951,5 +1641,11 @@ export const LANGUAGE_SCANNERS: Readonly<Partial<Record<string, Scanner>>> = {
   csharp: scanCSharp,
   php: scanPhp,
   java: scanJava,
+  kotlin: scanKotlin,
+  groovy: scanGroovy,
   ruby: scanRuby,
+  swift: scanSwift,
+  json: scanJson,
+  yaml: scanYaml,
+  xml: scanXml,
 };

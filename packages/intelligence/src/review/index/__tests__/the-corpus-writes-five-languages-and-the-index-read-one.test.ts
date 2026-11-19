@@ -184,14 +184,34 @@ describe('a path says which language it is written in', () => {
   });
 
   it('refuses an extension no scanner reads rather than guessing one', () => {
-    expect(languageOf('testdata/baseline.json')).toBe('unknown');
-    expect(languageOf('docs/page.xml')).toBe('unknown');
+    // **The two documents this test used to name are read now** (§89), so what is left is the file whose name carries no
+    // extension at all and the four that are prose rather than structure.
     expect(languageOf('Dockerfile')).toBe('unknown');
+    expect(languageOf('notes.txt')).toBe('unknown');
+    expect(languageOf('docs/page.html')).toBe('unknown');
   });
 
   it('records the language on the index, because every later claim depends on it', () => {
     expect(buildSymbolIndex('a.go', GO).language).toBe('go');
-    expect(buildSymbolIndex('a.json', '{}').language).toBe('unknown');
+    // **`a.json` is a document and is read as its keys**, which is the answer §89 replaced `unknown` with: a consumer
+    // deciding whether an empty symbol list means "this file declares nothing" had no way to tell the two apart.
+    expect(buildSymbolIndex('a.json', '{}').language).toBe('json');
+  });
+});
+
+describe('the parenthesis a declaration balances, in the two languages that count them', () => {
+  it('reads a Go receiver that holds a parenthesis of its own', () => {
+    const index = buildSymbolIndex('a.go', ['func (a (b) c) touch() {', '}', ''].join('\n'));
+    // **The receiver is skipped by counting its parentheses**, and a counter that stopped at the first `)` would read
+    // `b` as the function's name - a word that is in the file and is part of the receiver.
+    expect(index.symbols.map((symbol) => symbol.name)).toEqual(['touch']);
+  });
+
+  it('reads a C line whose paren touches no identifier as no declaration', () => {
+    const index = buildSymbolIndex('a.c', ['(*fn)(int) {', '}', ''].join('\n'));
+    // **A half-written line is a shape a diff carries**, and the answer is that this scanner claims no name for it rather
+    // than the type that sits where the name would.
+    expect(index.symbols).toEqual([]);
   });
 });
 

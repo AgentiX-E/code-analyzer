@@ -27,28 +27,54 @@ import type { PreparedFile, ScannedDeclarations } from './symbols-langs.js';
 
 /** What a declaration is, in the four shapes a reader distinguishes when deciding where a claim stands. */
 export type SymbolKind =
-  'function' | 'class' | 'interface' | 'type' | 'const' | 'method' | 'constructor' | 'property';
+  | 'function'
+  | 'class'
+  | 'interface'
+  | 'type'
+  | 'const'
+  | 'method'
+  | 'constructor'
+  | 'property'
+  /**
+   * **A key of a document, which is not a declaration and is not treated as one.** `package.json` declares no
+   * function; it names `scripts.test`, and "the claim on line 42 is about `scripts.test`" is a fact that opening the
+   * file establishes. **The kind exists so a consumer can tell the two apart**: a `class` can be refuted by looking at
+   * the type, and a `key` can only be refuted by looking at the document.
+   */
+  | 'key';
 
 /**
  * **The languages this index can read, named by the scanner that reads them.**
  *
- * `unknown` is a real answer and not a failure: a `.json` baseline has no declarations, and **an index that guessed at
- * one would be inventing the fact it was asked to establish.** **Nine are named, and the two corpora are why.** The five
- * `Alibaba-Aone/aacr-bench` is written in - Go 91 findings, C 50, Python 38, TypeScript and JavaScript 54 together, PHP
- * 10, C# 4 - and the two `withmartian/code-review-benchmark` files most of its findings in, which are **Java (75 of its
- * 481 paths) and Ruby (58)**. §87 is the measurement: those two took the share of changed files this index can name from
- * 52.8 % to 83.2 %.
+ * `unknown` is a real answer and not a failure: a `.scss` has no declarations, and **an index that guessed at one would be
+ * inventing the fact it was asked to establish.** **Sixteen are named, and three arguments put them there.** The two
+ * corpora: the five `Alibaba-Aone/aacr-bench` is written in - Go 91 findings, C 50, Python 38, TypeScript and JavaScript
+ * 54 together, PHP 10, C# 4 - and the two `withmartian/code-review-benchmark` files most of its findings in, which are
+ * **Java (75 of its 481 paths) and Ruby (58)**, measured in §87. The eleven languages the field asks about, five of
+ * which neither corpus contains: **Kotlin, Groovy, Swift, ArkTS, and the three documents JSON, YAML and XML**, measured
+ * in §89 against a tree-sitter oracle. And Ruby's four file names, because a Rakefile is Ruby.
+ *
+ * **`json`, `yaml` and `xml` are documents and their symbols are keys**, which is why the kind below carries a `key` the
+ * other languages never use: a consumer deciding whether a name can be refuted by reading the type has to be able to
+ * tell "this file declares a function" from "this document names a key".
  */
 export type SourceLanguage =
   | 'typescript'
   | 'javascript'
+  | 'arkts'
   | 'go'
   | 'python'
   | 'c'
   | 'csharp'
   | 'php'
   | 'java'
+  | 'kotlin'
+  | 'groovy'
   | 'ruby'
+  | 'swift'
+  | 'json'
+  | 'yaml'
+  | 'xml'
   | 'unknown';
 
 /** The extensions each language is written with, and no more: a path is the only evidence a caller has. */
@@ -77,6 +103,18 @@ const EXTENSION_LANGUAGE: Readonly<Record<string, SourceLanguage>> = {
   '.cs': 'csharp',
   '.php': 'php',
   '.java': 'java',
+  // **Kotlin, Groovy and Swift are the three JVM-and-iOS languages a review meets most**, and each answers "what is this
+  // declaration" with a keyword rather than with C's shape, which is why none of them could ride an existing scanner.
+  '.kt': 'kotlin',
+  '.kts': 'kotlin',
+  '.groovy': 'groovy',
+  '.gvy': 'groovy',
+  // **`build.gradle` is Groovy and `build.gradle.kts` is Kotlin**, and the two are told apart by the last extension for
+  // the reason `.js.es6` is told apart from `.es6`: the file's own name is the evidence.
+  '.gradle': 'groovy',
+  '.swift': 'swift',
+  // **ArkTS is TypeScript with a `struct` keyword and a decorator**, and HarmonyOS writes it in `.ets`.
+  '.ets': 'arkts',
   '.rb': 'ruby',
   // **Ruby's family, by the files it is actually written in rather than by the one extension it is famous for**: a
   // Rakefile task, a Rackup config, a gemspec and a Thor task are Ruby and declare what Ruby declares.
@@ -84,6 +122,17 @@ const EXTENSION_LANGUAGE: Readonly<Record<string, SourceLanguage>> = {
   '.ru': 'ruby',
   '.gemspec': 'ruby',
   '.thor': 'ruby',
+  // **A document is a language here because the index reads it**, and what it declares are keys. The three of them are
+  // the configuration every repository carries, and `unknown` was the answer a consumer could not tell apart from
+  // "this file declares nothing" - which for a 4 000-line lockfile is a different statement from "nobody read it".
+  '.json': 'json',
+  '.jsonc': 'json',
+  '.yaml': 'yaml',
+  '.yml': 'yaml',
+  '.xml': 'xml',
+  '.xsd': 'xml',
+  '.svg': 'xml',
+  '.plist': 'xml',
 };
 
 /**
@@ -116,7 +165,8 @@ export interface DeclaredSymbol {
 /** A declaration inside another one: a method, a constructor, or a field. */
 export interface MemberSymbol {
   readonly name: string;
-  readonly kind: 'method' | 'constructor' | 'property';
+  /** `key` is a document's nested key, which is a member of the key that holds it and not a field of a type. */
+  readonly kind: 'method' | 'constructor' | 'property' | 'key';
   readonly startLine: number;
   readonly endLine: number;
   readonly signature: string;
@@ -150,14 +200,48 @@ interface ScanState {
   template: boolean;
 }
 
+/**
+ * **The keywords a declaration opens with, in the two dialects that share this scanner.**
+ *
+ * ArkTS is TypeScript plus `struct`, and **the eight keywords are shared rather than copied** so that the two patterns
+ * cannot drift: a word added to one of them is added to the other, which is the property a second hand-written pattern
+ * would not have.
+ */
+const DECLARATION_KEYWORDS =
+  'async\\s+function\\*?|function\\*?|class|interface|enum|type|const|let|var';
+
 const DECLARATION = new RegExp(
   [
     // `export default async function name`, `export function name`, `function* name`
-    '^(?<prefix>(?:export\\s+)?(?:default\\s+)?(?:declare\\s+)?)',
-    '(?<keyword>async\\s+function\\*?|function\\*?|class|interface|enum|type|const|let|var)\\s+',
+    // **`export abstract class Base` is a declaration in TypeScript**, and the first pass over the ArkTS fixture found
+    // the gap: the prefix allowed `export`, `default` and `declare`, and `abstract` sat where the scanner expected a
+    // keyword - so a file whose base class is abstract reported one declaration fewer than it has.
+    '^(?<prefix>(?:export\\s+)?(?:default\\s+)?(?:declare\\s+)?(?:abstract\\s+)?)',
+    `(?<keyword>${DECLARATION_KEYWORDS})\\s+`,
     '(?<name>[A-Za-z_$][\\w$]*)',
   ].join(''),
 );
+
+/** The same pattern with ArkTS's one extra keyword, built from the same pieces. */
+const ARKTS_DECLARATION = new RegExp(
+  [
+    // **`export abstract class Base` is a declaration in TypeScript**, and the first pass over the ArkTS fixture found
+    // the gap: the prefix allowed `export`, `default` and `declare`, and `abstract` sat where the scanner expected a
+    // keyword - so a file whose base class is abstract reported one declaration fewer than it has.
+    '^(?<prefix>(?:export\\s+)?(?:default\\s+)?(?:declare\\s+)?(?:abstract\\s+)?)',
+    `(?<keyword>${DECLARATION_KEYWORDS}|struct)\\s+`,
+    '(?<name>[A-Za-z_$][\\w$]*)',
+  ].join(''),
+);
+
+/**
+ * **A decorator, which is written on its own line or in front of a declaration and declares nothing itself.**
+ *
+ * `@Entry @Component export struct Index {` is one declaration in ArkTS, and a scanner that matched its line from the
+ * start would read `Entry` as the name of something. The decorator is stripped rather than required to be on its own
+ * line because both spellings are in the field.
+ */
+const DECORATOR = /^@[\w.]+(?:\([^)]*\))?\s*/u;
 
 /**
  * **The characters of one line that are code, with comments and string bodies blanked rather than removed.**
@@ -417,8 +501,8 @@ export function buildSymbolIndex(path: string, text: string): FileSymbolIndex {
     },
   };
   const scanned =
-    language === 'typescript' || language === 'javascript'
-      ? scanTypeScript(file)
+    language === 'typescript' || language === 'javascript' || language === 'arkts'
+      ? scanTypeScript(file, language === 'arkts')
       : (LANGUAGE_SCANNERS[language]?.(file) ?? { symbols: [], exported: [] });
 
   return {
@@ -431,25 +515,32 @@ export function buildSymbolIndex(path: string, text: string): FileSymbolIndex {
   };
 }
 
-/** **The TypeScript and JavaScript scanner**, which is the walk this file shipped with and nothing more. */
-function scanTypeScript(file: PreparedFile): ScannedDeclarations {
+/**
+ * **The TypeScript and JavaScript scanner**, which is the walk this file shipped with and nothing more.
+ *
+ * **ArkTS is the same walk with one keyword and one stripped decorator** rather than a second scanner: the language is
+ * TypeScript plus `struct`, and a copy of this function would have to be kept in step with every change to it - which
+ * is the failure the shared `lexemes.ts` exists to prevent one level down.
+ */
+function scanTypeScript(file: PreparedFile, arkts = false): ScannedDeclarations {
   const { lines, codes, depthAtStart, endOf } = file;
   const symbols: DeclaredSymbol[] = [];
   const exportedNames: string[] = [];
+  const declaration = arkts ? ARKTS_DECLARATION : DECLARATION;
 
   for (let at = 0; at < lines.length; at += 1) {
     const code = codes[at]!;
     const depth = depthAtStart[at]!;
     if (depth !== 0) continue;
 
-    const match = DECLARATION.exec(code.trim());
+    const match = declaration.exec(stripDecorators(code.trim(), arkts));
     if (match?.groups === undefined) continue;
     const keyword = match.groups['keyword']!;
     const name = match.groups['name']!;
     const prefix = match.groups['prefix']!;
     const kind: SymbolKind = keyword.includes('function')
       ? 'function'
-      : keyword.startsWith('class')
+      : keyword.startsWith('class') || keyword === 'struct'
         ? 'class'
         : keyword === 'interface'
           ? 'interface'
@@ -479,10 +570,13 @@ function scanTypeScript(file: PreparedFile): ScannedDeclarations {
     for (let at = from; at < to; at += 1) {
       const index = at;
       if (depthAtStart[index] !== 1) continue;
-      const code = codes[index]!.trim();
+      const code = stripDecorators(codes[index]!.trim(), arkts);
       if (code.length === 0) continue;
 
-      const read = readMember(code);
+      // **An ArkTS struct field is written without a modifier** - `count: number = 0` - and the modifier is what
+      // `readMember` requires of a property in the two dialects that write classes, so the field is read by the one
+      // rule the dialect adds rather than by relaxing the rule the other dialect is measured by.
+      const read = readMember(code) ?? (arkts ? arktsField(code) : null);
       // A line that is a bare `}` or an expression inside a body is not a member.
       if (read === null) continue;
 
@@ -500,6 +594,34 @@ function scanTypeScript(file: PreparedFile): ScannedDeclarations {
   }
 
   return { symbols, exported: exportedNames };
+}
+
+/**
+ * **A decorator in front of a declaration, removed as many times as it is written.**
+ *
+ * `@Entry @Component export struct Index` and `@State count` are two declarations with the same shape: a run of
+ * decorators, then the thing they decorate. **Removed rather than skipped over at the call site**, because the member
+ * reader is shared with the two dialects that have no decorators and a check there would be a branch no `.ts` file
+ * takes.
+ */
+function stripDecorators(code: string, arkts: boolean): string {
+  if (!arkts) return code;
+  let rest = code;
+  for (let match = DECORATOR.exec(rest); match !== null; match = DECORATOR.exec(rest)) {
+    rest = rest.slice(match[0].length);
+  }
+  return rest;
+}
+
+/**
+ * **An ArkTS struct field, which is a name, a type annotation and no modifier.**
+ *
+ * The rule is the modifier-free half of `readMember`, and it is kept out of that function because **the modifier is what
+ * separates a field from an assignment in a `.ts` file** and that separation is a rule this repository measures.
+ */
+function arktsField(code: string): MemberRead | null {
+  const match = /^([A-Za-z_$][\w$]*)\??\s*:/u.exec(code);
+  return match === null ? null : { name: match[1]!, kind: 'property', modifiers: [] };
 }
 
 /**

@@ -12,26 +12,66 @@
     "incremental": false,
     "composite": false,
     "paths": {
-      "@code-analyzer/shared": ["./packages/shared/src/index.ts"],
-      "@code-analyzer/shared/*": ["./packages/shared/src/*"],
-      "@code-analyzer/core": ["./packages/core/src/index.ts"],
-      "@code-analyzer/core/*": ["./packages/core/src/*"],
-      "@code-analyzer/infra": ["./packages/infra/src/index.ts"],
-      "@code-analyzer/infra/*": ["./packages/infra/src/*"],
-      "@code-analyzer/analyzer": ["./packages/analyzer/src/index.ts"],
-      "@code-analyzer/analyzer/*": ["./packages/analyzer/src/*"],
-      "@code-analyzer/intelligence": ["./packages/intelligence/src/index.ts"],
-      "@code-analyzer/intelligence/*": ["./packages/intelligence/src/*"],
-      "@code-analyzer/mcp": ["./packages/mcp/src/index.ts"],
-      "@code-analyzer/mcp/*": ["./packages/mcp/src/*"],
-      "@code-analyzer/server": ["./packages/server/src/index.ts"],
-      "@code-analyzer/server/*": ["./packages/server/src/*"],
-      "@code-analyzer/cli": ["./packages/cli/src/index.ts"],
-      "@code-analyzer/cli/*": ["./packages/cli/src/*"],
-      "@code-analyzer/integration": ["./packages/integration/src/index.ts"],
-      "@code-analyzer/integration/*": ["./packages/integration/src/*"],
-      "graphql-yoga": ["./packages/server/node_modules/graphql-yoga"],
-      "@graphql-tools/schema": ["./packages/server/node_modules/@graphql-tools/schema"]
+      "@code-analyzer/shared": [
+        "./packages/shared/src/index.ts"
+      ],
+      "@code-analyzer/shared/*": [
+        "./packages/shared/src/*"
+      ],
+      "@code-analyzer/core": [
+        "./packages/core/src/index.ts"
+      ],
+      "@code-analyzer/core/*": [
+        "./packages/core/src/*"
+      ],
+      "@code-analyzer/infra": [
+        "./packages/infra/src/index.ts"
+      ],
+      "@code-analyzer/infra/*": [
+        "./packages/infra/src/*"
+      ],
+      "@code-analyzer/analyzer": [
+        "./packages/analyzer/src/index.ts"
+      ],
+      "@code-analyzer/analyzer/*": [
+        "./packages/analyzer/src/*"
+      ],
+      "@code-analyzer/intelligence": [
+        "./packages/intelligence/src/index.ts"
+      ],
+      "@code-analyzer/intelligence/*": [
+        "./packages/intelligence/src/*"
+      ],
+      "@code-analyzer/mcp": [
+        "./packages/mcp/src/index.ts"
+      ],
+      "@code-analyzer/mcp/*": [
+        "./packages/mcp/src/*"
+      ],
+      "@code-analyzer/server": [
+        "./packages/server/src/index.ts"
+      ],
+      "@code-analyzer/server/*": [
+        "./packages/server/src/*"
+      ],
+      "@code-analyzer/cli": [
+        "./packages/cli/src/index.ts"
+      ],
+      "@code-analyzer/cli/*": [
+        "./packages/cli/src/*"
+      ],
+      "@code-analyzer/integration": [
+        "./packages/integration/src/index.ts"
+      ],
+      "@code-analyzer/integration/*": [
+        "./packages/integration/src/*"
+      ],
+      "graphql-yoga": [
+        "./packages/server/node_modules/graphql-yoga"
+      ],
+      "@graphql-tools/schema": [
+        "./packages/server/node_modules/@graphql-tools/schema"
+      ]
     },
     "module": "ESNext",
     "moduleResolution": "bundler"
@@ -46,9 +86,14 @@
     "scripts/lib/multirepo-harness.ts",
     "scripts/owasp-benchmark.ts",
     "scripts/lca-merge.ts",
-    "scripts/lca-instance.ts"
+    "scripts/lca-instance.ts",
+    "scripts/polyglot-bench.ts"
   ],
-  "exclude": ["node_modules", "**/dist/**", "**/coverage/**"],
+  "exclude": [
+    "node_modules",
+    "**/dist/**",
+    "**/coverage/**"
+  ],
   "//module": "The suites run under vitest/vite, whose resolver is a bundler's: the `paths` above already mirror `resolve.alias` for exactly that reason. `NodeNext` inherited from the base treated these files as CommonJS and rejected `import.meta`, which vite supports. Overriding here keeps the modelling honest \u2014 the test project describes how the tests actually run.",
   "//paths-server": "`graphql-e2e.test.ts` resolves these from the server's dependency tree at runtime via createRequire, because only that package declares them. These entries give the typecheck the same answer, as the entries above mirror vitest.config.ts."
 }

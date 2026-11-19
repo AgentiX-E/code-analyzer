@@ -1,0 +1,263 @@
+{
+  "comment": [
+    "The symbol index against the eleven languages the question names, judged by tree-sitter and by Python standard",
+    "libraries rather than by this repository. **Recall is the figure that measures a scanner**: a name the oracle found",
+    "and the lexer did not is a miss by whichever of the two is wrong. **Precision below one is named rather than",
+    "explained away**, because the two implementations disagree on purpose about two shapes: a type declared inside a",
+    "type is a declaration the index emits at every language it reads. **The artifact separates those from phantoms**: a",
+    "name no other symbol contains is a name that is not in the file, and that count is the one to read."
+  ],
+  "measuredAt": "2026-11-19",
+  "where": "local",
+  "manifest": "benchmarks/polyglot/manifest.json",
+  "oracle": "scripts/polyglot-oracle.mjs",
+  "summary": [
+    {
+      "language": "arkts",
+      "oracle": 11,
+      "ours": 11,
+      "both": 11,
+      "recall": 1,
+      "precision": 1
+    },
+    {
+      "language": "groovy",
+      "oracle": 5,
+      "ours": 5,
+      "both": 5,
+      "recall": 1,
+      "precision": 1
+    },
+    {
+      "language": "java",
+      "oracle": 6,
+      "ours": 6,
+      "both": 6,
+      "recall": 1,
+      "precision": 1
+    },
+    {
+      "language": "javascript",
+      "oracle": 8,
+      "ours": 8,
+      "both": 8,
+      "recall": 1,
+      "precision": 1
+    },
+    {
+      "language": "json",
+      "oracle": 126,
+      "ours": 126,
+      "both": 126,
+      "recall": 1,
+      "precision": 1
+    },
+    {
+      "language": "kotlin",
+      "oracle": 4,
+      "ours": 4,
+      "both": 4,
+      "recall": 1,
+      "precision": 1
+    },
+    {
+      "language": "python",
+      "oracle": 24,
+      "ours": 31,
+      "both": 24,
+      "recall": 1,
+      "precision": 0.7741935483870968
+    },
+    {
+      "language": "swift",
+      "oracle": 10,
+      "ours": 10,
+      "both": 10,
+      "recall": 1,
+      "precision": 1
+    },
+    {
+      "language": "typescript",
+      "oracle": 29,
+      "ours": 29,
+      "both": 29,
+      "recall": 1,
+      "precision": 1
+    },
+    {
+      "language": "xml",
+      "oracle": 113,
+      "ours": 113,
+      "both": 113,
+      "recall": 1,
+      "precision": 1
+    },
+    {
+      "language": "yaml",
+      "oracle": 47,
+      "ours": 55,
+      "both": 47,
+      "recall": 1,
+      "precision": 0.8545454545454545
+    }
+  ],
+  "rows": [
+    {
+      "language": "java",
+      "path": "benchmarks/polyglot/files/Matrix.java",
+      "oracleCount": 5,
+      "oursCount": 5,
+      "both": 5,
+      "missing": [],
+      "nested": [],
+      "phantom": []
+    },
+    {
+      "language": "swift",
+      "path": "benchmarks/polyglot/files/matrix.swift",
+      "oracleCount": 8,
+      "oursCount": 8,
+      "both": 8,
+      "missing": [],
+      "nested": [],
+      "phantom": []
+    },
+    {
+      "language": "groovy",
+      "path": "benchmarks/polyglot/files/matrix.groovy",
+      "oracleCount": 4,
+      "oursCount": 4,
+      "both": 4,
+      "missing": [],
+      "nested": [],
+      "phantom": []
+    },
+    {
+      "language": "java",
+      "path": "benchmarks/polyglot/files/JsonNull.java",
+      "oracleCount": 1,
+      "oursCount": 1,
+      "both": 1,
+      "missing": [],
+      "nested": [],
+      "phantom": []
+    },
+    {
+      "language": "kotlin",
+      "path": "benchmarks/polyglot/files/KotlinExtensions.kt",
+      "oracleCount": 4,
+      "oursCount": 4,
+      "both": 4,
+      "missing": [],
+      "nested": [],
+      "phantom": []
+    },
+    {
+      "language": "groovy",
+      "path": "benchmarks/polyglot/files/AutoExternalize.groovy",
+      "oracleCount": 1,
+      "oursCount": 1,
+      "both": 1,
+      "missing": [],
+      "nested": [],
+      "phantom": []
+    },
+    {
+      "language": "swift",
+      "path": "benchmarks/polyglot/files/AlamofireExtended.swift",
+      "oracleCount": 2,
+      "oursCount": 2,
+      "both": 2,
+      "missing": [],
+      "nested": [],
+      "phantom": []
+    },
+    {
+      "language": "xml",
+      "path": "benchmarks/polyglot/files/gson-pom.xml",
+      "oracleCount": 113,
+      "oursCount": 113,
+      "both": 113,
+      "missing": [],
+      "nested": [],
+      "phantom": []
+    },
+    {
+      "language": "arkts",
+      "path": "benchmarks/polyglot/files/matrix.ets",
+      "oracleCount": 11,
+      "oursCount": 11,
+      "both": 11,
+      "missing": [],
+      "nested": [],
+      "phantom": []
+    },
+    {
+      "language": "typescript",
+      "path": "packages/intelligence/src/review/index/symbols.ts",
+      "oracleCount": 29,
+      "oursCount": 29,
+      "both": 29,
+      "missing": [],
+      "nested": [],
+      "phantom": []
+    },
+    {
+      "language": "javascript",
+      "path": "scripts/build-martian-corpus.mjs",
+      "oracleCount": 8,
+      "oursCount": 8,
+      "both": 8,
+      "missing": [],
+      "nested": [],
+      "phantom": []
+    },
+    {
+      "language": "python",
+      "path": "scripts/callgraph-oracle.py",
+      "oracleCount": 24,
+      "oursCount": 31,
+      "both": 24,
+      "missing": [],
+      "nested": [
+        "descend",
+        "visit",
+        "collect",
+        "call_target",
+        "classify",
+        "ambiguous",
+        "ratio"
+      ],
+      "phantom": []
+    },
+    {
+      "language": "json",
+      "path": "package.json",
+      "oracleCount": 126,
+      "oursCount": 126,
+      "both": 126,
+      "missing": [],
+      "nested": [],
+      "phantom": []
+    },
+    {
+      "language": "yaml",
+      "path": ".github/workflows/ci.yml",
+      "oracleCount": 47,
+      "oursCount": 55,
+      "both": 47,
+      "missing": [],
+      "nested": [
+        "body += `| ${dim} | ${d.covered || 0} | ${d.total || 0} | ${pct}% | ${pass ? '✅'",
+        "body += allPass ? '\\n✅ All dimensions pass.\\n'",
+        "const { data",
+        "owner",
+        "repo",
+        "issue_number",
+        "comment_id",
+        "body"
+      ],
+      "phantom": []
+    }
+  ]
+}

@@ -9304,3 +9304,137 @@ does not, the quote is a symptom of the claim being checkable rather than a caus
 engine and not about the prompt, and it would end the prompt-side programme rather than extend it.
 
 **Cost.** One arm, fifty pull requests, **ceiling 10 CNY**, baseline already paid. **Not spent as of this section.**
+
+---
+
+## §89 Seven of the eleven languages the question names, and a parser that is not ours
+
+**The question lists eleven languages and the index read four of them.** §87 had just taught it Java and Ruby, which took
+the share of the martian key's paths it can name from 52.8 % to 83.2 % - and that key contains no Kotlin, no Groovy, no
+Swift, no ArkTS and one JSON file, so **the four it still could not read were invisible to the measurement that had just
+been celebrated.** This section adds them, and it adds the one thing the previous eight could not have: an oracle whose
+implementation is somebody else's.
+
+### 89.1 What was missing, and why each one is not decoration
+
+| language        | what writes it                        | what the index said before | the rule that made it a scanner rather than a keyword                                  |
+| --------------- | ------------------------------------- | -------------------------- | -------------------------------------------------------------------------------------- |
+| Kotlin          | Android, and every Kotlin service     | `unknown`                  | `fun`, `internal` is module-private, **a primary constructor declares properties**     |
+| Groovy          | every Gradle build, every Jenkinsfile | `unknown`                  | `def`, and `@interface`, which the first real file turned out to be                    |
+| Swift           | iOS                                   | `unknown`                  | `func`, `struct`, and **only `public`/`open` are offered** - the default is `internal` |
+| ArkTS           | HarmonyOS                             | `unknown`                  | TypeScript **plus `struct`**, minus the modifiers a struct field does not wear         |
+| JSON, YAML, XML | every repository's configuration      | `unknown`                  | **a document declares keys, not declarations**, so it needed a kind of its own         |
+
+**`unknown` was the expensive answer.** A consumer deciding whether an empty symbol list means "this file declares
+nothing" or "nobody here reads this language" has no way to tell the two apart, and **they call for opposite decisions** -
+one is a file with nothing to show, the other is a reviewer reading raw lines. Before this section, 35 % of the martian
+key's changed paths were in the second category.
+
+### 89.2 Seven readers, and the one thing each of them is allowed to claim
+
+| language | a declaration is                                                           | `exported` means                       | a block ends at                                                 | refuses                                                                            |
+| -------- | -------------------------------------------------------------------------- | -------------------------------------- | --------------------------------------------------------------- | ---------------------------------------------------------------------------------- |
+| Kotlin   | `fun name(`, `class`/`interface`/`object`/`typealias`/`enum class`         | `private` and `internal` are withheld  | its `}`                                                         | a property or a function one level in is a **member**, not a top-level declaration |
+| Groovy   | `def name(`, `Type name(`, `class`/`interface`/`trait`/`enum`/`@interface` | `private` and `protected` are withheld | its `}`                                                         | a decorator line declares nothing, **except `@interface`**                         |
+| Swift    | `func name(`, `class`/`struct`/`enum`/`protocol`/`extension`               | only `public` and `open`               | its `}`                                                         | an `extension` is a **range in the type it extends** and offers no name            |
+| ArkTS    | everything TypeScript declares, plus `struct`                              | the `export` keyword                   | its `}`                                                         | a struct field needs no modifier, and `@State` is not part of the name             |
+| JSON     | `"key":`                                                                   | the top-level keys                     | the block its value opens, **counted over braces and brackets** | a second key sharing a line is not claimed                                         |
+| YAML     | `key:` at an indentation                                                   | the top-level keys                     | the block that follows **when the colon ends the line**         | a comment, a blank line, and a bare `- item` declare nothing                       |
+| XML      | every element that closes                                                  | the root                               | its closing tag                                                 | an element the file never closes is dropped rather than extended                   |
+
+**The three documents are read as `key` and that kind is the point.** A `package.json` has no functions; it names
+`scripts.test`, and "the claim on line 42 is about `scripts.test`" is a fact that opening the file establishes. Reporting
+it as a `class` would put a key in the same column as a type a reader can be refuted about.
+
+**`JSON` needed a depth counter that watches brackets as well as braces**, because `"files": [` returns to its own depth
+only after the `]` - a counter that watched braces alone ended the key on the line that opened it and lost everything
+inside the array. **`YAML` needed the opposite correction**: a key whose value is written on its own line occupies that
+line and nothing else, which is what keeps `uses:` a sibling of `name:` inside a `- name: Checkout` item rather than its
+child - the mis-parenting an indentation-only rule produces on every GitHub workflow in existence.
+
+### 89.3 The oracle, which is the only new instrument in this section
+
+`scripts/polyglot-oracle.mjs` reads the same file with **tree-sitter** for the eight code languages and with **Python's
+`ElementTree` and `PyYAML`** for the two documents it has no grammar for, and answers the one question both
+implementations can be asked: _which names does this file declare at its top level_.
+
+**It refuses to score ranges, kinds and exports.** Those are three answers the two compute differently and on purpose - a
+grammar knows where a class ends and this lexer says `uncertain` when it cannot - so a disagreement about them would be a
+disagreement about the question. **A name is the fact both are trying to establish.**
+
+**Four disagreements came out of it, and two of them were the oracle being wrong.**
+
+1. **`export abstract class Base` was not a declaration to this scanner.** The prefix allowed `export`, `default` and
+   `declare`, and `abstract` sat where the keyword was expected. **The first ArkTS fixture was where it showed**: the file
+   declares eleven things and the index named ten.
+2. **`@interface AutoExternalize` was not a declaration to the Groovy scanner**, for two reasons that had to be fixed
+   separately: the modifier table ate `@interface` as if it were an annotation, and the guard that skips a decorator line
+   skipped the whole line. **A real Apache Groovy file that declares one annotation type reported no declaration at all.**
+3. **The XML oracle scored every element of a Maven pom as missing** because `ElementTree` rewrites a namespaced tag to
+   `{uri}tag`, which is how it stores the name and not what the file says. Fixed in the oracle, with the reason written
+   beside it.
+4. **The YAML oracle reported a key called `True`** where the file writes `on:`, because YAML 1.1 resolves that scalar as
+   a boolean and every CI file since has disagreed. `BaseLoader` keeps the text, which is what a key is.
+
+### 89.4 The readback
+
+Fourteen files, eleven languages, one per language from the field and three more where the field file declared too little
+for recall to be able to fail:
+
+| language       | files  | oracle names | this index | both    | recall    | precision | phantoms |
+| -------------- | ------ | ------------ | ---------- | ------- | --------- | --------- | -------- |
+| ArkTS          | 1      | 11           | 11         | 11      | **1.000** | 1.000     | 0        |
+| Groovy         | 2      | 5            | 5          | 5       | **1.000** | 1.000     | 0        |
+| Java           | 2      | 6            | 6          | 6       | **1.000** | 1.000     | 0        |
+| JavaScript     | 1      | 8            | 8          | 8       | **1.000** | 1.000     | 0        |
+| JSON           | 1      | 126          | 126        | 126     | **1.000** | 1.000     | 0        |
+| Kotlin         | 1      | 4            | 4          | 4       | **1.000** | 1.000     | 0        |
+| Python         | 1      | 24           | 31         | 24      | **1.000** | 0.774     | 0        |
+| Swift          | 2      | 10           | 10         | 10      | **1.000** | 1.000     | 0        |
+| TypeScript     | 1      | 29           | 29         | 29      | **1.000** | 1.000     | 0        |
+| XML            | 1      | 113          | 113        | 113     | **1.000** | 1.000     | 0        |
+| YAML           | 1      | 47           | 55         | 47      | **1.000** | 0.855     | 0        |
+| **all eleven** | **14** | **383**      | **398**    | **383** | **1.000** | **0.962** | **0**    |
+
+**The two precisions below one are the same deliberate choice**: Python's 7 and YAML's 8 extra names are **nested
+declarations** - a function inside a function, a key inside a key - which this index emits because `symbolAt` answers the
+innermost declaration and a witness inside a closure needs the closure. **Phantoms - a name that no other symbol
+contains, which is a name that is not in the file - are zero.** That count is the one to read, and the artifact reports
+it separately for exactly this reason.
+
+**And the field measurement, which is the one the eleven rows cannot make.**
+
+| measurement                                                 | before §89       | after                               |
+| ----------------------------------------------------------- | ---------------- | ----------------------------------- |
+| martian key's 481 changed paths this index can name         | 400 (83.2 %)     | **407 (84.6 %)**                    |
+| the same over the 193 paths the pull-request arm emitted on | 159 (82.4 %)     | **164 (85.0 %)**                    |
+| languages with a reader                                     | 9                | **12** (and Ruby's four file names) |
+| statements / lines / functions on the three index files     | 100 / 100 / 100  | **100 / 100 / 100**                 |
+| branches on the same                                        | 99.3 / 100 / 100 | **100 / 100 / 100**                 |
+
+**The 74 paths that remain `unknown` are `.scss`, `.properties`, `.hbs`, `.adoc`, `.sql`, `.md`, `.sh`, `.mod`, `.sum`,
+`.prisma` and extensionless files** - a stylesheet, a prose file and a lockfile. **None of them declares anything a
+witness could be shown**, which is why this is the end of the extension work rather than another row of the same table.
+
+### 89.5 What this does not prove, and what it cost
+
+**No F1 was measured here.** The index is upstream of the witness device and is not priced by itself: §88 already showed
+that re-selecting what the engine wrote cannot exceed 0.28 on the martian key, so **a scanner that reads seven more
+languages is a precondition for R-41 and not a result.** What it changes is the denominator R-41 can be run against: an
+anchor must name a line inside a declaration, and a file whose language nobody reads has no declaration to be inside.
+
+**Recall is measured against one file per language.** `JsonNull.java` proves this scanner reads Java; it does not prove
+it reads the Java a review meets. The field figure is the martian share above, and the two are reported separately
+because they answer different questions.
+
+**Budget: 0 CNY.** The instrument is a grammar that was already installed for the analyzer package, a Python standard
+library, and a manifest of fourteen files, five of which were already in this repository.
+
+**Tests.** `the-eleven-languages-the-question-names.test.ts`, 45 cases written before the scanners: the eleven
+extensions, a Kotlin primary constructor's properties, an expression body's one-line range, a receiver written before a
+function name, a nested type, a wrapped parameter list, a half-written declaration; Groovy's `def`, its `trait`, its
+`@interface` and its private members; Swift's `init`, its `extension`, its generic `func` and its `public`/`open` rule;
+ArkTS's decorated struct and its modifier-free field; JSON's nested keys and its array; YAML's block sequence, its
+tab-indented block and its comment; XML's comment, its orphan closing tag, its single-line nesting and its unclosed
+element. **No `v8 ignore` and no mock.** The four disagreements of §89.3 are the four tests that would have passed a
+scanner that only agreed with itself.
