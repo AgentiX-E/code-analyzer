@@ -344,14 +344,17 @@ async function main() {
       for (const [path, lines2] of diffs.get(key)?.added ?? []) {
         if (path === ownPath) continue;
         const tokens = new Set();
-        for (const text of lines2.values()) for (const token of narrativeNames(text)) tokens.add(token);
+        for (const text of lines2.values())
+          for (const token of narrativeNames(text)) tokens.add(token);
         otherFiles.push({ path, tokens });
       }
       const enclosingName = symbol?.name ?? null;
       const crossingFiles =
         enclosingName === null
           ? []
-          : otherFiles.filter((other) => other.tokens.has(enclosingName)).map((other) => other.path);
+          : otherFiles
+              .filter((other) => other.tokens.has(enclosingName))
+              .map((other) => other.path);
       const named = narrativeNames(finding.text);
       const namesDeclared = [...named].some((token) => declared.has(token));
       // **A call witness is narrower than a name witness**: the sentence has to name a declaration *and* call it, which
