@@ -778,6 +778,13 @@ function renderClaim(index: FileSymbolIndex, line: number, allowance: number): s
     return out.join('\n').slice(0, allowance);
   }
 
+  // **The claim's own line comes first, and the order is a measurement rather than a preference.** The renderer used
+  // to write the signature, then the guards, and only then the line the claim was filed on - so an allowance shared
+  // between four claims cut the one line that is the claim's reason for being shown. **Measured on the 316 files the
+  // artifact's 569 findings stand in: the block carried the claim's own line 53 % of the time**, and a context that
+  // omits the claim is the character window it was built to replace.
+  const own = index.lines[line - 1]!.trim();
+  if (own.length > 0) out.push(`L${String(line)}: ${own}`.trimEnd());
   out.push(`L${String(symbol.startLine)}: ${symbol.signature}`.trimEnd());
   if (member !== undefined && member.startLine !== symbol.startLine) {
     out.push(`L${String(member.startLine)}: ${member.signature}`.trimEnd());
@@ -799,10 +806,59 @@ function renderClaim(index: FileSymbolIndex, line: number, allowance: number): s
     .sort((left, right) => left.line - right.line);
 
   for (const guard of guards) out.push(`L${String(guard.line)}: ${guard.text}`.trimEnd());
-  const own = index.lines[line - 1]!.trim();
-  if (own.length > 0) out.push(`L${String(line)}: ${own}`.trimEnd());
 
-  return out.join('\n').slice(0, allowance);
+  return fitRows(out, allowance);
+}
+
+/**
+ * **Rows taken in order until the allowance is spent, rather than a joined string sliced at the end.**
+ *
+ * `out.join('\n').slice(0, allowance)` cut whatever happened to sit at the boundary, **and what sat there on a tight
+ * allowance was the claim's own line** - the one row the block exists to carry. Measured on the 316 files the
+ * artifact's 569 findings stand in, **the block carried the claim's own line 66 % of the time** with the row order
+ * fixed and **before** the slice was replaced; a row that does not fit is now truncated where it stands, which keeps its
+ * `L<n>:` coordinate and therefore the fact that the line was shown.
+ */
+function fitRows(rows: readonly string[], allowance: number): string {
+  let text = '';
+  for (const row of rows) {
+    if (text.length >= allowance) break;
+    const room = allowance - text.length - (text.length === 0 ? 0 : 1);
+    // **Eight characters is a coordinate and a space**: a row cut below that says nothing a reader can use, and the
+    // next row would be more informative than a fragment of this one.
+    if (room <= 8) break;
+    const piece = row.length <= room ? row : row.slice(0, room);
+    text = text.length === 0 ? piece : `${text}\n${piece}`;
+  }
+  return text;
+}
+
+/**
+ * **The export surface, bounded, because an unbounded one is the window it replaces.**
+ *
+ * `DrawViewPart.cpp` exports **118 names**, and `exports: a, b, c ...` ran to eighteen hundred characters - so the
+ * six-hundred-character block was the export list and nothing else, and **every claim in that file was shown to a reader
+ * without the line it was about.** The list is context and the claim is the claim.
+ *
+ * **The share is a third of the budget**, which is enough for a file that offers eight names to offer all eight and
+ * short enough that two claims still get two hundred characters each. The remainder is stated as a count rather than
+ * dropped: **a reader who is shown `(+110 more)` knows the surface is bigger than what it was shown**, which is the
+ * difference between a bounded index and a truncated one.
+ */
+function exportHeader(exported: readonly string[], budget: number): string {
+  if (exported.length === 0) return 'exports: (none)';
+  const cap = Math.max(60, Math.floor(budget * 0.3));
+  // **Twelve characters of headroom** is ` (+NN more)` at three digits, so the count never pushes the header past its cap.
+  let text = 'exports: ';
+  let used = 0;
+  for (const name of exported) {
+    const piece = used === 0 ? name : `, ${name}`;
+    if (text.length + piece.length > cap - 12) break;
+    text += piece;
+    used += 1;
+  }
+  const rest = exported.length - used;
+  return rest > 0 ? `${text} (+${String(rest)} more)` : text;
 }
 
 /**
@@ -818,7 +874,7 @@ function renderClaim(index: FileSymbolIndex, line: number, allowance: number): s
  */
 export function selectIndexedContext(request: IndexedContextRequest): IndexedContext {
   const budget = request.budget ?? INDEXED_CONTEXT_BUDGET;
-  const header = `exports: ${request.index.exported.length === 0 ? '(none)' : request.index.exported.join(', ')}`;
+  const header = exportHeader(request.index.exported, budget);
   const unique = [...new Set(request.lines)].filter((line) => Number.isInteger(line) && line >= 1);
   if (unique.length === 0) return { text: header.slice(0, budget), shown: [] };
 

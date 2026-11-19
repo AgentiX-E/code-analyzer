@@ -324,3 +324,71 @@ describe('the scanner a member line needs, and why it is not a regex', () => {
     expect(index.symbols[0]?.members).toEqual([]);
   });
 });
+
+describe('the line a claim is about, when the budget is shared four ways', () => {
+  // **The defect this was written for was measured on 316 real files rather than found by reading the code**: with
+  // 564 claims across those files the block carried the claim's own line **53 %** of the time, because the renderer
+  // wrote the signature, then the guards, and only then the line the claim was filed on - so a tight allowance cut the
+  // one line that is the claim's reason for being shown. **A context that omits the claim is the window it replaced.**
+  // **The signature is long on purpose**: a C prototype with five parameters, or a TypeScript function with a
+  // generic and three annotated arguments, is one line of 120 characters, and an allowance shared four ways is 140.
+  const index = buildSymbolIndex(
+    'src/wide.ts',
+    [
+      'export function first(alpha: readonly string[], beta: number, gamma: boolean, delta: unknown): string | null {',
+      '  if (alpha.length === 0) throw new Error("the queue must not be empty when first is called");',
+      '  if (beta < 0) return null;',
+      '  return alpha[0] ?? null;',
+      '}',
+      '',
+      'export function second(epsilon: readonly string[], zeta: number, eta: boolean, theta: unknown): string | null {',
+      '  if (epsilon.length === 0) throw new Error("the queue must not be empty when second is called");',
+      '  if (zeta < 0) return null;',
+      '  return epsilon[0] ?? null;',
+      '}',
+      '',
+      'export function third(iota: readonly string[], kappa: number, lambda: boolean, mu: unknown): string | null {',
+      '  if (iota.length === 0) throw new Error("the queue must not be empty when third is called");',
+      '  if (kappa < 0) return null;',
+      '  return iota[0] ?? null;',
+      '}',
+      '',
+      'export function fourth(nu: readonly string[], xi: number, omicron: boolean, pi: unknown): string | null {',
+      '  if (nu.length === 0) throw new Error("the queue must not be empty when fourth is called");',
+      '  if (xi < 0) return null;',
+      '  return nu[0] ?? null;',
+      '}',
+    ].join('\n'),
+  );
+
+  it('shows every claim its own line, whatever the shared allowance is', () => {
+    const lines = [2, 9, 16, 23];
+    const context = selectIndexedContext({ index, lines, budget: 600 });
+    const shown = new Set(context.shown.map((row) => row.line));
+
+    expect(context.text.length).toBeLessThanOrEqual(600);
+    expect(lines.filter((line) => shown.has(line))).toEqual(lines);
+  });
+});
+
+describe('a file that exports a hundred names still shows a claim the line it stands on', () => {
+  // **Measured on FreeCAD's `DrawViewPart.cpp`, which exports 118 names**: the header alone was `exports: a, b, c ...`
+  // for eighteen hundred characters, so the 600-character block was the export list and nothing else - **the window
+  // this device replaced, wearing the index's own vocabulary**. An export surface is context and not the claim.
+  const index = buildSymbolIndex(
+    'src/wide.h',
+    [
+      ...Array.from({ length: 120 }, (_, at) => `int exported_${String(at)}(void);`),
+      'int the_claim(void);',
+    ].join('\n'),
+  );
+
+  it('spends its budget on the claim rather than on the export list', () => {
+    const context = selectIndexedContext({ index, lines: [121], budget: 600 });
+
+    expect(context.text.length).toBeLessThanOrEqual(600);
+    expect(context.shown.map((row) => row.line)).toContain(121);
+    // The surface is still stated, and stated as a count rather than as a wall of names.
+    expect(context.text).toContain('more)');
+  });
+});

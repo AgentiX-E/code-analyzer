@@ -578,20 +578,42 @@ function pythonMembers(
 // C and C++
 // ---------------------------------------------------------------------------
 
-/** **C and C++, read as declarations.** */
+/**
+ * **C and C++, read as declarations, at whatever depth the file's own braces put them.**
+ *
+ * **The depth rule was the defect.** The scanner used to read line `at` only when `depthAtStart[at] === 0`, on the
+ * argument that a declaration inside a body is a statement - **and `extern "C" {` is a brace.** Every C library's public
+ * header wraps its whole surface in one, so `lv_xml.h` and `lv_animation.h` and 48 others indexed as **zero symbols**,
+ * and C is 287 of the 569 findings on the artifact the review is measured on. **A namespace is the same brace in C++**,
+ * so the same rule answered a namespaced header with nothing.
+ *
+ * **The rule that replaces it is about declarations rather than about depth**: a line inside a declaration already
+ * emitted belongs to it, and every other line is asked the same three questions. **A body is then out of reach because
+ * its opening declaration claimed it**, which is what the depth rule was reaching for.
+ *
+ * **And a prototype is a declaration.** The scanner used to refuse one because it has no lines a claim could be
+ * refuted against - **true, and not a reason to say the file declares nothing**: its extent is its own line, and a
+ * review that files a comment on `int panel_open(panel_state_t * state, size_t rows);` is filing it against a
+ * declaration the index can name. §94.2 measures what that bought.
+ */
 export function scanCFamily(file: PreparedFile): ScannedDeclarations {
   const symbols: DeclaredSymbol[] = [];
   const exported: string[] = [];
+  // **A line inside a declaration is that declaration's.** One set, written when a symbol is emitted, read at the top
+  // of every iteration - and the reason a function body's `if (x) {` is never mistaken for a declaration.
+  const claimed = new Set<number>();
   // **A header is an export surface and a translation unit is not**, which is why the same `int claim(` is public in
   // `usb_ids.h` and private to the file in `hidapi.c` unless it says `static` either way. The rule is still `static`,
   // and the difference the header makes is that a non-static name there is offered to every file that includes it.
   for (let at = 0; at < file.lines.length; at += 1) {
-    if (file.depthAtStart[at] !== 0) continue;
+    if (claimed.has(at)) continue;
     const code = file.codes[at]!.trim();
     if (code.length === 0) continue;
+    if (code.startsWith('#') || code.startsWith('}')) continue;
     const aggregate = /^(?:typedef\s+)?(struct|union|class|enum)\s+([A-Za-z_]\w*)/u.exec(code);
     if (aggregate !== null && code.includes('{')) {
       const end = file.endOf(at);
+      for (let line = at; line <= end; line += 1) claimed.add(line);
       // **A type definition has no linkage**, so `static struct S {` is not a way to keep a type to one file and the
       // index does not pretend otherwise: an aggregate is offered by the file it is written in.
       symbols.push({
@@ -607,21 +629,76 @@ export function scanCFamily(file: PreparedFile): ScannedDeclarations {
       continue;
     }
     const read = cFunction(code, file, at);
-    if (read === null) continue;
-    const end = file.endOf(at);
-    const isExported = !/\bstatic\b/u.test(code.slice(0, code.indexOf(read)));
+    const prototype = read === null ? cDeclaration(code, file, at) : null;
+    const name = read ?? prototype?.name ?? null;
+    if (name === null) continue;
+    const end = read === null ? prototype!.end : file.endOf(at);
+    for (let line = at; line <= end; line += 1) claimed.add(line);
+    const isExported = !/\bstatic\b/u.test(code.slice(0, code.indexOf(name)));
     symbols.push({
-      name: read,
-      kind: 'function',
+      name,
+      kind: read === null && prototype!.typed ? 'type' : 'function',
       startLine: at + 1,
       endLine: end + 1,
       exported: isExported,
       signature: signatureOf(file.lines, at, end),
       members: [],
     });
-    if (isExported) exported.push(read);
+    if (isExported) exported.push(name);
   }
   return { symbols, exported };
+}
+
+/** The words a `typedef` may end with that are a type rather than the name being declared. */
+const C_TYPE_WORD =
+  /^(?:int|void|char|short|long|float|double|signed|unsigned|const|volatile|struct|union|enum|size_t|ssize_t)$/u;
+
+/**
+ * **A declaration without a body: a prototype, or the name a `typedef` gives.**
+ *
+ * Two rules, both narrow on purpose.
+ *
+ * A *prototype* needs a return type - **`index >= 1`** - and that is what keeps a macro call at file scope from being
+ * read as a declaration: `G_DEFINE_TYPE(Foo, foo, G_TYPE_OBJECT);` writes the name first and has nothing before it, and
+ * a rule without this guard would declare a function called `G_DEFINE_TYPE` in every GLib source file.
+ *
+ * A *typedef* is named by its last word, **and refused when that word is a type**: `typedef void (*cb_t)(int);` ends in
+ * `int`, and a scanner that answered `int` would be naming a type the file did not declare. **Nothing is the honest
+ * answer**, and it is the answer this returns.
+ *
+ * **A prototype written over several lines is one prototype.** The join stops at the first `;` or `{`, and a `{` means
+ * a definition, which is `cFunction`'s question rather than this one's.
+ */
+function cDeclaration(
+  code: string,
+  file: PreparedFile,
+  at: number,
+): { name: string; end: number; typed: boolean } | null {
+  let text = code;
+  let end = at;
+  if (!text.includes(';') && text.includes('(')) {
+    // **Eight lines is a bound rather than a guess**: a signature that wraps further than that is not a declaration a
+    // reader could file a comment against, and an unbounded join on a file with no semicolons is a quadratic scan.
+    while (end < Math.min(file.lines.length - 1, at + 7) && !text.includes(';')) {
+      end += 1;
+      const next = file.codes[end]!.trim();
+      if (next.startsWith('{')) return null;
+      text = `${text} ${next}`.trim();
+    }
+  }
+  if (text.includes('=') || text.includes('{') || !text.endsWith(';')) return null;
+
+  if (/^typedef\b/u.test(text)) {
+    const named = /([A-Za-z_]\w*)\s*;\s*$/u.exec(text);
+    if (named === null || C_TYPE_WORD.test(named[1]!)) return null;
+    return { name: named[1]!, end, typed: true };
+  }
+  if (!text.includes('(') || !text.includes(')')) return null;
+  const lineWords = words(text);
+  const index = declaringWord(lineWords, text);
+  // **A return type is what separates a prototype from a call**, and it is the only separator C gives.
+  if (index < 1) return null;
+  return { name: lineWords[index]!.text, end, typed: false };
 }
 
 /**

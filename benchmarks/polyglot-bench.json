@@ -21,6 +21,14 @@
       "precision": 1
     },
     {
+      "language": "c",
+      "oracle": 9,
+      "ours": 9,
+      "both": 9,
+      "recall": 1,
+      "precision": 1
+    },
+    {
       "language": "groovy",
       "oracle": 12,
       "ours": 14,
@@ -46,9 +54,9 @@
     },
     {
       "language": "json",
-      "oracle": 148,
-      "ours": 148,
-      "both": 148,
+      "oracle": 149,
+      "ours": 149,
+      "both": 149,
       "recall": 1,
       "precision": 1
     },
@@ -219,15 +227,23 @@
       "oursCount": 31,
       "both": 24,
       "missing": [],
-      "nested": ["descend", "visit", "collect", "call_target", "classify", "ambiguous", "ratio"],
+      "nested": [
+        "descend",
+        "visit",
+        "collect",
+        "call_target",
+        "classify",
+        "ambiguous",
+        "ratio"
+      ],
       "phantom": []
     },
     {
       "language": "json",
       "path": "package.json",
-      "oracleCount": 127,
-      "oursCount": 127,
-      "both": 127,
+      "oracleCount": 128,
+      "oursCount": 128,
+      "both": 128,
       "missing": [],
       "nested": [],
       "phantom": []
@@ -249,7 +265,9 @@
       "oursCount": 7,
       "both": 6,
       "missing": [],
-      "nested": ["Inner"],
+      "nested": [
+        "Inner"
+      ],
       "phantom": []
     },
     {
@@ -259,7 +277,10 @@
       "oursCount": 15,
       "both": 13,
       "missing": [],
-      "nested": ["Ok", "Pending"],
+      "nested": [
+        "Ok",
+        "Pending"
+      ],
       "phantom": []
     },
     {
@@ -279,8 +300,12 @@
       "oursCount": 9,
       "both": 7,
       "missing": [],
-      "nested": ["Nested"],
-      "phantom": ["Greeter"]
+      "nested": [
+        "Nested"
+      ],
+      "phantom": [
+        "Greeter"
+      ]
     },
     {
       "language": "javascript",
@@ -348,6 +373,26 @@
       "oracleCount": 8,
       "oursCount": 8,
       "both": 8,
+      "missing": [],
+      "nested": [],
+      "phantom": []
+    },
+    {
+      "language": "c",
+      "path": "benchmarks/polyglot/hard/hard.h",
+      "oracleCount": 7,
+      "oursCount": 7,
+      "both": 7,
+      "missing": [],
+      "nested": [],
+      "phantom": []
+    },
+    {
+      "language": "c",
+      "path": "benchmarks/polyglot/hard/hard.hpp",
+      "oracleCount": 2,
+      "oursCount": 2,
+      "both": 2,
       "missing": [],
       "nested": [],
       "phantom": []

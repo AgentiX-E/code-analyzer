@@ -37,7 +37,18 @@ const GRAMMAR = {
   swift: { module: 'tree-sitter-swift', grammar: null },
   groovy: { module: 'tree-sitter-groovy', grammar: null, nested: true },
   json: { module: 'tree-sitter-json', grammar: null },
+  // **C is the largest single language in the review corpus and it had no judge at all.** `tree-sitter-c` has been a
+  // dependency of the analyzer package since the call-graph work; the oracle simply never asked it, so 287 of the 569
+  // findings on the artifact stood in a language nothing here could check a scanner against. **A scanner measured
+  // against its own fixtures is measured against its author.**
+  // **The C family is two grammars**, and the extension says which: `tree-sitter-c` cannot read a `namespace`, so a
+  // `.hpp` judged by it produced `["ui"]` - the namespace itself, and none of the two functions the file declares.
+  c: { module: 'tree-sitter-c', grammar: null, nested: true },
+  cpp: { module: 'tree-sitter-cpp', grammar: null, nested: true },
 };
+
+/** The extensions that are C++ rather than C, which is the only thing that tells the family's two grammars apart. */
+const CPP_EXTENSION = /\.(?:hpp|hh|hxx|cc|cpp|cxx|mm)$/u;
 
 /**
  * **The node types that declare a name, per language.**
@@ -46,7 +57,11 @@ const GRAMMAR = {
  * `<something>_declaration` and **the exceptions are the interesting part**: TypeScript's `export const LIMIT = 10` is a
  * `lexical_declaration` around a `variable_declarator`, and JSON's keys are `pair`s.
  */
-const NAMED_SUFFIX = /_(?:declaration|definition|declarator)$/u;
+// **`(?:^|_)` rather than `_`, because C spells its declaration node exactly `declaration`.** The suffix rule was
+// written for grammars that qualify the word - `function_declaration`, `class_definition` - and a bare `declaration`
+// matched nothing, so a C file's thirty prototypes were invisible to the oracle as well as to the scanner the oracle
+// was supposed to be judging.
+const NAMED_SUFFIX = /(?:^|_)(?:declaration|definition|declarator)$/u;
 
 /**
  * **The declarations that name a file's neighbours rather than a declaration of its own.** `package matrix` and
@@ -68,10 +83,22 @@ const WRAPPERS = new Set([
   // an `ambient_declaration`: a walker that did not know the name read `@babel/types`' 1 673 declared functions as 342
   // and charged the difference to this lexer, which had them right. Found by the 318-file run, not by a fixture.
   'ambient_declaration',
+  // **C's `extern "C" { ... }` is a `linkage_specification` and its conditional blocks are `preproc_ifdef`**, both of
+  // which are wrappers rather than declarations: a walker that stopped at them answered that a header guarded by
+  // `#ifdef __cplusplus` declares nothing, which is the same answer this repository's scanner gave (§94.1) and the
+  // reason the two were compared before either was believed.
+  'linkage_specification',
+  'preproc_ifdef',
+  'preproc_if',
+  'preproc_else',
+  'preproc_elif',
+  'namespace_definition',
 ]);
 
-function grammarFor(language) {
-  const entry = GRAMMAR[language];
+function grammarFor(language, file) {
+  const chosen =
+    language === 'c' && typeof file === 'string' && CPP_EXTENSION.test(file) ? 'cpp' : language;
+  const entry = GRAMMAR[chosen];
   if (entry === undefined) return null;
   const base = entry.nested
     ? `${ROOT}packages/analyzer/node_modules/${entry.module}`
@@ -93,9 +120,19 @@ function loadParser() {
  * follows. That rule is used where the field is missing, because a comparison against the wrong name would be a
  * disagreement about the oracle rather than about the lexer.
  */
+/** The node types that *are* a name rather than holding one, which is where a declarator chain ends. */
+const IS_A_NAME =
+  /^(?:identifier|simple_identifier|type_identifier|field_identifier|scoped_identifier|name)$/u;
+
 function nameOf(node) {
+  if (IS_A_NAME.test(node.type)) return node.text;
   const named = node.childForFieldName?.('name');
   if (named !== null && named !== undefined) return named.text;
+  // **C writes the name inside a chain of declarators**, `int *foo(void)` being a `declaration` whose `declarator` is a
+  // `pointer_declarator` around a `function_declarator` around an `identifier`. A name reader that only knew `name`
+  // answered every C prototype with `null`, so **the oracle would have scored a fixed scanner as adding 30 phantoms.**
+  const declarator = node.childForFieldName?.('declarator');
+  if (declarator !== null && declarator !== undefined) return nameOf(declarator);
   const children = node.namedChildren;
   for (let at = 0; at < children.length; at += 1) {
     const next = children[at + 1];
@@ -264,7 +301,7 @@ export function declarations(file, language) {
   const text = readFileSync(file, 'utf8');
   if (language === 'yaml' || language === 'xml') return documentsViaPython(file, language);
   if (language === 'json') return jsonKeys(text);
-  const grammar = grammarFor(language);
+  const grammar = grammarFor(language, file);
   if (grammar === null) return null;
   const parser = loadParser();
   parser.setLanguage(grammar);

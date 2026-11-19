@@ -216,6 +216,22 @@
       "repo": "AgentiX-E/code-analyzer",
       "license": "Apache-2.0",
       "why": "A DOCTYPE with an internal subset, a processing instruction, a default namespace and a prefixed one, a comment containing a tag, a CDATA section containing a tag and an attribute with an escaped greater-than."
+    },
+    {
+      "language": "c",
+      "path": "benchmarks/polyglot/hard/hard.h",
+      "origin": "construct",
+      "repo": "AgentiX-E/code-analyzer",
+      "license": "Apache-2.0",
+      "why": "A typedef of an opaque handle, a #define limit, a static inline prototype, an extern \"C\" block around the surface, a prototype wrapping onto a second line, and a commented closing brace."
+    },
+    {
+      "language": "c",
+      "path": "benchmarks/polyglot/hard/hard.hpp",
+      "origin": "construct",
+      "repo": "AgentiX-E/code-analyzer",
+      "license": "Apache-2.0",
+      "why": "Two prototypes one namespace deep, which is the same brace as extern \"C\" and the answer a namespaced C++ header needs."
     }
   ]
 }

@@ -9810,3 +9810,240 @@ unchanged by this section** - the extensions were already mapped in §89 - so th
 
 **And the cost is zero.** No arm, no judge, no model call: the whole section is local computation over files this machine
 already had.
+
+---
+
+## §93 R-41b, measured without a model: the index can check a claim's file and cannot select a claim
+
+**§91.6 left one sentence for the next device**: _a witness has to be a fact the lane must establish, and the check has to
+be cheaper than the lane's compliance._ **The index establishes such facts for free** - which declaration a line stands
+in, whether a name the comment writes is declared, whether the call it names is a call this diff added. **This section
+scores six of them as selectors, and none of them selects.**
+
+**The instrument is a replay, and the reason is the price.** An artifact of a Martian run carries, per finding, **the
+goldens the judge said it matched** - so **any filter or re-ordering of those findings can be scored exactly, with no
+model, no judge and no prompt.** The one new input is the file each finding stands in, read at the pull request head, and
+**reading a file is not a call to a model**: `scripts/witness-replay.mjs`, `benchmarks/r41b-witness.json`, **0 CNY**.
+
+### 93.1 The baseline reproduced, and the denominator that had to be borrowed
+
+| figure         | published (`aacr-bench.json`) | replayed   |
+| -------------- | ----------------------------- | ---------- |
+| findings       | 569                           | **569**    |
+| true positives | 103                           | **103**    |
+| precision      | 0.1810                        | **0.1810** |
+| recall         | 0.2279                        | 0.2309     |
+| F1             | 0.2018                        | 0.2030     |
+
+**The first run of the reader reported recall 0.2951 and refused to proceed**, because the denominator was
+`max(matched golden index) + 1` - a count of the goldens _something matched_, reconstructed from the numerator. **A
+denominator built out of the answer flatters every arm equally**, and it took the artifact's own `coverage.byPullRequest`
+to fix it: the corpus counts **452 goldens**, the coverage table **446**, and the difference is **six goldens in pull
+requests the artifact's coverage block does not enumerate** - stated here rather than rounded away, because it is the
+whole gap between 0.2279 and 0.2309.
+
+**Files read: 316 of 318.** The two failures are one path (`internal/checker/checker.go`, `encoding none` - the API's
+answer for a blob it will not inline), and the reader **abstains** rather than refuting: a finding in a file nobody read
+is kept by every arm below.
+
+### 93.2 Six witness facts, and the lift each one has over a coin
+
+**A selector needs a fact that is commoner among the comments that found a defect than among the ones that found
+nothing.** The 2×2 is the whole measurement, and the lift is the difference of two proportions over **152 matched and 402
+unmatched** findings:
+
+| fact               | what it asks                                           | matched | unmatched | lift        |
+| ------------------ | ------------------------------------------------------ | ------- | --------- | ----------- |
+| `inDeclaration`    | `symbolAt(index, line)` is not null                    | 0.7303  | 0.7313    | **−0.0011** |
+| `namesDeclared`    | the sentence writes a name this file declares          | 0.6382  | 0.6692    | −0.0310     |
+| `callsDeclared`    | … and writes it as a call                              | 0.2039  | 0.2164    | −0.0125     |
+| `enclosingTouched` | the enclosing declaration holds a line this diff added | 0.7039  | 0.6567    | +0.0472     |
+| `declarationAdded` | the declaration _begins_ on an added line              | 0.2566  | 0.1990    | **+0.0576** |
+| `calleeOnAdded`    | the callee is declared **and** called on an added line | 0.1645  | 0.1542    | +0.0102     |
+
+**The standard error of a difference of two proportions at these counts is ≈0.047**, so **no fact here is two standard
+errors from zero** - the largest, `declarationAdded`, is **1.2 σ**. **`inDeclaration` is the exact null**: 73.03 % against
+73.13 %, which is what a fact about the file and not about the claim looks like when it is measured.
+
+### 93.3 As a filter every one of them costs F1, and as an ordering none of them buys it
+
+| arm                     | k   | TP  | precision | recall | F1         |
+| ----------------------- | --- | --- | --------- | ------ | ---------- |
+| **everything**          | 569 | 103 | 0.1810    | 0.2309 | **0.2030** |
+| keep `inDeclaration`    | 420 | 87  | 0.2071    | 0.1951 | 0.2009     |
+| keep `enclosingTouched` | 386 | 84  | 0.2176    | 0.1883 | 0.2019     |
+| keep `namesDeclared`    | 381 | 72  | 0.1890    | 0.1614 | 0.1741     |
+| keep `declarationAdded` | 134 | 40  | 0.2985    | 0.0897 | 0.1379     |
+| keep `callsDeclared`    | 133 | 32  | 0.2406    | 0.0717 | 0.1105     |
+| keep `calleeOnAdded`    | 102 | 27  | 0.2647    | 0.0605 | 0.0985     |
+
+| 12 per pull request, ordered by         | precision | recall | F1         |
+| --------------------------------------- | --------- | ------ | ---------- |
+| **the shipped actionability score**     | 0.2663    | 0.2018 | **0.2296** |
+| the score **+ 0.2 for `inDeclaration`** | 0.2633    | 0.1996 | 0.2270     |
+| the score **+ 0.2 for `namesDeclared`** | 0.2485    | 0.1883 | 0.2143     |
+| the score **+ 0.2 for `callsDeclared`** | 0.2574    | 0.1951 | 0.2219     |
+
+**The shape is the one §91 left behind**: precision rises and recall falls further, so **every filter is a worse
+trade than the score already makes**, and **the ordering cannot improve because the term it would add is a constant** -
+73 % of everything, both sides of the 2×2.
+
+### 93.4 The verdict, and the third time this law has been measured
+
+**R-41b's falsifier fired on the second branch** - _if the witness rises and F1 does not, the device retires on better
+evidence than a failed filter would have_ - and it fired **at zero cost instead of at 12.62 CNY** because the verdicts
+were already paid for.
+
+**The law, stated once with its three readings**: **a device that a claim can satisfy without being right selects
+nothing.**
+
+| device                | what it asked of the lane          | compliance | F1 delta    |
+| --------------------- | ---------------------------------- | ---------- | ----------- |
+| `namesSymbol` (§88.1) | name a symbol the diff touches     | 95 %       | **+0.0005** |
+| `anchor` (§91)        | quote the added line               | 88.5 %     | **−0.0290** |
+| six index facts (§93) | be inside a declaration / name one | 73 %       | **−0.0020** |
+
+**And the difference between the third row and the first two is the whole finding**: the lane did not write these
+facts, **the engine computed them**, and the selection did not improve by a point. **Compliance was never the problem.**
+A comment about a defect on an added line is _always_ inside some declaration, names some declared symbol, and sits in a
+declaration the diff touched - because **that is what a comment about a changed line is**, whether or not it is right.
+
+### 93.5 What this does not say, and what it leaves
+
+**It does not say the index is not worth having.** It says **the index's facts are orthogonal to correctness**, which is
+a different and more useful sentence: an orthogonal fact is worthless as a selector and **priceless as coverage**, and
+§94.3 is the measurement of what it is worth as coverage - **6 000 characters of window replaced by 363, with every
+non-blank claim's own line inside the block.**
+
+**What it leaves for detection** is §92.6's sentence, now with a number behind it: the index widens **what the lane can
+be shown** and not **what the engine can refuse**. The next device is therefore not a filter over the current emission.
+It is either a **second reader** with a different question (the usefulness label of §3, ≈2 CNY), or a **detector that
+uses the index to find what the lanes never looked at** - the impact set of a changed declaration, which is the one thing
+on this page that no arm has yet priced.
+
+---
+
+## §94 The corpus said C was the biggest language and the index answered half of it with nothing
+
+**§92 measured the scanner against files chosen to hold constructs. This section measures it against the files a review
+actually filed comments on** - 316 paths from the artifact of §93, in twelve languages - and the first reading was a
+defect large enough to change the question.
+
+### 94.1 Fifty files indexed as zero symbols, and the brace that did it
+
+**`scanCFamily` read a line only when `depthAtStart[at] === 0`**, on the argument that a declaration inside a body is a
+statement. **`extern "C" {` is a brace.** Every C library's public header wraps its whole surface in one, so:
+
+| path                                    | before | after    |
+| --------------------------------------- | ------ | -------- |
+| `src/others/xml/lv_xml.h` (lvgl)        | **0**  | 7        |
+| `src/widgets/animimage/lv_animimage.h`  | **0**  | 16       |
+| `src/Mod/TechDraw/Gui/QGIViewBalloon.h` | **0**  | 58       |
+| **50 files, 85 of the 569 findings**    | **0**  | see 94.2 |
+
+**And the second defect was a rule rather than a depth**: `cFunction` required a body, so **a prototype declared nothing
+at all**. The rule's own justification - a prototype has no lines a claim could be refuted against - is true and **is not
+a reason to say the file declares nothing**: a prototype's extent is its own line, and a review that files a comment on
+`int panel_open(panel_state_t * state, size_t rows);` is filing it against a declaration the index can name.
+
+**The rewrite replaces the depth rule with a claim about declarations**: a line inside a declaration already emitted
+belongs to it, **so a body is out of reach because its opening declaration claimed it** - which is what the depth rule was
+reaching for, and which also unwraps a C++ `namespace`, the same brace in a different keyword.
+
+| measured on the 316 real paths         | before | after     |
+| -------------------------------------- | ------ | --------- |
+| mean symbols per C file                | 19.51  | **54.28** |
+| findings standing inside a declaration | 0.484  | **0.648** |
+| findings naming a declared symbol      | 0.408  | **0.672** |
+| files indexing as zero symbols         | **50** | **2**     |
+| findings in such a file                | **85** | **2**     |
+
+**The two survivors are honest**: `usb_ids.h` is `#define`s only and `PreCompiled.h` is `#include`s only - **neither
+declares a name, and `0` is now the right answer for both.**
+
+### 94.2 The oracle had three defects of its own, and C had no oracle at all
+
+**A scanner fixed against nothing is a scanner measured against its author**, so the third-party grammar was extended
+first. `tree-sitter-c` and `tree-sitter-cpp` have been dependencies of the analyzer package since the call-graph work;
+**the oracle had simply never asked them**, and **C is 287 of the 569 findings**.
+
+| defect in the judge                                              | what it read before                            | what it reads now                                                   |
+| ---------------------------------------------------------------- | ---------------------------------------------- | ------------------------------------------------------------------- |
+| `NAMED_SUFFIX` was `/_(?:declaration\|definition\|declarator)$/` | C's `declaration` node, never                  | `(?:^\|_)…`                                                         |
+| `nameOf` knew only a `name` field                                | a 30-prototype header as `null`                | the `declarator` chain, ending at the identifier                    |
+| the C family is two grammars                                     | `.hpp` judged by `tree-sitter-c` gave `["ui"]` | the extension chooses `tree-sitter-cpp`                             |
+| `extern "C"` and `#ifdef` guards                                 | invisible to the walk                          | `linkage_specification`, `preproc_ifdef`, `preproc_if` walk through |
+
+**And the bench that exists to compare the two now includes C**: `benchmarks/polyglot/hard/hard.h` (a typedef, a
+`#define`, a `static inline` prototype, five plain ones, the linkage block and a prototype wrapping onto a second line)
+and `hard.hpp` (two prototypes one namespace deep).
+
+| language | oracle | ours | both | recall    | precision |
+| -------- | ------ | ---- | ---- | --------- | --------- |
+| c        | 9      | 9    | 9    | **1.000** | **1.000** |
+
+**Twelve languages now have a judge that is not this repository**, and the two largest buckets in the real corpus - C 287
+and Go 139 - are among them.
+
+### 94.3 The context block was spending itself on the export list
+
+**§93.4 says the index's value is coverage, so the coverage was measured on the same 316 files.** It was **53.0 %**: the
+block carried the claim's own line for barely half the claims it was built for, and the two causes were both the
+renderer.
+
+1. **The order put the claim last.** `renderClaim` wrote the signature, then up to three guards, then the line the claim
+   was filed on - so a shared allowance cut **the one row the block exists to carry**. Measured share after reordering:
+   **66.3 %**.
+2. **The export list was unbounded.** `DrawViewPart.cpp` exports **118 names**, and `exports: a, b, c …` ran to eighteen
+   hundred characters, **so the 600-character block was the export list and nothing else**. Bounding it to a third of the
+   budget, with the remainder stated as `(+110 more)`, took the share to **89.5 %** - and **to 1.000 of the claims that
+   have a line at all**: the missing 10.5 % are **59 claims filed on a blank line**, which the renderer has always
+   refused to print a row for (§ test `renders a claim whose own line is blank without a line of its own`).
+
+| figure                                | before | after     |
+| ------------------------------------- | ------ | --------- |
+| claims whose own line is shown        | 0.530  | **0.895** |
+| … of the claims with a non-blank line | 0.590  | **1.000** |
+| characters per file (budget 600)      | 422    | **363**   |
+| share of the 6 000-character window   | 0.070  | **0.061** |
+
+**Six thousand characters became three hundred and sixty-three, and every claim that has a line was shown it.** That is
+the token half of the question answered with a measurement rather than with a claim: **−93.9 % of the characters** the
+`codeContext` arm spends per file, at **complete** coverage of the line the comment is about.
+
+### 94.4 The twelve languages, measured on the finding rather than on a fixture
+
+**One row per language, over the 569 findings of the artifact** - how many stand in it, how many names its file declares,
+and whether the index's answer survived the corpus:
+
+| language   | findings | mean symbols | mean members | in a declaration | names a declared symbol |
+| ---------- | -------- | ------------ | ------------ | ---------------- | ----------------------- |
+| c          | **287**  | 54.28        | 0.16         | 0.648            | 0.672                   |
+| go         | **139**  | 62.17        | 15.52        | 0.827            | 0.669                   |
+| typescript | 39       | 9.00         | 7.82         | 0.821            | 0.564                   |
+| python     | 33       | 18.12        | 11.79        | 0.636            | 0.636                   |
+| javascript | 18       | 6.61         | 35.89        | 0.833            | 0.556                   |
+| json       | 11       | 1045.27      | 1043.27      | 1.000            | 0.909                   |
+| xml        | 10       | 411.20       | 410.20       | 0.900            | 0.600                   |
+| php        | 9        | 1.00         | 13.89        | 0.889            | 0.889                   |
+| java       | 4        | 1.00         | 14.00        | 1.000            | 0.250                   |
+| csharp     | 4        | 6.75         | 181.50       | 1.000            | 0.500                   |
+| unknown    | 10       | -            | -            | -                | -                       |
+| unread     | 5        | -            | -            | -                | -                       |
+
+**The index has an opinion about 97.36 % of the findings' files** (554 of 569): 10 stand in a language nothing here reads
+and 5 in a file the API would not inline. **`php` and `java` declare one top-level symbol per file because a class is
+one symbol and its methods are members** - 13.9 and 14.0 members per file - which is why the `members` column exists:
+a table of top-level counts alone would have read as a scanner that cannot see methods.
+
+**Python's 0.636 is the honest floor of the column, not a defect**: 12 of its 33 findings stand in a test file or a
+`__init__.py` where the comment is about a module-level statement, and a statement is not a declaration.
+
+### 94.5 What this does not claim, and the bill
+
+**No arm was run and the review's F1 does not move in this section.** §93 measured what the index is worth as a selector
+and the answer was nothing; and **an index that reads a header more completely is not a review that reads it better** -
+it is a review that _can be shown_ more, which §94.3 prices at 93.9 % of the context characters.
+
+**The bill is zero.** No model call, no judge: 318 file reads and 49 diff reads through the GitHub API, on a corpus whose
+verdicts were paid for in §91's run.
