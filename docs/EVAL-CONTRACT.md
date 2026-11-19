@@ -9562,13 +9562,19 @@ about the difference between those two sentences.
 
 ### 91.1 The four numbers, and the baseline they are read against
 
-| figure                                | before (`aacr-bench.json`)           | **after (`r41-anchor.json`)** |
-| ------------------------------------- | ------------------------------------ | ----------------------------- |
-| anchoring rate over emitted comments  | **0.0000** (the field did not exist) | **0.8854** (340 of 384)       |
-| shipped precision / recall / F1       | 0.1935 / 0.4798 / **0.2757**         | 0.1724 / 0.4335 / **0.2467**  |
-| true positives / false positives      | 83 / 346                             | **75 / 360**                  |
-| full emission precision / recall / F1 | 0.1018 / 0.5549 / 0.1720             | 0.1012 / 0.5376 / 0.1703      |
-| 50 pull requests, spend               | 9.49 CNY                             | **22.11 CNY**                 |
+| figure                                | §86.5, this configuration before the field | **this run (`r41-anchor.json`)** |
+| ------------------------------------- | ------------------------------------------ | -------------------------------- |
+| anchoring rate over emitted comments  | the field did not exist - see below        | **0.8854** (340 of 384)          |
+| shipped precision / recall / F1       | 0.1935 / 0.4798 / **0.2757**               | 0.1724 / 0.4335 / **0.2467**     |
+| true positives / false positives      | 83 / 346                                   | **75 / 360**                     |
+| full emission precision / recall / F1 | 0.1018 / 0.5549 / 0.1720                   | 0.1012 / 0.5376 / 0.1703         |
+| fifty pull requests, spend            | 9.49 CNY                                   | **22.11 CNY**                    |
+
+**The first row has no "before" measurement, and that is not an omission.** A rate over a field that did not exist is
+zero by definition; what can be measured is the rate on an older artifact read by the same script, and on
+`benchmarks/aacr-bench.json` it is **0.0000 over 330 emitted comments**, at precision 0.2394 by that artifact's own
+denominator - **a different run and a different cut**, quoted only to show what the reader returns when there is nothing
+to count. Every other row compares two runs of one configuration, which is the only comparison this repository allows.
 
 **The anchoring rate is the prediction and it over-performed by a factor of two**: §88.2 registered _11 % → at least
 45 %_ and the lanes returned **88.5 %**. **The precision among anchored comments is 0.1647 against 0.0227 among the 44
