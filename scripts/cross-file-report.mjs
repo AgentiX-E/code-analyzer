@@ -188,11 +188,19 @@ const report = {
   reader: tree.stats,
 };
 
-if (asJson)
-  writeFileSync(
-    join(ROOT, 'benchmarks/cross-file-index.json'),
-    `${JSON.stringify(report, null, 2)}\n`,
-  );
+if (asJson) {
+  /**
+   * **Written through prettier rather than beside it.**
+   *
+   * `JSON.stringify(…, null, 2)` expands every array to one element per line and prettier collapses the short ones, so
+   * the artifact this script produced was a file `prettier --check .` rejected - and the failure landed on whoever ran
+   * the report, as a formatting error in a file nobody edited. **An artifact a gate rewrites is an artifact whose
+   * regeneration is a diff**, so the script uses the same formatter the gate does.
+   */
+  const prettier = await import('prettier');
+  const formatted = await prettier.format(JSON.stringify(report), { parser: 'json' });
+  writeFileSync(join(ROOT, 'benchmarks/cross-file-index.json'), formatted);
+}
 
 console.log(
   `files ${index.stats.files}  lines ${report.lines}  symbols ${declared}  ms ${elapsedMs}`,

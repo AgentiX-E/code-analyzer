@@ -10655,7 +10655,7 @@ own count of pull requests that ran without a graph.
 
 ### 101.4 What proves the wiring, and what would refute the device
 
-**The proof that costs nothing**: 16 cases over a real temporary tree — the skip list, the extension list, the caller's
+**The proof that costs nothing**: 17 cases over a real temporary tree — the skip list, the extension list, the caller's
 own refusal (`.d.ts`), the file cap, the byte cap, the size cap, determinism, a root that is a file, a root that is
 absent, a pipe, a symlink, and a directory the OS refuses to list (skipped where the runner is root, because **a test
 that claims to have produced a refusal it did not produce is worse than a skipped test**). **The end-to-end case is that
@@ -10685,7 +10685,20 @@ expected '// The corpus a direct competitor pub…' to match /if \(CODE_CONTEXT 
 died at the first absent one, **after every pull request before it had been paid for.** The repair is one term in two
 places, and the test now names all three readers rather than a count.
 
-### 101.6 The bill is zero
+### 101.6 Two gates fired on the first CI run, and both were right
+
+**The per-file coverage gate refused `repo-files.ts` at 92.68 % branches**, and the three uncovered arms were not a test
+missing: **two of them were the third arm of a path comparator** — `left.path < right.path ? -1 : left.path > right.path ? 1 : 0`
+— which asks about two files with one path, a case a filesystem cannot produce. The repair is `localeCompare`, which has
+no third arm, and a case that calls the reader **with no limits at all**, because every other case passed a limit and the
+product's own call site is the one that passes none. **37 branches, 0 uncovered, 41 statements covered but for the two
+catch bodies** that only a filesystem that refuses a read can reach.
+
+**And `prettier --check .` refused the artifact**, because the report wrote `JSON.stringify(…, null, 2)` and the formatter
+collapses short arrays: **an artifact a gate rewrites is an artifact whose regeneration is a diff**, so the script now
+formats through the same prettier the gate uses.
+
+### 101.7 The bill is zero
 
 One module, one test file, one call site in a report script, one import and one gated block in the bench, one dispatch
 input. **No model call, no judge, no dispatch.**

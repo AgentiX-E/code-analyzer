@@ -215,7 +215,9 @@ export function readRepoFiles(root: string, limits: RepoFileLimits = {}): RepoTr
 
   walk('');
 
-  out.sort((left, right) => (left.path < right.path ? -1 : left.path > right.path ? 1 : 0));
+  // **`localeCompare` rather than a comparator with three arms**, because the third arm - two files with one path - is a
+  // case a filesystem cannot produce and a branch a coverage gate would then have to be told a story about.
+  out.sort((left, right) => left.path.localeCompare(right.path));
   return {
     files: out,
     stats: {

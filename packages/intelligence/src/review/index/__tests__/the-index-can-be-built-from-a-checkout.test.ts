@@ -65,6 +65,18 @@ describe('what a checkout gives the index', () => {
     expect(tree.files.map((file) => file.path)).toEqual(['src/a.ts']);
   });
 
+  it('reads with every default when the caller states no limits, which is the call the product makes', () => {
+    write('src/a.ts', 'export const a = 1;\n');
+    write('src/b.py', 'import os\n');
+    write('src/c.rb', 'require "json"\n');
+    const tree = readRepoFiles(root);
+    // **The default extension list is exactly the languages the index reads**, so a `.rb` file is not read - and the
+    // default skip list, the default caps and the default `accept` are all exercised by this one call. A test that
+    // always passed a limit would leave the product's own call site uncovered.
+    expect(tree.files.map((file) => file.path)).toEqual(['src/a.ts', 'src/b.py']);
+    expect(tree.stats.considered).toBe(2);
+  });
+
   it('reports what a cap hid instead of returning a small repository', () => {
     write('src/a.ts', 'export const a = 1;\n');
     write('src/b.ts', 'export const b = 2;\n');

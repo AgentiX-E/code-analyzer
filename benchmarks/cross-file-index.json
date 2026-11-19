@@ -13,10 +13,10 @@
     "web"
   ],
   "files": 485,
-  "lines": 185970,
+  "lines": 185986,
   "stats": {
     "files": 485,
-    "symbols": 4323,
+    "symbols": 4324,
     "imports": 1885,
     "resolvedImports": 1265,
     "externalImports": 620,
@@ -24,7 +24,7 @@
     "namespaceImports": 0,
     "edges": 1290
   },
-  "elapsedMs": 414,
+  "elapsedMs": 415,
   "agreement": {
     "compared": 1265,
     "bareSpecifiers": 620,
@@ -40,49 +40,25 @@
     "bothResolveDifferently": []
   },
   "coverage": {
-    "declarations": 4323,
+    "declarations": 4324,
     "readFromAnotherFile": 669,
-    "share": 0.1548,
+    "share": 0.1547,
     "meanCallers": 1.9283,
     "topFanOut": [
-      [
-        "ParsedImport",
-        34
-      ],
-      [
-        "namedChildrenOf",
-        26
-      ],
-      [
-        "childrenOf",
-        26
-      ],
-      [
-        "TreeSitterSyntaxNode",
-        24
-      ],
-      [
-        "lineOf",
-        24
-      ],
-      [
-        "TreeSitterLanguage",
-        22
-      ],
-      [
-        "TreeSitterBaseProvider",
-        21
-      ],
-      [
-        "ExecutablePhase",
-        19
-      ]
+      ["ParsedImport", 34],
+      ["namedChildrenOf", 26],
+      ["childrenOf", 26],
+      ["TreeSitterSyntaxNode", 24],
+      ["lineOf", 24],
+      ["TreeSitterLanguage", 22],
+      ["TreeSitterBaseProvider", 21],
+      ["ExecutablePhase", 19]
     ]
   },
   "reach": {
     "files": 463,
     "withoutNote": 22,
-    "chars": 75884,
+    "chars": 75885,
     "medianChars": 109,
     "p90Chars": 393,
     "maxChars": 919,
@@ -94,9 +70,10 @@
     "readable": true,
     "considered": 485,
     "read": 485,
-    "bytes": 6922238,
+    "bytes": 6923187,
     "skippedBySize": 0,
     "skippedOverCap": 0,
+    "skippedOverBytes": 0,
     "skippedUnreadable": 0,
     "directoriesSkipped": 34
   }
