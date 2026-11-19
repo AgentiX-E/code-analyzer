@@ -458,8 +458,10 @@ describe('every module a package compiles is reachable from an entry its manifes
       // two answer different questions with different failure directions: a scanner that misses a declaration hides a
       // guard, and a resolver that invents an edge tells a review a change reaches a file it does not. §95.1 scores the
       // second against `ts.resolveModuleName` rather than against its own rules, which is only possible while the two are
-      // separate modules with separate tests.
-      intelligence: 191,
+      // separate modules with separate tests. **192 since §97**, which added `imports-langs.ts`: five more languages'
+      // import syntax, in a module of its own because it is judged by a second implementation (`scripts/import-oracle.ts`)
+      // and a judge and its subject have to be separable files.
+      intelligence: 192,
       mcp: 39,
       server: 24,
       // **11 since iteration 121**, which added `utils/type-text.ts`: the depth-counted removal of type arguments and

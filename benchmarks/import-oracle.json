@@ -1,0 +1,53 @@
+{
+  "comment": [
+    "What the five new import readers find beside what tree-sitter finds, per file, as multisets of specifiers.",
+    "The judge establishes where an import statement is and what it names; it says nothing about which file a",
+    "specifier resolves to, and that half of the claim is a corpus refusal (a specifier that resolves to nothing is a",
+    "missing row, counted) rather than a comparison."
+  ],
+  "measuredAt": "2026-11-19",
+  "corpus": [
+    "benchmarks/polyglot/files",
+    "benchmarks/polyglot/hard",
+    "benchmarks/polyglot/imports"
+  ],
+  "byLanguage": {
+    "swift": {
+      "files": 4,
+      "ours": 4,
+      "theirs": 4,
+      "agree": 4,
+      "unjudged": 0
+    },
+    "groovy": {
+      "files": 5,
+      "ours": 7,
+      "theirs": 7,
+      "agree": 7,
+      "unjudged": 0
+    },
+    "java": {
+      "files": 4,
+      "ours": 6,
+      "theirs": 6,
+      "agree": 6,
+      "unjudged": 0
+    },
+    "kotlin": {
+      "files": 3,
+      "ours": 10,
+      "theirs": 10,
+      "agree": 10,
+      "unjudged": 0
+    },
+    "python": {
+      "files": 2,
+      "ours": 9,
+      "theirs": 9,
+      "agree": 9,
+      "unjudged": 0
+    }
+  },
+  "disagreement": [],
+  "files": 18
+}

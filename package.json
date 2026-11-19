@@ -93,7 +93,8 @@
     "bench:polyglot": "tsx scripts/polyglot-bench.ts",
     "bench:polyglot:scale": "tsx scripts/polyglot-scale.ts",
     "bench:cross-file": "node scripts/cross-file-report.mjs --json",
-    "bench:ceiling": "node scripts/filter-ceiling.mjs"
+    "bench:ceiling": "node scripts/filter-ceiling.mjs",
+    "bench:imports": "TSX_TSCONFIG_PATH=tsconfig.tests.json tsx scripts/import-oracle.ts"
   },
   "devDependencies": {
     "@types/node": "^26.6.6",

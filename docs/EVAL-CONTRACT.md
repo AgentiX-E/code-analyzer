@@ -10306,3 +10306,63 @@ from `scoring.registeredRule` rather than typed into a script, and `docs/LEADERB
 figures and their provenance live.
 
 **The bill is zero.** Two artifacts already on disk, one script, one test.
+
+## §97 The edge layer reads five more languages, and the judge found three defects in it
+
+**§95.1 ended with a sentence that was a task**: `import a.b.C;`, `from .mod import x`, Kotlin's and Swift's imports are
+not read at all. **This section reads them** - Java, Kotlin, Groovy, Python and Swift - and judges the reader against
+tree-sitter, which is the only parser this sandbox has for those five.
+
+### 97.1 The fact a second parser can and cannot establish
+
+**tree-sitter says where an import statement is and what it names; it says nothing about which file that is.** So the
+measurement is split, and the split is stated rather than blurred:
+
+- **judged by tree-sitter**: the specifier every import statement carries, as a multiset per file (`scripts/import-oracle.ts`);
+- **not judged, only counted**: whether a specifier resolves to a file. That half is a corpus refusal - a specifier that
+  answers no path is a `missing` row - and **a resolver cannot be judged by a parser that does not resolve.**
+
+| language  | files  | statements (ours) | statements (tree-sitter) | agree  | disagreements |
+| --------- | ------ | ----------------- | ------------------------ | ------ | ------------- |
+| java      | 4      | 6                 | 6                        | **6**  | 0             |
+| kotlin    | 3      | 10                | 10                       | **10** | 0             |
+| groovy    | 5      | 7                 | 7                        | **7**  | 0             |
+| python    | 2      | 9                 | 9                        | **9**  | 0             |
+| swift     | 4      | 4                 | 4                        | **4**  | 0             |
+| **total** | **18** | **36**            | **36**                   | **36** | **0**         |
+
+**Eighteen files is not 482**, and the difference is not a footnote: §95.1's TypeScript claim was over every relative
+specifier in this repository. **What 18 files with 36 statements establish is that the reader agrees with a real grammar
+on every shape the fixtures name**, and the corpus is `benchmarks/polyglot/imports/` - five files written for this
+measurement, one per language, each holding the shapes that break a line-based reader.
+
+### 97.2 Three disagreements, and all three were defects
+
+**The first run did not agree, and that is the reason the fixtures exist.** Each disagreement was a defect in one of the
+two implementations, and the direction was not always the reader's:
+
+1. **Java read an import twice.** The keyword `import` is a node of its own inside `import_declaration`, and a walker that
+   matched any node type containing the word counted the statement and its keyword: **2 imports reported as 4.**
+2. **Kotlin read seven imports as one.** The grammar wraps its headers in an `import_list`, so the outermost matching
+   node was the container and its text began with the first import. **The fix was to match the statement's type** -
+   `import_declaration`, `import_header`, `import_statement` - **and not the word**, which is what a second
+   implementation tells you that a fixture cannot.
+3. **Swift read `import struct Dispatch.DispatchTime` as `Dispatch`.** That is a real defect in the reader: the stated
+   form names a declaration inside a module, so the dotted run is part of the specifier.
+
+**A fourth disagreement was the reader being right**: `import static a.b.C.m;` names a member of a type, so the file is
+`a/b/C.java` and the name is `m`. **The oracle had to be changed to agree**, and the case is recorded in its code because
+a judge that is quietly adjusted to match the thing it judges is a judge that has stopped measuring.
+
+### 97.3 What this makes possible, and what it does not claim
+
+`buildRepoIndex` now turns three of the five into edges - **Java, Kotlin and Groovy resolve by suffix (a source root is not
+in the statement), Python resolves relative to its importer, and Swift's module imports are refused as `external` rather
+than given a path**. A five-file test asserts the end-to-end shape: two resolved, one external, one Python edge, and a
+Java import whose type is never used producing no edge at all.
+
+**It does not claim the edge layer covers eleven languages.** It covers three more than yesterday, Go, C#, PHP, Ruby and
+the C family still write imports nothing here reads, and **the corpus is five files** - which is why the next measurement
+of this layer is a repository rather than a fixture set.
+
+**The bill is zero**: 18 local files, five grammars already installed, no model and no network.

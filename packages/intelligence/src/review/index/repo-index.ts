@@ -23,6 +23,11 @@
 //    review deciding what a change reaches.
 
 import { readImportSpecifier } from '../import-specifier.js';
+import {
+  readLanguageImports,
+  resolveJvmSpecifier,
+  resolvePythonSpecifier,
+} from './imports-langs.js';
 import { buildSymbolIndex } from './symbols.js';
 
 import type { FileSymbolIndex } from './symbols.js';
@@ -289,6 +294,20 @@ export function buildRepoIndex(files: readonly RepoFile[]): RepoIndex {
   const indices = new Map<string, FileSymbolIndex>();
   for (const [path, file] of byPath) indices.set(path, buildSymbolIndex(path, file.text));
 
+  /**
+   * **The basenames the corpus holds, because a JVM import is a suffix and a suffix search needs an index.**
+   * `import a.b.C;` names `a/b/C.java` wherever the source root is, so the question is which of this corpus's paths end
+   * with that tail - and asking it of every path for every import would be the quadratic scan this file avoids
+   * everywhere else. Keyed by `C.java`, only the files called that are ever compared.
+   */
+  const byBase = new Map<string, string[]>();
+  for (const path of byPath.keys()) {
+    const base = path.slice(path.lastIndexOf('/') + 1);
+    const bucket = byBase.get(base);
+    if (bucket === undefined) byBase.set(base, [path]);
+    else bucket.push(path);
+  }
+
   const references: CrossReference[] = [];
   const statements: ResolvedImport[] = [];
   const unresolved: UnresolvedImport[] = [];
@@ -300,71 +319,113 @@ export function buildRepoIndex(files: readonly RepoFile[]): RepoIndex {
   let symbols = 0;
   for (const index of indices.values()) symbols += index.symbols.length;
 
-  for (const [path, index] of indices) {
-    const lines = index.lines;
-    const codes = index.codes;
-    for (let at = 0; at < lines.length; at += 1) {
-      const statement = readStatement(lines, codes, at);
-      if (statement === null) continue;
-      imports += 1;
-      at = statement.endLine - 1;
+  const fileSet = new Set(byPath.keys());
+  /** The five languages whose import syntax is not TypeScript's, and the reader that answers each. */
+  const SIBLING = new Set(['java', 'kotlin', 'groovy', 'python', 'swift']);
 
-      if (!isRelative(statement.specifier)) {
-        externalImports += 1;
-        statements.push({
-          fromPath: path,
-          line: statement.startLine,
-          specifier: statement.specifier,
-          target: null,
-          why: 'external',
-        });
-        unresolved.push({
-          fromPath: path,
-          line: statement.startLine,
-          specifier: statement.specifier,
-          why: 'external',
-        });
-        continue;
-      }
-      const target = resolveSpecifier(statement.specifier, path, byPath);
-      if (target === null) {
-        missingImports += 1;
-        statements.push({
-          fromPath: path,
-          line: statement.startLine,
-          specifier: statement.specifier,
-          target: null,
-          why: 'missing',
-        });
-        unresolved.push({
-          fromPath: path,
-          line: statement.startLine,
-          specifier: statement.specifier,
-          why: 'missing',
-        });
-        continue;
-      }
-      resolvedImports += 1;
+  /**
+   * **One bookkeeping path for both readers**, because two paths that each counted an import would be two denominators
+   * the moment either drifted. `target === null` is decided by the caller - **a JVM path that is not in this repository is
+   * a library and a Python statement with no leading dot is one too, while `from .mod import x` that resolves to nothing
+   * is a path this repository does not hold** - and the refusal is reported rather than dropped.
+   */
+  const record = (
+    path: string,
+    statement: {
+      specifier: string;
+      names: readonly { imported: string; local: string }[];
+      namespace: boolean;
+      startLine: number;
+      endLine: number;
+    },
+    target: string | null,
+    why: 'missing' | 'external',
+  ): void => {
+    imports += 1;
+    if (target === null) {
+      if (why === 'missing') missingImports += 1;
+      else externalImports += 1;
       statements.push({
         fromPath: path,
         line: statement.startLine,
         specifier: statement.specifier,
-        target,
-        why: 'resolved',
+        target: null,
+        why,
       });
-      if (statement.namespace) {
-        namespaceImports += 1;
+      unresolved.push({
+        fromPath: path,
+        line: statement.startLine,
+        specifier: statement.specifier,
+        why,
+      });
+      return;
+    }
+    resolvedImports += 1;
+    statements.push({
+      fromPath: path,
+      line: statement.startLine,
+      specifier: statement.specifier,
+      target,
+      why: 'resolved',
+    });
+    if (statement.namespace) {
+      namespaceImports += 1;
+      return;
+    }
+    const targetIndex = indices.get(target)!;
+    for (const name of statement.names) {
+      const declared = targetIndex.symbols.find((symbol) => symbol.name === name.imported);
+      if (declared === undefined) continue;
+      const used = firstUse(codesOf(path), name.local, statement.endLine);
+      if (used === null) continue;
+      references.push({ fromPath: path, fromLine: used, toPath: target, toName: name.imported });
+    }
+  };
+
+  const codesOf = (path: string): readonly string[] => indices.get(path)!.codes;
+
+  for (const [path, index] of indices) {
+    const lines = index.lines;
+    const codes = index.codes;
+
+    if (SIBLING.has(index.language)) {
+      for (const statement of readLanguageImports(index.language, lines, codes)) {
+        if (statement.kind === 'module') {
+          // **A Swift import names a module**, and a path invented for it would be an edge invented for it.
+          record(path, statement, null, 'external');
+          continue;
+        }
+        if (index.language === 'python') {
+          const target = resolvePythonSpecifier(statement.specifier, path, fileSet);
+          // **The leading dot is what makes an unresolved Python import a missing path** rather than a library: `os` is
+          // on `sys.path` and `..nowhere` is a mistake in this repository.
+          record(
+            path,
+            statement,
+            target,
+            statement.specifier.startsWith('.') ? 'missing' : 'external',
+          );
+          continue;
+        }
+        record(
+          path,
+          statement,
+          resolveJvmSpecifier(index.language, statement.specifier, byBase),
+          'external',
+        );
+      }
+      continue;
+    }
+
+    for (let at = 0; at < lines.length; at += 1) {
+      const statement = readStatement(lines, codes, at);
+      if (statement === null) continue;
+      at = statement.endLine - 1;
+      if (!isRelative(statement.specifier)) {
+        record(path, statement, null, 'external');
         continue;
       }
-
-      const targetIndex = indices.get(target)!;
-      for (const name of statement.names) {
-        const declared = targetIndex.symbols.find((symbol) => symbol.name === name.imported);
-        if (declared === undefined) continue;
-        const used = firstUse(codes, name.local, statement.endLine);
-        if (used === null) continue;
-        references.push({ fromPath: path, fromLine: used, toPath: target, toName: name.imported });
-      }
+      record(path, statement, resolveSpecifier(statement.specifier, path, byPath), 'missing');
     }
   }
 
