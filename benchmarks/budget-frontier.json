@@ -1,0 +1,164 @@
+{
+  "comment": [
+    "What the per-pull-request budget buys in matched goldens, and what each extra finding costs in finding text.",
+    "The tokens are characters/4 over the finding text, because the artifact records no usage: a proxy, applied to",
+    "both sides of every ratio. Caps above the run config are not scored, because they would be a re-rank of the same",
+    "emitted set rather than a larger budget."
+  ],
+  "measuredAt": "2026-11-10",
+  "source": "benchmarks/aacr-bench.json",
+  "corpusGoldens": 452,
+  "runBudget": 16,
+  "rows": [
+    {
+      "budget": 2,
+      "kept": 92,
+      "matched": 34,
+      "precision": 0.3696,
+      "recall": 0.0752,
+      "f1": 0.125,
+      "characters": 29435,
+      "tokens": 7358.75,
+      "goldensPerThousandTokens": 4.6203,
+      "f1PerThousandTokens": 0.017,
+      "marginal": {
+        "goldens": 34,
+        "tokens": 7358.75,
+        "goldensPerThousandTokens": 0
+      }
+    },
+    {
+      "budget": 4,
+      "kept": 157,
+      "matched": 64,
+      "precision": 0.4076,
+      "recall": 0.1416,
+      "f1": 0.2102,
+      "characters": 50193,
+      "tokens": 12548.25,
+      "goldensPerThousandTokens": 5.1003,
+      "f1PerThousandTokens": 0.0167,
+      "marginal": {
+        "goldens": 30,
+        "tokens": 5189.5,
+        "goldensPerThousandTokens": 5.7809
+      }
+    },
+    {
+      "budget": 6,
+      "kept": 204,
+      "matched": 80,
+      "precision": 0.3922,
+      "recall": 0.177,
+      "f1": 0.2439,
+      "characters": 65233,
+      "tokens": 16308.25,
+      "goldensPerThousandTokens": 4.9055,
+      "f1PerThousandTokens": 0.015,
+      "marginal": {
+        "goldens": 16,
+        "tokens": 3760,
+        "goldensPerThousandTokens": 4.2553
+      }
+    },
+    {
+      "budget": 8,
+      "kept": 231,
+      "matched": 87,
+      "precision": 0.3766,
+      "recall": 0.1925,
+      "f1": 0.2548,
+      "characters": 73833,
+      "tokens": 18458.25,
+      "goldensPerThousandTokens": 4.7133,
+      "f1PerThousandTokens": 0.0138,
+      "marginal": {
+        "goldens": 7,
+        "tokens": 2150,
+        "goldensPerThousandTokens": 3.2558
+      }
+    },
+    {
+      "budget": 10,
+      "kept": 254,
+      "matched": 91,
+      "precision": 0.3583,
+      "recall": 0.2013,
+      "f1": 0.2578,
+      "characters": 81181,
+      "tokens": 20295.25,
+      "goldensPerThousandTokens": 4.4838,
+      "f1PerThousandTokens": 0.0127,
+      "marginal": {
+        "goldens": 4,
+        "tokens": 1837,
+        "goldensPerThousandTokens": 2.1775
+      }
+    },
+    {
+      "budget": 12,
+      "kept": 273,
+      "matched": 96,
+      "precision": 0.3516,
+      "recall": 0.2124,
+      "f1": 0.2648,
+      "characters": 87214,
+      "tokens": 21803.5,
+      "goldensPerThousandTokens": 4.403,
+      "f1PerThousandTokens": 0.0121,
+      "marginal": {
+        "goldens": 5,
+        "tokens": 1508.25,
+        "goldensPerThousandTokens": 3.3151
+      }
+    },
+    {
+      "budget": 14,
+      "kept": 289,
+      "matched": 96,
+      "precision": 0.3322,
+      "recall": 0.2124,
+      "f1": 0.2591,
+      "characters": 92334,
+      "tokens": 23083.5,
+      "goldensPerThousandTokens": 4.1588,
+      "f1PerThousandTokens": 0.0112,
+      "marginal": {
+        "goldens": 0,
+        "tokens": 1280,
+        "goldensPerThousandTokens": 0
+      }
+    },
+    {
+      "budget": 16,
+      "kept": 299,
+      "matched": 97,
+      "precision": 0.3244,
+      "recall": 0.2146,
+      "f1": 0.2583,
+      "characters": 95534,
+      "tokens": 23883.5,
+      "goldensPerThousandTokens": 4.0614,
+      "f1PerThousandTokens": 0.0108,
+      "marginal": {
+        "goldens": 1,
+        "tokens": 800,
+        "goldensPerThousandTokens": 1.25
+      }
+    }
+  ],
+  "verdict": {
+    "bestF1Budget": 12,
+    "bestF1": 0.2648,
+    "shippedBudget": 16,
+    "runBudgetSitsAtBestF1": false,
+    "firstBudgetThatBoughtNothing": 14,
+    "aboveBest": {
+      "toBudget": 16,
+      "findingsAdded": 26,
+      "goldensAdded": 1,
+      "tokensAdded": 2080,
+      "f1Change": -0.0065
+    }
+  }
+}
