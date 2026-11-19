@@ -58,6 +58,31 @@ is not a source file.**
 
 ---
 
+## 2b. The one head-to-head on identical pull requests, and the two halves it separates
+
+**The rows above quote each vendor's own number on its own corpus.** `benchmarks/aacr/competitor-baseline.json` is the
+one place a competitor's _findings_ were recorded on pull requests this repository also reviewed, judged by the same
+judge, with the goldens each finding matched. **Restricting both reviewers to the 47 pull requests they share - 436
+goldens - is the only comparison on this page that is one measurement rather than two** (§96.3):
+
+| on 47 shared pull requests, 436 goldens | this repository | open-code-review (recorded rows) |
+| --------------------------------------- | --------------- | -------------------------------- |
+| findings kept                           | 378             | 110                              |
+| goldens matched                         | 98              | 77                               |
+| precision                               | 0.2593          | **0.7000**                       |
+| recall                                  | **0.2248**      | 0.1766                           |
+| F1                                      | 0.2408          | **0.2821**                       |
+| goldens matched by all their findings   | 117             | **195**                          |
+| ceiling at perfect precision            | 0.4231          | **0.6181**                       |
+
+**Their generator finds 1.67× the goldens ours finds; their selection keeps a third of what ours keeps.** That is the
+sentence this table exists for, and it is the reason the plan below is one arm about sentences and not a fifth arm about
+ranking: **at our precision the ceiling is 0.4231, the registered target of 0.4500 is outside it, and the target is
+inside theirs** (§96.1, §96.2). **The cost column is missing on both sides** - their artifact records findings, not their
+token bill - and a comparison of quality at unknown cost is a comparison of quality.
+
+---
+
 ## 3. What is planned, and the benchmark each plan is checked against
 
 | plan                                                           | borrowed from                                                       | checked against                                        | why it is the next one                                                                                                                                                                                         |
@@ -68,7 +93,7 @@ is not a source file.**
 | **structure-aware diff** (moves and reformat-only hunks)       | Difftastic                                                          | SWE-PRBench's three context configurations             | SWE-PRBench: **2 000 structured tokens beat 2 500 full-context tokens on all 8 models**; **still not built** - the cross-file diff facts (§95.2) are the part of it that paid nothing and selected nothing     |
 | ~~cross-file symbol identity~~ **built for JS/TS/ArkTS**       | SCIP                                                                | **`ts.resolveModuleName` itself** (1 256/1 256, §95.1) | done at zero cost, and **the judge found a defect on its first run**: the one unresolved import in this repository was a fixture inside a template literal, so `missing` 1 → 0 and 36 false edges went with it |
 
-| **A rewriter, not a filter** (rewrite the surviving comment against the declaration's contract) | CodeRabbit's verification agent; Qodo's multi-lane merge | Martian offline, same corpus, same judge | **§95.3 is the argument**: 254 of 452 goldens (56.2 %) were lost with a finding already standing on the right path, so **selection is exhausted and the sentences are the constraint**. Four selection devices are null (§88.1, §91, §93, §95.2); none of them could have been anything else |
+| **A rewriter, not a filter** (rewrite the surviving comment against the declaration's contract) | CodeRabbit's verification agent; Qodo's multi-lane merge | Martian offline, same corpus, same judge; **registered target ≥0.55 precision with ≥173 matched goldens** (§96.4) | **§95.3 is the argument**: 254 of 452 goldens (56.2 %) were lost with a finding already standing on the right path, so **selection is exhausted and the sentences are the constraint**. Four selection devices are null (§88.1, §91, §93, §95.2); none of them could have been anything else |
 
 **And the one plan this page argues against.** Running the **online** Martian board would put us beside cubic and
 Copilot on the number the field argues about, and it needs a bot account posting on public pull requests. **The cost is

@@ -10186,3 +10186,123 @@ noise and cheaper, and that the constant's own comment says so.
 
 **The bill is zero.** No model call and no judge: 482 local files read from disk, 318 file reads and 49 diff reads through
 the GitHub API against verdicts paid for in §91's run.
+
+## §96 The ceiling is 0.4231, and the competitor's own rows say which half of the gap is which
+
+**§95.3 explained four nulls with one sentence: 254 of 452 goldens were lost with a comment already standing on the right
+file.** That sentence is a diagnosis, and a diagnosis three devices later is worth turning into arithmetic. **This section
+computes the bound every future filter will be judged against, draws the frontier a target of 0.4500 requires, and puts
+the competitor's recorded rows on the same axis** - which separates two failures that F1 alone reports as one number.
+
+`scripts/filter-ceiling.mjs` reads the two artifacts already paid for and computes each figure below. **Nothing here
+calls a model, fetches a page or writes a number it did not compute from a file on disk**, and `benchmarks/filter-ceiling.json`
+is the output, checked against its sources by a test rather than by a reader.
+
+### 96.1 What a filter could reach on the findings this run produced
+
+**A filter chooses among sentences that were generated; it cannot conjure a true one.** So the best it can do is keep the
+findings that matched something and delete the rest, and that is a number: **123 goldens were matched somewhere in this
+run, out of 452.** Keeping exactly those findings gives precision 1 by construction, recall 0.2721, and **F1 0.4278** -
+before any rule exists that could identify them. **That is the ceiling, and it is an upper bound rather than a
+forecast**: no rule can do better than the judge, and every rule will do worse.
+
+| on our run's own 452 goldens                                           | figure     |
+| ---------------------------------------------------------------------- | ---------- |
+| goldens                                                                | 452        |
+| findings kept by the gate                                              | 387        |
+| goldens matched (`missedGoldens.counts.hit`)                           | 123        |
+| precision over kept, **golden basis**                                  | 0.2687     |
+| recall over kept, golden basis                                         | 0.2301     |
+| F1, golden basis                                                       | 0.2479     |
+| **F1 the run published** (a true positive is a _finding_ that matched) | **0.2026** |
+| generator recall (all 569 findings, golden basis)                      | 0.2721     |
+| **ceiling at perfect precision**                                       | **0.4278** |
+| ceiling if precision is not gifted (`ceilingRescued`)                  | 0.4020     |
+| where F1 stops at this precision even with recall 1                    | 0.4236     |
+
+**Two bases are in that table on purpose.** The artifact publishes `truePositives: 85` and `missedGoldens.counts.hit: 123`
+side by side - 85 findings matched something, and between them they matched 123 goldens - so **a ceiling computed from 85
+is a ceiling on a different question**, and a document that quoted either without saying which would be a document whose
+numbers cannot be checked. Both are in the artifact; the ceiling uses the golden basis, because that is the basis the
+competitor's rows support.
+
+### 96.2 The frontier: at 0.2687 precision there is no recall that reaches 0.4500
+
+**`F1 = 2p·TP/(p·G + TP)` is one equation in two unknowns**, so a target does not name a number of true claims - it names a
+curve. Solving for `TP` gives `TP = F1·p·G/(2p − F1)`:
+
+| precision | matched goldens needed for F1 0.4500 | what that asks of the generator                                |
+| --------- | ------------------------------------ | -------------------------------------------------------------- |
+| 1.00      | 132                                  | 7 % more than the 123 we matched, with no false finding at all |
+| 0.80      | 142                                  | 15 % more, at four times the precision we have                 |
+| 0.70      | 150                                  | **the precision the competitor achieves**                      |
+| 0.60      | 163                                  |                                                                |
+| 0.55      | 173                                  | the smallest pair that is inside the noise of one run          |
+| 0.50      | 185                                  |                                                                |
+| 0.40      | 233                                  |                                                                |
+| 0.30      | 407                                  | 90 % of the corpus: not a review                               |
+| 0.25      | 1 018                                | more goldens than the corpus has, at any recall                |
+| **0.20**  | **unreachable**                      | below `F1/2 = 0.225` no recall reaches the target              |
+
+**The floor is `target/2`, and it is the whole reason this table exists.** At precision 0.2687 we are 0.043 above the
+floor, and the ceiling row above says the best we can do at _perfect_ precision is 0.4278 - **a filter cannot reach the
+target from here even if it were perfect, and recall cannot reach it either while precision stays where it is.** The two
+numbers that must move together are therefore named, not hoped for: **precision to 0.55 and matched goldens to 173**, or
+any other point on the curve a run can actually reach.
+
+### 96.3 The competitor's rows, on the same 47 pull requests and the same 436 goldens
+
+`benchmarks/aacr/competitor-baseline.json` holds a competitor's per-pull-request findings and the goldens the same judge
+accepted for them, recorded from runs that were already paid for. **It covers 47 of our 50 pull requests**, so the table
+below restricts _both_ reviewers to those 47 and to the 436 goldens they share - **two rates over two corpora are two
+measurements, not a comparison**, and the restriction is the difference between the following table and an anecdote.
+
+| on the 47 shared pull requests, 436 goldens | ours       | the competitor |
+| ------------------------------------------- | ---------- | -------------- |
+| findings kept                               | 378        | 110            |
+| goldens matched                             | 98         | 77             |
+| precision                                   | 0.2593     | **0.7000**     |
+| recall                                      | **0.2248** | 0.1766         |
+| F1                                          | 0.2408     | **0.2821**     |
+| goldens matched by _all_ their findings     | 117        | **195**        |
+| **generator recall**                        | 0.2683     | **0.4472**     |
+| **ceiling at perfect precision**            | 0.4231     | **0.6181**     |
+| where F1 stops at their precision           | 0.4231     | 0.8235         |
+
+**Their generator finds 1.67× the goldens ours finds, and their selection keeps a third of what ours keeps.** Two
+different defects, and F1 reports them as one gap of 0.0413:
+
+- **generation**: 195 against 117 goldens on the same corpus. **Their ceiling is 0.6181 and ours is 0.4231** - the target
+  is inside their bound and outside ours, which is the arithmetic restatement of §95.3;
+- **selection**: 0.7000 against 0.2593. **Applying their precision to our recall buys 0.3880** and applying ours to
+  theirs buys 0.3282 - so **neither half alone crosses 0.4500**, and the two together do: their precision on their recall
+  is what 0.2821 is made of, and at 0.55 / 173 the frontier says 0.4500. **Both swaps are computed in the artifact rather
+  than divided by hand**, because a cross-multiplication done in a paragraph is a number nobody can re-derive.
+
+**What we may not conclude**: that their generator is better _at the same cost_. The artifact records their findings, not
+their token bill, and this repository has measured its own prompt at 12 findings per pull request (§95.4). **A comparison
+of quality at unknown cost is a comparison of quality**, and the cost column is the one this section cannot fill in.
+
+### 96.4 What the next arm has to be, and what would refute it
+
+**The registered target for R-43 is a point on the frontier rather than a single number**: precision ≥ 0.55 **and**
+matched goldens ≥ 173 on the 452-golden corpus. **Refuted if either moves alone** - 0.55 precision at 130 matched is
+0.3877, and 200 matched at 0.30 is 0.4519 only by emitting 667 findings, which is not a review.
+
+**And a selection-only arm is refuted in advance by this section**, which is what four devices (§88, §91, §93, §95) spent
+a quarter finding out one run at a time. **The work is a generator that finds 1.67× more goldens and a filter that throws
+away three quarters of what it writes**, and the competitor's rows say both are possible on this corpus.
+
+### 96.5 What this does not claim
+
+**It does not claim the ceiling is exact.** It assumes the judge's per-pair verdicts are the only evidence of a match and
+that the matching step assigns each golden once; both are the protocol's own definitions, and the ceiling inherits
+whatever error they carry. **It does not claim the competitor rows and ours were produced under identical conditions** -
+theirs were recorded from two runs on a 36-pull-request slice and transcribed once, ours from one run on 50, and the 47
+shared pull requests are the part where the comparison is licensed.
+
+**It does not claim the 0.4500 target is the field's frontier.** It is the figure this repository registered against, read
+from `scoring.registeredRule` rather than typed into a script, and `docs/LEADERBOARDS.md` is where the field's other
+figures and their provenance live.
+
+**The bill is zero.** Two artifacts already on disk, one script, one test.

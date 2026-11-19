@@ -1,0 +1,156 @@
+{
+  "comment": [
+    "What a filter could reach on the findings two reviewers already produced, and what the target costs.",
+    "The ceilings are upper bounds: they assume a filter that keeps exactly the findings that matched a golden, which",
+    "no rule can do without the judge. A device that cannot reach the target inside its own ceiling is refuted before",
+    "it is built, which is the reading four null devices needed and did not have."
+  ],
+  "measuredAt": "2026-11-10",
+  "sources": {
+    "ours": "benchmarks/aacr-bench.json",
+    "theirs": "benchmarks/aacr/competitor-baseline.json"
+  },
+  "target": 0.45,
+  "ours": {
+    "goldens": 452,
+    "kept": 387,
+    "truePositives": 104,
+    "precision": 0.2687,
+    "recall": 0.2301,
+    "f1": 0.2479,
+    "generatorRecall": 0.2721,
+    "generatorMatched": 123,
+    "ceilingAtPerfectPrecision": 0.4278,
+    "ceilingRescued": 0.402,
+    "asymptoteAtThisPrecision": 0.4236
+  },
+  "theirs": {
+    "goldens": 436,
+    "kept": 110,
+    "truePositives": 77,
+    "precision": 0.7,
+    "recall": 0.1766,
+    "f1": 0.2821,
+    "generatorRecall": 0.4472,
+    "generatorMatched": 195,
+    "ceilingAtPerfectPrecision": 0.6181,
+    "ceilingRescued": 0.6142,
+    "asymptoteAtThisPrecision": 0.8235
+  },
+  "oursPublished": {
+    "kept": 387,
+    "truePositives": 85,
+    "precision": 0.2196,
+    "recall": 0.1881,
+    "f1": 0.2026,
+    "goldensHit": 123
+  },
+  "shared": {
+    "pullRequests": 47,
+    "ours": {
+      "goldens": 436,
+      "kept": 378,
+      "truePositives": 98,
+      "precision": 0.2593,
+      "recall": 0.2248,
+      "f1": 0.2408,
+      "generatorRecall": 0.2683,
+      "generatorMatched": 117,
+      "ceilingAtPerfectPrecision": 0.4231,
+      "ceilingRescued": 0.3966,
+      "asymptoteAtThisPrecision": 0.4118
+    },
+    "theirs": {
+      "goldens": 436,
+      "kept": 110,
+      "truePositives": 77,
+      "precision": 0.7,
+      "recall": 0.1766,
+      "f1": 0.2821,
+      "generatorRecall": 0.4472,
+      "generatorMatched": 195,
+      "ceilingAtPerfectPrecision": 0.6181,
+      "ceilingRescued": 0.6142,
+      "asymptoteAtThisPrecision": 0.8235
+    },
+    "crossed": {
+      "theirPrecisionOnOurRecall": 0.388,
+      "ourPrecisionOnTheirRecall": 0.3282
+    }
+  },
+  "frontier": {
+    "target": 0.45,
+    "rows": [
+      {
+        "precision": 1,
+        "requiredMatched": 132,
+        "reachable": true
+      },
+      {
+        "precision": 0.8,
+        "requiredMatched": 142,
+        "reachable": true
+      },
+      {
+        "precision": 0.7,
+        "requiredMatched": 150,
+        "reachable": true
+      },
+      {
+        "precision": 0.6,
+        "requiredMatched": 163,
+        "reachable": true
+      },
+      {
+        "precision": 0.55,
+        "requiredMatched": 173,
+        "reachable": true
+      },
+      {
+        "precision": 0.5,
+        "requiredMatched": 185,
+        "reachable": true
+      },
+      {
+        "precision": 0.45,
+        "requiredMatched": 204,
+        "reachable": true
+      },
+      {
+        "precision": 0.4,
+        "requiredMatched": 233,
+        "reachable": true
+      },
+      {
+        "precision": 0.35,
+        "requiredMatched": 285,
+        "reachable": true
+      },
+      {
+        "precision": 0.3,
+        "requiredMatched": 407,
+        "reachable": true
+      },
+      {
+        "precision": 0.25,
+        "requiredMatched": 1018,
+        "reachable": false
+      },
+      {
+        "precision": 0.2,
+        "requiredMatched": null,
+        "reachable": false
+      }
+    ],
+    "floorPrecision": 0.225
+  },
+  "verdict": {
+    "targetInsideOurCeiling": false,
+    "targetInsideTheirCeiling": true,
+    "ourCeiling": 0.4278,
+    "theirCeiling": 0.6181,
+    "ourGeneratorRecall": 0.2721,
+    "theirGeneratorRecall": 0.4472,
+    "whatTheirPrecisionWouldBuyOnOurFindings": 0.3919
+  }
+}
