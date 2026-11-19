@@ -219,15 +219,7 @@
       "oursCount": 31,
       "both": 24,
       "missing": [],
-      "nested": [
-        "descend",
-        "visit",
-        "collect",
-        "call_target",
-        "classify",
-        "ambiguous",
-        "ratio"
-      ],
+      "nested": ["descend", "visit", "collect", "call_target", "classify", "ambiguous", "ratio"],
       "phantom": []
     },
     {
@@ -257,9 +249,7 @@
       "oursCount": 7,
       "both": 6,
       "missing": [],
-      "nested": [
-        "Inner"
-      ],
+      "nested": ["Inner"],
       "phantom": []
     },
     {
@@ -269,10 +259,7 @@
       "oursCount": 15,
       "both": 13,
       "missing": [],
-      "nested": [
-        "Ok",
-        "Pending"
-      ],
+      "nested": ["Ok", "Pending"],
       "phantom": []
     },
     {
@@ -292,12 +279,8 @@
       "oursCount": 9,
       "both": 7,
       "missing": [],
-      "nested": [
-        "Nested"
-      ],
-      "phantom": [
-        "Greeter"
-      ]
+      "nested": ["Nested"],
+      "phantom": ["Greeter"]
     },
     {
       "language": "javascript",

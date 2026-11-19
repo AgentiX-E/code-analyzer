@@ -12,19 +12,19 @@
 // line has to be answered.
 
 import { readFileSync } from 'node:fs';
-import { fileURLToPath } from 'node:url';
+import { join } from 'node:path';
 
 import { describe, expect, it } from 'vitest';
 
 import { buildSymbolIndex } from '../symbols.js';
 
-// Six levels up from this file - `__tests__`, `index`, `review`, `src`, `intelligence`, `packages` - because the
-// corpus is the repository's, not the package's, and a copy of it inside the package would be a second corpus.
-const root = fileURLToPath(new URL('../../../../../../', import.meta.url));
+// **The corpus is the repository's, not the package's**, and `process.cwd()` is the convention this package's tests
+// already use to reach it (`app-with-taint.test.ts` reads its fixture the same way). `import.meta` would be the other
+// way, and this package compiles to CommonJS, where it is not allowed.
 const indexOf = (name: string) =>
   buildSymbolIndex(
     `benchmarks/polyglot/hard/${name}`,
-    readFileSync(`${root}benchmarks/polyglot/hard/${name}`, 'utf8'),
+    readFileSync(join(process.cwd(), 'benchmarks/polyglot/hard', name), 'utf8'),
   );
 const names = (name: string): string[] => indexOf(name).symbols.map((symbol) => symbol.name);
 const find = (name: string, symbol: string) =>
