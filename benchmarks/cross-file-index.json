@@ -1,0 +1,58 @@
+{
+  "generatedBy": "scripts/cross-file-report.mjs",
+  "packages": [
+    "analyzer",
+    "cli",
+    "core",
+    "infra",
+    "intelligence",
+    "mcp",
+    "server",
+    "shared",
+    "vscode",
+    "web"
+  ],
+  "files": 482,
+  "lines": 185055,
+  "stats": {
+    "files": 482,
+    "symbols": 4293,
+    "imports": 1874,
+    "resolvedImports": 1256,
+    "externalImports": 618,
+    "missingImports": 0,
+    "namespaceImports": 0,
+    "edges": 1282
+  },
+  "elapsedMs": 361,
+  "agreement": {
+    "compared": 1256,
+    "bareSpecifiers": 618,
+    "agreed": 1256,
+    "rate": 1,
+    "weResolveTheyDoNot": 0,
+    "theyResolveWeDoNot": 0,
+    "bothResolveDifferently": 0
+  },
+  "samples": {
+    "weResolveTheyDoNot": [],
+    "theyResolveWeDoNot": [],
+    "bothResolveDifferently": []
+  },
+  "coverage": {
+    "declarations": 4293,
+    "readFromAnotherFile": 661,
+    "share": 0.154,
+    "meanCallers": 1.9395,
+    "topFanOut": [
+      ["ParsedImport", 34],
+      ["namedChildrenOf", 26],
+      ["childrenOf", 26],
+      ["TreeSitterSyntaxNode", 24],
+      ["lineOf", 24],
+      ["TreeSitterLanguage", 22],
+      ["TreeSitterBaseProvider", 21],
+      ["ExecutablePhase", 19]
+    ]
+  }
+}

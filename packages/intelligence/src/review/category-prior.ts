@@ -38,7 +38,9 @@ export interface CategoryAcceptance {
  * **The measurement, and where it comes from.**
  *
  * `Alibaba-Aone/aacr-bench` (Apache-2.0), fifty pull requests, 452 expert-confirmed issues, judge `deepseek-chat`,
- * `pullRequestBudget` 16, prompt order `boilerplate-first`. The artifact is `benchmarks/aacr-bench.json` and the exact
+ * `pullRequestBudget` 16 - **the arm that produced the artifact, which is now 12**; a prior is a property of the run that
+ * measured it and not of the constant it was run with. Prompt order `boilerplate-first`. The artifact is
+ * `benchmarks/aacr-bench.json` and the exact
  * run is recorded in its own `measuredAt`. **These are the counts of the file arm's full emission**, before any
  * deduplication threshold or budget is applied - **the emission is what the prior is about**, and a prior computed
  * after the budget would be a prior about the budget.

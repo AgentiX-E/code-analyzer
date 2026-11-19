@@ -468,6 +468,17 @@ export type {
   MemberSymbol,
   SymbolKind,
 } from './review/index/symbols.js';
+// The repository index — which file an import names, and which names cross a file boundary. §95.
+export { buildRepoIndex, impactOf } from './review/index/repo-index.js';
+export type {
+  CrossReference,
+  ImpactSet,
+  RepoFile,
+  RepoIndex,
+  RepoIndexStats,
+  ResolvedImport,
+  UnresolvedImport,
+} from './review/index/repo-index.js';
 export { parseCognitionIndex, renderCognitionEntry } from './review/index/cognition.js';
 export type { CognitionEntry, CognitionProblem } from './review/index/cognition.js';
 // The index queried by a finding's own words - `aoci-code`'s `Search`, whole rows, no embedding. §82.

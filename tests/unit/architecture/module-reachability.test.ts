@@ -453,7 +453,13 @@ describe('every module a package compiles is reachable from an entry its manifes
       // because **a file is library input and the alternative was a 1 200-line scanner whose four languages were tested
       // against one another's fixtures** - §84 records the count that forced them: 81 % of the corpus's findings stood
       // in a file whose declarations the index could not name.
-      intelligence: 190,
+      // **191 since iteration 149**, which added `review/index/repo-index.ts`: the reference half of the index - which
+      // file an import names, and which names cross. **A module rather than a function inside `symbols.ts`** because the
+      // two answer different questions with different failure directions: a scanner that misses a declaration hides a
+      // guard, and a resolver that invents an edge tells a review a change reaches a file it does not. §95.1 scores the
+      // second against `ts.resolveModuleName` rather than against its own rules, which is only possible while the two are
+      // separate modules with separate tests.
+      intelligence: 191,
       mcp: 39,
       server: 24,
       // **11 since iteration 121**, which added `utils/type-text.ts`: the depth-counted removal of type arguments and

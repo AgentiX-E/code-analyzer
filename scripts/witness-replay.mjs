@@ -322,6 +322,36 @@ async function main() {
       const addedNames = new Set();
       for (const line of addedLines)
         for (const token of narrativeNames(addedHere.get(line))) addedNames.add(token);
+      /**
+       * **The one fact about the change that is not about one file.**
+       *
+       * Every witness §93 measured was a property of the file a comment stands in, and every one of them was the exact
+       * null - 73 % of the comments that found a defect stood in a declaration and 73 % of the ones that found nothing
+       * did too. **A fact that is equally true of every row cannot separate rows.** This one is different in kind: it
+       * asks whether *the declaration the comment is about* is also named in an added line of **another file of the
+       * same change**. A rename, a signature change, or a refactor that reaches a caller is the shape of a change whose
+       * blast radius a reviewer can see, and the hypothesis under test is that comments on such a change are likelier
+       * to be about a defect than comments on a change that is contained in one file.
+       *
+       * **It is computed from the diff and not from a repository index**, which is the only way it can be computed for
+       * this artifact: the 316 files fetched here are the files comments stand in, not the repositories they came from,
+       * so a real `buildRepoIndex` over them would join files from different repositories at different heads and invent
+       * the edges it was asked to find. **The name crossing into another changed file is the part of the impact set a
+       * diff can establish on its own.**
+       */
+      const otherFiles = [];
+      const ownPath = normalisePath(finding.path);
+      for (const [path, lines2] of diffs.get(key)?.added ?? []) {
+        if (path === ownPath) continue;
+        const tokens = new Set();
+        for (const text of lines2.values()) for (const token of narrativeNames(text)) tokens.add(token);
+        otherFiles.push({ path, tokens });
+      }
+      const enclosingName = symbol?.name ?? null;
+      const crossingFiles =
+        enclosingName === null
+          ? []
+          : otherFiles.filter((other) => other.tokens.has(enclosingName)).map((other) => other.path);
       const named = narrativeNames(finding.text);
       const namesDeclared = [...named].some((token) => declared.has(token));
       // **A call witness is narrower than a name witness**: the sentence has to name a declaration *and* call it, which
@@ -335,6 +365,11 @@ async function main() {
         readable: true,
         enclosingTouched,
         declarationAdded,
+        // **The cross-file fact and its count**, so a reader can see whether "another file" meant one or eight - a
+        // binary threshold over a count is a different claim from a count, and both were pre-registered.
+        crossesFile: crossingFiles.length > 0,
+        crossingFiles: crossingFiles.length,
+        crossesTwoFiles: crossingFiles.length > 1,
         // **Whether the index has an opinion about this file at all.** `unknown` is a language nobody here reads, so a
         // line in it is not "outside every declaration" - it is a question this device cannot answer, and a device that
         // answered it would delete every finding filed against a `.c` file while reporting a precision gain.
@@ -393,6 +428,9 @@ async function main() {
     declarationAdded: armed((w) => w.declarationAdded),
     calleeOnAdded: armed((w) => w.calleeOnAdded),
     touchedOrCallee: armed((w) => w.enclosingTouched || w.calleeOnAdded),
+    crossesFile: armed((w) => w.crossesFile),
+    crossesTwoFiles: armed((w) => w.crossesTwoFiles),
+    touchedAndCrosses: armed((w) => w.enclosingTouched && w.crossesFile),
   };
 
   const curves = {};
@@ -432,6 +470,8 @@ async function main() {
     'enclosingTouched',
     'declarationAdded',
     'calleeOnAdded',
+    'crossesFile',
+    'crossesTwoFiles',
   ]) {
     let hit = 0;
     let hitTotal = 0;

@@ -187,6 +187,15 @@ export interface FileSymbolIndex {
   /** The file's own lines, 1-based at index 0, so a caller never keeps a second copy that can disagree. */
   readonly lines: readonly string[];
   /**
+   * **The same lines with every comment and every string body blanked**, keeping the quotations and braces that bound
+   * them. This is what the lexer already computed to decide which words are code, and a second consumer now needs it:
+   * a file that holds another program as a template literal - a benchmark fixture, a test corpus, a code generator - has
+   * `import { X } from './y'` in it, and **a reader of imports that could not tell code from text found one import in
+   * this repository that does not exist.** The masked line is the cheap way to ask "is this line code", and it is the
+   * lexer's answer rather than a second opinion.
+   */
+  readonly codes: readonly string[];
+  /**
    * **Whether the lexer met a construct it could not read.** When it did, every symbol that was open at that moment
    * runs to the end of the file - the wider claim, never the narrower one, for the reason the header states.
    */
@@ -596,6 +605,7 @@ export function buildSymbolIndex(path: string, text: string): FileSymbolIndex {
     symbols: scanned.symbols,
     exported: scanned.exported,
     lines,
+    codes,
     uncertain,
   };
 }

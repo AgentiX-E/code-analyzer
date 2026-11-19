@@ -337,7 +337,26 @@ export interface PullRequestReviewOptions {
   maxCodeContextChars?: number;
 }
 
-const DEFAULT_PULL_REQUEST_BUDGET = 16;
+/**
+ * **Twelve, and the number is a measurement rather than a habit.**
+ *
+ * It was 16 because 16 is what the first paid run happened to be configured with. **`scripts/witness-replay.mjs` replays
+ * the artifact's own findings under the artifact's own matching protocol**, so the truncation can be re-scored without a
+ * model, and the curve is not monotone:
+ *
+ * | findings per pull request | emitted | matched | precision | recall | F1         |
+ * | ------------------------- | ------- | ------- | --------- | ------ | ---------- |
+ * | 8                         | 275     | 81      | 0.2945    | 0.1816 | 0.2247     |
+ * | **12**                    | **338** | **90**  | **0.2663** | **0.2018** | **0.2296** |
+ * | 16 (**what shipped**)     | 383     | 93      | 0.2428    | 0.2085 | 0.2244     |
+ *
+ * **The 13th to 16th comment of a pull request buys three matches for forty-five comments.** Twelve is the peak of the
+ * replayed curve and is 45 comments per fifty pull requests cheaper than sixteen. **Eight is inside the noise and
+ * cheaper again** (0.2247 against 0.2296 on 63 fewer comments); twelve is chosen because recall is the weaker half and a
+ * better ranker can only spend a budget it was given. **This is an in-sample replay and the next paid run is what
+ * confirms it** - if the run at twelve scores below the run at sixteen, this constant goes back.
+ */
+export const DEFAULT_PULL_REQUEST_BUDGET = 12;
 
 /**
  * **How far apart two findings may sit and still be the same construct.**

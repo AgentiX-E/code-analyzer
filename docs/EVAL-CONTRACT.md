@@ -10047,3 +10047,142 @@ it is a review that _can be shown_ more, which §94.3 prices at 93.9 % of the co
 
 **The bill is zero.** No model call, no judge: 318 file reads and 49 diff reads through the GitHub API, on a corpus whose
 verdicts were paid for in §91's run.
+
+---
+
+## §95 The index learns what a change reaches, and the artifact's own counts say why four devices were null
+
+**§93 closed every per-file fact this index can produce and §94 made the files it reads legible.** Both left the same
+sentence behind: _a fact about a file's shape cannot separate two comments filed against the same shape._ **This section
+goes after the fact that is not about one file**, judges the new resolver against another resolver instead of against its
+own rules, measures the cross-file witness on the artifact, and then reads the artifact's own count of what happened to
+its 452 goldens - **which explains all four nulls at once, and moves the constraint off selection entirely.**
+
+### 95.1 A resolver, and the only thing that can disagree with it
+
+`packages/intelligence/src/review/index/repo-index.ts` reads a repository as structure: **every file's declarations
+(§94), every import statement, the file each one names, and the names that actually cross.** The claim it makes is
+narrow and checkable - _this name, read from this file, is declared in that one_ - and the three refusals are stated
+where they are made: **a bare specifier is `external` and not `missing`**, **a namespace import makes no edge**, and **a
+re-export chain is not followed.**
+
+**`scripts/cross-file-report.mjs` judges it against TypeScript.** `ts.resolveModuleName` is the module resolution the
+compiler ships, it is already a devDependency, and it answers exactly the same question for every source file in this
+repository. **A resolver checked with its own rules is checked by its author**; this one is checked by the program that
+has to agree with it or fail the build.
+
+| measured over `packages/*/src` (test directories excluded)       | figure                    |
+| ---------------------------------------------------------------- | ------------------------- |
+| files                                                            | 482                       |
+| lines                                                            | 185 055                   |
+| declarations                                                     | 4 293                     |
+| import statements                                                | 1 874                     |
+| relative, resolved                                               | 1 256                     |
+| bare specifiers (`external`)                                     | 618                       |
+| relative, **unresolved**                                         | **0**                     |
+| names that cross a file boundary (edges)                         | 1 282                     |
+| declarations read from outside their own file                    | 661 (15.4 %)              |
+| callers per such declaration                                     | 1.94                      |
+| **agreement with `ts.resolveModuleName` on relative specifiers** | **1 256 / 1 256 = 1.000** |
+| walls                                                            | 361 ms                    |
+
+**The disagreement count is zero in all three directions**, which was not the first reading: the first version compared
+every import in one table and reported **0.6949** agreement - of which 162 rows were `node:path` and 410 were
+`@code-analyzer/shared`, **neither of them a disagreement about this repository.** A builtin is not a file and a
+workspace package resolves to `dist/`. **A rate that mixes two questions cannot be improved by fixing either one**, so
+the table above is restricted to the population both resolvers are answering.
+
+**And the judge earned its keep on the first run by finding one `missing`.** `packages/intelligence/src/benchmark/benchmark-fixtures.ts:24`
+holds benchmark programs as template literals, and one of them is `import { Database } from './database';` **inside a
+string**. The reader counted it, failed to resolve it, and reported the only unresolved relative import in a repository
+whose imports all resolve. **A fixture is not an import**: the fix is the lexer's own masked line (`codes`, now exposed on
+`FileSymbolIndex`), and the effect is visible in both columns - **`missing` 1 → 0, and edges 1 318 → 1 282**, because
+thirty-six of the "edges" were names used inside strings.
+
+### 95.2 The cross-file witness, and the fourth null
+
+**The fact is the one §93 could not compute**: does the declaration a comment is about get named in an added line of
+**another file of the same change**? A rename, a signature change, or a refactor that reaches a caller is a change whose
+blast radius a reviewer can see, and the hypothesis - registered before the run - is that comments on such a change are
+likelier to be about a defect.
+
+It is computed from the diff and not from a repository index, **because the 316 files fetched for this artifact are the
+files comments stand in, not the repositories they came from**: a `buildRepoIndex` over them would join files from
+different repositories at different heads and invent the edges it was asked to find. The name crossing into another
+changed file is the part of an impact set a diff establishes on its own.
+
+| fact              | what it asks                                                              | matched | unmatched | lift        |
+| ----------------- | ------------------------------------------------------------------------- | ------- | --------- | ----------- |
+| `crossesFile`     | the enclosing declaration's name appears in an added line of another file | 0.2105  | 0.1493    | **+0.0613** |
+| `crossesTwoFiles` | … in two or more other files                                              | 0.1118  | 0.1070    | +0.0049     |
+
+**This is the largest single-fact lift measured on this corpus** - `declarationAdded` was +0.0576 and `inDeclaration` was
+−0.0011 - **and it is still 1.3 standard errors from zero.** SE for a difference of two proportions at these counts is
+≈0.047, and 0.0613 / 0.047 = 1.30.
+
+| arm                      | k   | TP  | precision  | recall | F1         |
+| ------------------------ | --- | --- | ---------- | ------ | ---------- |
+| **everything**           | 569 | 103 | 0.1810     | 0.2309 | **0.2030** |
+| keep `crossesFile`       | 107 | 34  | **0.3178** | 0.0762 | 0.1230     |
+| keep `touchedAndCrosses` | 104 | 34  | **0.3269** | 0.0762 | 0.1236     |
+
+**As a filter it buys 81 % relative precision for two thirds of the recall**, which is the same trade §91 and §93
+already priced and refused. **What is different here is that the trade is now worth stating as a product**: a 33 %-
+precision tier of two comments per pull request is not a better F1, it is a different thing to ship - **and the Martian
+protocol cannot express a two-tier review**, because it scores one (finding, golden) table.
+
+### 95.3 The artifact counts what happened to its own goldens, and the answer is not about selection
+
+`aacr-bench.json` carries `missedGoldens.counts`. **It is a decomposition of all 452 goldens, and it closes the question
+this section opened:**
+
+| what happened to the golden                                 | goldens | share      |
+| ----------------------------------------------------------- | ------- | ---------- |
+| a finding matched it                                        | **123** | 27.2 %     |
+| the file was never reviewed                                 | 39      | 8.6 %      |
+| the file was reviewed and no finding was filed on that path | 36      | 8.0 %      |
+| **a finding was filed on that path and did not match**      | **254** | **56.2 %** |
+
+**Two thirds of the goldens we lose, we lose with a comment already standing on the right file at the right path.** That
+is not a selection failure - a selector can only choose among the sentences that were generated - it is a **generation**
+failure: 254 times, the lane looked at the right file and wrote something that was not the defect.
+
+**This is the explanation of every null in §88, §91 and §93**, and it is arithmetic rather than argument: with 123 of 569
+emissions correct, **any reordering can at most redistribute 123 findings**, and any filter can only delete some of them.
+Four devices were measured against a set whose ceiling was fixed by the sentences in it. **Compliance was never the
+problem, and neither was ranking: the sentences were.**
+
+### 95.4 The budget was 16 because the first run was 16, and the replay says 12
+
+**The truncation is the one knob on this path that costs nothing to re-measure**, because the artifact's findings carry
+their own matches and the protocol is a bipartite matching per pull request. `witness-replay.mjs` re-scores it:
+
+| findings per pull request | emitted | matched | precision  | recall     | F1         |
+| ------------------------- | ------- | ------- | ---------- | ---------- | ---------- |
+| 4                         | 175     | 54      | 0.3086     | 0.1211     | 0.1739     |
+| 8                         | 275     | 81      | 0.2945     | 0.1816     | 0.2247     |
+| **12**                    | **338** | **90**  | **0.2663** | **0.2018** | **0.2296** |
+| 16 (**what shipped**)     | 383     | 93      | 0.2428     | 0.2085     | 0.2244     |
+
+**The 13th to 16th comment of every pull request buys three matches for forty-five comments.** `DEFAULT_PULL_REQUEST_BUDGET`
+is now 12, the benchmark arm's `PR_BUDGET` fallback is 12, and **a test asserts the two have not drifted** - a benchmark
+number that describes a configuration nobody ships is a number about the past.
+
+**This is an in-sample replay and it is labelled as one.** The mechanism - a fixed ranker's tail being close to noise - is
+a property of the ranker rather than of the corpus, which is why the change is defensible before a run; the number
+0.2296 is not a new measurement of the review, and the next paid run is what confirms or refutes it.
+
+### 95.5 What this does not claim
+
+**It does not claim the cross-file index improves the review.** No arm was run; the witness it produces is the fourth
+null in four attempts, and it is reported as one. **It does not claim 1.000 agreement means the resolver is complete** -
+it means it answers every relative specifier this repository writes the way the compiler does, and this repository writes
+TypeScript and JavaScript only: **Java's `import a.b.C;`, Python's `from .mod import x`, Go's import block and Kotlin's
+and Swift's imports are not read at all**, so the edge layer covers three of the eleven languages the field asks about
+and the other eight are a next step with a named oracle each.
+
+**It does not claim 12 is optimal.** It claims 12 is better than 16 on the only evidence available, that 8 is inside the
+noise and cheaper, and that the constant's own comment says so.
+
+**The bill is zero.** No model call and no judge: 482 local files read from disk, 318 file reads and 49 diff reads through
+the GitHub API against verdicts paid for in §91's run.

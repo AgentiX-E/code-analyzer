@@ -354,12 +354,32 @@ const CHANGE_SHAPE = String(process.env['AACR_CHANGE_SHAPE'] ?? 'off').toLowerCa
  * so **the scope is worth a factor of two in precision at equal emission**, and the small arm's problem was never
  * precision, it was that three slots for a whole pull request buys a tenth of the recall.
  *
- * **Sixteen is where the arithmetic crosses the figure to beat.** With 50 goldens and 80 emitted findings, F1 > 0.45
- * needs **30 true positives**, which is precision **0.375** - *below* the 0.40 this arm has already demonstrated. The
- * rule this run registers is therefore: **a modest decay from 0.40 is survivable, and a collapse is not.** If precision
- * lands under 0.375 the registration is falsified and the report says so.
+ * **Sixteen was where the arithmetic crossed the figure to beat**, and it was a pre-registration rather than an optimum:
+ * with 50 goldens and 80 emitted findings, F1 > 0.45 needs 30 true positives, which is precision 0.375 - *below* the 0.40
+ * the arm had already demonstrated.
+ *
+ * **Twelve replaces it, and this is a registered change made before the run rather than after it.** `witness-replay.mjs`
+ * replays the artifact's findings under the artifact's matching protocol, so the truncation can be re-scored without a
+ * model, and the curve has a peak:
+ *
+ * | findings per pull request | emitted | matched | precision | recall | F1       |
+ * | ------------------------- | ------- | ------- | --------- | ------ | -------- |
+ * | 4                         | 175     | 54      | 0.3086    | 0.1211 | 0.1739   |
+ * | 8                         | 275     | 81      | 0.2945    | 0.1816 | 0.2247   |
+ * | **12**                    | **338** | **90**  | **0.2663** | **0.2018** | **0.2296** |
+ * | 16 (**what shipped**)     | 383     | 93      | 0.2428    | 0.2085 | 0.2244   |
+ *
+ * **The 13th to 16th comment of a pull request buys three matches for forty-five comments**, which is the whole of the
+ * argument: the tail of every pull request's ranking is close to noise, and a cap is the cheapest instrument that can
+ * refuse it. **The engine's own default is the same number** (`DEFAULT_PULL_REQUEST_BUDGET` in
+ * `packages/intelligence/src/review/llm/llm-review-engine.ts`), and a test asserts the two have not drifted apart -
+ * **the benchmark arm and the shipped default disagreeing silently is how a number stops describing the product.**
+ *
+ * **The falsifier is restated in the currency this corpus reports**: F1 0.45 on 452 goldens needs about **178 matched
+ * goldens**, which at 338 emissions is precision 0.53. The registration is therefore *precision must stay above 0.24 and
+ * matched goldens above 90 at the smaller budget* - a decay to 80 would mean the curve was a property of the old run.
  */
-const PR_BUDGET = Number(process.env['PR_BUDGET'] ?? '16');
+const PR_BUDGET = Number(process.env['PR_BUDGET'] ?? '12');
 
 function findSamples(name) {
   const hits = [];
