@@ -9677,3 +9677,136 @@ honest reading is that the ceiling was written from the previous run's total rat
    comment stands in - was deferred to R-41b because a lane call has no file, and **that deferral is now the only
    surviving part of the plan**, with the difference that it is no longer about anchoring a comment: it is about
    **widening detection**, which is where the field's 24 points actually are.
+
+---
+
+## §92 The scanner measured at 326 files, and the lexer had one idea of what a backtick is
+
+**§89 measured one real file per language and every scanner answered it perfectly, which is the shape a measurement takes
+when the corpus was chosen to be read.** This section is the other measurement: eleven construct files that hold what a
+reviewer files comments against, and a walk over **326 real files this machine already had** - `node_modules` for the two
+JavaScript dialects and a Python 3.11 installation for the third. It cost nothing, it ran offline, and it found **six
+defects in the index and seven in the oracle**.
+
+### 92.1 The 326-file run, and the number that made it worth reading
+
+| language   | files | names | found | recall | precision |
+| ---------- | ----- | ----- | ----- | ------ | --------- |
+| typescript | 101   | 3 451 | 3 444 | 0.998  | 1.000     |
+| javascript | 111   | 1 372 | 1 351 | 0.985  | 1.000     |
+| python     | 114   | 1 697 | 1 793 | 0.992  | 0.939     |
+
+**The first run of this script reported TypeScript precision 0.417 and Python recall 0.960**, and neither figure was
+about the scanner. The 0.417 was two `@babel/types` declaration files whose 1 673 `declare function` lines the oracle
+could not see (**oracle defect, fixed**), and 1.101 was a recall above its own precision because **a name declared twice
+was counted twice** in the denominator (**metric defect, fixed**). **A measurement whose first reading is absurd is a
+measurement of the instrument**, which is why the numbers above are the third reading rather than the first.
+
+**Python's last five points are one bug, and it is the headline.** `cmd.py`, `configparser.py`, `code.py` and
+`compileall.py` from the standard library indexed as **zero symbols**. Their docstrings contain a backtick -
+reStructuredText quoting a command - and `lexLine` opened a template literal for it, because **the lexer had one answer
+for twelve languages and it was TypeScript's**. The state persisted, every line under it was blanked as string content,
+and the declarations the file exists for went with it:
+
+| file              | before | after |
+| ----------------- | ------ | ----- |
+| `cmd.py`          | **0**  | 4     |
+| `code.py`         | **0**  | 7     |
+| `compileall.py`   | **0**  | 7     |
+| `configparser.py` | **0**  | 25    |
+
+**A file that indexes as nothing is worse than a file that is not indexed at all**: `unknown` tells a consumer the index
+has no opinion, and `0 symbols` tells it the file declares nothing - **the two answers §89 was written about, produced by
+the wrong one of them.**
+
+### 92.2 What a backtick and a triple quote mean, per language
+
+`lexLine` now takes the rules of the language being read, because **a character that opens a string in one language is a
+character in another**:
+
+| rule                 | languages                                        | what it buys                                                     |
+| -------------------- | ------------------------------------------------ | ---------------------------------------------------------------- |
+| backtick, multi-line | typescript, javascript, arkts, **go**            | a template's braces are not the file's braces                    |
+| `"""` and `'''`      | python, kotlin, swift, groovy, java, csharp, php | a raw string or a docstring spans lines and holds anything       |
+| neither              | c, ruby, json, yaml, xml                         | a backtick is a character; `"""` is an empty string and a string |
+
+**Go is in the first row and that is not an oversight**: its backtick is a raw string that spans lines, so a fix that
+removed the state everywhere would have traded one wrong answer for another. **A test asserts both directions** - the
+Python docstring that must not open anything, and the Go raw string that must.
+
+### 92.3 The six construct defects, with the language each belongs to
+
+| #   | language   | construct                                      | what the scanner did                      | what it does               |
+| --- | ---------- | ---------------------------------------------- | ----------------------------------------- | -------------------------- |
+| 1   | swift      | `public typealias Completion = (…) -> Void`    | declared nothing                          | a `type`                   |
+| 2   | typescript | `export const enum Fast { … }`                 | a symbol called `enum`, and no `Fast`     | `Fast`                     |
+| 3   | json       | `"escaped\"quote": 1`                          | the name carried its own backslash        | the decoded name           |
+| 4   | json       | `{ "os": "linux", "arch": "x64" }` on one line | nothing - the key regex was line-anchored | both keys                  |
+| 5   | python     | `_cache: dict[str, int] = {}`                  | nothing - the rule was `[A-Z][A-Z0-9_]*`  | a `const`                  |
+| 6   | yaml       | `flow: { a: 1, b: 2 }`                         | one key called `flow`                     | `a` and `b` as its members |
+
+**Two more came out of the same fixtures and are worth separating**, because neither is a missed keyword:
+
+- **A block scalar is text.** `command: |` followed by a shell script turned four lines of that script into four keys, on
+  this repository's own `ci.yml`. They were _contained_ in `run`, so the containment check hid them - **the same
+  mechanism that makes a nested symbol legitimate makes a string full of colons look like a table.**
+- **A key is the document's when the only thing holding it is the document's root object.** `[{ "a": 1 }]` is an array of
+  objects and `a` is not a key of the file; the bracket stack is the only thing that tells that apart from `{ "a": 1 }`.
+
+### 92.4 The eleven languages, after: 25 files, recall 1.000 on every one
+
+| language   | oracle | ours | both | recall    | precision | the extras are                           |
+| ---------- | ------ | ---- | ---- | --------- | --------- | ---------------------------------------- |
+| java       | 12     | 13   | 12   | **1.000** | 0.923     | a nested class                           |
+| javascript | 19     | 19   | 19   | **1.000** | **1.000** | -                                        |
+| typescript | 45     | 45   | 45   | **1.000** | **1.000** | -                                        |
+| python     | 37     | 44   | 37   | **1.000** | 0.841     | methods and members, held by their class |
+| groovy     | 12     | 14   | 12   | **1.000** | 0.857     | a static nested class                    |
+| xml        | 121    | 121  | 121  | **1.000** | **1.000** | -                                        |
+| yaml       | 79     | 79   | 79   | **1.000** | **1.000** | -                                        |
+| json       | 148    | 148  | 148  | **1.000** | **1.000** | -                                        |
+| kotlin     | 17     | 19   | 17   | **1.000** | 0.895     | the members of a sealed class            |
+| swift      | 21     | 21   | 21   | **1.000** | **1.000** | -                                        |
+| arkts      | 17     | 17   | 17   | **1.000** | **1.000** | -                                        |
+
+**One phantom survives and it is the oracle's**: `trait Greeter` in `hard.groovy` is parsed by tree-sitter-groovy as a
+`juxt_function_call` around a closure - **the grammar does not know the word `trait`**, so the one name the two
+implementations disagree about is a name this lexer has and the grammar cannot see. It is recorded rather than fixed:
+**a comparison that hid the disagreements it could not resolve would be a comparison worth nothing.**
+
+### 92.5 What each language still cannot do, asked one language at a time
+
+**The question that produced this section was per-language, so the answer is too.** Every row is a construct the scanner
+does not read _today_, with the reason it has not been done rather than a promise:
+
+| language   | the next gap                                                                | judgeable by the oracle | why it is not done                                                                                             |
+| ---------- | --------------------------------------------------------------------------- | ----------------------- | -------------------------------------------------------------------------------------------------------------- |
+| java       | a type nested two levels deep; enum constants; `record` components          | partly                  | the depth rule reads two levels for a namespace reason and no corpus here nests three                          |
+| javascript | `export default class {}` (unnamed); `export const { a, b } = x`            | yes                     | an unnamed declaration has no name to report, and the destructured one needs a second reader                   |
+| typescript | a `namespace` body; `declare module 'x' { … }`; JSX in `.tsx`               | partly                  | the oracle does not call `internal_module` a declaration either                                                |
+| python     | an assignment inside a module-level `for`; a `def` in a class in an `if`    | yes                     | the scope walk follows one header chain and stops at the first `def`                                           |
+| groovy     | Gradle's block DSL (`plugins { }`); a `@CompileStatic` method's return type | no                      | the DSL is not a declaration and the grammar cannot judge what it is                                           |
+| xml        | attributes; text content; a DTD entity's use                                | no                      | the index names elements, and an attribute is a name a witness may need                                        |
+| yaml       | a flow collection written over several lines; merge-key semantics           | partly                  | `<<` is reported as a key by both implementations, which is agreement on a convention rather than on an answer |
+| json       | JSONC comments and trailing commas; duplicate keys                          | no                      | tree-sitter-json rejects both, so there is nothing to compare against                                          |
+| kotlin     | a `companion object`'s members; secondary constructors                      | partly                  | the companion is an unnamed type the file nests members in                                                     |
+| swift      | `subscript`, `operator`, `precedencegroup`; a constrained `extension`       | yes                     | three declarations a review rarely files against, and the fixture has none                                     |
+| arkts      | `@Styles` and `@Extend` blocks                                              | yes                     | the decorators are stripped and the blocks declare nothing today                                               |
+
+**None of these is registered as work.** They are the honest answer to _does this language have room left_, and the
+column that matters is the third: **five of the eleven cannot be measured against a third-party grammar even if the
+scanner were extended**, which is why the eleven-language table will stay at two files per language rather than grow into
+a benchmark it cannot support.
+
+### 92.6 What this does not claim
+
+**The review's precision does not move in this section, and no arm was run.** §91 left the shipped point at F1 0.2467
+after the anchor was reverted, and **an index that reads a file more completely is not a review that reads it better** -
+§78 measured `codeContext` at −0.0022 F1 and SWE-PRBench measured eight frontier models falling as context grew. What
+changes is the input to the two places the index is used as a **judge** rather than as reading material: `symbolAt` for a
+witness, and the call graph for an impact set. **On the martian artifact's own paths, the language a finding stands in is
+unchanged by this section** - the extensions were already mapped in §89 - so the field-level figure remains
+83.2 → 84.6 % nameable, and it will not move again until a language is added or a path is read differently.
+
+**And the cost is zero.** No arm, no judge, no model call: the whole section is local computation over files this machine
+already had.

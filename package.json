@@ -2,7 +2,7 @@
   "name": "code-analyzer",
   "private": true,
   "version": "0.1.0",
-  "description": "Code intelligence platform \u2014 knowledge graph analysis, PR review, and cross-repo intelligence for AI agents",
+  "description": "Code intelligence platform — knowledge graph analysis, PR review, and cross-repo intelligence for AI agents",
   "author": "Lambertyan",
   "license": "MIT",
   "keywords": [
@@ -90,7 +90,8 @@
     "measure:selfcheck": "tsx scripts/callgraph-selfcheck.ts",
     "selfcheck": "node scripts/callgraph-selfcheck-gate.js",
     "corpus:martian": "node scripts/build-martian-corpus.mjs",
-    "bench:polyglot": "tsx scripts/polyglot-bench.ts"
+    "bench:polyglot": "tsx scripts/polyglot-bench.ts",
+    "bench:polyglot:scale": "tsx scripts/polyglot-scale.ts"
   },
   "devDependencies": {
     "@types/node": "^26.6.6",
