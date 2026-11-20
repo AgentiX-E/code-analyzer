@@ -28,7 +28,9 @@ import { createRequire } from 'node:module';
 import { extname, join } from 'node:path';
 
 import {
+  readCIncludes,
   readCommonJsRequires,
+  readGoImports,
   readLanguageImports,
 } from '../packages/intelligence/src/review/index/imports-langs.js';
 
@@ -49,6 +51,10 @@ const GRAMMAR: Record<string, { module: string; nested?: boolean }> = {
   swift: { module: 'tree-sitter-swift' },
   groovy: { module: 'tree-sitter-groovy', nested: true },
   javascript: { module: 'tree-sitter-javascript' },
+  // §102: the two languages 39.7 % of `aacr-bench` is written in, and the judge for both is a grammar that shares no
+  // code with the reader: Go's import is a `import_spec` node and C's is a `preproc_include`.
+  go: { module: 'tree-sitter-go' },
+  c: { module: 'tree-sitter-c' },
 };
 
 /** The extensions this measurement covers, which are the five languages the edge layer just learned. */
@@ -61,6 +67,9 @@ const LANGUAGE_OF: Record<string, string> = {
   '.py': 'python',
   '.swift': 'swift',
   '.js': 'javascript',
+  '.go': 'go',
+  '.c': 'c',
+  '.h': 'c',
 };
 
 interface Snapshot {
@@ -97,6 +106,19 @@ function parserFor(language: string): { parse: (text: string) => unknown } | nul
  */
 function specifiersOfText(text: string, language: string): string[] {
   const flat = text.replace(/\s+/gu, ' ').trim();
+  if (language === 'go') {
+    // **A Go specifier is always quoted**, and the alias before it is a binding rather than part of the path: `bytesconv
+    // "a/b"` names `a/b`. The grammar's own `path` field is what the walk reads; this function is asked only when a
+    // statement's text arrives whole, which happens for the single form.
+    const quoted = /["`]([^"`\n]+)["`]/u.exec(flat);
+    return quoted === null ? [] : [quoted[1]!];
+  }
+  if (language === 'c') {
+    // **A C include's bracket is not part of the specifier**, and both spellings name a header: `#include "x.h"` and
+    // `#include <x.h>`. Which of the two it was is a resolution question and is judged by the `kind` the reader reports.
+    const header = /[<"]([^>"\n]+)[>"]/u.exec(flat);
+    return header === null ? [] : [header[1]!];
+  }
   if (language === 'javascript') {
     // **A `require` call names one specifier, and only when its argument is a string literal.** A template literal with
     // no substitutions is still a `template_string` node in this grammar and not a `string`, so it is refused here for
@@ -146,6 +168,16 @@ function specifiersOfText(text: string, language: string): string[] {
 /** The node types that *are* an import statement in the five grammars, and none of the containers around them. */
 const IMPORT_STATEMENT = /(?:^|_)import(?:_from)?_(?:declaration|header|statement)$/u;
 
+/**
+ * **The node each grammar spells a single import with**, which for two of them is not the statement.
+ *
+ * Go wraps its imports in an `import_declaration` that textually holds the whole block, so the statement node would give
+ * one specifier per file; C's directive is a `preproc_include`. **A node-type table is what §97 refused for the five
+ * languages, and it is used here for two after their shapes were read** - the refusal was about guessing before the
+ * first measurement, not about never having a table.
+ */
+const IMPORT_UNIT: Record<string, string> = { go: 'import_spec', c: 'preproc_include' };
+
 /** Every import specifier the grammar finds in one file, one entry per statement. */
 function oracleSpecifiers(language: string, text: string): string[] | null {
   const parser = parserFor(language);
@@ -168,7 +200,10 @@ function oracleSpecifiers(language: string, text: string): string[] | null {
      * `import_declaration`, `import_header` or `import_statement`, and its container something else** - so the type is
      * the thing to match on, and the two failures are why a second implementation measures the oracle as well.
      */
-    if (node.isNamed !== false && IMPORT_STATEMENT.test(node.type)) {
+    const unit = IMPORT_UNIT[language];
+    if (unit !== undefined && node.isNamed !== false && node.type === unit) {
+      out.push(...specifiersOfText(node.text, language));
+    } else if (unit === undefined && node.isNamed !== false && IMPORT_STATEMENT.test(node.type)) {
       out.push(...specifiersOfText(node.text, language));
     }
     /**
@@ -290,12 +325,21 @@ function measure(): {
     if (theirs === null) continue;
     // **JavaScript is read by the CommonJS reader**, and the mask it needs is built here rather than borrowed from the
     // module under test: a judge that reuses its subject's lexer can only agree with it about strings.
-    const ours =
-      language === 'javascript'
-        ? readCommonJsRequires(lines, maskStringsAndComments(text)).map(
-            (statement) => statement.specifier,
-          )
-        : readLanguageImports(language, lines, lines).map((statement) => statement.specifier);
+    /**
+     * **Each language is read by the reader that answers it**, and the mask is this file's own for the two that need
+     * one: a judge that borrowed the subject's lexer could only agree with it about strings.
+     */
+    const masked = maskStringsAndComments(text);
+    let ours: string[];
+    if (language === 'javascript') {
+      ours = readCommonJsRequires(lines, masked).map((statement) => statement.specifier);
+    } else if (language === 'go') {
+      ours = readGoImports(lines, masked).map((statement) => statement.specifier);
+    } else if (language === 'c') {
+      ours = readCIncludes(lines, masked).map((statement) => statement.specifier);
+    } else {
+      ours = readLanguageImports(language, lines, lines).map((statement) => statement.specifier);
+    }
     rows.push({ language, file: path.slice(ROOT.length), ours, theirs });
   }
 

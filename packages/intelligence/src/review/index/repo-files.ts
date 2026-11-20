@@ -69,10 +69,25 @@ export interface RepoTreeStats {
   readonly directoriesSkipped: number;
 }
 
-/** A checkout as the index takes it: files, and what reading them cost. */
+/** A checkout as the index takes it: files, what reading them cost, and the one fact a file cannot carry. */
 export interface RepoTree {
   readonly files: readonly RepoFile[];
   readonly stats: RepoTreeStats;
+  /**
+   * **The `module` line of the repository's `go.mod`, or `null`.**
+   *
+   * An import path does not say where the module ends: `github.com/gin-gonic/gin/internal/bytesconv` is inside this
+   * checkout when `go.mod` says so and a dependency when it says something else. **The walk is the only place that can
+   * read it**, because `go.mod` is not a source file and `buildRepoIndex` is handed text rather than a directory - so the
+   * one extra read happens here and the index is given the answer.
+   */
+  readonly goModule: string | null;
+}
+
+/** `module a/b` from a `go.mod` body, which is the one line that turns an import path into a directory. */
+export function goModuleOf(text: string): string | null {
+  const match = /^\s*module\s+(\S+)\s*$/mu.exec(text);
+  return match === null ? null : match[1]!;
 }
 
 /** The languages `repo-index.ts` has a reader for, which is the only reason to read a file at all. */
@@ -92,6 +107,17 @@ const DEFAULT_EXTENSIONS = [
   '.py',
   '.swift',
   '.ets',
+  // **Go and C are the two languages 39.7 % of the review benchmark's files are written in**, measured on
+  // `aacr-bench` v2: 164 `.cpp`, 87 `.c`, 34 `.h` and 90 `.go` of its 944. Until §102 the edge layer read neither, so the
+  // walk did not read them either - a repository in those languages was indexed as a set of files with no imports.
+  '.go',
+  '.c',
+  '.h',
+  '.cc',
+  '.cpp',
+  '.cxx',
+  '.hpp',
+  '.hh',
 ] as const;
 
 /** Directories that are never this repository's sources. */
@@ -113,6 +139,22 @@ const DEFAULT_SKIP = [
 const DEFAULT_MAX_FILES = 2_000;
 const DEFAULT_MAX_FILE_BYTES = 512 * 1024;
 const DEFAULT_MAX_TOTAL_BYTES = 64 * 1024 * 1024;
+
+/**
+ * **The module a repository's `go.mod` declares, or `null`.**
+ *
+ * Read with the same tolerance as the walk: a `go.mod` that is missing, unreadable or larger than a source file answers
+ * `null`, and the index then refuses every Go import as `external` rather than guessing where the module ends.
+ */
+function readGoModule(root: string): string | null {
+  try {
+    const text = readFileSync(join(root, 'go.mod'), 'utf8');
+    if (text.length > 64 * 1024) return null;
+    return goModuleOf(text);
+  } catch {
+    return null;
+  }
+}
 
 /** The extension of a path, lowercased, or `''`. */
 function extensionOf(path: string): string {
@@ -138,6 +180,7 @@ export function readRepoFiles(root: string, limits: RepoFileLimits = {}): RepoTr
 
   const empty = (readable: boolean): RepoTree => ({
     files: [],
+    goModule: null,
     stats: {
       readable,
       considered: 0,
@@ -220,6 +263,7 @@ export function readRepoFiles(root: string, limits: RepoFileLimits = {}): RepoTr
   out.sort((left, right) => left.path.localeCompare(right.path));
   return {
     files: out,
+    goModule: readGoModule(root),
     stats: {
       readable: true,
       considered,

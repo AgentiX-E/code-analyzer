@@ -713,8 +713,15 @@ function cFunction(code: string, file: PreparedFile, at: number): string | null 
   if (code.startsWith('#') || code.startsWith('}') || code.includes('=')) return null;
   if (!code.includes('(')) return null;
   const opensHere = code.endsWith('{');
+  /**
+   * **A body that opens and closes on one line is still a body.** `void setUp(void) {}` is the shape a Unity test file
+   * writes thirty times, and it ends in `}` rather than in `{`, so a rule that only accepted the opening brace read the
+   * whole file as declaring nothing - **and a declaration the index cannot name has no name to give a C `#include`
+   * edge**, which is how §102's first measurement found it.
+   */
+  const inline = code.includes('{') && code.endsWith('}');
   const opensNext = code.endsWith(')') && (file.codes[at + 1] ?? '').trim().startsWith('{');
-  if (!opensHere && !opensNext) return null;
+  if (!opensHere && !inline && !opensNext) return null;
   const lineWords = words(code);
   const index = declaringWord(lineWords, code);
   // **`declaringWord` already refuses every keyword**, because the four that open a body - `if`, `for`, `while`,

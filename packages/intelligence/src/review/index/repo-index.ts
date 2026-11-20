@@ -24,8 +24,13 @@
 
 import { readImportSpecifier } from '../import-specifier.js';
 import {
+  normalisePath,
+  readCIncludes,
   readCommonJsRequires,
+  readGoImports,
   readLanguageImports,
+  resolveCInclude,
+  resolveGoPackage,
   resolveJvmSpecifier,
   resolvePythonSpecifier,
 } from './imports-langs.js';
@@ -53,7 +58,21 @@ export interface UnresolvedImport {
   readonly fromPath: string;
   readonly line: number;
   readonly specifier: string;
-  readonly why: 'external' | 'missing';
+  readonly why: 'external' | 'missing' | 'ambiguous';
+}
+
+/**
+ * **What the index needs to know that a file does not carry.**
+ *
+ * The one field is `goModule`, and it is here rather than derived because **an import path does not say where the module
+ * ends**: `github.com/gin-gonic/gin/internal/bytesconv` is inside a repository when `go.mod` says the module is
+ * `github.com/gin-gonic/gin`, and it is a dependency when the module is something else. A caller that does not read
+ * `go.mod` gets every Go import answered `external` - **which is the honest answer, not a degraded one**, because a
+ * suffix match would resolve `github.com/x/gin/main` inside any repository that happens to hold a `main/`.
+ */
+export interface RepoIndexOptions {
+  /** The `module` line of the repository's `go.mod`, or `null` when there is none. */
+  readonly goModule?: string | null;
 }
 
 /** The counts a reader needs to know what the rates below are rates *of*. */
@@ -65,6 +84,12 @@ export interface RepoIndexStats {
   readonly resolvedImports: number;
   readonly externalImports: number;
   readonly missingImports: number;
+  /**
+   * **A quoted `#include` that two files answer**, counted apart from a missing one because it is not a defect in the
+   * repository: a vendored copy at the root and the copy under `tests/` is a real shape, and a resolver that picked one
+   * would be reporting a guess as a resolution.
+   */
+  readonly ambiguousImports: number;
   readonly namespaceImports: number;
   /** Names imported **and used**, declared in the file the import names. */
   readonly edges: number;
@@ -77,7 +102,7 @@ export interface ResolvedImport {
   readonly specifier: string;
   /** The repo-relative file that answers it, or `null` for a package or a path no file holds. */
   readonly target: string | null;
-  readonly why: 'resolved' | 'external' | 'missing';
+  readonly why: 'resolved' | 'external' | 'missing' | 'ambiguous';
 }
 
 export interface RepoIndex {
@@ -118,24 +143,25 @@ interface ImportStatement {
 }
 
 /** The extensions a specifier may be answered with, in the order a resolver tries them. */
-const CANDIDATE_SUFFIXES = ['.ts', '.tsx', '.mts', '.cts', '.js', '.jsx', '.mjs', '.cjs'] as const;
+const CANDIDATE_SUFFIXES = [
+  '.ts',
+  '.tsx',
+  '.mts',
+  '.cts',
+  '.js',
+  '.jsx',
+  '.mjs',
+  '.cjs',
+  // **`.ets` is ArkTS's, and it is in this list because the import that names it is TypeScript's.** HarmonyOS writes
+  // `import { X } from '../model/Counter'` in a `.ets` file, and a candidate list without this entry answered every
+  // such import as `missing` - the whole edge layer of an ArkTS application, absent.
+  '.ets',
+] as const;
 
 /** The extensions that are a compiled artefact of one of the above, and are answered by their source. */
 const COMPILED = new Set(['.js', '.jsx', '.mjs', '.cjs']);
 
 /** `path` with `.` and `..` resolved, and no leading `./`. */
-function normalisePath(path: string): string {
-  const out: string[] = [];
-  for (const part of path.split('/')) {
-    if (part === '' || part === '.') continue;
-    if (part === '..') {
-      out.pop();
-      continue;
-    }
-    out.push(part);
-  }
-  return out.join('/');
-}
 
 /** The directory part of a repo-relative path, without a trailing slash. */
 function dirOf(path: string): string {
@@ -286,9 +312,13 @@ function readStatement(
  *
  * The cost is linear in the text the caller already holds: one pass for the symbols, one for the statements, and one for
  * the words of the lines an imported name is used on - and that last pass is the only one that can be quadratic, because
- * it is per import rather than per line. It is bounded instead by looking for a word with `indexOf` on each line.
+ * it is per import rather than per line. It is bounded instead by a per-file word index, which is why the two readers
+ * that need to ask "which name does this file use" of every declaration in a *package* or a *header* can do so at all.
  */
-export function buildRepoIndex(files: readonly RepoFile[]): RepoIndex {
+export function buildRepoIndex(
+  files: readonly RepoFile[],
+  options: RepoIndexOptions = {},
+): RepoIndex {
   const byPath = new Map<string, RepoFile>();
   for (const file of files) byPath.set(normalisePath(file.path), file);
 
@@ -316,6 +346,7 @@ export function buildRepoIndex(files: readonly RepoFile[]): RepoIndex {
   let resolvedImports = 0;
   let externalImports = 0;
   let missingImports = 0;
+  let ambiguousImports = 0;
   let namespaceImports = 0;
   let symbols = 0;
   for (const index of indices.values()) symbols += index.symbols.length;
@@ -323,12 +354,19 @@ export function buildRepoIndex(files: readonly RepoFile[]): RepoIndex {
   const fileSet = new Set(byPath.keys());
   /** The five languages whose import syntax is not TypeScript's, and the reader that answers each. */
   const SIBLING = new Set(['java', 'kotlin', 'groovy', 'python', 'swift']);
+  /** **Where a Go import's module path ends**, which is the one thing `go.mod` says that an import cannot. */
+  const goModule = options.goModule ?? null;
 
   /**
-   * **One bookkeeping path for both readers**, because two paths that each counted an import would be two denominators
-   * the moment either drifted. `target === null` is decided by the caller - **a JVM path that is not in this repository is
-   * a library and a Python statement with no leading dot is one too, while `from .mod import x` that resolves to nothing
-   * is a path this repository does not hold** - and the refusal is reported rather than dropped.
+   * **One bookkeeping path for every reader**, because two paths that each counted an import would be two denominators
+   * the moment either drifted. `targets === null` is decided by the caller - **a JVM path that is not in this repository
+   * is a library and a Python statement with no leading dot is one too, while `from .mod import x` that resolves to
+   * nothing is a path this repository does not hold** - and the refusal is reported rather than dropped.
+   *
+   * `namesFrom` is the third thing a reader can differ about, and it is not a detail: **TypeScript's statement carries
+   * the names it imports, a C `#include` carries none and the names that cross are the ones the header declares and the
+   * importer uses, and a Go `import "a/b"` carries none and the names that cross are spelled `pkg.Name` at the use
+   * site.** Three languages, three places the name list comes from, one place it is turned into an edge.
    */
   const record = (
     path: string,
@@ -338,13 +376,16 @@ export function buildRepoIndex(files: readonly RepoFile[]): RepoIndex {
       namespace: boolean;
       startLine: number;
       endLine: number;
+      alias?: string;
     },
-    target: string | null,
-    why: 'missing' | 'external',
+    targets: readonly string[] | null,
+    why: 'missing' | 'external' | 'ambiguous',
+    namesFrom: 'statement' | 'target' | 'package' = 'statement',
   ): void => {
     imports += 1;
-    if (target === null) {
+    if (targets === null || targets.length === 0) {
       if (why === 'missing') missingImports += 1;
+      else if (why === 'ambiguous') ambiguousImports += 1;
       else externalImports += 1;
       statements.push({
         fromPath: path,
@@ -366,28 +407,185 @@ export function buildRepoIndex(files: readonly RepoFile[]): RepoIndex {
       fromPath: path,
       line: statement.startLine,
       specifier: statement.specifier,
-      target,
+      target: targets[0]!,
       why: 'resolved',
     });
+
+    /**
+     * **A `#include` pastes a file**, so the names that cross are the declarations the header makes that the importer
+     * then uses - and a header that declares forty functions and is included by a file that calls one of them is an edge
+     * for that one and none for the other thirty-nine.
+     *
+     * **A name the importer also declares is not a name it reads from the header**, and this is the one filter the
+     * measurement forced: `tests/unity` declares `setUp` and `tearDown` in every one of its thirty test files and
+     * `unity.h` declares them once, so a raw word match credited thirty edges to a header nobody read those names from.
+     * C's own rule says the same thing - the file's definition shadows the header's declaration, and **a definition is
+     * not a read**.
+     */
+    if (namesFrom === 'target') {
+      const own = new Set(indices.get(path)!.symbols.map((symbol) => symbol.name));
+      for (const target of targets) {
+        for (const symbol of indices.get(target)!.symbols) {
+          if (own.has(symbol.name)) continue;
+          const used = firstUse(path, symbol.name, statement.endLine);
+          if (used === null) continue;
+          references.push({ fromPath: path, fromLine: used, toPath: target, toName: symbol.name });
+        }
+      }
+      return;
+    }
+
+    /**
+     * **A Go import binds a package identifier, and Go's own rule makes the crossing decidable**: a file's package
+     * identifiers are unique bindings, so `bytesconv.StringToBytes` in a file that imported `bytesconv` is a call into
+     * that package and cannot be anything else. That is why this is a resolution rather than the guess `ns.helper`
+     * would be in JavaScript, where `ns` could be any object in scope.
+     *
+     * **Only exported names**, because Go's compiler says the same: a lowercase name belongs to its package and no file
+     * outside it can spell it.
+     */
+    if (namesFrom === 'package') {
+      const bound =
+        statement.alias === undefined || statement.alias.length === 0
+          ? lastSegmentOf(statement.specifier)
+          : statement.alias;
+      // **`_` binds nothing and `.` binds everything**, and neither names a package a use site can spell.
+      if (bound === '_' || bound === '.' || bound.length === 0) return;
+      const uses = dottedUsesOf(path);
+      for (const target of targets) {
+        for (const symbol of indices.get(target)!.symbols) {
+          if (!/^[A-Z]/u.test(symbol.name)) continue;
+          const at = uses.get(`${bound}.${symbol.name}`);
+          if (at === undefined) continue;
+          references.push({
+            fromPath: path,
+            fromLine: at + 1,
+            toPath: target,
+            toName: symbol.name,
+          });
+        }
+      }
+      return;
+    }
+
     if (statement.namespace) {
       namespaceImports += 1;
       return;
     }
-    const targetIndex = indices.get(target)!;
     for (const name of statement.names) {
-      const declared = targetIndex.symbols.find((symbol) => symbol.name === name.imported);
-      if (declared === undefined) continue;
-      const used = firstUse(codesOf(path), name.local, statement.endLine);
-      if (used === null) continue;
-      references.push({ fromPath: path, fromLine: used, toPath: target, toName: name.imported });
+      for (const target of targets) {
+        const declared = indices
+          .get(target)!
+          .symbols.find((symbol) => symbol.name === name.imported);
+        if (declared === undefined) continue;
+        const used = firstUse(path, name.local, statement.endLine);
+        if (used === null) continue;
+        references.push({ fromPath: path, fromLine: used, toPath: target, toName: name.imported });
+        // **A name is declared in one file of a package**, so the first target that holds it is the only one.
+        break;
+      }
     }
   };
 
   const codesOf = (path: string): readonly string[] => indices.get(path)!.codes;
 
+  /**
+   * **The words each file writes and the line each of them first appears on**, built once per file.
+   *
+   * `firstUse` used to scan the file for every name, and that was affordable while the names came from a statement: an
+   * `import { a, b }` asks twice. **A `#include` asks once per declaration in the header** - forty for `cJSON.h` - and a
+   * Go import asks once per exported name in the package. **Forty scans of three thousand lines is the quadratic pass
+   * this file refuses everywhere else**, so the scan happens once and the question becomes a binary search.
+   */
+  const wordLines = new Map<string, Map<string, number[]>>();
+  const wordLinesOf = (path: string): Map<string, number[]> => {
+    const cached = wordLines.get(path);
+    if (cached !== undefined) return cached;
+    const built = new Map<string, number[]>();
+    const codes = codesOf(path);
+    for (let at = 0; at < codes.length; at += 1) {
+      for (const word of wordsOf(codes[at]!)) {
+        const bucket = built.get(word);
+        if (bucket === undefined) built.set(word, [at]);
+        else if (bucket[bucket.length - 1] !== at) bucket.push(at);
+      }
+    }
+    wordLines.set(path, built);
+    return built;
+  };
+
+  /** **The `pkg.Name` pairs a file writes**, which is the only form a Go use takes across a package boundary. */
+  const dottedUse = new Map<string, Map<string, number>>();
+  const dottedUsesOf = (path: string): Map<string, number> => {
+    const cached = dottedUse.get(path);
+    if (cached !== undefined) return cached;
+    const built = new Map<string, number>();
+    const codes = codesOf(path);
+    for (let at = 0; at < codes.length; at += 1) {
+      for (const match of codes[at]!.matchAll(/\b([A-Za-z_]\w*)\.([A-Za-z_]\w*)\b/gu)) {
+        const key = `${match[1]!}.${match[2]!}`;
+        if (!built.has(key)) built.set(key, at);
+      }
+    }
+    dottedUse.set(path, built);
+    return built;
+  };
+
+  /** The first line after `after` that uses `name` as a word of code, or `null` when the file never does. */
+  const firstUse = (path: string, name: string, after: number): number | null => {
+    const at = wordLinesOf(path).get(name);
+    if (at === undefined) return null;
+    let lo = 0;
+    let hi = at.length;
+    while (lo < hi) {
+      const mid = (lo + hi) >> 1;
+      if (at[mid]! < after) lo = mid + 1;
+      else hi = mid;
+    }
+    return lo < at.length ? at[lo]! + 1 : null;
+  };
+
   for (const [path, index] of indices) {
     const lines = index.lines;
     const codes = index.codes;
+
+    /**
+     * **Go's import is a package and C's include is a file**, and both were answered zero before this branch existed:
+     * 375 of the 944 files `aacr-bench` scores are written in the two of them, and every one of those files had
+     * declarations the index could name and no edge the index could follow.
+     */
+    if (index.language === 'go') {
+      for (const statement of readGoImports(lines, codes)) {
+        record(
+          path,
+          statement,
+          resolveGoPackage(statement.specifier, goModule, fileSet),
+          'external',
+          'package',
+        );
+      }
+      continue;
+    }
+
+    if (index.language === 'c') {
+      for (const statement of readCIncludes(lines, codes)) {
+        // **An angled include names a system header**, and a path invented for `stdio.h` would be an edge invented for it.
+        if (statement.kind === 'module') {
+          record(path, statement, null, 'external');
+          continue;
+        }
+        const resolution = resolveCInclude(statement.specifier, path, fileSet);
+        record(
+          path,
+          statement,
+          resolution.target === null ? null : [resolution.target],
+          // **A refusal is reported as what it was**, and the `resolved` arm is the one this field never reads.
+          resolution.why === 'ambiguous' ? 'ambiguous' : 'missing',
+          'target',
+        );
+      }
+      continue;
+    }
 
     if (SIBLING.has(index.language)) {
       for (const statement of readLanguageImports(index.language, lines, codes)) {
@@ -403,7 +601,7 @@ export function buildRepoIndex(files: readonly RepoFile[]): RepoIndex {
           record(
             path,
             statement,
-            target,
+            target === null ? null : [target],
             statement.specifier.startsWith('.') ? 'missing' : 'external',
           );
           continue;
@@ -411,7 +609,7 @@ export function buildRepoIndex(files: readonly RepoFile[]): RepoIndex {
         record(
           path,
           statement,
-          resolveJvmSpecifier(index.language, statement.specifier, byBase),
+          single(resolveJvmSpecifier(index.language, statement.specifier, byBase)),
           'external',
         );
       }
@@ -433,7 +631,7 @@ export function buildRepoIndex(files: readonly RepoFile[]): RepoIndex {
         // exactly that, and a test asserting `externalImports` found it.
         const relative = isRelative(statement.specifier);
         const target = relative ? resolveSpecifier(statement.specifier, path, byPath) : null;
-        record(path, statement, target, relative ? 'missing' : 'external');
+        record(path, statement, single(target), relative ? 'missing' : 'external');
       }
     }
 
@@ -445,7 +643,12 @@ export function buildRepoIndex(files: readonly RepoFile[]): RepoIndex {
         record(path, statement, null, 'external');
         continue;
       }
-      record(path, statement, resolveSpecifier(statement.specifier, path, byPath), 'missing');
+      record(
+        path,
+        statement,
+        single(resolveSpecifier(statement.specifier, path, byPath)),
+        'missing',
+      );
     }
   }
 
@@ -469,27 +672,28 @@ export function buildRepoIndex(files: readonly RepoFile[]): RepoIndex {
       resolvedImports,
       externalImports,
       missingImports,
+      ambiguousImports,
       namespaceImports,
       edges: references.length,
     },
   };
 }
 
+/** The last segment of a dotted or slashed path, which is the identifier Go binds a package to by default. */
+function lastSegmentOf(path: string): string {
+  const at = Math.max(path.lastIndexOf('/'), path.lastIndexOf('.'));
+  return at < 0 ? path : path.slice(at + 1);
+}
+
 /**
- * The first line after `after` that uses `name` as a word of **code**, or `null` when the file never does.
+ * **One file, or no files**, which is the shape every reader but Go's produces.
  *
- * **A mention inside a comment or a string is not a use**, and the test is the lexer's rather than a second opinion:
- * the masked line keeps code and blanks comments and string bodies, so `// helper still returns the stale value` and
- * `` `${helper}` `` are both invisible here while `const x = helper();` is not. **This is the one way an edge can be
- * wrong rather than missing**, and it is the reason the count is worth reporting at all.
+ * Go resolves to a package, which is several files, and the bookkeeping takes a list for that reason. **The four readers
+ * that answer with a single path say so here rather than each writing their own ternary**, because four spellings of
+ * "null or one" is how two of them end up disagreeing about which one `null` is.
  */
-function firstUse(codes: readonly string[], name: string, after: number): number | null {
-  for (let at = after; at < codes.length; at += 1) {
-    const line = codes[at]!;
-    if (!line.includes(name)) continue;
-    if (wordsOf(line).includes(name)) return at + 1;
-  }
-  return null;
+function single(target: string | null): readonly string[] | null {
+  return target === null ? null : [target];
 }
 
 /**

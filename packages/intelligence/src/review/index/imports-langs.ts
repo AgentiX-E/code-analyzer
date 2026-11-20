@@ -32,6 +32,12 @@ export interface LanguageImportStatement {
   readonly endLine: number;
   /** Whether the specifier names a file in this repository, or a package that is not one. */
   readonly kind: 'file' | 'module';
+  /**
+   * **The name the statement binds the package to, where the language has such a name and spells it** - Go's
+   * `bytesconv "a/b"`, and nothing else in this file. Absent means the language's default binding applies, which for Go
+   * is the last segment of the path.
+   */
+  readonly alias?: string;
 }
 
 /** The languages this reader answers, which are the ones whose import syntax is not TypeScript's. */
@@ -344,4 +350,207 @@ export function resolvePythonSpecifier(
 function dirOf(path: string): string {
   const at = path.lastIndexOf('/');
   return at < 0 ? '' : path.slice(0, at);
+}
+
+/** `path` with `.` and `..` resolved, and no leading `./`. **Shared with `repo-index.ts` so two readers cannot disagree
+ * about what a path is** - the C resolution below joins a directive to the includer's directory, which is the same
+ * arithmetic the TypeScript one does. */
+export function normalisePath(path: string): string {
+  const out: string[] = [];
+  for (const part of path.split('/')) {
+    if (part === '' || part === '.') continue;
+    if (part === '..') {
+      out.pop();
+      continue;
+    }
+    out.push(part);
+  }
+  return out.join('/');
+}
+
+/**
+ * **Go's import, which is the one statement a `from`-shaped reader cannot find.** `import "a/b"` has no keyword after
+ * the specifier, the specifier is the last thing on the line, and `gofmt` writes every group as a block:
+ *
+ * ```go
+ * import (
+ * 	"os"
+ * 	bytesconv "github.com/gin-gonic/gin/internal/bytesconv"
+ * 	_ "github.com/mattn/go-sqlite3"
+ * 	. "math"
+ * )
+ * ```
+ *
+ * **Three aliases and three meanings**, and the resolver has to tell them apart: a name binds the package under that
+ * name, `_` binds nothing and exists for its side effect, and `.` binds every exported name into the file's own scope.
+ * The blank and dot forms are recorded and make no edge, because **a name nobody spelled is a name nobody can be told
+ * crosses** - the same refusal `import * as ns` gets in TypeScript, for the same reason.
+ */
+const GO_IMPORT_LINE =
+  /^\s*(?:import\s+)?(?:([A-Za-z_][\w]*|[._])\s+)?(["`])([^"`\n]+)\2\s*;?\s*$/u;
+
+/** The two lines that open and close a group, which `gofmt` writes for every repository that imports more than one
+ * package. */
+const GO_BLOCK_OPEN = /^\s*import\s*\(\s*$/u;
+const GO_BLOCK_CLOSE = /^\s*\)\s*$/u;
+
+/**
+ * **Every import statement in one Go file, in source order.**
+ *
+ * **The block's lines are strings and nothing else**, so the lexer masks them to blanks and a reader that required a word
+ * of code on the line would read an empty block - the shape `gofmt` writes for every file that imports two packages.
+ * The reading therefore runs on `lines` for the block and uses the mask only to decide whether a *single* statement is
+ * code, which is the case a commented-out import is.
+ */
+export function readGoImports(
+  lines: readonly string[],
+  codes: readonly string[],
+): LanguageImportStatement[] {
+  const out: LanguageImportStatement[] = [];
+  for (let at = 0; at < lines.length; at += 1) {
+    const line = lines[at]!;
+    if (GO_BLOCK_OPEN.test(line) && codes[at]!.trim().length > 0) {
+      for (let inner = at + 1; inner < lines.length; inner += 1) {
+        const row = lines[inner]!;
+        if (GO_BLOCK_CLOSE.test(row)) {
+          at = inner;
+          break;
+        }
+        const match = GO_IMPORT_LINE.exec(row);
+        if (match === null) continue;
+        out.push({
+          specifier: match[3]!,
+          names: [],
+          namespace: true,
+          startLine: inner + 1,
+          endLine: inner + 1,
+          kind: 'file',
+          ...(match[1] === undefined ? {} : { alias: match[1] }),
+        });
+      }
+      continue;
+    }
+    // **A statement starts on a line of code**, which is the same guard the TypeScript reader uses: `// import "x"` and
+    // an `import "x"` inside a block comment are both masked to blanks and both must not become edges.
+    if (codes[at]!.trim().length === 0) continue;
+    const match = /^\s*import\s+(?:([A-Za-z_][\w]*|[._])\s+)?(["`])([^"`\n]+)\2\s*$/u.exec(line);
+    if (match === null) continue;
+    out.push({
+      specifier: match[3]!,
+      names: [],
+      namespace: true,
+      startLine: at + 1,
+      endLine: at + 1,
+      kind: 'file',
+      ...(match[1] === undefined ? {} : { alias: match[1] }),
+    });
+  }
+  return out;
+}
+
+/**
+ * **The files of the package a Go import names, or `null` when the import names a dependency.**
+ *
+ * A Go import is a *module path plus a directory*, and the module path is in `go.mod`:
+ * `github.com/gin-gonic/gin/internal/bytesconv` in the module `github.com/gin-gonic/gin` is the directory
+ * `internal/bytesconv/`, and **a package is every `.go` file directly in it rather than one file** - which is why this
+ * answer is a list and the JVM answer is a path.
+ *
+ * **Without `go.mod` the answer is `null` and not a suffix match**, and the difference is the whole of this function's
+ * value: `github.com/x/gin/main` would suffix-match the `main/` of a repository that merely has one, and **a wrong edge
+ * is worse than a missing one here**, because the consumer is a review deciding what a change reaches.
+ */
+export function resolveGoPackage(
+  specifier: string,
+  modulePath: string | null,
+  files: ReadonlySet<string>,
+): string[] | null {
+  if (modulePath === null) return null;
+  const inModule =
+    specifier === modulePath
+      ? ''
+      : specifier.startsWith(`${modulePath}/`)
+        ? specifier.slice(modulePath.length + 1)
+        : null;
+  if (inModule === null) return null;
+
+  const prefix = inModule.length === 0 ? '' : `${inModule}/`;
+  const out: string[] = [];
+  for (const path of files) {
+    if (!path.endsWith('.go')) continue;
+    if (!path.startsWith(prefix)) continue;
+    // **Directly in the directory**, because a package does not include its subdirectories.
+    if (path.slice(prefix.length).includes('/')) continue;
+    out.push(path);
+  }
+  out.sort();
+  return out.length === 0 ? null : out;
+}
+
+/**
+ * **C's `#include`, which is not an import but a paste**, and the only edge a C or C++ repository has.
+ *
+ * Two spellings and two meanings, and the difference is the language's own rule rather than a convention:
+ * `#include "x.h"` **searches the including file's directory first**, and `#include <stdio.h>` searches the include path
+ * and names a header that is not in this repository. The quoted form is a file and the angled form is `external`; a path
+ * invented for `stdio.h` would be an edge invented for it.
+ *
+ * **The mask decides whether it is a directive**, the same guard every other reader uses: `/* #include "a.h" *\/` is
+ * masked to blanks and is not a directive, and `#  include` with the extra spaces the standard allows is one.
+ */
+const C_INCLUDE = /^\s*#\s*include\s*([<"])([^>"\n]+)[>"]/u;
+
+/** Every include directive in one C or C++ file, in source order. */
+export function readCIncludes(
+  lines: readonly string[],
+  codes: readonly string[],
+): LanguageImportStatement[] {
+  const out: LanguageImportStatement[] = [];
+  for (let at = 0; at < lines.length; at += 1) {
+    if (codes[at]!.trim().length === 0) continue;
+    const match = C_INCLUDE.exec(lines[at]!);
+    if (match === null) continue;
+    out.push({
+      specifier: match[2]!.trim(),
+      names: [],
+      namespace: true,
+      startLine: at + 1,
+      endLine: at + 1,
+      // **The bracket is the whole resolution rule**, and it is the one fact the statement itself carries.
+      kind: match[1] === '"' ? 'file' : 'module',
+    });
+  }
+  return out;
+}
+
+/** What a C directive resolved to, and which refusal it was when it resolved to nothing. */
+export interface CIncludeResolution {
+  readonly target: string | null;
+  readonly why: 'resolved' | 'missing' | 'ambiguous';
+}
+
+/**
+ * **The file a quoted `#include` names**: the includer's own directory first, then a suffix match that must be unique.
+ *
+ * **The second chance is not a guess because of how it is bounded.** A C compiler is given `-I` flags that are not in
+ * the statement, so `#include "unity/unity.h"` from `tests/all.c` is legal when `tests/` is on the include path - and
+ * the only evidence a repository can check is **which paths end with the specifier**. One is an answer; **two is a
+ * refusal**, because a vendored copy at the root and a copy under `tests/` is a real shape (`unity.h` is one), and
+ * picking the shorter path would be a wrong edge in a review that then says a change reaches a file it does not.
+ */
+export function resolveCInclude(
+  specifier: string,
+  fromPath: string,
+  files: ReadonlySet<string>,
+): CIncludeResolution {
+  const budget = normalisePath(`${dirOf(fromPath)}/${specifier}`);
+  if (files.has(budget)) return { target: budget, why: 'resolved' };
+
+  const matches: string[] = [];
+  for (const path of files) {
+    if (path === specifier || path.endsWith(`/${specifier}`)) matches.push(path);
+  }
+  if (matches.length === 1) return { target: matches[0]!, why: 'resolved' };
+  if (matches.length === 0) return { target: null, why: 'missing' };
+  return { target: null, why: 'ambiguous' };
 }

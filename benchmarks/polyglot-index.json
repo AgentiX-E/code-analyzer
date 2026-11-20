@@ -1,0 +1,170 @@
+{
+  "comment": [
+    "What the index reads in checkouts it did not write, by language. The statement set is judged separately, on the",
+    "polyglot fixtures, by scripts/import-oracle.ts against tree-sitter; this file counts what the index can say and",
+    "what a reach note for the whole repository would cost a prompt."
+  ],
+  "generatedBy": "scripts/corpus-index-report.mjs",
+  "measuredAt": "2026-11-20",
+  "repos": [
+    {
+      "repo": "gin-gonic_gin",
+      "commit": "0f09c3a9b4626d9fe9979cf4d0521d6ae32ab646",
+      "goModule": "github.com/gin-gonic/gin",
+      "files": 99,
+      "readerSkipped": {
+        "bySize": 0,
+        "overCap": 0,
+        "overBytes": 0
+      },
+      "indexMs": 50,
+      "stats": {
+        "files": 99,
+        "symbols": 1600,
+        "imports": 521,
+        "resolvedImports": 31,
+        "externalImports": 490,
+        "missingImports": 0,
+        "ambiguousImports": 0,
+        "namespaceImports": 0,
+        "edges": 94
+      },
+      "byLanguage": {
+        "go": {
+          "files": 99,
+          "symbols": 1600,
+          "imports": 521,
+          "resolved": 31,
+          "external": 490,
+          "missing": 0,
+          "ambiguous": 0,
+          "edges": 94
+        }
+      },
+      "reach": {
+        "filesWithSymbols": 98,
+        "filesWithReach": 98,
+        "emptyNotes": 69,
+        "chars": 2206,
+        "medianChars": 48,
+        "charsPerNonEmptyNote": 76.069
+      }
+    },
+    {
+      "repo": "DaveGamble_cJSON",
+      "commit": "6d9f2443ab071f86e5d9b43025a40929ec41c46c",
+      "goModule": null,
+      "files": 101,
+      "readerSkipped": {
+        "bySize": 0,
+        "overCap": 0,
+        "overBytes": 0
+      },
+      "indexMs": 50,
+      "stats": {
+        "files": 101,
+        "symbols": 1430,
+        "imports": 389,
+        "resolvedImports": 163,
+        "externalImports": 169,
+        "missingImports": 49,
+        "ambiguousImports": 8,
+        "namespaceImports": 0,
+        "edges": 52
+      },
+      "byLanguage": {
+        "c": {
+          "files": 99,
+          "symbols": 1420,
+          "imports": 380,
+          "resolved": 163,
+          "external": 160,
+          "missing": 49,
+          "ambiguous": 8,
+          "edges": 52
+        },
+        "python": {
+          "files": 2,
+          "symbols": 10,
+          "imports": 9,
+          "resolved": 0,
+          "external": 9,
+          "missing": 0,
+          "ambiguous": 0,
+          "edges": 0
+        }
+      },
+      "reach": {
+        "filesWithSymbols": 97,
+        "filesWithReach": 97,
+        "emptyNotes": 89,
+        "chars": 1856,
+        "medianChars": 202,
+        "charsPerNonEmptyNote": 232
+      }
+    },
+    {
+      "repo": "stedolan_jq",
+      "commit": "5c001b18d7237cce1fdba63608732163f978dd23",
+      "goModule": null,
+      "files": 87,
+      "readerSkipped": {
+        "bySize": 0,
+        "overCap": 0,
+        "overBytes": 0
+      },
+      "indexMs": 93,
+      "stats": {
+        "files": 87,
+        "symbols": 1862,
+        "imports": 447,
+        "resolvedImports": 173,
+        "externalImports": 263,
+        "missingImports": 11,
+        "ambiguousImports": 0,
+        "namespaceImports": 0,
+        "edges": 728
+      },
+      "byLanguage": {
+        "python": {
+          "files": 5,
+          "symbols": 23,
+          "imports": 22,
+          "resolved": 0,
+          "external": 22,
+          "missing": 0,
+          "ambiguous": 0,
+          "edges": 0
+        },
+        "javascript": {
+          "files": 1,
+          "symbols": 0,
+          "imports": 0,
+          "resolved": 0,
+          "external": 0,
+          "missing": 0,
+          "ambiguous": 0,
+          "edges": 0
+        },
+        "c": {
+          "files": 81,
+          "symbols": 1839,
+          "imports": 425,
+          "resolved": 173,
+          "external": 241,
+          "missing": 11,
+          "ambiguous": 0,
+          "edges": 728
+        }
+      },
+      "reach": {
+        "filesWithSymbols": 79,
+        "filesWithReach": 79,
+        "emptyNotes": 50,
+        "chars": 6685,
+        "medianChars": 241,
+        "charsPerNonEmptyNote": 230.5172
+      }
+    }
+  ]
+}

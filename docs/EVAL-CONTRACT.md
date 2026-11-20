@@ -10735,3 +10735,175 @@ is now a number.**
 
 One module, one test file, one call site in a report script, one import and one gated block in the bench, one dispatch
 input — plus **one diagnostic run at 0.390 USD ≈ 2.8 CNY**, which bought a coverage figure rather than a verdict.
+
+## §102 Thirty-nine point seven per cent of the corpus is written in two languages the index read as zero
+
+### 102.1 The gap, in three numbers
+
+**§101.7 ended with a finding and not a verdict**: the reach arm fired on 14 of 14 pull requests and put a note on
+**42 of 680 changed files (6.2 %)**, because *the slice's findings stand in 181 `.cpp`, 46 `.h`, 51 `.go`, 10 `.ts`* and
+the index read none of the first three. **A device that can speak about 6.2 % of the file-reviews cannot deliver a
+registered +12 % on goldens**, so the control arm was cancelled rather than bought.
+
+**The population is now a number taken from the corpus itself.** `dataset/v2/positive_samples.json` files 944 findings
+against these extensions:
+
+| extension | findings | extension | findings |
+| --------- | -------- | --------- | -------- |
+| `.cpp`    | 164      | `.go`     | 90       |
+| `.ts`     | 133      | `.c`      | 87       |
+| `.java`   | 127      | `.js`     | 63       |
+| `.py`     | 91       | `.h`      | 34       |
+
+**`.cpp` + `.c` + `.h` is 285 files and `.go` is 90, which is 375 of 944 = 39.7 %** in the two languages whose imports
+`imports-langs.ts` did not read at all. A probe over three real checkouts said the same thing in three lines, and said it
+about the whole layer rather than about one language:
+
+```
+gin-gonic/gin     99 files   1600 symbols   0 imports   0 edges
+DaveGamble/cJSON 101 files   1398 symbols   0 imports   0 edges
+stedolan/jq       81 files   1794 symbols   0 imports   0 edges
+```
+
+**Every declaration indexed, no edge indexed.** The symbol layer has read sixteen languages since §87; the edge layer
+read six, and those six are not the corpus.
+
+### 102.2 Go's import is a package and C's include is a paste
+
+**The two languages fail for the same reason and need two different resolvers**, and the difference is the language's
+rather than a design choice:
+
+| language | statement                  | what it names           | how it is answered                                                     |
+| -------- | -------------------------- | ----------------------- | ---------------------------------------------------------------------- |
+| Go       | `import "a/b"`, or a block | a **package**, a directory of `.go` files | `go.mod`'s `module` line is removed from the path and the directory's own `.go` files are the answer |
+| C/C++    | `#include "x.h"`           | **a pasted file**       | the includer's own directory first, then a suffix match that must be unique |
+| C/C++    | `#include <stdio.h>`       | a system header         | `external`, because a path invented for it would be an edge invented for it |
+
+**Go's crossing is `pkg.Name` and that is a resolution rather than a guess**: a file's package identifiers are unique
+bindings, so `bytesconv.StringToBytes` in a file that imported `bytesconv` is a call into that package and cannot be
+anything else. **That property does not hold in JavaScript**, where `ns.helper`'s `ns` could be any object in scope, and
+it is why §95 refused to read member access there and reads it here. **Only exported names**: a lowercase name belongs to
+its package and no other file can spell it, which is the compiler's rule and not this index's.
+
+**C's crossing is the header's declarations the importer actually uses**, so a header that declares forty functions and
+is included by a file that calls one of them is an edge for that one and none for the other thirty-nine.
+
+**And one refusal that is not a defect.** A quoted include that no file holds is `ambiguous` rather than `missing` when
+two files answer it: `tests/unity/unity.h` and `unity.h` at the root is a real shape, and **picking the shorter path
+would be a wrong edge in a review that then says a change reaches a file it does not**. On `DaveGamble/cJSON` that arm
+fired 8 times and every one of them was `ProductionCode.h` under two directories.
+
+### 102.3 A definition is not a read
+
+**The first measurement of `DaveGamble/cJSON` produced 120 edges and 74 of them were wrong.** `tests/unity` declares
+`void setUp(void);` once in `unity.h` and *defines* it in each of its thirty test files, so a raw word match credited
+thirty edges for `setUp`, thirty for `tearDown` and fourteen for `reset` to a header nobody read those names from.
+
+**The repair is C's own rule**: a name the importer also declares is not a name it reads from the header, because the
+file's definition shadows the declaration. **And a definition is not a use.** That one filter moved cJSON from 120 edges
+to 39.
+
+**The second repair came from a test, not from a measurement.** `void setUp(void) {}` **opens and closes its body on one
+line**, and `cFunction` only accepted a line ending in `{` - so a Unity test file indexed as declaring nothing, and *a
+declaration the index cannot name has no name to give a C `#include` edge*. The rule now accepts a body opened and closed
+in place, and it moves the two C repositories in opposite directions because it changes what counts as a declaration on
+**both** sides of an edge: `DaveGamble/cJSON` 39 → 52, `stedolan/jq` 730 → 728.
+
+### 102.4 The judge
+
+**A reader measured against the fixtures its author wrote is measured against its author.** §95.1 answered that for
+TypeScript with `ts.resolveModuleName`; there is no Go toolchain and no C compiler with `-I` flags in this sandbox, so
+the judge is one level lower and says so: **`tree-sitter-go` and `tree-sitter-c` decide where an import statement is and
+what it names**, and they share no line of code with the reader.
+
+`scripts/import-oracle.ts` grew the two languages rather than a second script - **one judge, one artifact, one
+`--check`** - and the shapes it is asked about are the ones a line reader gets wrong:
+
+| fixture                    | what it holds                                                                     | ours | tree-sitter | agree |
+| -------------------------- | --------------------------------------------------------------------------------- | ---- | ----------- | ----- |
+| `shapes_imports.go`        | a group of four with an alias, a blank identifier, a dot import, and an `import` inside a comment and inside a raw string | 4    | 4           | 4     |
+| `shapes_imports.c`         | a quoted include, an angled one, `#  include` with the standard's spaces, and one inside each comment form | 4    | 4           | 4     |
+
+**Zero files disagree**, across all eight languages the oracle now covers (`benchmarks/import-oracle.json`).
+
+**What the judge does not say, and the artifact states it.** It says nothing about which file a specifier resolves to -
+that half is a rule this repository writes and a corpus that can refuse it. **And C's edges are not judged at all**:
+*does this file use a name the header declares* needs scope and type information a parse tree does not carry, so a name
+appearing as an identifier would be a tautology rather than a second opinion.
+
+### 102.5 What it measures on checkouts the index did not write
+
+`scripts/corpus-index-report.mjs` takes any checkout and reports what the index can say, by language
+(`benchmarks/polyglot-index.json`):
+
+| repository          | commit    | files | symbols | imports | resolved | external | missing | ambiguous | edges | index |
+| ------------------- | --------- | ----- | ------- | ------- | -------- | -------- | ------- | --------- | ----- | ----- |
+| `gin-gonic/gin`     | `0f09c3a` | 99    | 1 600   | 521     | 31       | 490      | 0       | 0         | 94    | 51 ms |
+| `DaveGamble/cJSON`  | `6d9f244` | 101   | 1 420   | 380     | 163      | 160      | 49      | 8         | 52    | 52 ms |
+| `stedolan/jq`       | `5c001b1` | 87    | 1 839   | 425     | 173      | 241      | 11      | 0         | 728   | 96 ms |
+
+**Two of the three figures that look wrong are right.** gin's 490 external imports are the standard library and
+third-party modules - `net/http`, `encoding/base64`, `github.com/stretchr/testify/assert` - and a Go repository that
+imports its own packages 31 times in 99 files is a repository whose tests are the majority of its files. jq's 11 missing
+includes are `#include "src/version.h"` and `#include "src/builtin.inc"`, which are **generated at build time from `.in`
+templates and are not in the checkout**; and 49 of cJSON's 49 missing includes are Unity's `funky.h` and `stanky.h`,
+which are fixture names its mock generator expects a test to create.
+
+**The cost side, measured at repository scale**, because the point of the index is a sentence in a prompt:
+
+| repository  | files with a note | notes with no line | characters | median note |
+| ----------- | ----------------- | ------------------ | ---------- | ----------- |
+| gin         | 98 of 98          | 69                 | 2 206      | 48          |
+| cJSON       | 97 of 97          | 89                 | 1 856      | 202         |
+| jq          | 79 of 79          | 50                 | 6 685      | 241         |
+
+**A note with no line is not a note with no cost**: `reachNoteOf` answers `null` for a file that declares nothing and a
+note with an empty `lines` for a file whose declarations nothing outside reads, and the second still renders *N names are
+read by no other file* - which is the containment half of the answer. The two are counted apart, because a median taken
+over both reports `0` for a repository where half the files are leaves: **a true statement about the repository and a
+useless one about the device.**
+
+**jq's median note is 241 characters ≈ 60 tokens**, against 109 characters ≈ 27 tokens for this repository's TypeScript,
+and the difference is the language: a C header is included by many files and a Go package by few. **A pull request that
+changes five C files pays ≈1 200 characters ≈ 300 tokens**, which is the same order as §100's measurement and still a
+fraction of a diff.
+
+### 102.6 ArkTS: the extension that was missing
+
+**HarmonyOS writes TypeScript's `import { X } from '../model/Counter'` in a `.ets` file**, and `resolveSpecifier`'s
+candidate list was `.ts/.tsx/.mts/.cts/.js/.jsx/.mjs/.cjs` - so **every ArkTS import resolved to nothing**, which is the
+whole edge layer of an ArkTS application. `.ets` is now a candidate, and the cost is one line.
+
+**What is still absent is a real one and is stated**: `.ets` files are read by the TypeScript scanner, so a `struct`
+carries the class scanner's shape rather than ArkUI's - the `analyzer` package has an ArkTS grammar and this index does
+not use it, because the index's scanners are line-based by design (§94 measured what a parser per file costs at review
+time).
+
+### 102.7 What is read now, by language, and what is not
+
+| language       | extensions                              | declarations                | statements | resolver                                      | remaining gap                                                    |
+| -------------- | --------------------------------------- | --------------------------- | ---------- | --------------------------------------------- | ---------------------------------------------------------------- |
+| Java           | `.java`                                 | `scanJava`                  | `import`   | dotted path = directory, suffix on the basename | a wildcard `a.b.*` makes no edge; the names behind it are not read |
+| JavaScript     | `.js .jsx .mjs .cjs .es6`               | TS scanner                  | ESM + `require()` | relative path, `.js`→`.ts` swap         | a dynamic `import(expr)` is not read                              |
+| TypeScript     | `.ts .tsx .mts .cts`                    | TS scanner                  | ESM        | 1 265 / 1 265 against `ts.resolveModuleName`   | `tsconfig` `paths` aliases are not read                           |
+| Python         | `.py .pyi`                              | `scanPython`                | `import`, `from` | leading dots are steps up from the importer | a re-export through `__init__.py` is not followed                 |
+| Groovy         | `.groovy .gvy .gradle`                  | `scanGroovy`                | JVM        | same as Java                                   | same wildcard gap; `build.gradle` has no imports at all           |
+| XML            | `.xml .xsd .svg .plist`                 | `scanXml` (keys)            | none       | none                                           | `xsd:import` and `xi:include` are read by nothing                 |
+| YAML           | `.yaml .yml`                            | `scanYaml` (keys)           | none       | none                                           | `$ref` in an OpenAPI document is a real edge this does not read   |
+| JSON           | `.json .jsonc`                          | `scanJson` (keys)           | none       | none                                           | nothing to resolve: a JSON document imports nothing               |
+| Kotlin         | `.kt .kts`                              | `scanKotlin`                | JVM        | same as Java                                   | same wildcard gap                                                 |
+| Swift          | `.swift`                                | `scanSwift`                 | `import`   | **answered `external`** - a module is not a file | a SwiftPM target's directory structure is the missing rule       |
+| ArkTS          | `.ets`                                  | TS scanner                  | ESM        | `.ets` is now a candidate                      | `struct` is read as a class; ArkUI's own grammar is unused         |
+| **Go**         | `.go`                                   | `scanGo`                    | `import`, block | **module prefix from `go.mod`**            | a `go.work` workspace and vendored modules are not read           |
+| **C / C++**    | `.c .h .cc .cpp .cxx .hpp .hh`          | `scanCFamily`               | `#include` | includer directory, then a unique suffix       | `-I` paths from a build system are still invisible                |
+
+**Four of the fourteen still resolve to nothing, and all four are documents**: JSON, YAML and XML have no import in the
+sense this layer means, and Swift's module imports name a distribution unit rather than a path. **That is not a gap to
+close with the same tool** - a `$ref` resolver and a SwiftPM target resolver are two different projects, and neither is
+in the critical path of the corpus §101.7 measured.
+
+### 102.8 The bill
+
+Two readers, two resolvers, one `go.mod` field on the walk, one extension in a candidate list, one repair in the C
+scanner that a test found, one judge extended by two languages, one measurement script, one artifact - **and no model
+call at all.** The whole of this section costs **0 CNY**; it exists to make §101.7's 6.2 % a number that can move.

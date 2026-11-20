@@ -5,7 +5,7 @@
     "specifier resolves to, and that half of the claim is a corpus refusal (a specifier that resolves to nothing is a",
     "missing row, counted) rather than a comparison."
   ],
-  "measuredAt": "2026-11-19",
+  "measuredAt": "2026-11-20",
   "corpus": [
     "benchmarks/polyglot/files",
     "benchmarks/polyglot/hard",
@@ -40,6 +40,13 @@
       "agree": 10,
       "unjudged": 0
     },
+    "c": {
+      "files": 2,
+      "ours": 4,
+      "theirs": 4,
+      "agree": 4,
+      "unjudged": 0
+    },
     "javascript": {
       "files": 2,
       "ours": 2,
@@ -53,8 +60,15 @@
       "theirs": 9,
       "agree": 9,
       "unjudged": 0
+    },
+    "go": {
+      "files": 1,
+      "ours": 4,
+      "theirs": 4,
+      "agree": 4,
+      "unjudged": 0
     }
   },
   "disagreement": [],
-  "files": 20
+  "files": 23
 }

@@ -17,7 +17,7 @@ import { join } from 'node:path';
 
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 
-import { readRepoFiles } from '../repo-files.js';
+import { goModuleOf, readRepoFiles } from '../repo-files.js';
 import { buildRepoIndex, impactOf } from '../repo-index.js';
 
 let root = '';
@@ -222,5 +222,24 @@ describe('what a checkout gives the index', () => {
     // that lets it: the caller decides whether to review without an index, and the artifact records which it did.
     expect(tree.files).toHaveLength(0);
     expect(tree.stats.readable).toBe(false);
+  });
+
+  /**
+   * **The one fact a file cannot carry, and the walk is the only place that can read it.**
+   *
+   * A Go import is a module path plus a directory, and *where the module ends* is in `go.mod`. `buildRepoIndex` is handed
+   * text rather than a directory, so the file is read once by the walk and the answer travels with the tree - **and a
+   * repository without one answers `null`, which makes every Go import `external` rather than guessed**.
+   */
+  it('reads the module a `go.mod` declares, and answers null when there is none', () => {
+    expect(readRepoFiles(root, { extensions: ['.ts'] }).goModule).toBeNull();
+    write('go.mod', 'module github.com/gin-gonic/gin\n\ngo 1.21\n');
+    expect(readRepoFiles(root, { extensions: ['.ts'] }).goModule).toBe('github.com/gin-gonic/gin');
+  });
+
+  it('answers null for a `go.mod` with no module line, rather than inventing a module path', () => {
+    write('go.mod', 'go 1.21\n\nrequire github.com/x/y v1.0.0\n');
+    expect(goModuleOf('go 1.21\n')).toBeNull();
+    expect(readRepoFiles(root, { extensions: ['.ts'] }).goModule).toBeNull();
   });
 });
