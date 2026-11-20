@@ -10928,7 +10928,7 @@ time).
 | ----------- | ------------------------------ | ----------------- | ----------------- | ------------------------------------------------ | ------------------------------------------------------------------ |
 | Java        | `.java`                        | `scanJava`        | `import`          | dotted path = directory, suffix on the basename  | a wildcard `a.b.*` makes no edge; the names behind it are not read |
 | JavaScript  | `.js .jsx .mjs .cjs .es6`      | TS scanner        | ESM + `require()` | relative path, `.js`→`.ts` swap                  | a dynamic `import(expr)` is not read                               |
-| TypeScript  | `.ts .tsx .mts .cts`           | TS scanner        | ESM               | 1 265 / 1 265 against `ts.resolveModuleName`     | `tsconfig` `paths` aliases are not read                            |
+| TypeScript  | `.ts .tsx .mts .cts`           | TS scanner        | ESM               | 1 264 / 1 264 against `ts.resolveModuleName`     | `tsconfig` `paths` aliases are not read                            |
 | Python      | `.py .pyi`                     | `scanPython`      | `import`, `from`  | leading dots are steps up from the importer      | a re-export through `__init__.py` is not followed                  |
 | Groovy      | `.groovy .gvy .gradle`         | `scanGroovy`      | JVM               | same as Java                                     | same wildcard gap; `build.gradle` has no imports at all            |
 | XML         | `.xml .xsd .svg .plist`        | `scanXml` (keys)  | none              | none                                             | `xsd:import` and `xi:include` are read by nothing                  |
@@ -10951,6 +10951,12 @@ Two readers, two resolvers, a `package` index for the three JVM languages, one `
 in a candidate list, one repair in the C scanner that a test found, one judge extended by two languages, one measurement
 script over seven checkouts, one artifact - **and no model call at all.** The whole of this section costs **0 CNY**; it
 exists to make §101.7's 6.2 % a number that can move.
+
+**One number moved without a device changing.** The self-index of this repository reads **485 files, 1 884 imports,
+1 264 resolved, 1 286 edges** in `benchmarks/cross-file-index.json`, against 1 885 / 1 265 / 1 290 at §101 - **because
+the corpus is this repository and §102 changed its sources.** A measurement whose subject is the code the measurement
+ships with moves when that code does; the artifact is regenerated deliberately and the earlier figures stay in §101 as
+the history they are.
 
 **What it did not do, stated so the next section is not mistaken for it.** R-44 is still unrun, the control arm is still
 unbought, and the 6.2 % has not been re-measured. What changed is that the population the registration is over now

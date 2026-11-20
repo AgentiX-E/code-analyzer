@@ -13,22 +13,23 @@
     "web"
   ],
   "files": 485,
-  "lines": 185986,
+  "lines": 186552,
   "stats": {
     "files": 485,
-    "symbols": 4324,
-    "imports": 1885,
-    "resolvedImports": 1265,
+    "symbols": 4337,
+    "imports": 1884,
+    "resolvedImports": 1264,
     "externalImports": 620,
     "missingImports": 0,
+    "ambiguousImports": 0,
     "namespaceImports": 0,
-    "edges": 1290
+    "edges": 1286
   },
-  "elapsedMs": 415,
+  "elapsedMs": 438,
   "agreement": {
-    "compared": 1265,
+    "compared": 1264,
     "bareSpecifiers": 620,
-    "agreed": 1265,
+    "agreed": 1264,
     "rate": 1,
     "weResolveTheyDoNot": 0,
     "theyResolveWeDoNot": 0,
@@ -40,10 +41,10 @@
     "bothResolveDifferently": []
   },
   "coverage": {
-    "declarations": 4324,
-    "readFromAnotherFile": 669,
-    "share": 0.1547,
-    "meanCallers": 1.9283,
+    "declarations": 4337,
+    "readFromAnotherFile": 665,
+    "share": 0.1533,
+    "meanCallers": 1.9338,
     "topFanOut": [
       ["ParsedImport", 34],
       ["namedChildrenOf", 26],
@@ -58,19 +59,19 @@
   "reach": {
     "files": 463,
     "withoutNote": 22,
-    "chars": 75885,
+    "chars": 75561,
     "medianChars": 109,
     "p90Chars": 393,
     "maxChars": 919,
-    "meanImporters": 1.5032,
-    "tokensByProxy": 18971,
+    "meanImporters": 1.5011,
+    "tokensByProxy": 18890,
     "medianTokensByProxy": 27
   },
   "reader": {
     "readable": true,
     "considered": 485,
     "read": 485,
-    "bytes": 6923187,
+    "bytes": 6949064,
     "skippedBySize": 0,
     "skippedOverCap": 0,
     "skippedOverBytes": 0,
