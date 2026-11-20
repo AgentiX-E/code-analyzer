@@ -20,10 +20,12 @@ import { describe, expect, it } from 'vitest';
 
 import { LLMReviewEngine } from '../llm-review-engine.js';
 import {
+  FUSED_QUESTIONS,
   FUSED_REVIEW_PROMPT,
   LANE_OF_CATEGORY,
   LANE_PROMPTS,
   LANE_SETS,
+  parseFusedResponse,
   parseLLMResponse,
 } from '../prompts.js';
 
@@ -319,5 +321,88 @@ describe('what a fused run does when it cannot answer', () => {
     const first = results[0];
     expect(first?.lane).toBe(LANE_SETS.shipped[0]);
     expect(first?.findings.map((own) => own.title)).toEqual(['an invented category']);
+  });
+});
+
+describe('the six-answer contract, which §107.7 made necessary', () => {
+  it('asks for one array per question rather than one list of findings', () => {
+    const prompt = FUSED_REVIEW_PROMPT(context());
+    expect(prompt).toContain('"answers"');
+    // **Every lane the prompt asks about must be a key an answer can carry**, or the structure cannot express a
+    // silence: the measured failure was ninety-one per cent of a six-question answer arriving as one category.
+    for (const question of FUSED_QUESTIONS) expect(prompt).toContain(question.lane);
+  });
+
+  it('shows an example with two lanes, one of them empty, because one example is what collapsed the answers', () => {
+    const prompt = FUSED_REVIEW_PROMPT(context());
+    expect(prompt).toContain('"findings": []');
+    // **The old prompt's single worked example was a divisor that can be zero**, labelled `behaviour`/`bug`, and the
+    // arm that used it filed 90.8 % of its findings as `bug`. The replacement's example is about a duplicated helper.
+    expect(prompt).toContain('joinPath');
+  });
+
+  it('reads six arrays, an empty one contributing nothing and no error', () => {
+    const answer = JSON.stringify({
+      answers: [
+        { lane: 'security', findings: [] },
+        { lane: 'performance', findings: [finding({ title: 'a quadratic scan' })] },
+        { lane: 'maintainability', findings: [] },
+      ],
+    });
+    const byLane = parseFusedResponse(answer);
+    expect([...byLane.keys()]).toEqual(['performance']);
+    expect(byLane.get('performance')?.map((own) => own.title)).toEqual(['a quadratic scan']);
+  });
+
+  it('still reads the single-array answer every earlier run wrote', () => {
+    // **A parser that only knew the new shape would turn a wrong answer into no answer.** The old contract is the one
+    // 3 195 calls in §106 were made under.
+    const legacy = JSON.stringify({
+      findings: [
+        finding({ lane: 'security', title: 'a leak' }),
+        finding({ title: 'no lane at all' }),
+      ],
+    });
+    const byLane = parseFusedResponse(legacy);
+    expect(byLane.get('security')?.map((own) => own.title)).toEqual(['a leak']);
+    expect(byLane.get('')?.map((own) => own.title)).toEqual(['no lane at all']);
+  });
+
+  it('files a six-array answer into the lanes the arrays name', async () => {
+    // **Two findings on two lines**, because the cross-lane deduplication merges two findings that share a range - a
+    // fixture that put both on line 2 would be measuring the merge rather than the attribution.
+    const provider = new Scripted(
+      JSON.stringify({
+        answers: [
+          {
+            lane: 'architecture',
+            findings: [finding({ startLine: 1, endLine: 1, title: 'a boundary crossed' })],
+          },
+          { lane: 'testing', findings: [] },
+          {
+            lane: 'behaviour',
+            findings: [
+              finding({
+                startLine: 3,
+                endLine: 3,
+                category: 'maintainability',
+                title: 'a long function',
+              }),
+            ],
+          },
+        ],
+      }),
+    );
+    const results = await new LLMReviewEngine(provider, {
+      lanes: [...LANE_SETS.shipped],
+      laneMode: 'fused',
+    }).reviewDiff(oneDiff(), PATCH);
+    const byLane = new Map(
+      results.map((result) => [result.lane, result.findings.map((own) => own.title)]),
+    );
+    expect(byLane.get('architecture')).toEqual(['a boundary crossed']);
+    // **`behaviour` was not bought by this run**, so its answer is filed under the lane its category names.
+    expect(byLane.get('maintainability')).toEqual(['a long function']);
+    expect(byLane.get('security')).toEqual([]);
   });
 });

@@ -11686,3 +11686,104 @@ bookkeeping and the sentence is the product - and the three steps are each a sta
   artifact rather than computed here.
 - **It does not re-price any published figure.** Every number before 107.7 was measured under `separate`, the default is
   unchanged, and the artifact records which shape produced it.
+
+### 107.6 R-47 read back: the cost clause was met, the accuracy clause was not
+
+Run `44746539970` at `05c79845c1` reviewed the same fifty pull requests, with `laneMode: fused` and every other switch
+identical (advisory profile, reach on, code context off, idioms off, remarks off, agent off, ensemble off, budget 12,
+`drop test` + `drop path test`). It finished in 61 minutes with **no failures and no retries**, and its artifact carries
+`configuration.laneMode: "fused"` and one spend tag.
+
+| 50 pull requests                        | `separate` (`44721942627`) | `fused` (`44746539970`) |               |
+| --------------------------------------- | -------------------------: | ----------------------: | ------------- |
+| model calls                             |                      3 195 |                 **639** | −80 %         |
+| calls per pull request                  |                       63.9 |                    12.8 |               |
+| prompt tokens                           |                  6 859 281 |           **1 557 933** | −77 %         |
+| prompt tokens per pull request          |                    137 186 |                  31 159 |               |
+| **prompt ratio against the comparator** |                          — |               **0.227** | **≤ 0.30 ✅** |
+| completion tokens                       |                    734 107 |                 131 583 |               |
+| cost                                    |                 1.2388 USD |              0.1879 USD | −85 %         |
+| cache hit ratio                         |                     84.3 % |                  54.5 % |               |
+
+**The cost clause is met with room: 22.7 % of the prompt for 15 % of the money.** The cache ratio fell because the fused
+prompt is one large block per file rather than five small ones, which is the price of the arrangement working at all.
+
+**The accuracy clause is not met, and by more than the noise**:
+
+| the shipped cut | `separate` |    `fused` |            |
+| --------------- | ---------: | ---------: | ---------- |
+| comments        |        304 |        193 |            |
+| true positives  |         84 |         66 | −18        |
+| precision       |     0.2763 | **0.3420** | +23.8 %    |
+| recall          |     0.1858 |     0.1460 | −21.4 %    |
+| **F1**          | **0.2222** | **0.2047** | **−7.9 %** |
+
+**R-47 is falsified on its own bar** (F1 ≥ 0.2131), and §47.5's rule is followed: no threshold tuning, no rule dropped, no
+second dispatch of the same prompt. **What the arm bought is precision, which is the first time this campaign has seen
+0.34** - and it bought it by saying less.
+
+### 107.7 The mechanism, which the pool's own histogram states
+
+A fused call filed 228 findings where the five separate calls filed 593. **The distribution says why, and it is not that
+the model was worse at the questions: it is that it answered one of them.**
+
+| category          | `separate` (593) |  share | `fused` (228) |      share |
+| ----------------- | ---------------: | -----: | ------------: | ---------: |
+| `bug`             |              254 | 42.8 % |       **207** | **90.8 %** |
+| `architecture`    |              157 | 26.5 % |             6 |      2.6 % |
+| `test`            |               87 | 14.7 % |             7 |      3.1 % |
+| `maintainability` |               41 |  6.9 % |             4 |      1.8 % |
+| `security`        |               18 |  3.0 % |             3 |      1.3 % |
+
+**Ninety-one per cent of a six-question answer came back as `bug`, against forty-three per cent when the questions were
+asked separately.** And the lane the answers labelled themselves with is the same story: `behaviour` 129, `security` 75,
+`architecture` 12, `testing` 7, `maintainability` 4, `performance` 1 - against 316 architecture findings in the separate
+arm.
+
+**The one worked example in the fused prompt is a divisor that can be zero, labelled `behaviour`/`bug`.** A prompt that
+lists six questions and then shows one example has told the model which question is being asked; the other five are read
+as context for it. **That is a defect of the prompt rather than of the arrangement**, and it is the one thing in this
+round that a second dispatch could settle - which is R-48 below.
+
+**The silence moved, too.** The missed-goldens partition: `noFindingOnPath` 124 against 35, `findingOnPathRejected` 204
+against 248. **Fused was quiet where separate was wrong**: on files it read and said nothing about, the corpus had 124
+goldens; the separate arm had a comment there 248 times and 35 silences.
+
+### 107.8 What 3.5× buys, and what it does not
+
+| per million prompt tokens | `separate` |  `fused` |
+| ------------------------- | ---------: | -------: |
+| goldens matched           |       12.2 | **42.4** |
+| comments posted           |       44.3 |    123.9 |
+
+**The fused arm converts tokens into goldens 3.5× better than the separate one, and it is still a worse reviewer by the
+metric this corpus publishes.** Both sentences are true and neither is the headline: **F1 is the field's metric, and a
+campaign that needs resolution more than it needs a point is a campaign whose binding constraint is the bill** (§75.2:
+146 rows resolve 0.019; 452 goldens resolve 0.019; the wall is rows).
+
+**So the number that survives R-47 is a price, not a score**: at 0.1879 USD per fifty pull requests, **two hundred pull
+requests cost 0.75 USD rather than 5.0** - which is the difference between a corpus that resolves 0.010 and one that
+cannot resolve anything under 0.019.
+
+### 107.9 R-48, registered and dispatched: six answers, not six questions in one paragraph
+
+- **Hypothesis.** The collapse in §107.7 is the prompt's example, not the arrangement. **A fused prompt whose contract is
+  a JSON object with one array per question** - `{"answers":[{"lane":"security","findings":[…]},{"lane":"performance",
+"findings":[]}, …]}`, every lane present whether or not it has anything to say - **recovers the category distribution to
+  within ten points of the separate arm's `bug` share, and keeps the prompt under 35 % of it.**
+- **Why a schema rather than a sentence.** §107.7's evidence is that a list of questions plus one example produces one
+  answer. **A structure that has six slots cannot be answered with one**, and the empty arrays are a measurement: a lane
+  that says `[]` six times is a reviewer that looked and found nothing, which the artifact can count.
+- **Comparator.** `44746539970` itself: same fifty rows, same commit family, same day. **The claim is about the
+  distribution first and F1 second**, because a device whose only failure was attention should move the histogram before
+  it moves a score.
+- **Falsifier.** A `bug` share above 70 % after the change. **The device then retires as a property of one-call
+  prompting**, and the price result of §107.8 stands on its own.
+- **Price.** One arm, fifty pull requests, **0.19 USD** - the cheapest dispatch in this document.
+- **What was changed, before the dispatch.** `FUSED_REVIEW_PROMPT` now asks for `{"answers":[{"lane":…,"findings":[…]},…]}`,
+  one entry **per lane whether or not it has anything to say**, and its worked example is two lanes - one with a finding
+  about a duplicated helper, one empty. The single-array schema is **not** printed beside it: `selectionRulesOnly` keeps
+  the choosing discipline and drops the shape that would compete with the six-array one. `parseFusedResponse` reads both
+  shapes, because the answer that arrives in the old one is still an answer, and a parser that only knew the new shape
+  would turn a wrong answer into no answer. The price moved by −0.3 points with it: **21.6 % of the five at an
+  8 000-character diff**, against 21.9 %.

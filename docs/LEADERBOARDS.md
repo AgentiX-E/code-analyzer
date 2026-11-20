@@ -122,6 +122,32 @@ here on the golden basis, which is the only reason to believe either reading. **
 their artifact records 110 findings and their goldens, not their tokens, so **a head-to-head on goldens per token cannot
 be run against them** and this page does not pretend otherwise.
 
+### 2d. The one measured cost for the leader, and the corpus it is measured on
+
+**`benchmarks/ocr-on-our-corpus.json` runs the competitor's own harness here**: `open-code-review` 1.12.13,
+`scan --path <corpus> --format json`, pointed at DeepSeek's Anthropic-compatible endpoint so that **the model is the one
+this repository's own figures use**, over the tree this engine indexes.
+
+| row                        |      value |
+| -------------------------- | ---------: |
+| files reviewed             |         37 |
+| comments filed             |        252 |
+| comments per file          |       6.81 |
+| prompt + completion tokens |  3 544 985 |
+| **tokens per file**        | **95 810** |
+| tokens per comment         |     14 067 |
+| elapsed                    |     2m 40s |
+
+**This engine's own figure on the AACR run is 11 626 tokens per file** (`137 186` per pull request over 11.8 files) and
+**22 563 tokens per comment** on the 304 it posts. **The two are not a head-to-head and this page does not pool them**:
+different corpora, different file sets, and the competitor's number is a single scan rather than a scored run. What it
+establishes is the one thing no leaderboard says: **the leader's cost per file is in the same order as ours is not** —
+8.2× the prompt and completion per file for 1.4× the comments per file.
+
+**Why it is quoted at all.** §2c records that the competitor's cost _on the benchmark_ is unknown, because their
+artifact carries findings and goldens rather than tokens. That remains true, and this table is not a substitute for it —
+it is the only measurement of its kind that exists, labelled with the corpus it was taken on.
+
 ---
 
 ## 3. What is planned, and the benchmark each plan is checked against

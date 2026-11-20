@@ -316,6 +316,17 @@ export function selectionContract(ctx: PromptContext): string {
 }
 
 /**
+ * **The choosing rules without the schema they are usually printed beside.**
+ *
+ * A fused call has its own schema - six arrays, one per question - and printing the single-array schema beside it would
+ * show a model two contracts for one answer. **What must survive the substitution is the discipline, not the shape**:
+ * the category vocabulary the corpus is written in, and the rule about how many findings a window is worth.
+ */
+export function selectionRulesOnly(ctx: PromptContext): string {
+  return ctx.scope === 'pull-request' ? pullRequestRules(ctx) : SELECTION_RULES;
+}
+
+/**
  * **What the call is about, said the way the scope allows.**
  *
  * A file call names one file and may carry surrounding context. **A pull-request call names the files it shows**,
@@ -940,35 +951,39 @@ export function FUSED_REVIEW_PROMPT(ctx: PromptContext): string {
   const questions = FUSED_QUESTIONS.map(
     (question) => `- **${question.lane}** - ${question.ask}`,
   ).join('\n');
-  const head = `You are reviewing one change and answering several independent questions about it. **Each question names the lane that owns it.** Answer every one of them from the same diff, and report a finding only where you can point at the line.
+  const head = `You are reviewing one change and answering several independent questions about it. **Each question names the lane that owns it.** Answer **every** question, in order, from the same diff.
 
 ${questions}
 
-**Most changed lines answer none of these.** A rename, a reformat, a comment, a test fixture and most configuration changes carry nothing here, and an empty findings array is the expected answer for them rather than a failure of the exercise. **Report no improvement, no praise and no summary.**
+**Six answers are required, one per lane, and an empty answer is a real answer.** A change that has nothing to say about ownership says so; a review that answers only one of these has not done this task, and the six arrays are how the difference is visible.
+
+**Most changed lines answer none of these.** A rename, a reformat, a comment, a test fixture and most configuration changes carry nothing here.
 
 `;
-  const tail = `Return a JSON object with this exact structure. Every finding carries the **lane** it answers, spelled exactly as above:
-${defectChecklist(ctx)}${selectionContract(ctx)}
+  const tail = `Return a JSON object with exactly this structure - an **object with one key, \`answers\`**, holding one entry per lane above, in the order above, each with its own findings array:
+${defectChecklist(ctx)}${selectionRulesOnly(ctx)}
 
-Few-shot example - a divisor the caller does not know is zero:
-Input: diff adding \`const ratio = delta / Math.min(previous, current);\`
-Output:
 {
-  "findings": [
+  "answers": [
     {
-      "lane": "behaviour",
-      "startLine": 41,
-      "endLine": 41,
-      "severity": "high",
-      "category": "bug",
-      "title": "Two equal intervals make Math.min zero and the ratio Infinity",
-      "description": "Math.min(previous, current) is the gap between consecutive events, and two events on the same tick pass 0 here. The division then returns Infinity, which the caller compares against a threshold and never exceeds.",
-      "suggestion": "Guard the zero before dividing: if (Math.min(previous, current) === 0) return 0;"
-    }
+      "lane": "maintainability",
+      "findings": [
+        {
+          "startLine": 12,
+          "endLine": 12,
+          "severity": "medium",
+          "category": "maintainability",
+          "title": "The new branch rebuilds the path that \`joinPath\` already builds",
+          "description": "\`joinPath(base, name)\` in this package does exactly this concatenation, including the separator handling this branch re-derives by hand.",
+          "suggestion": "Call \`joinPath(base, name)\` instead of rebuilding it here."
+        }
+      ]
+    },
+    { "lane": "security", "findings": [] }
   ]
 }
 
-Respond ONLY with the JSON object. Do not include any markdown formatting, explanations, or additional text.`;
+**The example shows two of the six on purpose**: the object must carry all of them, and a lane with nothing to report carries an empty array rather than being left out. Respond ONLY with the JSON object. Do not include any markdown formatting, explanations, or additional text.`;
   return composeLanePrompt(ctx, head, tail);
 }
 
@@ -980,10 +995,8 @@ Respond ONLY with the JSON object. Do not include any markdown formatting, expla
  * Parse the raw JSON response from an LLM review lane into structured findings.
  * Handles common formatting issues like markdown code fences.
  */
-export function parseLLMResponse(raw: string): LLMFinding[] {
-  // Strip markdown code fences if present
+function stripFences(raw: string): string {
   let json = raw.trim();
-
   if (json.startsWith('```')) {
     const firstNewline = json.indexOf('\n');
     json = json.slice(firstNewline + 1);
@@ -991,52 +1004,102 @@ export function parseLLMResponse(raw: string): LLMFinding[] {
       json = json.slice(0, -3).trim();
     }
   }
+  return json;
+}
 
+/**
+ * **The findings in one list, validated and normalised, from whichever shape they arrived in.**
+ *
+ * One function for both contracts because **the validation is the same claim in both**: a finding is a range, a severity,
+ * a category and a title, and a `lane` only when the answer wrote a string there. A second copy for the six-array shape
+ * would be a second opinion about what a finding is.
+ */
+export function toFindings(list: unknown): LLMFinding[] {
+  if (!Array.isArray(list)) return [];
+  return list
+    .filter((f: unknown): f is LLMFinding => {
+      if (!f || typeof f !== 'object') return false;
+      const finding = f as Record<string, unknown>;
+      return (
+        typeof finding['startLine'] === 'number' &&
+        typeof finding['endLine'] === 'number' &&
+        typeof finding['severity'] === 'string' &&
+        typeof finding['category'] === 'string' &&
+        typeof finding['title'] === 'string'
+      );
+    })
+    .map((f: LLMFinding) => {
+      const base: LLMFinding = {
+        ...f,
+        description: f.description ?? '',
+        suggestion: f.suggestion ?? null,
+      };
+      // **A path is passed through only when it is a string.** The spread above copies whatever JSON held, and a number
+      // in that field would be a `path` the type promises is a path. **The engine decides whether the path names a file
+      // the call showed** - this only refuses to carry a value that is not one.
+      const raw: Record<string, unknown> = f as unknown as Record<string, unknown>;
+      // **The same rule for the lane**, and here it is the whole attribution of a fused answer: a number or an object in
+      // that field is not a lane, and the engine's fallback to the category is truthful where a coerced string would not
+      // be. See `FUSED_REVIEW_PROMPT`.
+      const withPath: LLMFinding =
+        typeof raw['path'] === 'string' ? { ...base, path: raw['path'] } : base;
+      if (typeof raw['lane'] !== 'string') {
+        // **Removed rather than left to the spread.** `...f` copies whatever the JSON held, so a number in `lane` would
+        // reach the engine as a lane the type says is a string; the engine's fallback then reads the category, and a
+        // stripped field is what makes that fallback the one that runs.
+        const stripped = { ...withPath } as LLMFinding & { lane?: unknown };
+        delete stripped.lane;
+        return stripped;
+      }
+      return { ...withPath, lane: raw['lane'] };
+    });
+}
+
+export function parseLLMResponse(raw: string): LLMFinding[] {
   try {
-    const parsed = JSON.parse(json) as { findings?: LLMFinding[] };
-
-    if (!Array.isArray(parsed.findings)) {
-      return [];
-    }
-
-    return parsed.findings
-      .filter((f: unknown): f is LLMFinding => {
-        if (!f || typeof f !== 'object') return false;
-        const finding = f as Record<string, unknown>;
-        return (
-          typeof finding['startLine'] === 'number' &&
-          typeof finding['endLine'] === 'number' &&
-          typeof finding['severity'] === 'string' &&
-          typeof finding['category'] === 'string' &&
-          typeof finding['title'] === 'string'
-        );
-      })
-      .map((f: LLMFinding) => {
-        const base: LLMFinding = {
-          ...f,
-          description: f.description ?? '',
-          suggestion: f.suggestion ?? null,
-        };
-        // **A path is passed through only when it is a string.** The spread above copies whatever JSON held, and a
-        // number in that field would be a `path` the type promises is a path. **The engine decides whether the path
-        // names a file the call showed** - this only refuses to carry a value that is not one.
-        const raw: Record<string, unknown> = f as unknown as Record<string, unknown>;
-        // **The same rule for the lane**, and here it is the whole attribution of a fused answer: a number or an object
-        // in that field is not a lane, and the engine's fallback to the category is truthful where a coerced string
-        // would not be. See `FUSED_REVIEW_PROMPT`.
-        const withPath: LLMFinding =
-          typeof raw['path'] === 'string' ? { ...base, path: raw['path'] } : base;
-        if (typeof raw['lane'] !== 'string') {
-          // **Removed rather than left to the spread.** `...f` copies whatever the JSON held, so a number in `lane`
-          // would reach the engine as a lane the type says is a string; the engine's fallback then reads the category,
-          // and a stripped field is what makes that fallback the one that runs.
-          const stripped = { ...withPath } as LLMFinding & { lane?: unknown };
-          delete stripped.lane;
-          return stripped;
-        }
-        return { ...withPath, lane: raw['lane'] };
-      });
+    const parsed = JSON.parse(stripFences(raw)) as { findings?: unknown };
+    return toFindings(parsed.findings);
   } catch {
     return [];
+  }
+}
+
+/**
+ * **A fused answer, read as one list per question.**
+ *
+ * The fused contract asks for `{"answers":[{"lane":"security","findings":[…]},…]}`, **one entry per lane whether or not
+ * it has anything to say**, because §107.7 measured what a list of questions without a structure produces: ninety-one per
+ * cent of the findings came back as one category, which is the shape of a reviewer that answered the question its
+ * example was about.
+ *
+ * **Two shapes are accepted, and the second is the one every earlier run wrote.** An answer that used the single-array
+ * contract still parses - its findings carry their own `lane`, or none, and the engine's fallback reads the category.
+ * **A parser that only knew the new shape would turn a wrong answer into no answer**, which is the failure the fenced
+ * branch above exists to prevent one level down.
+ *
+ * The key of the map is the lane the answer named, or `''` when it named none; the engine decides what `''` means.
+ */
+export function parseFusedResponse(raw: string): Map<string, LLMFinding[]> {
+  const byLane = new Map<string, LLMFinding[]>();
+  const push = (lane: string, findings: LLMFinding[]): void => {
+    if (findings.length === 0) return;
+    byLane.set(lane, [...(byLane.get(lane) ?? []), ...findings]);
+  };
+  try {
+    const parsed = JSON.parse(stripFences(raw)) as { answers?: unknown; findings?: unknown };
+    if (Array.isArray(parsed.answers)) {
+      for (const answer of parsed.answers) {
+        if (!answer || typeof answer !== 'object') continue;
+        const entry = answer as Record<string, unknown>;
+        const lane = typeof entry['lane'] === 'string' ? entry['lane'] : '';
+        push(lane, toFindings(entry['findings']));
+      }
+      // **An answer that filled `answers` and left `findings` at the top level as well** is a reviewer hedging between
+      // two contracts; both are read rather than one being discarded, because a finding is a sentence either way.
+    }
+    for (const found of toFindings(parsed.findings)) push(found.lane ?? '', [found]);
+    return byLane;
+  } catch {
+    return byLane;
   }
 }

@@ -6,6 +6,7 @@ import {
   LANE_LABELS,
   LANE_OF_CATEGORY,
   LANE_PROMPTS,
+  parseFusedResponse,
   parseLLMResponse,
   type LaneMode,
   type LLMFinding,
@@ -1464,10 +1465,16 @@ export class LLMReviewEngine {
         tag: 'review:fused',
       });
 
-      const parsed = parseLLMResponse(result.content);
+      // **Read as one list per question, because that is the contract the prompt asks for**: six arrays, one per
+      // lane, and an empty array is a lane that looked and found nothing. A finding that arrived under a lane this run
+      // did not buy - or under no lane at all - is filed by `laneOf`, which reads the category it asserted.
+      const answers = parseFusedResponse(result.content);
       const byLane = new Map<ReviewLane, LLMFinding[]>(lanes.map((lane) => [lane, []]));
-      for (const found of parsed) {
-        byLane.get(this.laneOf(found, lanes))?.push(found);
+      for (const [named, findings] of answers) {
+        for (const found of findings) {
+          const labelled = named === '' ? found : { ...found, lane: named };
+          byLane.get(this.laneOf(labelled, lanes))?.push(labelled);
+        }
       }
 
       return lanes.map((lane) => {
