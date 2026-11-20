@@ -55,7 +55,7 @@ const JVM_IMPORT =
  * would then repeat wrongly**, and the shape the first measurement caught.
  */
 const SWIFT_IMPORT =
-  /^\s*import\s+(?:(?:class|struct|enum|protocol|func|var|let|typealias)\s+)?([A-Za-z_][\w]*(?:\.[A-Za-z_][\w]*)*)/u;
+  /^\s*(?:@testable\s+|@_exported\s+|@_implementationOnly\s+)?import\s+(?:(?:class|struct|enum|protocol|func|var|let|typealias)\s+)?([A-Za-z_][\w]*(?:\.[A-Za-z_][\w]*)*)/u;
 
 /** `import a.b, c as d` - the comma list Python allows and the other four do not. */
 const PY_IMPORT = /^\s*import\s+(.+?)\s*;?\s*$/u;
@@ -595,4 +595,169 @@ export function resolveCInclude(
   if (matches.length === 1) return { target: matches[0]!, why: 'resolved' };
   if (matches.length === 0) return { target: null, why: 'missing' };
   return { target: null, why: 'ambiguous' };
+}
+
+/**
+ * **A Swift module is a target, and the target spells the directory it lives in.**
+ *
+ * `import Alamofire` named a module and §102 answered it `external`, which was right and published as *the fact that
+ * proves a Swift module is not a file* - 170 imports, 0 resolved. **A published zero is worth re-reading**: 165 of those
+ * 170 name `Alamofire` itself or an Apple framework, and the test targets that import the library they test are edges
+ * the index could have had, because **the mapping from module to directory is not a guess - `Package.swift` declares it**.
+ *
+ * **The reader is shallow on purpose.** A manifest is Swift, and parsing Swift to find out where a target lives would be
+ * a compiler in front of a review that is about to spend a model call. What is read is the list of `.target` /
+ * `.testTarget` / `.executableTarget` calls and the two `name:` and `path:` labels inside each - **which is every
+ * manifest SwiftPM accepts for the two fields this index needs** - and a manifest that computes its targets in a loop is
+ * answered with the targets it spells and nothing more.
+ *
+ * **`path: null` is a fact and not a missing value**: SwiftPM's defaults are `Sources/<name>` and `Tests/<name>`, and the
+ * caller is the one that can check which of them the checkout holds. **A `binaryTarget` is dropped**, because a prebuilt
+ * framework has no sources here and mapping it to the default directory would invent a target the package does not have.
+ */
+export function readSwiftTargets(manifest: string): { name: string; path: string | null }[] {
+  const out: { name: string; path: string | null }[] = [];
+  const opening = /\.(?:testTarget|executableTarget|target)\s*\(/gu;
+  for (const match of manifest.matchAll(opening)) {
+    const start = (match.index ?? 0) + match[0].length;
+    const body = parenthesised(manifest, start);
+    if (body === null) continue;
+    const name = /name\s*:\s*"([^"]+)"/u.exec(body)?.[1];
+    if (name === undefined) continue;
+    const path = /path\s*:\s*"([^"]+)"/u.exec(body)?.[1] ?? null;
+    out.push({ name, path: path === null ? null : normalisePath(path) });
+  }
+  return out;
+}
+
+/** The text between `start` and the `)` that closes it, counting depth and skipping string literals. */
+function parenthesised(text: string, start: number): string | null {
+  let depth = 1;
+  let at = start;
+  while (at < text.length) {
+    const char = text[at]!;
+    if (char === '"') {
+      at += 1;
+      while (at < text.length && text[at] !== '"') at += text[at] === '\\' ? 2 : 1;
+      at += 1;
+      continue;
+    }
+    if (char === '(') depth += 1;
+    if (char === ')') {
+      depth -= 1;
+      if (depth === 0) return text.slice(start, at);
+    }
+    at += 1;
+  }
+  return null;
+}
+
+/**
+ * **The one edge an XML, JSON or YAML corpus has: a document that names another document.**
+ *
+ * The document languages were added to this index as *symbol* languages - a `.json` declares its keys, an `.xml` declares
+ * its elements - and **a symbol layer with no edge layer is half an index.** An OpenAPI document that `$ref`s forty
+ * component files and an XSD whose `xsd:include` pastes a type library are two corpora where **every file has an edge and
+ * every edge was answered zero**.
+ *
+ * **Three spellings, three rules, and the differences are the languages'.**
+ *
+ * - **XML**: `schemaLocation` on `xsd:import`, `xsd:include` and `xsd:redefine`. A relative URI is a path here; an
+ *   absolute one is the W3C's namespace document and is not. **A commented-out directive is not a directive**, and a
+ *   schema that documents its own imports inside `<!-- -->` is a shape real schemas have, so the comment is tracked
+ *   across lines rather than assumed away.
+ * - **JSON**: `"$ref": "./defs.json#/definitions/User"`. **The fragment is not part of the file** - a resolver that kept
+ *   it would look for a name containing a `#` - and a `#`-only pointer names nothing outside its own document.
+ * - **YAML**: the same key with an unquoted scalar, which is why it needs its own pattern rather than the JSON one.
+ *
+ * **What the statement means: a file crosses, a name does not.** So every reference here is a `namespace` statement -
+ * the same shape `import * as ns` has - and it is a resolution with no symbol edge. A consumer asking *which documents
+ * read this schema* has the answer in `imports`; a consumer asking *which names cross* is asking a question the
+ * document does not answer.
+ */
+export function readDocumentRefs(
+  language: string,
+  lines: readonly string[],
+): LanguageImportStatement[] {
+  const out: LanguageImportStatement[] = [];
+  let inComment = false;
+  for (let at = 0; at < lines.length; at += 1) {
+    const line = lines[at]!;
+    let readable = line;
+    if (language === 'xml') {
+      // **The comment state is carried across lines**, so a directive inside a multi-line comment is not a directive.
+      if (inComment) {
+        const closes = readable.indexOf('-->');
+        if (closes < 0) continue;
+        readable = readable.slice(closes + 3);
+        inComment = false;
+      }
+      readable = readable.replace(/<!--[\s\S]*?-->/gu, ' ');
+      const opens = readable.lastIndexOf('<!--');
+      if (opens >= 0) {
+        readable = readable.slice(0, opens);
+        inComment = true;
+      }
+    }
+    for (const specifier of documentSpecifiers(language, readable)) {
+      out.push({
+        specifier,
+        names: [],
+        namespace: true,
+        startLine: at + 1,
+        endLine: at + 1,
+        // **A URI with a scheme is somebody else's repository**, and a relative one is a path here.
+        kind:
+          /^[A-Za-z][A-Za-z0-9+.-]*:/u.test(specifier) || specifier.startsWith('/')
+            ? 'module'
+            : 'file',
+      });
+    }
+  }
+  return out;
+}
+
+/** The specifiers one line of a document names, in source order. */
+function documentSpecifiers(language: string, line: string): string[] {
+  if (language === 'xml') {
+    // **The comment is already gone**: `readDocumentRefs` strips it and carries the state across lines, so a check for one
+    // here would be a branch no input reaches.
+    const stripped = line;
+    const out: string[] = [];
+    for (const match of stripped.matchAll(/schemaLocation\s*=\s*"([^"]+)"/gu)) out.push(match[1]!);
+    return out;
+  }
+  if (language === 'json') {
+    const out: string[] = [];
+    for (const match of line.matchAll(/"\$ref"\s*:\s*"([^"]*)"/gu)) out.push(match[1]!);
+    return out.map(stripFragment).filter((value): value is string => value !== null);
+  }
+  if (language === 'yaml') {
+    const out: string[] = [];
+    // **A quoted scalar may hold the `#`**, and an unquoted one ends at it - the two are why this is not one pattern.
+    for (const match of line.matchAll(/\$ref\s*:\s*(?:"([^"]+)"|'([^']+)'|([^\s#]+))/gu)) {
+      out.push(match[1] ?? match[2] ?? match[3]!);
+    }
+    return out.map(stripFragment).filter((value): value is string => value !== null);
+  }
+  return [];
+}
+
+/** `./defs.json#/definitions/User` is `./defs.json`, and `#/definitions/User` is nothing outside its own file. */
+function stripFragment(specifier: string): string | null {
+  const hash = specifier.indexOf('#');
+  const path = hash < 0 ? specifier : specifier.slice(0, hash);
+  return path.length === 0 ? null : path;
+}
+
+/** The file a document reference names, relative to the document that wrote it. */
+export function resolveDocumentRef(
+  specifier: string,
+  fromPath: string,
+  files: ReadonlySet<string>,
+): string | null {
+  if (/^[A-Za-z][A-Za-z0-9+.-]*:/u.test(specifier)) return null;
+  const base = specifier.startsWith('/') ? specifier.slice(1) : `${dirOf(fromPath)}/${specifier}`;
+  const path = normalisePath(base);
+  return files.has(path) ? path : null;
 }

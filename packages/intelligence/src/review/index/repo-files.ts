@@ -26,6 +26,8 @@
 import { readdirSync, readFileSync, statSync } from 'node:fs';
 import { join } from 'node:path';
 
+import { readSwiftTargets } from './imports-langs.js';
+
 import type { RepoFile } from './repo-index.js';
 
 /** What the walk will and will not read. Every field has a default that is safe for a checkout of a real repository. */
@@ -82,6 +84,15 @@ export interface RepoTree {
    * one extra read happens here and the index is given the answer.
    */
   readonly goModule: string | null;
+  /**
+   * **The modules a Swift package declares, and the directory each one's sources are in.**
+   *
+   * Read from `Package.swift`, because **a module name does not say where the module is**: `import Alamofire` is
+   * `Source/` in one package and `Sources/Alamofire/` in the next, and SwiftPM writes the answer down. A target that
+   * spells no path is resolved against the two defaults SwiftPM defines - `Sources/<name>` and `Tests/<name>` - **and
+   * only a directory the checkout actually holds is believed**, which is the difference between a default and a guess.
+   */
+  readonly swiftModules: ReadonlyMap<string, string>;
 }
 
 /** `module a/b` from a `go.mod` body, which is the one line that turns an import path into a directory. */
@@ -118,6 +129,15 @@ const DEFAULT_EXTENSIONS = [
   '.cxx',
   '.hpp',
   '.hh',
+  // **The document languages, whose edge is a reference to another document** (§103): an XSD that includes a type
+  // library, a JSON Schema whose `allOf` names a file, an OpenAPI document whose `$ref` names forty components. They were
+  // symbol languages with no edge layer, which is half an index.
+  '.json',
+  '.jsonc',
+  '.yaml',
+  '.yml',
+  '.xml',
+  '.xsd',
 ] as const;
 
 /** Directories that are never this repository's sources. */
@@ -156,6 +176,44 @@ function readGoModule(root: string): string | null {
   }
 }
 
+/** The directory a repo-relative path sits in, and no trailing slash. */
+function directoryOf(root: string, relative: string): boolean {
+  try {
+    return statSync(join(root, relative)).isDirectory();
+  } catch {
+    return false;
+  }
+}
+
+/**
+ * **The module-to-directory map a Swift package declares**, or an empty map when there is no manifest.
+ *
+ * The four refusals are the same shape the walk makes: no `Package.swift` (a repository that is not a package), a
+ * manifest over the size cap, a `binaryTarget` (no sources here), and a target whose default directory the checkout does
+ * not hold - **each answers *this module has no sources I can see*, which is a fact the index reports as `external`
+ * rather than as an edge**.
+ */
+function readSwiftModules(root: string): ReadonlyMap<string, string> {
+  const out = new Map<string, string>();
+  let text: string;
+  try {
+    text = readFileSync(join(root, 'Package.swift'), 'utf8');
+  } catch {
+    return out;
+  }
+  if (text.length > 128 * 1024) return out;
+  for (const target of readSwiftTargets(text)) {
+    const candidates =
+      target.path === null ? [`Sources/${target.name}`, `Tests/${target.name}`] : [target.path];
+    for (const candidate of candidates) {
+      if (!directoryOf(root, candidate)) continue;
+      out.set(target.name, candidate);
+      break;
+    }
+  }
+  return out;
+}
+
 /** The extension of a path, lowercased, or `''`. */
 function extensionOf(path: string): string {
   const dot = path.lastIndexOf('.');
@@ -181,6 +239,7 @@ export function readRepoFiles(root: string, limits: RepoFileLimits = {}): RepoTr
   const empty = (readable: boolean): RepoTree => ({
     files: [],
     goModule: null,
+    swiftModules: new Map(),
     stats: {
       readable,
       considered: 0,
@@ -264,6 +323,7 @@ export function readRepoFiles(root: string, limits: RepoFileLimits = {}): RepoTr
   return {
     files: out,
     goModule: readGoModule(root),
+    swiftModules: readSwiftModules(root),
     stats: {
       readable: true,
       considered,

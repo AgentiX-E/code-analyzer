@@ -243,3 +243,44 @@ describe('what a checkout gives the index', () => {
     expect(readRepoFiles(root, { extensions: ['.ts'] }).goModule).toBeNull();
   });
 });
+
+/**
+ * **A Swift module is a target, and the walk is the only place that can say which directory a target is.**
+ *
+ * `import Alamofire` names a module, and a resolver that guessed `Alamofire.swift` for it would invent an edge - which is
+ * why §102 answered all 170 of that repository's imports `external`. **The mapping is written down in `Package.swift`**,
+ * so the walk reads it the way it reads `go.mod`: once, from the root, with the same tolerance for a missing or oversized
+ * file, and **a target whose directory the checkout does not hold is not a target this index can answer**.
+ */
+describe('the modules a Swift package declares', () => {
+  it('maps a target that spells its path', () => {
+    write('Package.swift', '.target(name: "Alamofire", path: "Source")');
+    mkdirSync(join(root, 'Source'), { recursive: true });
+    expect([...readRepoFiles(root, { extensions: ['.swift'] }).swiftModules]).toEqual([
+      ['Alamofire', 'Source'],
+    ]);
+  });
+
+  it('falls back to SwiftPM’s default directory, and only when the checkout holds it', () => {
+    write('Package.swift', '.target(name: "Lib")\n.testTarget(name: "LibTests")');
+    mkdirSync(join(root, 'Sources/Lib'), { recursive: true });
+    // **`Tests/LibTests` is not there**, so the second target has no sources this walk can see and is absent from the map
+    // - which the index reports as `external` rather than as an edge into a directory that does not exist.
+    expect([...readRepoFiles(root, { extensions: ['.swift'] }).swiftModules]).toEqual([
+      ['Lib', 'Sources/Lib'],
+    ]);
+    mkdirSync(join(root, 'Tests/LibTests'), { recursive: true });
+    expect([...readRepoFiles(root, { extensions: ['.swift'] }).swiftModules]).toEqual([
+      ['Lib', 'Sources/Lib'],
+      ['LibTests', 'Tests/LibTests'],
+    ]);
+  });
+
+  it('is empty for a repository with no manifest, or one too large to be a manifest', () => {
+    expect(readRepoFiles(root, { extensions: ['.swift'] }).swiftModules.size).toBe(0);
+    // **A manifest over the cap is refused rather than truncated**: half of a `Package.swift` is a target list with
+    // targets missing from it, and a missing target makes an import look external.
+    write('Package.swift', `.target(name: "${'x'.repeat(200_000)}")`);
+    expect(readRepoFiles(root, { extensions: ['.swift'] }).swiftModules.size).toBe(0);
+  });
+});

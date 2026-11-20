@@ -59,7 +59,11 @@ const rows = [];
 for (const [at, root] of roots.entries()) {
   const tree = readRepoFiles(root, { maxFiles: 20_000, maxTotalBytes: 128 * 1024 * 1024 });
   const started = Date.now();
-  const index = buildRepoIndex(tree.files, { goModule: tree.goModule });
+  const index = buildRepoIndex(tree.files, {
+    goModule: tree.goModule,
+    swiftModules: [...(tree.swiftModules ?? new Map())],
+    swiftModules: tree.swiftModules ?? new Map(),
+  });
   const indexMs = Date.now() - started;
 
   /** What the index can say about one language, which is the only form the question *is Go supported* has an answer to. */
@@ -126,6 +130,7 @@ for (const [at, root] of roots.entries()) {
     repo: root.split('/').filter(Boolean).slice(-1)[0],
     commit: shas[at] ?? null,
     goModule: tree.goModule,
+    swiftModules: [...(tree.swiftModules ?? new Map())],
     files: tree.stats.read,
     readerSkipped: {
       bySize: tree.stats.skippedBySize,

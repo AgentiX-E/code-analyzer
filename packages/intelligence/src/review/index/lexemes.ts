@@ -56,13 +56,29 @@ export function takeIdentifier(text: string): { name: string; rest: string } {
  */
 export function signatureOf(lines: readonly string[], start: number, limit: number): string {
   const collected: string[] = [];
+  let width = 0;
   for (let at = start; at <= limit && at < lines.length; at += 1) {
     const text = lines[at]!.trim();
+    /**
+     * **A signature is bounded, and the bound is what keeps a generated file affordable.** A document written on one line
+     * - every docset index, every minified bundle - made this function return the whole line for every key: **a 436 KB
+     * `search.json` cost 2 374 ms and, at four times that size, a four-gigabyte heap.** Two hundred characters is already
+     * more than a prompt carries, so the cut removes no fact a reader was using and removes the shape that had none.
+     */
+    if (width + text.length > SIGNATURE_CHARS) {
+      collected.push(text.slice(0, Math.max(0, SIGNATURE_CHARS - width)));
+      break;
+    }
     collected.push(text);
+    width += text.length + 1;
     if (text.includes('{') || text.endsWith(';') || text.endsWith('}')) break;
   }
   return collected.join(' ').replace(/\s+/gu, ' ').trim();
 }
+
+/** How many characters of a declaration a signature may carry, which is more than a prompt reads and less than a
+ * generated line holds. */
+const SIGNATURE_CHARS = 200;
 
 /**
  * **How deep a line is indented, in spaces, with a tab counted as four.**

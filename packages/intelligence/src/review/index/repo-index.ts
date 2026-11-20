@@ -30,7 +30,9 @@ import {
   readGoImports,
   readLanguageImports,
   readPackageName,
+  readDocumentRefs,
   resolveCInclude,
+  resolveDocumentRef,
   resolveGoPackage,
   resolveJvmSpecifier,
   resolvePythonSpecifier,
@@ -74,6 +76,15 @@ export interface UnresolvedImport {
 export interface RepoIndexOptions {
   /** The `module` line of the repository's `go.mod`, or `null` when there is none. */
   readonly goModule?: string | null;
+  /**
+   * **The modules a Swift package declares, and the directory each one's sources are in** - `Package.swift`'s targets,
+   * resolved against the checkout by the caller that could see it.
+   *
+   * It is an option rather than a field of the text for the same reason `goModule` is: **a module name does not say
+   * where the module is**, and a resolver that guessed `Alamofire.swift` for `import Alamofire` would invent an edge.
+   * Absent, every Swift import is `external`, which is the answer §102 published and still the honest one.
+   */
+  readonly swiftModules?: ReadonlyMap<string, string> | null;
 }
 
 /** The counts a reader needs to know what the rates below are rates *of*. */
@@ -393,10 +404,17 @@ export function buildRepoIndex(
   for (const index of indices.values()) symbols += index.symbols.length;
 
   const fileSet = new Set(byPath.keys());
-  /** The five languages whose import syntax is not TypeScript's, and the reader that answers each. */
-  const SIBLING = new Set(['java', 'kotlin', 'groovy', 'python', 'swift']);
+  /**
+   * **The languages whose import syntax is not TypeScript's** - and Swift is not one of them any more: a module is
+   * answered by a target, which is a directory rather than a file, so it has its own branch below.
+   */
+  const SIBLING = new Set(['java', 'kotlin', 'groovy', 'python']);
   /** **Where a Go import's module path ends**, which is the one thing `go.mod` says that an import cannot. */
   const goModule = options.goModule ?? null;
+  /** **Where each Swift module's sources are**, which is the one thing `Package.swift` says that an import cannot. */
+  const swiftModules = options.swiftModules ?? null;
+  /** The document languages, whose only edge is a reference to another document. */
+  const DOCUMENT = new Set(['xml', 'json', 'yaml']);
 
   /**
    * **One bookkeeping path for every reader**, because two paths that each counted an import would be two denominators
@@ -482,13 +500,24 @@ export function buildRepoIndex(
      */
     if (namesFrom === 'target') {
       const own = new Set(indices.get(path)!.symbols.map((symbol) => symbol.name));
-      for (const target of targets) {
-        for (const symbol of indices.get(target)!.symbols) {
-          if (own.has(symbol.name)) continue;
-          const used = firstUse(path, symbol.name, statement.endLine);
-          if (used === null) continue;
-          references.push({ fromPath: path, fromLine: used, toPath: target, toName: symbol.name });
-        }
+      // **Keyed by the target list and not by its directory**, because two headers in one directory are two different
+      // sets of names and a cache keyed by the directory answered the second with the first's - which cost `jq` 636 of
+      // its 728 edges the first time this was written.
+      const byName = namesOfTarget(targets.join('\u0000'), targets);
+      /**
+       * **The importer's vocabulary is walked once rather than the target's declarations once per name.** A Swift target
+       * is a hundred files and a header is forty declarations, so the first version asked *is `name` used here* of every
+       * declaration in the module - and `Alamofire`, whose tests import a hundred-file target, took **4 959 ms** to index
+       * 140 files while every other corpus in the table took under 300. **The inversion is the same answer for a
+       * hundredth of the work**: the words a file writes are already indexed, and the question becomes a lookup.
+       */
+      for (const [name, at] of wordLinesOf(path)) {
+        if (own.has(name)) continue;
+        const to = byName.get(name);
+        if (to === undefined) continue;
+        const used = firstAtOrAfter(at, statement.endLine);
+        if (used === null) continue;
+        references.push({ fromPath: path, fromLine: used, toPath: to, toName: name });
       }
       return;
     }
@@ -589,6 +618,39 @@ export function buildRepoIndex(
     return built;
   };
 
+  /**
+   * **The declarations of one target or header, keyed by name**, built once per directory.
+   *
+   * Two files in one target can declare the same name - `RequestInterceptor` is a protocol in its own file and an
+   * `extension` in four others - and **the first file in sorted order is the answer**, because a name is declared once and
+   * extended afterwards.
+   */
+  const targetNames = new Map<string, Map<string, string>>();
+  const namesOfTarget = (key: string, targets: readonly string[]): Map<string, string> => {
+    const cached = targetNames.get(key);
+    if (cached !== undefined) return cached;
+    const built = new Map<string, string>();
+    for (const target of targets) {
+      for (const symbol of indices.get(target)!.symbols) {
+        if (!built.has(symbol.name)) built.set(symbol.name, target);
+      }
+    }
+    targetNames.set(key, built);
+    return built;
+  };
+
+  /** The first line in `lines` that is at or after `after`, which is the same answer `firstUse` gives without the name. */
+  const firstAtOrAfter = (lines: readonly number[], after: number): number | null => {
+    let lo = 0;
+    let hi = lines.length;
+    while (lo < hi) {
+      const mid = (lo + hi) >> 1;
+      if (lines[mid]! < after) lo = mid + 1;
+      else hi = mid;
+    }
+    return lo < lines.length ? lines[lo]! + 1 : null;
+  };
+
   /** The first line after `after` that uses `name` as a word of code, or `null` when the file never does. */
   const firstUse = (path: string, name: string, after: number): number | null => {
     const at = wordLinesOf(path).get(name);
@@ -645,13 +707,52 @@ export function buildRepoIndex(
       continue;
     }
 
-    if (SIBLING.has(index.language)) {
-      for (const statement of readLanguageImports(index.language, lines, codes)) {
+    /**
+     * **A schema's `$ref` and an XSD's `schemaLocation` are the only edges a document corpus has**, and every one of them
+     * was answered zero: a `.json` was a file that declared its keys and reached nothing. The statement is a namespace -
+     * **a file crosses and no name does** - so the resolution lands in `imports` and makes no symbol edge.
+     */
+    if (DOCUMENT.has(index.language)) {
+      for (const statement of readDocumentRefs(index.language, lines)) {
         if (statement.kind === 'module') {
-          // **A Swift import names a module**, and a path invented for it would be an edge invented for it.
           record(path, statement, null, 'external');
           continue;
         }
+        const target = resolveDocumentRef(statement.specifier, path, fileSet);
+        record(path, statement, single(target), 'missing');
+      }
+      continue;
+    }
+
+    /**
+     * **A Swift module is a target, and the target is a directory** (§103). `import Alamofire` in a test target is an
+     * edge into the library it tests, and the names that cross are the ones the importer spells unqualified - the same
+     * shape a `#include` has, because Swift and C both bring a whole module into scope rather than a name list.
+     */
+    if (index.language === 'swift') {
+      for (const statement of readLanguageImports('swift', lines, codes)) {
+        // `import struct Dispatch.DispatchTime` names a declaration inside a module, so the module is the first segment.
+        const module = statement.specifier.split('.')[0]!;
+        const directory = swiftModules?.get(module) ?? null;
+        const targets =
+          directory === null
+            ? null
+            : [...fileSet]
+                .filter((candidate) => candidate.startsWith(`${directory}/`))
+                .filter((candidate) => candidate.endsWith('.swift'))
+                .sort();
+        if (targets === null || targets.length === 0) {
+          // **Without a manifest, or for a module this package does not declare**, the refusal is the fact.
+          record(path, statement, null, 'external');
+          continue;
+        }
+        record(path, statement, targets, 'external', 'target');
+      }
+      continue;
+    }
+
+    if (SIBLING.has(index.language)) {
+      for (const statement of readLanguageImports(index.language, lines, codes)) {
         if (index.language === 'python') {
           const target = resolvePythonSpecifier(statement.specifier, path, fileSet);
           // **The leading dot is what makes an unresolved Python import a missing path** rather than a library: `os` is
@@ -711,6 +812,24 @@ export function buildRepoIndex(
       );
     }
   }
+
+  /**
+   * **One edge per (file, file, name), and the duplicate was a real count rather than a rounding error.** A Swift target
+   * answers an import with several files, and a name can be declared in more than one of them - `RequestInterceptor` is a
+   * protocol in its own file and an `extension` in four others - so the package path pushed the same edge once per
+   * declaration and `Alamofire` filed 1 440 edges for 183 imports. **The extension file really does depend on the
+   * protocol**, so the edges stay; the same traversal reaching the same pair twice is what goes.
+   */
+  const unique: CrossReference[] = [];
+  const seenEdges = new Set<string>();
+  for (const reference of references) {
+    const key = `${reference.fromPath}\u0000${reference.toPath}\u0000${reference.toName}`;
+    if (seenEdges.has(key)) continue;
+    seenEdges.add(key);
+    unique.push(reference);
+  }
+  references.length = 0;
+  references.push(...unique);
 
   references.sort((left, right) =>
     left.fromPath === right.fromPath

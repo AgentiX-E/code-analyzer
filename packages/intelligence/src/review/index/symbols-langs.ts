@@ -1583,6 +1583,18 @@ interface XmlElement {
  * disagree with its neighbours about what a `key` means.
  */
 function keySymbols(records: readonly KeyRecord[], file: PreparedFile): ScannedDeclarations {
+  /**
+   * **The children are grouped once by parent**, because the version that filtered the whole record list per record was
+   * quadratic in the records and built a signature for every entry it kept - **which is what ran out of a four-gigabyte
+   * heap on a 436 KB docset index**, not the scan that found the parents. One pass, one array per parent, same answer and
+   * the same order.
+   */
+  const childrenOf = new Map<number, KeyRecord[]>();
+  for (const record of records) {
+    const bucket = childrenOf.get(record.parent);
+    if (bucket === undefined) childrenOf.set(record.parent, [record]);
+    else bucket.push(record);
+  }
   const symbols: DeclaredSymbol[] = records.map((record, at) => ({
     name: record.name,
     kind: 'key',
@@ -1591,16 +1603,13 @@ function keySymbols(records: readonly KeyRecord[], file: PreparedFile): ScannedD
     // **A document offers its top-level keys and nothing else**: an inner key is reachable only through the key above it.
     exported: record.parent < 0,
     signature: signatureOf(file.lines, record.start, record.end),
-    members: records
-      .map((candidate, index) => ({ candidate, index }))
-      .filter((entry) => entry.candidate.parent === at)
-      .map((entry) => ({
-        name: entry.candidate.name,
-        kind: 'key' as const,
-        startLine: entry.candidate.start + 1,
-        endLine: entry.candidate.end + 1,
-        signature: signatureOf(file.lines, entry.candidate.start, entry.candidate.end),
-      })),
+    members: (childrenOf.get(at) ?? []).map((candidate) => ({
+      name: candidate.name,
+      kind: 'key' as const,
+      startLine: candidate.start + 1,
+      endLine: candidate.end + 1,
+      signature: signatureOf(file.lines, candidate.start, candidate.end),
+    })),
   }));
   return { symbols, exported: records.filter((r) => r.parent < 0).map((r) => r.name) };
 }
@@ -1610,6 +1619,11 @@ function keySymbols(records: readonly KeyRecord[], file: PreparedFile): ScannedD
  *
  * The nearest rather than the widest, because a document nests: `scripts` and its own `test` both contain the line
  * `"test": "vitest run"`, and the answer a witness needs is the one the claim is written inside.
+ *
+ * **YAML still uses this and JSON no longer does**: a YAML file's records are one per line and a document with four
+ * thousand of them is not a shape a repository writes, so the scan is affordable where the stack would be a rewrite of a
+ * reader whose ranges are already line-shaped. **JSON's is the shape that is generated**, and `scanJson` answers it with
+ * the stack (§103).
  */
 function enclosingRecord(
   records: readonly KeyRecord[],
@@ -1719,6 +1733,15 @@ export function scanJson(file: PreparedFile): ScannedDeclarations {
     depthAfter.push(stack.length);
   }
   const records: KeyRecord[] = [];
+  /**
+   * **The records still open, as a stack**, which is the parent lookup in constant time.
+   *
+   * Keys arrive in source order and their ranges nest or are disjoint, so **the innermost record that holds a key is the
+   * last one pushed whose range still reaches it** - one pop per key. The version this replaces scanned every record
+   * already pushed, backwards, and a flat document - which is every generated index - made that scan walk the whole
+   * document once per key.
+   */
+  const open: number[] = [];
   for (let at = 0; at < file.codes.length; at += 1) {
     // **The keys are read from the file's own line and not from the lexed one**, because the shared lexer blanks a quoted
     // body - which is what makes `"a":"b{c}"` safe to count braces over and what would turn every key into blanks.
@@ -1732,7 +1755,16 @@ export function scanJson(file: PreparedFile): ScannedDeclarations {
       end = Math.min(probe, file.codes.length - 1);
     }
     for (const name of keys) {
-      const parent = enclosingRecord(records, { start: at, end });
+      /**
+       * **A document written on one line has no line-shaped nesting, and the honest answer is that every key is top
+       * level.** Every key of a minified file shares one range, so the stack cannot separate a sibling from a child - the
+       * version this replaces chained each key to the one before it, which made `{"a":1,"b":2}` declare `a` and file `b`
+       * as a member of `a`. **A key that cannot be placed is not placed inside another key**, and the file it happens on
+       * is a generated one, where the key list is the whole fact a reader was after.
+       */
+      const flat = file.codes.length <= 1;
+      while (!flat && open.length > 0 && records[open[open.length - 1]!]!.end < end) open.pop();
+      const parent = flat || open.length === 0 ? -1 : open[open.length - 1]!;
       // **A key belongs to the file when a recorded key holds it, or when the only thing holding it is the document's
       // own root object.** `[{ "a": 1 }]` is the case this branch exists for: the document is an array, the objects in it
       // are its elements, and **an element's key is not a key of the document** - naming it would put a name in the
@@ -1740,6 +1772,7 @@ export function scanJson(file: PreparedFile): ScannedDeclarations {
       const root = openAt[at] === '' || openAt[at] === '{';
       if (parent < 0 && !root) continue;
       records.push({ name, start: at, end, parent });
+      if (!flat) open.push(records.length - 1);
     }
   }
   return keySymbols(records, file);
