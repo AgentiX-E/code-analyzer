@@ -286,6 +286,39 @@ const FAMILY_EXTENSIONS: Readonly<Record<string, readonly string[]>> = {
   groovy: ['.groovy', '.gradle'],
 };
 
+/** `package a.b`, which the three JVM languages write identically and always before the first declaration. */
+const PACKAGE_DECLARATION = /^\s*package\s+([A-Za-z_$][\w$]*(?:\.[A-Za-z_$][\w$]*)*)\s*;?\s*$/u;
+
+/** How far into a file a `package` statement can be: it precedes every declaration, and a bound keeps a file with none
+ * from being scanned twice. */
+const PACKAGE_SEARCH_LINES = 40;
+
+/**
+ * **The package a file declares, which is the key a JVM import is really written with.**
+ *
+ * §97 resolved `import a.b.C;` by matching the tail of a path, and that is right for a repository laid out as its
+ * packages - `src/main/java/a/b/C.java`. **It is wrong for every Kotlin multiplatform project**:
+ * `kotlinx-coroutines-core/common/src/flow/Flow.kt` declares `package kotlinx.coroutines.flow` and **no suffix of its
+ * path is `kotlinx/coroutines/flow/Flow.kt`**. `Kotlin/kotlinx.coroutines` writes 4 421 import statements and 2 of them
+ * resolved under the suffix rule; this is the fact that fixes it, and it is the compiler's own key rather than an
+ * approximation of it.
+ */
+export function readPackageName(
+  language: string,
+  lines: readonly string[],
+  codes: readonly string[],
+): string | null {
+  if (!JVM.has(language)) return null;
+  const limit = Math.min(lines.length, PACKAGE_SEARCH_LINES);
+  for (let at = 0; at < limit; at += 1) {
+    // **A package statement is code**, so a commented-out one is not read; the same guard every reader here uses.
+    if (codes[at]!.trim().length === 0) continue;
+    const match = PACKAGE_DECLARATION.exec(lines[at]!);
+    if (match !== null) return match[1]!;
+  }
+  return null;
+}
+
 /**
  * **The file a JVM specifier names, which is its dots written as slashes.**
  *
@@ -298,7 +331,16 @@ export function resolveJvmSpecifier(
   language: string,
   specifier: string,
   filesByBase: ReadonlyMap<string, readonly string[]>,
+  packages?: ReadonlyMap<string, readonly string[]>,
 ): string | null {
+  /**
+   * **The package declaration wins over the path suffix**, because it is the statement's own claim about itself and a
+   * path is a convention. Two files called `Flow.kt` in two source sets is the shape a multiplatform project has by
+   * construction, and the suffix rule refuses that pair while the package key answers it.
+   */
+  const declared = packages?.get(specifier);
+  if (declared !== undefined && declared.length > 0) return [...declared].sort()[0]!;
+
   const extensions = FAMILY_EXTENSIONS[language] ?? [];
   const tail = specifier.replace(/\./gu, '/');
   const name = tail.slice(tail.lastIndexOf('/') + 1);

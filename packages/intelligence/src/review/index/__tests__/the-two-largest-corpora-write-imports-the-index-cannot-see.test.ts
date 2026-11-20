@@ -29,6 +29,7 @@ import { describe, expect, it } from 'vitest';
 import {
   readCIncludes,
   readGoImports,
+  readPackageName,
   resolveCInclude,
   resolveGoPackage,
 } from '../imports-langs.js';
@@ -520,5 +521,52 @@ describe('a repository the index can now read end to end', () => {
     // **A leading dot is a claim about this repository**; a bare `os` is a claim about `sys.path`.
     expect(byFile.get('pkg/a.py')).toBe('missing');
     expect(byFile.get('pkg/b.py')).toBe('external');
+  });
+
+  it('reads a single-statement import with an alias, which is one line and two words', () => {
+    // **The alias and the specifier are the only two things on the line**, and the reader takes both from the same match.
+    const [statement] = go(
+      ['package main', '', 'import bc "github.com/gin-gonic/gin/internal/bytesconv"', ''].join(
+        '\n',
+      ),
+    );
+    expect(statement?.alias).toBe('bc');
+    expect(statement?.specifier).toBe('github.com/gin-gonic/gin/internal/bytesconv');
+  });
+
+  it('walks past a blank line and a comment inside an import block', () => {
+    // **`gofmt` writes a comment between groups**, and a reader that stopped at the first line it could not parse would
+    // read one import out of three.
+    const statements = go(
+      [
+        'package main',
+        '',
+        'import (',
+        '\t"os"',
+        '',
+        '\t// the codec is only needed by the json build tag',
+        '\t"encoding/json"',
+        ')',
+      ].join('\n'),
+    );
+    expect(statements.map((statement) => statement.specifier)).toEqual(['os', 'encoding/json']);
+  });
+
+  it('answers no package when the directory holds no Go file', () => {
+    // **A directory of `.md` files under a module path is not a package**, and an empty answer is the honest one.
+    expect(
+      resolveGoPackage(
+        'example.com/m/docs',
+        'example.com/m',
+        new Set(['docs/readme.md', 'main.go']),
+      ),
+    ).toBeNull();
+  });
+
+  it('leaves a package declaration alone in a language that does not have one', () => {
+    // **`readPackageName` is asked of every file with a package statement and of nothing else**, and a Python file that
+    // happens to start with the word is not a JVM source.
+    const lines = ['package = "demo"', 'value = 1'];
+    expect(readPackageName('python', lines, lines)).toBeNull();
   });
 });

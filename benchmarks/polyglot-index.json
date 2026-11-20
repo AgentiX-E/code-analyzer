@@ -17,7 +17,7 @@
         "overCap": 0,
         "overBytes": 0
       },
-      "indexMs": 50,
+      "indexMs": 56,
       "stats": {
         "files": 99,
         "symbols": 1600,
@@ -60,7 +60,7 @@
         "overCap": 0,
         "overBytes": 0
       },
-      "indexMs": 50,
+      "indexMs": 53,
       "stats": {
         "files": 101,
         "symbols": 1430,
@@ -113,7 +113,7 @@
         "overCap": 0,
         "overBytes": 0
       },
-      "indexMs": 93,
+      "indexMs": 102,
       "stats": {
         "files": 87,
         "symbols": 1862,
@@ -164,6 +164,208 @@
         "chars": 6685,
         "medianChars": 241,
         "charsPerNonEmptyNote": 230.5172
+      }
+    },
+    {
+      "repo": "apache_commons-lang",
+      "commit": "9e224bc34f8003041375d207be859b951ce505b4",
+      "goModule": null,
+      "files": 647,
+      "readerSkipped": {
+        "bySize": 0,
+        "overCap": 0,
+        "overBytes": 0
+      },
+      "indexMs": 513,
+      "stats": {
+        "files": 647,
+        "symbols": 1115,
+        "imports": 4670,
+        "resolvedImports": 751,
+        "externalImports": 3919,
+        "missingImports": 0,
+        "ambiguousImports": 0,
+        "namespaceImports": 0,
+        "edges": 605
+      },
+      "byLanguage": {
+        "java": {
+          "files": 647,
+          "symbols": 1115,
+          "imports": 4670,
+          "resolved": 751,
+          "external": 3919,
+          "missing": 0,
+          "ambiguous": 0,
+          "edges": 605
+        }
+      },
+      "reach": {
+        "filesWithSymbols": 629,
+        "filesWithReach": 629,
+        "emptyNotes": 518,
+        "chars": 17224,
+        "medianChars": 148,
+        "charsPerNonEmptyNote": 155.1712
+      }
+    },
+    {
+      "repo": "psf_requests",
+      "commit": "3c7baaa05ab4aa49cc819ce3a819d260de19c157",
+      "goModule": null,
+      "files": 37,
+      "readerSkipped": {
+        "bySize": 0,
+        "overCap": 0,
+        "overBytes": 0
+      },
+      "indexMs": 60,
+      "stats": {
+        "files": 37,
+        "symbols": 382,
+        "imports": 324,
+        "resolvedImports": 89,
+        "externalImports": 235,
+        "missingImports": 0,
+        "ambiguousImports": 0,
+        "namespaceImports": 0,
+        "edges": 120
+      },
+      "byLanguage": {
+        "python": {
+          "files": 37,
+          "symbols": 382,
+          "imports": 324,
+          "resolved": 89,
+          "external": 235,
+          "missing": 0,
+          "ambiguous": 0,
+          "edges": 120
+        }
+      },
+      "reach": {
+        "filesWithSymbols": 34,
+        "filesWithReach": 34,
+        "emptyNotes": 18,
+        "chars": 3205,
+        "medianChars": 151,
+        "charsPerNonEmptyNote": 200.3125
+      }
+    },
+    {
+      "repo": "Alamofire_Alamofire",
+      "commit": "dea4bab91767a971d6e112bc955c6a82295589b7",
+      "goModule": null,
+      "files": 111,
+      "readerSkipped": {
+        "bySize": 0,
+        "overCap": 0,
+        "overBytes": 0
+      },
+      "indexMs": 121,
+      "stats": {
+        "files": 111,
+        "symbols": 623,
+        "imports": 170,
+        "resolvedImports": 0,
+        "externalImports": 170,
+        "missingImports": 0,
+        "ambiguousImports": 0,
+        "namespaceImports": 0,
+        "edges": 0
+      },
+      "byLanguage": {
+        "javascript": {
+          "files": 10,
+          "symbols": 6,
+          "imports": 2,
+          "resolved": 0,
+          "external": 2,
+          "missing": 0,
+          "ambiguous": 0,
+          "edges": 0
+        },
+        "swift": {
+          "files": 101,
+          "symbols": 617,
+          "imports": 168,
+          "resolved": 0,
+          "external": 168,
+          "missing": 0,
+          "ambiguous": 0,
+          "edges": 0
+        }
+      },
+      "reach": {
+        "filesWithSymbols": 103,
+        "filesWithReach": 103,
+        "emptyNotes": 103,
+        "chars": 0,
+        "medianChars": 0,
+        "charsPerNonEmptyNote": 0
+      }
+    },
+    {
+      "repo": "Kotlin_kotlinx.coroutines",
+      "commit": "7f4d6cf2414937b50291df6169a69afbaf9c5a20",
+      "goModule": null,
+      "files": 1105,
+      "readerSkipped": {
+        "bySize": 0,
+        "overCap": 0,
+        "overBytes": 0
+      },
+      "indexMs": 255,
+      "stats": {
+        "files": 1105,
+        "symbols": 3271,
+        "imports": 4421,
+        "resolvedImports": 1888,
+        "externalImports": 2533,
+        "missingImports": 0,
+        "ambiguousImports": 0,
+        "namespaceImports": 1759,
+        "edges": 118
+      },
+      "byLanguage": {
+        "kotlin": {
+          "files": 1082,
+          "symbols": 3250,
+          "imports": 4354,
+          "resolved": 121,
+          "external": 2484,
+          "missing": 1749,
+          "ambiguous": 0,
+          "edges": 101
+        },
+        "python": {
+          "files": 1,
+          "symbols": 14,
+          "imports": 5,
+          "resolved": 0,
+          "external": 5,
+          "missing": 0,
+          "ambiguous": 0,
+          "edges": 0
+        },
+        "java": {
+          "files": 22,
+          "symbols": 7,
+          "imports": 62,
+          "resolved": 17,
+          "external": 44,
+          "missing": 1,
+          "ambiguous": 0,
+          "edges": 17
+        }
+      },
+      "reach": {
+        "filesWithSymbols": 1065,
+        "filesWithReach": 1065,
+        "emptyNotes": 1015,
+        "chars": 6613,
+        "medianChars": 101,
+        "charsPerNonEmptyNote": 132.26
       }
     }
   ]

@@ -208,14 +208,31 @@ describe('resolution', () => {
     expect(resolveJvmSpecifier('java', 'C', new Map([['C.java', ['C.java']]]))).toBe('C.java');
   });
 
-  it('leaves a wildcard external, because a package is not one file and an edge to one would be invented', () => {
+  it('makes no edge for a wildcard, because a package is not one file', () => {
     const index = buildRepoIndex([
       { path: 'a/b/C.java', text: 'package a.b;\npublic class C {}' },
       { path: 'a/b/Use.java', text: 'package a.b;\nimport a.b.*;\nclass Use {}' },
     ]);
+    /**
+     * **The edge is refused and the import is not called external.** §102 changed the second half: `a.b` is a package
+     * this repository declares, so `import a.b.*` is a resolution with no file behind it - **`external` said the package
+     * was somebody else's, which is the one thing the index can refute**. On `kotlinx.coroutines` 3 548 of 4 302
+     * imports are wildcards, so the old answer described the shape of the imports rather than the coverage of the index.
+     */
+    expect(index.stats.externalImports).toBe(0);
+    expect(index.stats.resolvedImports).toBe(1);
+    expect(index.stats.namespaceImports).toBe(1);
+    expect(index.references).toEqual([]);
+    expect(index.imports[0]?.why).toBe('package');
+  });
+
+  it('still calls a wildcard external when no package of this repository answers it', () => {
+    const index = buildRepoIndex([
+      { path: 'a/b/C.java', text: 'package a.b;\nimport java.util.*;\npublic class C {}' },
+    ]);
+    // **`java.util` is not in this checkout**, and the index has no way to be wrong about that.
     expect(index.stats.externalImports).toBe(1);
     expect(index.stats.resolvedImports).toBe(0);
-    expect(index.references).toEqual([]);
   });
 
   it('declines an edge when the target does not declare the imported name, or the importer never uses it', () => {

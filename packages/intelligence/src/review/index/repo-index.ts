@@ -29,6 +29,7 @@ import {
   readCommonJsRequires,
   readGoImports,
   readLanguageImports,
+  readPackageName,
   resolveCInclude,
   resolveGoPackage,
   resolveJvmSpecifier,
@@ -102,8 +103,15 @@ export interface ResolvedImport {
   readonly specifier: string;
   /** The repo-relative file that answers it, or `null` for a package or a path no file holds. */
   readonly target: string | null;
-  readonly why: 'resolved' | 'external' | 'missing' | 'ambiguous';
+  readonly why: 'resolved' | 'package' | 'external' | 'missing' | 'ambiguous';
 }
+
+/**
+ * **A wildcard import names a package, and a package that this repository declares is a resolution even though no file
+ * crosses.** `import kotlinx.coroutines.*` is 82 % of `kotlinx.coroutines`' 4 302 imports (3 548 of them), and answering
+ * every one `external` said the repository was importing somebody else's code when it was importing its own - **a rate
+ * that describes the shape of the imports rather than the coverage of the index**.
+ */
 
 export interface RepoIndex {
   readonly files: ReadonlyMap<string, FileSymbolIndex>;
@@ -339,6 +347,39 @@ export function buildRepoIndex(
     else bucket.push(path);
   }
 
+  /** The three languages whose imports are answered by a package declaration as well as by a path. */
+  const JVM_LANGUAGES = new Set(['java', 'kotlin', 'groovy']);
+
+  /**
+   * **The JVM classes this repository declares, keyed the way the compiler keys them**: `package.name` from the file's
+   * own `package` statement and its own file name. §102 measured `Kotlin/kotlinx.coroutines` at **4 421 import
+   * statements and 2 resolved** under the path-suffix rule, because a multiplatform source tree is not laid out as its
+   * packages - this index is the fact that answers it.
+   */
+  const packages = new Map<string, string[]>();
+  /** The package names this repository declares, which is the only thing a wildcard import can be answered with. */
+  const packageNames = new Set<string>();
+  for (const [path, index] of indices) {
+    if (!JVM_LANGUAGES.has(index.language)) continue;
+    const declared = readPackageName(index.language, index.lines, index.codes);
+    if (declared === null) continue;
+    packageNames.add(declared);
+    const base = path.slice(path.lastIndexOf('/') + 1).replace(/\.[^.]+$/u, '');
+    /**
+     * **Two keys, because Kotlin imports a name and not a file.** `import kotlinx.coroutines.launch` names a top-level
+     * `fun` declared in `Builders.kt`, so a key built from the file name misses it - **and 4 383 of
+     * `kotlinx.coroutines`' 4 421 imports were still external after the file-name key was added.** A declaration is the
+     * other key, and a name declared in two files of one package answers with the first path in sorted order rather than
+     * with nothing.
+     */
+    for (const name of [base, ...index.symbols.map((symbol) => symbol.name)]) {
+      const key = `${declared}.${name}`;
+      const bucket = packages.get(key);
+      if (bucket === undefined) packages.set(key, [path]);
+      else if (!bucket.includes(path)) bucket.push(path);
+    }
+  }
+
   const references: CrossReference[] = [];
   const statements: ResolvedImport[] = [];
   const unresolved: UnresolvedImport[] = [];
@@ -379,10 +420,27 @@ export function buildRepoIndex(
       alias?: string;
     },
     targets: readonly string[] | null,
-    why: 'missing' | 'external' | 'ambiguous',
+    why: 'missing' | 'external' | 'ambiguous' | 'package',
     namesFrom: 'statement' | 'target' | 'package' = 'statement',
   ): void => {
     imports += 1;
+    /**
+     * **A wildcard import of a package this repository declares is a resolution with no file behind it.** Nothing
+     * crosses - the names are spelled unqualified - so there is no edge, and the statement is not a miss either:
+     * `external` would say the package is somebody else's, which is the one thing the index can refute.
+     */
+    if (why === 'package') {
+      resolvedImports += 1;
+      namespaceImports += 1;
+      statements.push({
+        fromPath: path,
+        line: statement.startLine,
+        specifier: statement.specifier,
+        target: null,
+        why: 'package',
+      });
+      return;
+    }
     if (targets === null || targets.length === 0) {
       if (why === 'missing') missingImports += 1;
       else if (why === 'ambiguous') ambiguousImports += 1;
@@ -609,8 +667,10 @@ export function buildRepoIndex(
         record(
           path,
           statement,
-          single(resolveJvmSpecifier(index.language, statement.specifier, byBase)),
-          'external',
+          single(resolveJvmSpecifier(index.language, statement.specifier, byBase, packages)),
+          // **A wildcard that names a package of this repository is not a dependency**, and the two answers are one line
+          // apart because the difference is one fact the repository holds.
+          statement.namespace && packageNames.has(statement.specifier) ? 'package' : 'external',
         );
       }
       continue;
