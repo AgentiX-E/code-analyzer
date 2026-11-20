@@ -139,7 +139,7 @@ describe('the edge a nested declaration makes', () => {
   ];
 
   const index = buildRepoIndex(files, {
-    swiftModules: new Map([['Alamofire', 'Source']]) as ReadonlyMap<string, string>,
+    swiftModules: new Map([['Alamofire', 'Source']]),
   });
 
   it('is an edge when the use site spells the parent, because that is the only spelling that crosses a file', () => {
@@ -183,7 +183,7 @@ describe('the edge a nested declaration makes', () => {
       },
     ];
     const indexWithEarly = buildRepoIndex(early, {
-      swiftModules: new Map([['Alamofire', 'Source']]) as ReadonlyMap<string, string>,
+      swiftModules: new Map([['Alamofire', 'Source']]),
     });
     expect(
       indexWithEarly.references.filter(
@@ -209,7 +209,7 @@ describe('the edge a nested declaration makes', () => {
       },
     ];
     const indexWithBefore = buildRepoIndex(beforeOnly, {
-      swiftModules: new Map([['Alamofire', 'Source']]) as ReadonlyMap<string, string>,
+      swiftModules: new Map([['Alamofire', 'Source']]),
     });
     expect(
       indexWithBefore.references.filter((reference) => reference.fromPath === 'Source/Before.swift'),
@@ -251,7 +251,7 @@ describe('the edge a nested declaration makes', () => {
       },
     ];
     const indexWithTwice = buildRepoIndex(twice, {
-      swiftModules: new Map([['Alamofire', 'Source']]) as ReadonlyMap<string, string>,
+      swiftModules: new Map([['Alamofire', 'Source']]),
     });
     expect(
       indexWithTwice.references.filter(

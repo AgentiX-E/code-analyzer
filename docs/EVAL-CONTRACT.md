@@ -11158,10 +11158,10 @@ remaining 55 % sits**, and no reader closes that.
 
 ## §104 A nested declaration is named by its parent, and XML names two more documents
 
-**§103.8 ended with a defect it could not fix in a line**: *"a nested type is declared by its parent's name
+**§103.8 ended with a defect it could not fix in a line**: _"a nested type is declared by its parent's name
 (`ParameterEncoding.Error`) and the index knows it by its own (`Error`), so a file that mentions `Error` can get an edge
 into `ParameterEncoding.swift`. The fix is to qualify a nested declaration, which changes the shape of every symbol this
-index reports, and that is a section rather than a line."* This is that section, and **the defect is measured here rather
+index reports, and that is a section rather than a line."_ This is that section, and **the defect is measured here rather
 than argued**: eleven files held an edge into `Source/Core/ParameterEncoding.swift` whose name was the word `Error`.
 
 ### 104.1 What the word `Error` was doing
@@ -11181,11 +11181,11 @@ boundary, and the short one is exactly the name that must not.
 `scanSwift` keeps the enclosing type declarations in a stack that pops on the line each one ends, and a type's symbol name
 is the enclosing names joined by `.` plus its own. Three facts about Swift decide the details:
 
-| fact                                                | the reading it forces                                                                                                                              |
-| --------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `extension JSONEncoding { public struct Options }`   | **an extension is a scope too**, so `Options` is `JSONEncoding.Options` - the extension declares the range, not the name                             |
-| `public typealias ValidationResult = …`              | **a typealias opens no scope**, so it is named by its parent and encloses nothing - the stack pushes only declarations that have a body              |
-| `public enum Error` inside a `struct` inside a `struct` | **not read**, because the scanner stops at the second level - stated as a limit rather than closed, and no corpus here nests three deep             |
+| fact                                                    | the reading it forces                                                                                                                   |
+| ------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------- |
+| `extension JSONEncoding { public struct Options }`      | **an extension is a scope too**, so `Options` is `JSONEncoding.Options` - the extension declares the range, not the name                |
+| `public typealias ValidationResult = …`                 | **a typealias opens no scope**, so it is named by its parent and encloses nothing - the stack pushes only declarations that have a body |
+| `public enum Error` inside a `struct` inside a `struct` | **not read**, because the scanner stops at the second level - stated as a limit rather than closed, and no corpus here nests three deep |
 
 **The export rule is unchanged**: `public`/`open` only, and an `extension` offers nothing. A nested type that is public is
 offered under its qualified name, which is what `Outer.Shown` in the tests asserts.
@@ -11195,18 +11195,18 @@ offered under its qualified name, which is what `Outer.Shown` in the tests asser
 The target arm walks the importing file's vocabulary and looks each word up, which is the inversion §103 measured at
 4 959 ms → 196 ms. **A qualified name is two words**, so it needs a second read: the file's `a.b` pairs against the same
 name set. `dottedUsesOf` is that index, and it **kept only the first line a pair was written on** because the Go arm only
-ever asked for the first. The Swift arm asks for the first line *after the import*, and a map holding one line answered
+ever asked for the first. The Swift arm asks for the first line _after the import_, and a map holding one line answered
 that question by losing the edge - so it now keeps every line and both arms binary-search it.
 
 **Measured on `Alamofire`, edge by edge rather than by count** (`reach: on`, same checkout, the two builds diffed):
 
-| what happened to the 265 edges of §103 | rows  | example                                                                                                            |
-| -------------------------------------- | ----- | ------------------------------------------------------------------------------------------------------------------ |
-| same site, same name                   | 225   | `Tests/AFError+AlamofireTests.swift:201 AFError`                                                                   |
-| same site, **name qualified**           | 21    | `…:187 ParameterEncodingFailureReason` → `AFError.ParameterEncodingFailureReason`                                   |
-| **site gone**                           | 19    | `Tests/AuthenticationInterceptorTests.swift:53 Error` → `ParameterEncoding.swift`; **16 of the 19 were `Error`**     |
-| same name, **another file**             | 5     | `Completion` now resolves to the file that declares a top-level one, not to the nested `DataStreamRequest.Completion` |
-| **total**                               | 251   | 225 + 21 + 19 = 265 out; 225 + 21 + 5 = 251 in                                                                     |
+| what happened to the 265 edges of §103 | rows | example                                                                                                               |
+| -------------------------------------- | ---- | --------------------------------------------------------------------------------------------------------------------- |
+| same site, same name                   | 225  | `Tests/AFError+AlamofireTests.swift:201 AFError`                                                                      |
+| same site, **name qualified**          | 21   | `…:187 ParameterEncodingFailureReason` → `AFError.ParameterEncodingFailureReason`                                     |
+| **site gone**                          | 19   | `Tests/AuthenticationInterceptorTests.swift:53 Error` → `ParameterEncoding.swift`; **16 of the 19 were `Error`**      |
+| same name, **another file**            | 5    | `Completion` now resolves to the file that declares a top-level one, not to the nested `DataStreamRequest.Completion` |
+| **total**                              | 251  | 225 + 21 + 19 = 265 out; 225 + 21 + 5 = 251 in                                                                        |
 
 The 21 renames are the point of the section: a reach note that says `AFError.ServerTrustFailureReason` is a sentence the
 reviewer can check against the source, and one that says `ServerTrustFailureReason` is a word that appears in eleven
@@ -11215,14 +11215,14 @@ standard library, and `Error` names Swift's own protocol.
 
 ### 104.4 Two more documents an XML file names
 
-§103.5 published the gap beside the language: *"`xi:include`'s `href` and a `<!DOCTYPE … SYSTEM>` are not read"*. Both are
+§103.5 published the gap beside the language: _"`xi:include`'s `href` and a `<!DOCTYPE … SYSTEM>` are not read"_. Both are
 older than XML Schema and both are how a document corpus splits itself:
 
-| form                                              | read how                                                                                     | refused when                                                        |
-| ------------------------------------------------- | -------------------------------------------------------------------------------------------- | ------------------------------------------------------------------- |
-| `<xi:include href="chapter1.xml"/>`               | the **local name** `include` with any prefix bound to it, so `<x:include>` is the same element | the element is not named `include` - `<link href>` includes nothing |
-| `<!DOCTYPE book SYSTEM "book.dtd">`               | the system literal                                                                           | there is no system literal - a `PUBLIC` id alone names a catalogue  |
-| `<!DOCTYPE html PUBLIC "-//W3C//…" "https://…">`  | the literal after the public id, **and the URI rule then calls it `module`**                  | the value is absolute, which is somebody else's repository          |
+| form                                             | read how                                                                                       | refused when                                                        |
+| ------------------------------------------------ | ---------------------------------------------------------------------------------------------- | ------------------------------------------------------------------- |
+| `<xi:include href="chapter1.xml"/>`              | the **local name** `include` with any prefix bound to it, so `<x:include>` is the same element | the element is not named `include` - `<link href>` includes nothing |
+| `<!DOCTYPE book SYSTEM "book.dtd">`              | the system literal                                                                             | there is no system literal - a `PUBLIC` id alone names a catalogue  |
+| `<!DOCTYPE html PUBLIC "-//W3C//…" "https://…">` | the literal after the public id, **and the URI rule then calls it `module`**                   | the value is absolute, which is somebody else's repository          |
 
 **A reference resolves only to a file the walk read**, so `.dtd` is now in the extension list and in the language map.
 Without it the DOCTYPE reader would name 213 documents and resolve none of them **by construction rather than by
@@ -11232,11 +11232,22 @@ absence** - the defect §103.8 found one level up, in the same shape.
 import statements**, **303 → 336 resolved**, **edges unchanged at 65**. The edges do not move because **a document
 reference crosses no name** - the same reason `import a.b.*` is a resolution with no edge (§102).
 
+### 104.4b The tenth checkout, and the YAML refusal measured rather than assumed
+
+§103.3 said the YAML `$ref` reader had no corpus evidence: *"eight of these nine checkouts hold YAML and none of them
+$refs another file"*. `OAI/OpenAPI-Specification` at `4f86429` is the corpus that answers it, and **the answer is that the
+reader's zero is right**: 25 YAML documents, **147 `$ref` occurrences, every one of them a same-document pointer**
+(`#/components/schemas/user`), which is `stripFragment`'s refusal and not a miss. The 14 JSON schema files beside them
+name 50 references, **12 of which resolve to a file in the checkout** and 38 of which are absolute URLs.
+
+**So the YAML arm is now measured, and what it measures is a refusal.** A `$ref` that stays inside its own document
+crosses nothing; that is the same statement as `import a.b.*`, and it is only defensible once a corpus has been counted.
+
 ### 104.5 What this does not claim
 
 - **No name is resolved through its parent's file.** `Foo.Bar` is the name the reader derived, not a lookup of `Bar`
   inside `Foo`; a parent that is itself a typealias or a protocol composition is spelled as written.
-- **A type nested two deep is not a symbol at all**, so it cannot be named. Nothing in the nine checkouts needs it.
+- **A type nested two deep is not a symbol at all**, so it cannot be named. Nothing in the ten checkouts needs it.
 - **No review was run.** The 50-pull-request confirmation of R-44 was dispatched at `7bf85fc6` and therefore measures
   §103's vocabulary, not this one. **R-45 is registered here, before its run**: the qualified vocabulary moves matched
   goldens by **≥ +5 %** with prompt tokens **≤ +2 %**, refuted if goldens are flat or the tokens move more than 2 %;

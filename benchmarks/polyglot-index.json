@@ -18,7 +18,7 @@
         "overCap": 0,
         "overBytes": 0
       },
-      "indexMs": 64,
+      "indexMs": 56,
       "stats": {
         "files": 110,
         "symbols": 1937,
@@ -74,7 +74,7 @@
         "overCap": 0,
         "overBytes": 0
       },
-      "indexMs": 70,
+      "indexMs": 68,
       "stats": {
         "files": 124,
         "symbols": 2038,
@@ -152,7 +152,7 @@
         "overCap": 0,
         "overBytes": 0
       },
-      "indexMs": 167,
+      "indexMs": 166,
       "stats": {
         "files": 109,
         "symbols": 9087,
@@ -241,7 +241,7 @@
         "overCap": 0,
         "overBytes": 0
       },
-      "indexMs": 535,
+      "indexMs": 551,
       "stats": {
         "files": 685,
         "symbols": 5526,
@@ -319,7 +319,7 @@
         "overCap": 0,
         "overBytes": 0
       },
-      "indexMs": 42,
+      "indexMs": 41,
       "stats": {
         "files": 49,
         "symbols": 723,
@@ -369,14 +369,8 @@
       "commit": "dea4bab91767a971d6e112bc955c6a82295589b7",
       "goModule": null,
       "swiftModules": [
-        [
-          "Alamofire",
-          "Source"
-        ],
-        [
-          "AlamofireTests",
-          "Tests"
-        ]
+        ["Alamofire", "Source"],
+        ["AlamofireTests", "Tests"]
       ],
       "files": 140,
       "readerSkipped": {
@@ -473,7 +467,7 @@
         "overCap": 0,
         "overBytes": 0
       },
-      "indexMs": 241,
+      "indexMs": 229,
       "stats": {
         "files": 1120,
         "symbols": 3538,
@@ -573,7 +567,7 @@
         "overCap": 0,
         "overBytes": 0
       },
-      "indexMs": 95,
+      "indexMs": 87,
       "stats": {
         "files": 106,
         "symbols": 18394,
@@ -651,7 +645,7 @@
         "overCap": 0,
         "overBytes": 0
       },
-      "indexMs": 578,
+      "indexMs": 572,
       "stats": {
         "files": 1416,
         "symbols": 39259,
@@ -716,6 +710,73 @@
         "chars": 1038,
         "medianChars": 46,
         "charsPerNonEmptyNote": 79.8462
+      }
+    },
+    {
+      "repo": "OAI_OpenAPI-Specification",
+      "commit": "4f86429f134f7e48b6351563549b4502fc69de52",
+      "goModule": null,
+      "swiftModules": [],
+      "files": 43,
+      "readerSkipped": {
+        "bySize": 0,
+        "overCap": 0,
+        "overBytes": 0
+      },
+      "indexMs": 18,
+      "stats": {
+        "files": 43,
+        "symbols": 3637,
+        "imports": 55,
+        "resolvedImports": 12,
+        "externalImports": 43,
+        "missingImports": 0,
+        "ambiguousImports": 0,
+        "namespaceImports": 12,
+        "edges": 0
+      },
+      "byLanguage": {
+        "json": {
+          "files": 14,
+          "symbols": 1532,
+          "imports": 50,
+          "resolved": 12,
+          "packages": 0,
+          "external": 38,
+          "missing": 0,
+          "ambiguous": 0,
+          "edges": 0
+        },
+        "yaml": {
+          "files": 25,
+          "symbols": 2102,
+          "imports": 0,
+          "resolved": 0,
+          "packages": 0,
+          "external": 0,
+          "missing": 0,
+          "ambiguous": 0,
+          "edges": 0
+        },
+        "javascript": {
+          "files": 4,
+          "symbols": 3,
+          "imports": 5,
+          "resolved": 0,
+          "packages": 0,
+          "external": 5,
+          "missing": 0,
+          "ambiguous": 0,
+          "edges": 0
+        }
+      },
+      "reach": {
+        "filesWithSymbols": 40,
+        "filesWithReach": 40,
+        "emptyNotes": 40,
+        "chars": 0,
+        "medianChars": 0,
+        "charsPerNonEmptyNote": 0
       }
     }
   ]
