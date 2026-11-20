@@ -11107,3 +11107,49 @@ file that wrote one**. Fixed where it was wrong; `Alamofire` 304 → 265, and th
 and the index knows it by its own (`Error`), so a file that mentions `Error` can get an edge into
 `ParameterEncoding.swift`. **The fix is to qualify a nested declaration, which changes the shape of every symbol this
 index reports**, and that is a section rather than a line.
+
+### 103.9 The R-44 verdict: +32 % goldens for +1.67 % tokens, and the floor it did not clear
+
+Two dispatches of `AACR Bench`, fourteen pull requests each, **one option apart**: `44664407799` (`reach: off`) and
+`44664411046` (`reach: on`). Same commit, same judge, same corpus slice, same lanes.
+
+|                        | `reach: off` | `reach: on` | delta                      |
+| ---------------------- | ------------ | ----------- | -------------------------- |
+| true positives         | 25           | **33**      | +8                         |
+| false positives        | 81           | 82          | +1                         |
+| false negatives        | 145          | 137         | −8                         |
+| precision              | 0.2358       | **0.2870**  | **+0.0512**                |
+| recall                 | 0.1471       | **0.1941**  | +0.0470                    |
+| F1                     | 0.1812       | **0.2316**  | **+0.0504 (+27.8 % rel.)** |
+| goldens covered        | 25           | **33**      | **+8 (+32.0 %)**           |
+| reviewer prompt tokens | 3 503 546    | 3 562 186   | **+1.67 %**                |
+
+**The registration named three numbers** (§100.3): goldens **≥ +12 %**, prompt tokens **≤ +5 %**, and a refutation if
+_goldens rise while precision falls below 0.30_.
+
+- **the target is met**: +32.0 % goldens against a registered +12 %, at **+1.67 %** tokens against a ceiling of +5 %;
+- **the failure mode the third clause describes did not occur**: precision **rose** by 0.0512, so the device did not buy
+  recall with noise - it emitted one more finding in total;
+- **and the 0.30 floor is not cleared in absolute terms** (0.2870). **The control is below it too, at 0.2358**, which says
+  the floor is a property of this configuration on this slice rather than of the device: the same engine on fifty pull
+  requests scored 0.2196 and on thirty-six paired it scored above 0.30 with the agent arm. **A floor written for one
+  configuration cannot be inherited by another, and this section reports the miss rather than reinterpreting it.**
+
+**What the device cost in work**: 14 checkouts cloned and walked, **68 060 files indexed in 99 551 ms** (7.1 s per pull
+request, 4 724 files refused over the byte cap by a walk whose caps are counted), **202 reach notes served - 21 076
+characters ≈ 5 269 tokens - to 680 changed files**, 478 of which had nothing to say.
+
+**The money is the part I cannot attribute.** The two artifacts record **0.8862 USD** and **0.6175 USD** for the same
+work, and the second is cheaper with _more_ judge calls (6 001 against 5 876) and _more_ prompt tokens. The reviewer's
+cache-hit ratio moved 0.887 → 0.860 and the judge's 0.098 → 0.122, which does not explain a factor of two. **Both figures
+are reported and neither is used to price the device**; the token counts are, because they are the registration's
+currency and they are the same ledger's arithmetic in both runs.
+
+**What this does not claim.** One slice, fourteen pull requests, 196 goldens. **The confirmation the registration asks for
+is fifty pull requests at ≈2.3 USD ≈ 16 CNY**, and it is the next dispatch rather than this one.
+
+**And it does not lift the engine to SOTA.** 0.2316 F1 is below the 0.339 that AACR-Bench's own vendor publishes on its
+corpus and far below the 0.45 F1 its registered rule targeted, because **the dominant miss is still
+`findingOnPathRejected` - 93 of 170 goldens are on a file the engine reviewed with a finding, and the judge says the
+finding does not address the golden.** The index moved the recall the registration asked about; **the emitter is where the
+remaining 55 % sits**, and no reader closes that.
