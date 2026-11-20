@@ -31,6 +31,7 @@ import {
   normalisePath,
 } from './lib/golden-attribution.mjs';
 import { requestedPullRequests, skippedPullRequests, spendCeilingUsd } from './lib/run-config.mjs';
+import { checkoutsToPrune, createOneIndexCache } from './lib/one-index-cache.mjs';
 import { DEFAULT_ATTEMPTS, backoffMs, retryAfterMs } from './lib/retry-after.mjs';
 import { exactMcNemar } from './lib/paired-test.mjs';
 import {
@@ -1772,8 +1773,18 @@ async function main() {
   const { reachNoteOf, reachLine } = REACH
     ? await import('../../packages/intelligence/dist/review/index/cross-file.js')
     : {};
-  /** One index per head commit, because two pull requests can share a commit and a rebuild would be the same answer. */
-  const reachIndexes = new Map();
+  /**
+   * **One index, held for one pull request.**
+   *
+   * This was a `Map` keyed by head commit and never evicted, on the argument that *two pull requests can share a commit
+   * and a rebuild would be the same answer* - which is true and is not what the map was doing: **it kept every index the
+   * run had ever built, and the loop reviews one pull request at a time.** The fifty-pull-request confirmation of R-44
+   * died of it at 4 055 MB of heap (§105.1), and the fourteen-pull-request run of the same code passed.
+   *
+   * **The smaller cache trades seconds for gigabytes**, and the trade is counted in `reach.indexEvictions` so the
+   * artifact shows the bound was reached instead of asserting it.
+   */
+  const reachIndexes = createOneIndexCache();
   /** The index the lane's `reach` closure reads, and `null` whenever this pull request has none. */
   let reachIndex = null;
   const {
@@ -2116,6 +2127,13 @@ async function main() {
         enabled: true,
         pullsWithIndex: 0,
         indexBuilds: 0,
+        /**
+         * **The commits dropped so that the run could hold one index** (§105.1). A run whose evictions equal its builds
+         * minus one never held two, which is the check the artifact exists to make possible.
+         */
+        indexEvictions: 0,
+        /** Working trees deleted for the same reason, because a clone is a directory and a runner's disk is fixed. */
+        checkoutsPruned: 0,
         filesIndexed: 0,
         indexMs: 0,
         noCheckout: 0,
@@ -3294,8 +3312,33 @@ async function main() {
             }
           }
           reachIndexes.set(pullHead.sha, reachIndex);
+          reachCounters.indexEvictions = reachIndexes.evictions;
         }
         reachCounters.pullsWithIndex += 1;
+      }
+    }
+    /**
+     * **The working trees of the pull requests already reviewed, deleted.**
+     *
+     * A clone is a directory, and remembering every commit keeps every tree on a runner whose disk is fixed: the same
+     * arithmetic that killed the fifty-pull-request run in the heap (§105.1) has a second copy on the disk, and **the
+     * second copy fails as `ENOSPC` in the middle of a checkout, which reads like a network fault**. One pull request is
+     * reviewed at a time, so one tree is in use at a time, and this is the place that knows which one that is.
+     *
+     * A delete that fails is counted rather than thrown: **a run that lost a directory it no longer needed is not a run
+     * that should stop**, and a disk that refused is worth a line in the artifact rather than a stack trace.
+     */
+    if (pullHead !== null) {
+      for (const directory of checkoutsToPrune(checkouts, pullHead.sha)) {
+        try {
+          rmSync(directory, { recursive: true, force: true });
+          reachCounters.checkoutsPruned += 1;
+        } catch {
+          // **Counted as not pruned**, which is the fact: the directory is still there.
+        }
+      }
+      for (const [sha, directory] of [...checkouts]) {
+        if (sha !== pullHead.sha && typeof directory === 'string') checkouts.delete(sha);
       }
     }
 
