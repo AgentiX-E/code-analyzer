@@ -2,13 +2,16 @@
 // Orchestrates LLM-powered code review across multiple lanes.
 
 import {
-  LANE_PROMPTS,
+  FUSED_REVIEW_PROMPT,
   LANE_LABELS,
+  LANE_OF_CATEGORY,
+  LANE_PROMPTS,
   parseLLMResponse,
+  type LaneMode,
+  type LLMFinding,
   type PromptContext,
   type PromptOrder,
   type ReviewLane,
-  type LLMFinding,
 } from './prompts.js';
 import { collectDiffFacts, diffHeaderPaths, rankFindings } from '../actionability.js';
 import { detectIdioms } from '../idiom-rules.js';
@@ -190,6 +193,19 @@ export interface LLMReviewOptions {
    * `lanes.length` sends one lane per round, which is the fully sequential arrangement.
    */
   laneWaves?: number;
+  /**
+   * **How the lanes are put to a file: one call each, or one call for all of them.** Defaults to `separate`, which is
+   * the arrangement every published figure was measured under.
+   *
+   * `fused` sends `FUSED_REVIEW_PROMPT` once per file and files each finding under the lane the answer labels it with -
+   * falling back to `LANE_OF_CATEGORY` when the answer names no lane this run bought. **The price it removes is the
+   * diff, paid five times in the arrangement that ships**: on §106.7's fifty pull requests the five lane bills are
+   * 1.46 M, 1.36 M, 1.36 M, 1.34 M and 1.34 M prompt tokens over one corpus.
+   *
+   * **What it may cost is accuracy, and that is not this option's claim.** A fused call has one context for five
+   * questions and may find fewer defects than five specialists; R-47 is the registration that pays for the answer.
+   */
+  laneMode?: LaneMode;
   /**
    * **Whether a pull-request call is shown the code each hunk sits in.** Defaults to `false`, which is the behaviour
    * every figure this repository has published was measured under.
@@ -411,6 +427,7 @@ const DEFAULT_OPTIONS: Required<LLMReviewOptions> = {
   falsify: false,
   promptOrder: 'boilerplate-first',
   laneWaves: 1,
+  laneMode: 'separate',
   codeContext: false,
   // **Off, and off is the honest default rather than a conservatism.** The lane is a measurement: it is turned on by
   // `AACR_IDIOMS=on` for a run that reports it, and a default that was on would make every figure this repository has
@@ -465,6 +482,19 @@ export function planLaneWaves(lanes: readonly ReviewLane[], waves: number): Revi
 // ---------------------------------------------------------------------------
 // LLM Review Engine
 // ---------------------------------------------------------------------------
+
+/**
+ * **The most a fused completion may be asked for, in tokens.**
+ *
+ * One call answers five questions, so one lane's ceiling would truncate the answer where five lanes' answers would have
+ * fitted - and **a truncated JSON object is not a shorter answer, it is a parse failure that reads as a reviewer that
+ * said nothing**. 8 192 is the largest completion DeepSeek's chat endpoint accepts, so it is the ceiling rather than a
+ * preference, and the effective value is the smaller of this and twice the lane ceiling.
+ */
+const FUSED_COMPLETION_CEILING = 8192;
+
+/** The lane completion ceiling a fused call doubles when the caller did not set one, which is the engine's default. */
+const DEFAULT_LANE_COMPLETION = 4096;
 
 /**
  * **One finding the merge removed, and the finding that removed it.**
@@ -1386,8 +1416,97 @@ export class LLMReviewEngine {
 
   /** Which of the three arrangements a call asked for, in one place so both scopes agree. */
   private async runLanes(ctx: PromptContext, lanes: ReviewLane[]): Promise<LLMReviewResult[]> {
+    if (this.options.laneMode === 'fused') return this.runFusedLanes(ctx, lanes);
     if (!this.options.parallel) return this.runLanesSequential(ctx, lanes);
     return this.runLanesInWaves(ctx, lanes, this.options.laneWaves);
+  }
+
+  /**
+   * **The five questions in one call, filed back into five lanes.**
+   *
+   * The shape of the return value is unchanged - one `LLMReviewResult` per lane the run bought, in the run's order - so
+   * **everything downstream of this method sees a reviewer of the same shape**: the merge, the deduplication, the
+   * agreement feature, the per-lane tables and the ledger all keep reading lanes. That is deliberate. A fused run that
+   * returned one result would make every consumer's lane key optional, and the artifact would then have two shapes for
+   * one product.
+   *
+   * **A failure is one failure per lane**, because the call is the run's only call for this file: a reader of the
+   * ledger must not see four lanes that succeeded and one that did not when the model was never asked separately.
+   */
+  private async runFusedLanes(ctx: PromptContext, lanes: ReviewLane[]): Promise<LLMReviewResult[]> {
+    const startTime = Date.now();
+    const failed = (error: string): LLMReviewResult[] =>
+      lanes.map((lane) => ({
+        filePath: ctx.filePath,
+        lane,
+        findings: [],
+        success: false,
+        error,
+        durationMs: Date.now() - startTime,
+      }));
+
+    if (lanes.length === 0) return [];
+
+    try {
+      const prompt = FUSED_REVIEW_PROMPT(ctx);
+      const result = await this.provider.complete(prompt, {
+        // **Five answers out of one completion**, so the ceiling on the completion is not one lane's. Doubling is the
+        // smallest change that cannot truncate a fused answer where a separate one would have fitted, and the cap is
+        // the provider's own maximum rather than a number this file invents.
+        maxTokens: Math.min(
+          FUSED_COMPLETION_CEILING,
+          (this.options.maxTokensPerLane ?? DEFAULT_LANE_COMPLETION) * 2,
+        ),
+        temperature: this.options.temperature,
+        timeout: this.options.laneTimeout,
+        // **`fused`, not the first lane's name**: the ledger's question is which part of the product the money went to,
+        // and one call attributed to `security` would report a bill four lanes do not have.
+        tag: 'review:fused',
+      });
+
+      const parsed = parseLLMResponse(result.content);
+      const byLane = new Map<ReviewLane, LLMFinding[]>(lanes.map((lane) => [lane, []]));
+      for (const found of parsed) {
+        byLane.get(this.laneOf(found, lanes))?.push(found);
+      }
+
+      return lanes.map((lane) => {
+        const own = byLane.get(lane) ?? [];
+        const findings = this.filterFindings(own, ctx);
+        this.parsedByLane.set(lane, own.length);
+        this.droppedByLane.set(lane, this.lastDropped);
+        return {
+          filePath: ctx.filePath,
+          lane,
+          findings,
+          success: true,
+          durationMs: Date.now() - startTime,
+        };
+      });
+    } catch (error) {
+      return failed(error instanceof Error ? error.message : String(error));
+    }
+  }
+
+  /**
+   * **Which lane a fused finding is filed under, in three steps that are each a fact rather than a preference.**
+   *
+   * 1. **The lane the answer named**, when this run bought it. A label the run asked for is the reviewer's own claim
+   *    about which question it was answering, and nothing downstream is in a better position to overrule it.
+   * 2. **The lane its category names**, when the answer named nothing this run bought. `LANE_OF_CATEGORY` is a reading
+   *    of the categories the reviewer may assert, so this is still the answer's own statement about the finding rather
+   *    than a guess about it.
+   * 3. **The first lane the run bought**, which only a category outside the type can reach. **A finding is never dropped
+   *    for its label**: the label is bookkeeping and the sentence is the product.
+   */
+  private laneOf(finding: LLMFinding, lanes: readonly ReviewLane[]): ReviewLane {
+    const declared = finding.lane;
+    if (declared !== undefined && (lanes as readonly string[]).includes(declared)) {
+      return declared as ReviewLane;
+    }
+    const byCategory = LANE_OF_CATEGORY[finding.category];
+    if ((lanes as readonly string[]).includes(byCategory)) return byCategory;
+    return lanes[0] as ReviewLane;
   }
 
   private async runLanesSequential(

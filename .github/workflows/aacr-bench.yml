@@ -267,6 +267,17 @@ on:
         options: ['off', 'on', 'pair', 'wide', 'pair-wide']
         default: 'off'
 
+      lane_mode:
+        # **Whether the five questions are asked five times or once.** `fused` sends one prompt that asks every lane
+        # its own question and asks the answer to label itself; the engine files each finding under the lane it names,
+        # falling back to the category it asserted when it names none. **The claim is about money and the risk is about
+        # accuracy**, so the default is the arrangement every published figure was measured under and a fused dispatch
+        # is read against the same day's `separate` run rather than against history.
+        description: 'Lane calls: one per lane (separate), or one call asking all of them (fused)'
+        type: choice
+        options: ['separate', 'fused']
+        default: 'separate'
+
       max_findings_per_file:
         # **The cap that turned out to be a ceiling on the work rather than a rail on the noise.** §23.7 measured 25 of
         # one run's 225 drafts refused a slot, and 74 of that run's missed goldens sitting on files it had read - so the
@@ -566,6 +577,13 @@ jobs:
           AACR_REMARKS: ${{ matrix.remarks }}
           AACR_SECOND_CONCERN: ${{ matrix.second_concern }}
           AACR_LANE_SET: ${{ matrix.lane_set }}
+          # **One call for five questions, or five.** §106.7's ledger is five almost equal lane bills over one diff -
+          # 1.46 M, 1.36 M, 1.36 M, 1.34 M and 1.34 M prompt tokens - and the block they all contain is the price this
+          # switch removes. **On one 8 000-character diff the five prompts are 68 111 characters and the fused prompt is
+          # 14 944**, which is the arithmetic R-47 registered; what the switch may cost in accuracy is what the run is
+          # for. It is not a matrix key because a pair here would double a bill to answer a question whose token side is
+          # already exact, and a diagnostic arm beside the same day's `separate` run is what the claim is read against.
+          AACR_LANE_MODE: ${{ inputs.lane_mode || 'separate' }}
           # **The merge of the two reviewers**, read from the matrix for the same reason as every other arm: the artifact
           # and the workflow cannot disagree about which reviewer produced the figure. Off means the arm reviewed with one
           # reviewer, which is what every figure before §56 was measured under.

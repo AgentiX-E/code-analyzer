@@ -842,6 +842,137 @@ export const LANE_PRIORITIES: ReviewLane[] = [
 ];
 
 // ---------------------------------------------------------------------------
+// One call, five questions
+// ---------------------------------------------------------------------------
+
+/**
+ * **How a run puts its lanes to a file: one call each, or one call for all of them.**
+ *
+ * `separate` is what every published figure was measured under, and it stays the default for the reason every switch in
+ * this repository has: **a run that changed the shape of its calls silently would re-price every number in this
+ * document.** `fused` is the device R-47 registered, and its claim is about money rather than about accuracy.
+ *
+ * **Why the shape is worth a switch at all.** On the fifty-pull-request run of §106.7 the ledger splits 2 945 lane calls
+ * into five almost equal bills - `security` 1 456 332 prompt tokens, `performance` 1 364 316, `testing` 1 362 399,
+ * `maintainability` 1 338 756, `architecture` 1 337 478 - and **five equal bills over one diff is five copies of the
+ * diff.** The shared block is the price; the lane's own instruction is 7 344 to 8 144 characters and does not change
+ * with the file.
+ */
+export const LANE_MODES = ['separate', 'fused'] as const;
+
+export type LaneMode = (typeof LANE_MODES)[number];
+
+/**
+ * **Which lane a finding belongs to when the reviewer did not say, read from the category it did say.**
+ *
+ * The label is not decoration: it is the key of the per-lane ledger, of the agreement feature that feeds the ranker,
+ * and of the table §69 published lane economics from. **A fused answer that names no lane would otherwise have to be
+ * dropped** - and dropping a true finding to protect a table is the trade this campaign has refused everywhere else.
+ *
+ * **The table is a reading of the categories, not a second taxonomy.** `bug` goes to `behaviour` because that is the
+ * lane that asks what the value at the line does; `style`, `documentation` and `api` go to `maintainability` because
+ * that is the lane whose question they answer. Every category the reviewer may assert has an entry, and the test that
+ * says so is `one-prompt-can-ask-five-questions`.
+ */
+export const LANE_OF_CATEGORY: Record<ReviewCategory, ReviewLane> = {
+  bug: 'behaviour',
+  security: 'security',
+  performance: 'performance',
+  maintainability: 'maintainability',
+  test: 'testing',
+  style: 'maintainability',
+  documentation: 'maintainability',
+  architecture: 'architecture',
+  api: 'architecture',
+  other: 'maintainability',
+};
+
+/**
+ * **The five questions, each written once, each naming the lane it is.**
+ *
+ * A fused call is not the five lane prompts concatenated: **the five prompt heads share a role statement, a checklist,
+ * an output contract and two or three worked examples each**, and copying all of that into one prompt would pay most of
+ * the bill this device exists to remove. What is kept is the *question* - the part a reviewer answers - and what is
+ * dropped is the ceremony around it, which the shared selection contract below states once.
+ *
+ * **`ask` is written as an instruction to look, not as a category name**, because the measurement §47.7 recorded is
+ * that a lane told to find defects describes defects: the sentence has to say what to look *at*.
+ */
+export const FUSED_QUESTIONS: ReadonlyArray<{ readonly lane: ReviewLane; readonly ask: string }> = [
+  {
+    lane: 'security',
+    ask: 'Does this change let input reach a sink it did not reach before - injection, path traversal, deserialisation, a secret in the source or in a log, a missing authorisation check, a weakened comparison?',
+  },
+  {
+    lane: 'performance',
+    ask: 'Does this change add work per element, per call or per frame that the previous line did not do - an allocation inside a loop, a quadratic scan, a repeated lookup, a copy of a large object, a synchronous call on a hot path?',
+  },
+  {
+    lane: 'maintainability',
+    ask: 'Does this change duplicate a helper or a constant that already exists, contradict the convention the rest of the file follows, leave a dead branch, a commented-out statement or a name that says something the code does not?',
+  },
+  {
+    lane: 'testing',
+    ask: 'Does this change alter behaviour that no test in the patch covers - a new branch, an error path, a boundary the old code could not reach - and is the missing test the thing a reviewer should ask for?',
+  },
+  {
+    lane: 'architecture',
+    ask: 'Does this change reach across a boundary the module did not cross before - a dependency on a layer above it, a public API that breaks its callers, a shared state introduced between components, an ownership or lifecycle rule violated?',
+  },
+  {
+    lane: 'behaviour',
+    ask: 'What the value at the changed line does when it is empty, zero, negative, absent, or larger than the buffer: does the new expression divide by something that can be zero, index past an end, dereference what can be null, or return a type its caller does not expect?',
+  },
+];
+
+/**
+ * **One prompt that asks every question the run bought, and asks the reviewer to label its answers.**
+ *
+ * **The one thing this prompt must not do is let a finding arrive without a lane.** The label is read by the ledger,
+ * by the agreement feature and by the per-lane tables, so the contract below states it as a required field, the parser
+ * keeps it only when it is a string, and the engine files a finding that names no lane - or names one this run did not
+ * buy - under the lane its own category names.
+ *
+ * **Order is the run's** (`composeLanePrompt`), so the diff sits where the measured arrangement puts it and the prefix
+ * a warm cache reuses is the same prefix it reuses in a separate run.
+ */
+export function FUSED_REVIEW_PROMPT(ctx: PromptContext): string {
+  const questions = FUSED_QUESTIONS.map(
+    (question) => `- **${question.lane}** - ${question.ask}`,
+  ).join('\n');
+  const head = `You are reviewing one change and answering several independent questions about it. **Each question names the lane that owns it.** Answer every one of them from the same diff, and report a finding only where you can point at the line.
+
+${questions}
+
+**Most changed lines answer none of these.** A rename, a reformat, a comment, a test fixture and most configuration changes carry nothing here, and an empty findings array is the expected answer for them rather than a failure of the exercise. **Report no improvement, no praise and no summary.**
+
+`;
+  const tail = `Return a JSON object with this exact structure. Every finding carries the **lane** it answers, spelled exactly as above:
+${defectChecklist(ctx)}${selectionContract(ctx)}
+
+Few-shot example - a divisor the caller does not know is zero:
+Input: diff adding \`const ratio = delta / Math.min(previous, current);\`
+Output:
+{
+  "findings": [
+    {
+      "lane": "behaviour",
+      "startLine": 41,
+      "endLine": 41,
+      "severity": "high",
+      "category": "bug",
+      "title": "Two equal intervals make Math.min zero and the ratio Infinity",
+      "description": "Math.min(previous, current) is the gap between consecutive events, and two events on the same tick pass 0 here. The division then returns Infinity, which the caller compares against a threshold and never exceeds.",
+      "suggestion": "Guard the zero before dividing: if (Math.min(previous, current) === 0) return 0;"
+    }
+  ]
+}
+
+Respond ONLY with the JSON object. Do not include any markdown formatting, explanations, or additional text.`;
+  return composeLanePrompt(ctx, head, tail);
+}
+
+// ---------------------------------------------------------------------------
 // Response Parsing
 // ---------------------------------------------------------------------------
 
@@ -890,7 +1021,20 @@ export function parseLLMResponse(raw: string): LLMFinding[] {
         // number in that field would be a `path` the type promises is a path. **The engine decides whether the path
         // names a file the call showed** - this only refuses to carry a value that is not one.
         const raw: Record<string, unknown> = f as unknown as Record<string, unknown>;
-        return typeof raw['path'] === 'string' ? { ...base, path: raw['path'] } : base;
+        // **The same rule for the lane**, and here it is the whole attribution of a fused answer: a number or an object
+        // in that field is not a lane, and the engine's fallback to the category is truthful where a coerced string
+        // would not be. See `FUSED_REVIEW_PROMPT`.
+        const withPath: LLMFinding =
+          typeof raw['path'] === 'string' ? { ...base, path: raw['path'] } : base;
+        if (typeof raw['lane'] !== 'string') {
+          // **Removed rather than left to the spread.** `...f` copies whatever the JSON held, so a number in `lane`
+          // would reach the engine as a lane the type says is a string; the engine's fallback then reads the category,
+          // and a stripped field is what makes that fallback the one that runs.
+          const stripped = { ...withPath } as LLMFinding & { lane?: unknown };
+          delete stripped.lane;
+          return stripped;
+        }
+        return { ...withPath, lane: raw['lane'] };
       });
   } catch {
     return [];

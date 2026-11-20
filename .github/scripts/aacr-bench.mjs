@@ -184,6 +184,30 @@ function parseLaneSet(raw) {
 const LANE_SET = parseLaneSet(process.env['AACR_LANE_SET']);
 
 /**
+ * **How the lanes are put to a file: one call each, or one call for all of them.**
+ *
+ * `AACR_LANE_MODE=fused` sends `FUSED_REVIEW_PROMPT` once per file and files each answer under the lane it labels
+ * itself with. **What it buys is arithmetic rather than a hope**: on one 8 000-character diff the five lane prompts are
+ * 68 111 characters and the fused prompt is 14 944, which is 21.9 % - and that is the whole claim of R-47. **What it may
+ * cost is accuracy**, which is why the default is the arrangement every published figure was measured under and why a
+ * fused dispatch is a diagnostic against a same-day arm rather than a new baseline.
+ *
+ * **Refused rather than defaulted when it is unrecognised**, for the reason `parseLaneSet` is: a typo that falls through
+ * to `separate` is a run that pays for one reviewer and publishes it under the other's name.
+ */
+const LANE_MODE_NAMES = ['separate', 'fused'];
+
+function parseLaneMode(raw) {
+  const value = String(raw ?? 'separate');
+  if (!LANE_MODE_NAMES.includes(value))
+    throw new Error(`AACR_LANE_MODE must be one of ${LANE_MODE_NAMES.join(', ')}, not "${value}"`);
+  return value;
+}
+
+/** **The call shape this run bought.** */
+const LANE_MODE = parseLaneMode(process.env['AACR_LANE_MODE']);
+
+/**
  * **The switch the head-to-head made necessary: a reviewer that can read the repository.**
  *
  * `AACR_AGENT=on` replaces the five lanes with `ReviewAgent`: it groups the changed files, gives the model the five tools
@@ -2120,9 +2144,12 @@ async function main() {
     // same five questions. A run that recorded a set and dispatched the engine's default would be the §58.1 shape one
     // device later: an artifact internally consistent and about a different reviewer.
     lanes: [...LANE_SETS[LANE_SET]],
+    // **The shape of the calls, beside the questions they ask**: a run that recorded five lanes and sent one call would
+    // be an artifact about a reviewer nobody dispatched.
+    laneMode: LANE_MODE,
   });
   console.log(
-    `AACR-BENCH dedup threshold ${DEDUP_THRESHOLD} · prompt order ${PROMPT_ORDER} · adjudicate ${ADJUDICATE} · idioms ${IDIOMS} · remarks ${REMARKS} · second concern ${SECOND_CONCERN}`,
+    `AACR-BENCH dedup threshold ${DEDUP_THRESHOLD} · prompt order ${PROMPT_ORDER} · adjudicate ${ADJUDICATE} · idioms ${IDIOMS} · remarks ${REMARKS} · second concern ${SECOND_CONCERN} · lanes ${LANE_SET} (${LANE_MODE})`,
   );
 
   /**
@@ -4771,6 +4798,10 @@ async function main() {
       // would report a set with no sentence behind it. Both travel, and `variedField` sees one key because they are one
       // object.
       laneSet: { name: LANE_SET, lanes: [...LANE_SETS[LANE_SET]] },
+      // **Whether those questions were asked five times or once.** §106's ledger is five almost equal lane bills over
+      // one diff, and a device that removes four of them changes the *price* of a figure rather than its meaning - so
+      // the axis travels beside `laneSet` and a comparison between two artifacts read both.
+      laneMode: LANE_MODE,
       // **Whether a model was asked for the rest of that bucket**, and the families it was asked for rather than "some
       // remarks": **a figure from a run with this on and one with it off are two reviewers**, and a family list that is
       // not in the artifact is a prompt nobody can reproduce.

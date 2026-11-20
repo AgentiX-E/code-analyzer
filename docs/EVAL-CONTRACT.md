@@ -11585,3 +11585,104 @@ tokens for the same work, because its cache hit ratio was 84 % and this one's wa
 arithmetic over verdicts §103's run already paid for, and the one dispatch bought the two emission rows that a section of
 this document could only predict. **That is the cheapest kind of device this campaign has priced**: no new lane, no new
 prompt, no new call, and a rule about a filename.
+
+## §107 Five bills for one diff, and the shape of a call as a cost device
+
+**This round changes no question and no lane.** It reads the run §106 paid for in a way nobody had read it - _what each
+lane costs and what each lane earns_ - and then prices the one device that follows from the answer: **asking the five
+questions in one call instead of five.** The accuracy half of that device is registered and not yet read, and this
+section says so in the place a reader will look for the verdict.
+
+### 107.1 The ledger, read as economics rather than as a total
+
+Run `44721942627`'s artifact carries `spend.byTag`, one row per lane, and the rows are almost equal because **each lane
+sees the same diff**:
+
+| lane              | findings | accepted | precision | prompt tokens |  share | goldens per M token |
+| ----------------- | -------: | -------: | --------: | ------------: | -----: | ------------------: |
+| `security`        |       71 |       30 |     0.423 |     1 456 332 | 21.2 % |                20.6 |
+| `architecture`    |      316 |       60 |     0.190 |     1 337 478 | 19.5 % |            **44.9** |
+| `maintainability` |       94 |       23 |     0.245 |     1 338 756 | 19.5 % |                17.2 |
+| `testing`         |       85 |       18 |     0.212 |     1 362 399 | 19.9 % |                13.2 |
+| `performance`     |       27 |        7 |     0.259 |     1 364 316 | 19.9 % |             **5.1** |
+
+**Five bills within 1.7 % of each other, earning between 5.1 and 44.9 goldens per million tokens.** That spread is not a
+lane being bad at its job: `performance` is asked a narrow question and answers it at precision 0.259, which is above the
+run's own 0.2898 for the whole emission and far above `architecture`'s 0.190. **What the table says is that the _price_
+of a lane does not depend on the question**, because the price is the diff and the diff is the same in all five.
+
+### 107.2 What removing a lane costs, replayed from the artifact's own verdicts
+
+`scripts/lib/operating-point.mjs` scores a cut from `rankedFindings[].matchedGoldens`, so a lane can be priced without a
+model. The cut is the shipped one (`drop test, drop path test, budget 12`), and the run reproduces §106.5's row to four
+decimals before any lane is removed - **0.2222, 304 comments, 84 true positives** - which is the check that the replay is
+the same instrument:
+
+| cut                       | comments |  TP |         F1 | Δ F1        | prompt tokens saved |
+| ------------------------- | -------: | --: | ---------: | ----------- | ------------------: |
+| shipped, five lanes       |      304 |  84 | **0.2222** | -           |                   - |
+| without `performance`     |      290 |  80 |     0.2156 | **−0.0066** |              19.9 % |
+| without `testing`         |      298 |  80 |     0.2133 | **−0.0089** |              19.9 % |
+| without `maintainability` |      267 |  75 |     0.2086 | −0.0136     |              19.5 % |
+| without `architecture`    |      171 |  60 |     0.1926 | −0.0296     |              19.5 % |
+| without `security`        |      260 |  66 |     0.1854 | −0.0368     |              21.2 % |
+
+**No lane is free and no lane is worthless**: the cheapest removal still buys 19.9 % of the prompt for 0.0066 of F1,
+which is a third of the instrument's own ±2 % noise. **A campaign that wanted a cheaper reviewer would delete
+`performance` and `testing` and call the loss a rounding** - and it would be wrong for the reason §106.3 printed: the
+figure that matters is not F1 per token but **whether the pool still contains the sentences the corpus accepts**, and two
+lanes file 112 of 593 findings and 25 of 84 true positives. **A lane is not a cost centre; it is a question**, and
+deleting one deletes the goldens only that question could have found.
+
+### 107.3 The device: one call, five questions
+
+So the redundancy to remove is not a question but **the block they all read**. `FUSED_REVIEW_PROMPT` asks every lane's
+question in one prompt, requires each finding to carry the `lane` it answers, and is scored by the same judge on the same
+corpus. The price, computed from the prompt builders themselves over diffs of four sizes (`boilerplate-first`, the
+shipped order):
+
+| diff shown | five lane prompts | fused prompt | fused is |
+| ---------: | ----------------: | -----------: | -------: |
+|  563 chars |            30 701 |        7 462 |   24.3 % |
+|      4 000 |            48 006 |       10 923 |   22.8 % |
+|      8 000 |            68 111 |       14 944 |   21.9 % |
+|     48 000 |           267 986 |       54 919 |   20.5 % |
+
+**A fused call costs between a fifth and a quarter of the five it replaces, and the ratio improves as the diff grows
+because the diff is the part that was being copied.** Held by `one-prompt-can-ask-five-questions`, which asserts the
+proportion against a 40 % bar rather than against a number a later edit would have to keep, and asserts that the changed
+line appears **once** in a fused prompt and five times in the five.
+
+**The attribution rule, because a fused answer is one list.** A finding is filed under the lane it names; **when it names
+no lane this run bought**, under the lane `LANE_OF_CATEGORY` reads from the category it asserted; when the category is
+not one of the type's, under the first lane the run bought. **A finding is never dropped for its label** - the label is
+bookkeeping and the sentence is the product - and the three steps are each a statement the answer itself made.
+
+### 107.4 R-47, registered before the run
+
+- **Claim.** On the fifty pull requests of §106.7, with `laneMode: fused` and every other switch identical, the run's
+  **prompt tokens fall to at most 30 % of the separate arm's** (137 186 per pull request), **and F1 does not fall below
+  0.2131** (0.2231 less half the instrument's resolution).
+- **Comparator.** `44721942627` - the same fifty rows, the same commit family, the same judge, the same emission policy,
+  the same day. **It is a cross-run comparison and is labelled one**: §106.7 measured two runs of one configuration at
+  0.2119 and 0.2160, so **a difference under 0.005 is the corpus and not the device**.
+- **Falsifier.** F1 below 0.2131. **The device then stays a switch with a negative result written beside it**, and the
+  default stays `separate` - because a figure measured under a fused call belongs to a different reviewer, and eight
+  sections of published numbers belong to the other one.
+- **Why no pair.** A pair exists to make one dispatch produce both arms, and the token side of this device is
+  **arithmetic over the prompt builders rather than a measurement**: 21.9 % at the shipped diff size, exact to the
+  character. What a run can add is the accuracy side, which one arm answers against a same-day comparator. **A paired
+  dispatch is the price of shipping it as the default, and that is a decision this run informs rather than makes.**
+- **Stopping rule.** One dispatch. If the accuracy side is inside the noise, **the switch ships as a switch and the next
+  campaign buys its corpus with it** - the resolution wall of §75.2 is a bill, and a run that costs a fifth as much
+  raises the number of rows that bill can buy by five.
+
+### 107.5 What this section does not claim
+
+- **It does not claim fused is as good.** F1 for the fused arm is unmeasured at the time of writing, and the table above
+  prices characters, not accuracy.
+- **It does not claim the token ratio is the money ratio.** 84 % of the separate arm's prompt was cache hits, billed at a
+  tenth; a fused run re-uses the same prefix shape, so the _billed_ fall is smaller than 78 % and is read off the
+  artifact rather than computed here.
+- **It does not re-price any published figure.** Every number before 107.7 was measured under `separate`, the default is
+  unchanged, and the artifact records which shape produced it.
