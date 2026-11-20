@@ -12002,3 +12002,33 @@ restated from its artifact: the comparator's engine cost is 0.5464 USD rather th
 than 84.3 %, and the fused arm's gain in precision 18.0 % rather than 23.8 %. **The direction of every conclusion is
 unchanged** - no lane is free, the cost clause holds, the accuracy clause does not - but a document that quotes a
 neighbouring run's artifact is a document whose figures cannot be reproduced from the run it names.
+
+## §110 The judge is now the larger half of the bill, and it is the half nobody reordered
+
+Every section of this document has measured the engine's tokens. **The judge's tokens were read as a footnote** - 0.4464
+USD against the engine's 0.5464 on `44721942627`, 0.2105 against 0.1879 on `44746539970`, 0.1899 against 0.2225 on
+`44758245838` - and on the last arm **the judge is 46 % of the money**.
+
+| run           | engine prompt | engine cache | engine cost | judge calls | judge prompt | judge cache | judge cost |
+| ------------- | ------------: | -----------: | ----------: | ----------: | -----------: | ----------: | ---------: |
+| `44721942627` |     6 859 281 |       91.0 % |  0.5464 USD |       5 080 |    1 270 331 |   **8.5 %** | 0.4464 USD |
+| `44746539970` |     1 557 933 |       54.5 % |  0.1879 USD |       5 080 |    1 270 331 |       8.5 % | 0.2105 USD |
+| `44758245838` |     1 500 312 |       52.9 % |  0.2225 USD |       5 080 |    1 270 331 |       8.5 % | 0.1899 USD |
+
+**The engine's cache ratio is 53–91 % and the judge's is 8.5 %, on the same provider and the same day.** A judge call is
+one (finding, golden) pair scored against a rubric, so the rubric and the instructions are a shared prefix that the cache
+should be hitting; that it is not means the variable part is arriving first, or that the calls are dispatched in an order
+that evicts the prefix between them.
+
+**R-49, registered before its run.**
+
+- **Claim.** Reordering the judge's prompt so the constant block leads, and grouping calls so consecutive ones share the
+  longest prefix, raises the judge's prompt cache ratio from 8.5 % to at least 40 % and lowers its cost by at least
+  0.08 USD per fifty pull requests, at an unchanged verdict distribution.
+- **Falsifier.** A cache ratio below 40 % on the next run, or a change in `judgeUnanswered` or in the accepted count
+  beyond the noise band. **The device then ships as a reordering with no claim attached** - the ordering is not a
+  judgement, and a run whose verdicts moved would have changed the judge rather than its address.
+- **Price.** Zero. It is a change to the order of calls the harness already makes, measured by the artifact's own
+  `spend.judge.cacheHitRatio`, which every artifact already carries.
+- **Why it is worth a registration for a 20 % saving.** Because 46 % of the bill is the largest single line in it, and
+  the campaign has spent four sections reducing a line that is now the smaller one.
