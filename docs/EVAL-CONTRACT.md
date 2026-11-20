@@ -11614,24 +11614,23 @@ of a lane does not depend on the question**, because the price is the diff and t
 ### 107.2 What removing a lane costs, replayed from the artifact's own verdicts
 
 `scripts/lib/operating-point.mjs` scores a cut from `rankedFindings[].matchedGoldens`, so a lane can be priced without a
-model. The cut is the shipped one (`drop test, drop path test, budget 12`), and the run reproduces §106.5's row to four
-decimals before any lane is removed - **0.2222, 304 comments, 84 true positives** - which is the check that the replay is
-the same instrument:
+model. The cut is the shipped one (`drop test, drop path test, budget 12`), and the replay reproduces §106.5's row
+exactly - **283 comments, 82 true positives, 0.2231** - which is the check that the replay is the same instrument:
 
 | cut                       | comments |  TP |         F1 | Δ F1        | prompt tokens saved |
 | ------------------------- | -------: | --: | ---------: | ----------- | ------------------: |
-| shipped, five lanes       |      304 |  84 | **0.2222** | -           |                   - |
-| without `performance`     |      290 |  80 |     0.2156 | **−0.0066** |              19.9 % |
-| without `testing`         |      298 |  80 |     0.2133 | **−0.0089** |              19.9 % |
-| without `maintainability` |      267 |  75 |     0.2086 | −0.0136     |              19.5 % |
-| without `architecture`    |      171 |  60 |     0.1926 | −0.0296     |              19.5 % |
-| without `security`        |      260 |  66 |     0.1854 | −0.0368     |              21.2 % |
+| shipped, five lanes       |      283 |  82 | **0.2231** | -           |                   - |
+| without `testing`         |      280 |  80 |     0.2186 | **−0.0046** |              19.9 % |
+| without `performance`     |      276 |  78 |     0.2143 | −0.0088     |              19.9 % |
+| without `maintainability` |      256 |  72 |     0.2034 | −0.0197     |              19.5 % |
+| without `security`        |      241 |  66 |     0.1905 | −0.0327     |              21.2 % |
+| without `architecture`    |      159 |  57 |     0.1866 | **−0.0365** |              19.5 % |
 
 **No lane is free and no lane is worthless**: the cheapest removal still buys 19.9 % of the prompt for 0.0066 of F1,
 which is a third of the instrument's own ±2 % noise. **A campaign that wanted a cheaper reviewer would delete
 `performance` and `testing` and call the loss a rounding** - and it would be wrong for the reason §106.3 printed: the
 figure that matters is not F1 per token but **whether the pool still contains the sentences the corpus accepts**, and two
-lanes file 112 of 593 findings and 25 of 84 true positives. **A lane is not a cost centre; it is a question**, and
+lanes file 112 of 573 findings and 17 of 82 true positives. **A lane is not a cost centre; it is a question**, and
 deleting one deletes the goldens only that question could have found.
 
 ### 107.3 The device: one call, five questions
@@ -11702,21 +11701,23 @@ identical (advisory profile, reach on, code context off, idioms off, remarks off
 | prompt tokens per pull request          |                    137 186 |                  31 159 |               |
 | **prompt ratio against the comparator** |                          — |               **0.227** | **≤ 0.30 ✅** |
 | completion tokens                       |                    734 107 |                 131 583 |               |
-| cost                                    |                 1.2388 USD |              0.1879 USD | −85 %         |
-| cache hit ratio                         |                     84.3 % |                  54.5 % |               |
+| engine cost                             |                 0.5464 USD |              0.1879 USD | −66 %         |
+| judge cost                              |                 0.4464 USD |              0.2105 USD | −53 %         |
+| **total**                               |             **0.9928 USD** |          **0.3984 USD** | **−60 %**     |
+| cache hit ratio                         |                     91.0 % |                  54.5 % |               |
 
-**The cost clause is met with room: 22.7 % of the prompt for 15 % of the money.** The cache ratio fell because the fused
+**The cost clause is met with room: 22.7 % of the prompt for 40 % of the money.** The cache ratio fell because the fused
 prompt is one large block per file rather than five small ones, which is the price of the arrangement working at all.
 
 **The accuracy clause is not met, and by more than the noise**:
 
 | the shipped cut | `separate` |    `fused` |            |
 | --------------- | ---------: | ---------: | ---------- |
-| comments        |        304 |        193 |            |
-| true positives  |         84 |         66 | −18        |
-| precision       |     0.2763 | **0.3420** | +23.8 %    |
-| recall          |     0.1858 |     0.1460 | −21.4 %    |
-| **F1**          | **0.2222** | **0.2047** | **−7.9 %** |
+| comments        |        283 |        193 |            |
+| true positives  |         82 |         66 | −16        |
+| precision       |     0.2898 | **0.3420** | +18.0 %    |
+| recall          |     0.1814 |     0.1460 | −19.5 %    |
+| **F1**          | **0.2231** | **0.2047** | **−8.2 %** |
 
 **R-47 is falsified on its own bar** (F1 ≥ 0.2131), and §47.5's rule is followed: no threshold tuning, no rule dropped, no
 second dispatch of the same prompt. **What the arm bought is precision, which is the first time this campaign has seen
@@ -11724,21 +11725,21 @@ second dispatch of the same prompt. **What the arm bought is precision, which is
 
 ### 107.7 The mechanism, which the pool's own histogram states
 
-A fused call filed 228 findings where the five separate calls filed 593. **The distribution says why, and it is not that
+A fused call filed 228 findings where the five separate calls filed 573. **The distribution says why, and it is not that
 the model was worse at the questions: it is that it answered one of them.**
 
-| category          | `separate` (593) |  share | `fused` (228) |      share |
+| category          | `separate` (573) |  share | `fused` (228) |      share |
 | ----------------- | ---------------: | -----: | ------------: | ---------: |
-| `bug`             |              254 | 42.8 % |       **207** | **90.8 %** |
-| `architecture`    |              157 | 26.5 % |             6 |      2.6 % |
-| `test`            |               87 | 14.7 % |             7 |      3.1 % |
-| `maintainability` |               41 |  6.9 % |             4 |      1.8 % |
-| `security`        |               18 |  3.0 % |             3 |      1.3 % |
+| `bug`             |              246 | 42.9 % |       **207** | **90.8 %** |
+| `architecture`    |              144 | 25.1 % |             6 |      2.6 % |
+| `test`            |               92 | 16.1 % |             7 |      3.1 % |
+| `maintainability` |               39 |  6.8 % |             4 |      1.8 % |
+| `security`        |               16 |  2.8 % |             3 |      1.3 % |
 
 **Ninety-one per cent of a six-question answer came back as `bug`, against forty-three per cent when the questions were
 asked separately.** And the lane the answers labelled themselves with is the same story: `behaviour` 129, `security` 75,
-`architecture` 12, `testing` 7, `maintainability` 4, `performance` 1 - against 316 architecture findings in the separate
-arm.
+`architecture` 12, `testing` 7, `maintainability` 4, `performance` 1 - against 293 findings from the architecture lane in
+the separate arm.
 
 **The one worked example in the fused prompt is a divisor that can be zero, labelled `behaviour`/`bug`.** A prompt that
 lists six questions and then shows one example has told the model which question is being asked; the other five are read
@@ -11753,7 +11754,7 @@ goldens; the separate arm had a comment there 248 times and 35 silences.
 
 | per million prompt tokens | `separate` |  `fused` |
 | ------------------------- | ---------: | -------: |
-| goldens matched           |       12.2 | **42.4** |
+| goldens matched           |       12.0 | **42.4** |
 | comments posted           |       44.3 |    123.9 |
 
 **The fused arm converts tokens into goldens 3.5× better than the separate one, and it is still a worse reviewer by the
@@ -11761,9 +11762,9 @@ metric this corpus publishes.** Both sentences are true and neither is the headl
 campaign that needs resolution more than it needs a point is a campaign whose binding constraint is the bill** (§75.2:
 146 rows resolve 0.019; 452 goldens resolve 0.019; the wall is rows).
 
-**So the number that survives R-47 is a price, not a score**: at 0.1879 USD per fifty pull requests, **two hundred pull
-requests cost 0.75 USD rather than 5.0** - which is the difference between a corpus that resolves 0.010 and one that
-cannot resolve anything under 0.019.
+**So the number that survives R-47 is a price, not a score**: at 0.1879 USD per fifty pull requests against 0.5464,
+**two hundred pull requests cost 0.75 USD rather than 2.19** - which is what makes a corpus that resolves 0.010
+affordable where one at 0.019 was not.
 
 ### 107.9 R-48, registered and dispatched: six answers, not six questions in one paragraph
 
@@ -11904,3 +11905,100 @@ about its histogram, arriving from the other side.
   the true positives in those are the high-score ones).
 - **The remaining lever is emission** - something that changes what a lane says, not which of its sentences survive. That
   is what R-48 buys, and what a sixth question would buy after it.
+
+## §109 R-48 read back: the contract was the defect, and repairing it did not repair the reviewer
+
+**R-47's falsifier was about a distribution, and the distribution moved.** §107.9 registered the diagnosis before the
+dispatch: 90.8 % of a six-question answer came back as `bug`, the fused prompt had one worked example and it was a
+`bug`, and a structure with six slots could not be answered with one. Run `44758245838` at `3a3bdec75c` is that structure,
+fifty pull requests, every other switch identical.
+
+| 50 pull requests                        | `separate` (`44721942627`) | `fused`, one list (`44746539970`) | `fused`, six arrays (`44758245838`) |
+| --------------------------------------- | -------------------------: | --------------------------------: | ----------------------------------: |
+| model calls                             |                      3 195 |                               639 |                                 639 |
+| prompt tokens                           |                  6 859 281 |                     **1 557 933** |                       **1 500 312** |
+| **prompt ratio against the five calls** |                          — |                             0.227 |                           **0.219** |
+| engine cost                             |                 0.5464 USD |                        0.1879 USD |                          0.2225 USD |
+| judge cost                              |                 0.4464 USD |                        0.2105 USD |                          0.1899 USD |
+| **total**                               |             **0.9928 USD** |                    **0.3984 USD** |                      **0.4124 USD** |
+| pool                                    |                        573 |                               228 |                                 320 |
+| comments at the shipped cut             |                        283 |                               193 |                                 201 |
+| true positives                          |                         82 |                                66 |                                  64 |
+| precision                               |                     0.2898 |                        **0.3420** |                              0.3184 |
+| recall                                  |                     0.1814 |                            0.1460 |                              0.1416 |
+| **F1**                                  |                 **0.2231** |                        **0.2047** |                          **0.1960** |
+
+### 109.1 The mechanism was exactly what §107.7 said, and it was not the whole story
+
+| share of the pool | `separate` | fused, one list | fused, six arrays |
+| ----------------- | ---------: | --------------: | ----------------: |
+| `bug`             |     42.8 % |      **90.8 %** |        **50.6 %** |
+| `architecture`    |     26.5 % |           2.6 % |             9.7 % |
+| `maintainability` |      6.9 % |       **1.8 %** |        **20.6 %** |
+| `test`            |     14.7 % |           3.1 % |            13.4 % |
+| `security`        |      3.0 % |           1.3 % |             3.8 % |
+
+**The six-array contract recovered the histogram, and by more than the falsifier asked.** `bug` fell from 90.8 % to
+50.6 % against a bar of 70 %, `maintainability` rose from 1.8 % to 20.6 %, and the lane labels spread the way five
+separate calls spread them (`behaviour` 154, `maintainability` 72, `testing` 44, `architecture` 31, `security` 12,
+`performance` 7). **The diagnosis was right: a list of questions with one example is a prompt that asks one question.**
+
+**And F1 fell again, to 0.1960** - below the one-list arm it was meant to repair, and 12 % below the five separate calls.
+The F1 clause of R-48 was not met, and §47.5's rule applies: no second dispatch of the same device, no threshold moved.
+
+### 109.2 What one pass over a diff buys, read from the corpus's own buckets
+
+| goldens, out of 452                 | `separate` | fused, one list | fused, six arrays |
+| ----------------------------------- | ---------: | --------------: | ----------------: |
+| accepted (finding-level)            |    **127** |              90 |                91 |
+| on a path we commented, rejected    |        256 |             204 |           **247** |
+| on a path we never commented        |     **32** |         **124** |                73 |
+| on no path the pull request touched |         37 |              34 |                41 |
+
+**The two fused shapes lose the same eighteen true positives by opposite routes.** The one-list arm went _silent_ (124
+goldens on paths it read but never mentioned); the six-array arm went _chatty_ (247 rejections, 91 raw acceptances
+against 127). **A single pass over the diff buys a single pass worth of evidence**, and the shape of the answer decides
+only whether the shortfall arrives as silence or as noise.
+
+That is the sentence the campaign should carry: **the price of a fused run (0.219 of the prompt) is not a discount on the
+same reviewer, it is a different reviewer that is 12 % worse** - and no second prompt edit closed the gap.
+
+### 109.3 A policy constant was calibrated on one arm and carried to another
+
+The cap of 12 was chosen on the five-call arm, which files **5.7 comments per pull request**; the six-array arm files
+**4.0**, so the cap binds differently. `scripts/selection-audit.mjs` (§108) reads what the cap is worth on this artifact:
+
+| cap    | comments |  TP | precision | F1         |
+| ------ | -------: | --: | --------: | ---------- |
+| 6      |      165 |  49 |     0.297 | 0.1588     |
+| **12** |  **201** |  64 | **0.318** | **0.1960** |
+| 16     |      221 |  67 |     0.303 | 0.1991     |
+| 20     |      238 |  74 |     0.311 | 0.2145     |
+| 24     |      251 |  76 |     0.303 | **0.2162** |
+| 32     |      261 |  76 |     0.291 | 0.2132     |
+
+**Cap 24 scores 0.2162 and the held-out procedure chooses it in 48 folds of 50, so this one replicates** - unlike every
+category removal in §108.2. It is still below the five-call arm's 0.2231, so it does not rescue the arrangement; what it
+establishes is narrower and more useful: **a policy constant calibrated on one emission rate is not a constant for
+another.** If a fused arm ever ships, its cap is 24 and the number to quote is 0.2162, not 0.1960.
+
+### 109.4 Verdict, and what the next dispatch is
+
+- **The fused direction is closed as an accuracy device.** Two independent shapes, one diagnosis, two failures: 0.2047
+  and 0.1960 against 0.2231. The default stays `separate` and every published figure keeps its five calls.
+- **It survives as a price device with a measured penalty**: 0.219 of the prompt, 41 % of the money, and −12 % of F1.
+  §107.8's arithmetic - 42.4 goldens per million prompt tokens against 12.0 - is what a campaign buys when its binding
+  constraint is rows rather than a point (§75.2).
+- **The next device is a sixth question on the five-call arm**, which is where the reach is: `noFindingOnPath` is 32
+  goldens for the separate arm and 124 for the cheapest one, and the pool ceiling (127 of 452 reachable, 0.44 maximum
+  F1) is set by what the lanes say rather than by what the policy keeps.
+
+### 109.5 A correction to §107.2 and §107.6, made in place
+
+Both sections compared against a `separate` column of 304 comments, 84 true positives and 0.2222. **That is
+`44693503049`'s pool replayed under the current cut, not `44721942627`'s**, whose own row is 283 comments, 82 true
+positives and 0.2231. §107.2's lane ablation has been recomputed on `44721942627` and §107.6's cost and accuracy columns
+restated from its artifact: the comparator's engine cost is 0.5464 USD rather than 1.2388, its cache ratio 91.0 % rather
+than 84.3 %, and the fused arm's gain in precision 18.0 % rather than 23.8 %. **The direction of every conclusion is
+unchanged** - no lane is free, the cost clause holds, the accuracy clause does not - but a document that quotes a
+neighbouring run's artifact is a document whose figures cannot be reproduced from the run it names.
