@@ -73,6 +73,13 @@ for (const [at, root] of roots.entries()) {
       symbols: 0,
       imports: 0,
       resolved: 0,
+      /**
+       * **A wildcard of a package this repository declares resolves and crosses no file** (§102), and it is neither
+       * `resolved` nor `missing`: counting it as `resolved` mixes two answers into one column, and counting it as
+       * `missing` - which is what this script did until §104 - said `kotlinx.coroutines` had 3 548 unresolved imports
+       * when every one of them names a package the repository itself declares.
+       */
+      packages: 0,
       external: 0,
       missing: 0,
       ambiguous: 0,
@@ -88,6 +95,7 @@ for (const [at, root] of roots.entries()) {
     if (bucket === undefined) continue;
     bucket.imports += 1;
     if (row.why === 'resolved') bucket.resolved += 1;
+    else if (row.why === 'package') bucket.packages += 1;
     else if (row.why === 'external') bucket.external += 1;
     else if (row.why === 'ambiguous') bucket.ambiguous += 1;
     else bucket.missing += 1;
