@@ -11787,3 +11787,120 @@ cannot resolve anything under 0.019.
   shapes, because the answer that arrives in the old one is still an answer, and a parser that only knew the new shape
   would turn a wrong answer into no answer. The price moved by −0.3 points with it: **21.6 % of the five at an
   8 000-character diff**, against 21.9 %.
+
+## §108 Where a cut came from, and whether the corpus is where it came from
+
+**Every section before this one priced a cut.** None asked the prior question: **was the cut chosen by looking at the
+thing it is scored on?** Three steps ship, and their provenance is not the same:
+
+- **`drop test` came from an argument** - a test file is rarely the site of the defect a pull request fixes - and was
+  registered before the run that measured it, so its two readings (0.2119 and 0.2160) are a measurement.
+- **`drop path test` came from a counter** - 72 comments on test paths, none of them a golden - and was confirmed on a
+  dispatch it did not choose: 0.2160 → 0.2231.
+- **`budget 12` came from a table**, as did every "drop category X" candidate in `registeredCuts`. **A table is a fitting
+  procedure whether or not anybody calls it one.**
+
+**This section fits nothing and dispatches nothing.** It reads one artifact twice - in sample and out of sample - and
+prints the difference, because that difference is the size of a mistake the campaign could have shipped.
+
+### 108.1 The instrument
+
+`scripts/lib/selection-audit.mjs` builds the second reading from the first: **for each pull request in turn it chooses the
+knob on the other forty-nine and applies that choice to the one held out.** A knob that survives that is a property of
+the corpus; a knob that does not is a property of the row it was fitted on - and the next corpus is a corpus nobody has
+fitted on.
+
+Three design choices, each a way the audit could lie, and each held by
+`tests/unit/scripts/a-knob-chosen-in-sample-is-read-out-of-sample.test.ts` against a mutation:
+
+- **`''` is a candidate.** "Remove nothing" must be reachable, or the procedure prints a gain for every corpus it is
+  pointed at, including one where the categories are indistinguishable.
+- **The bar is the campaign's own noise band** - two per cent of the published F1 - because §106.7 measured two runs of
+  one configuration 1.9 % apart. **A held-out delta under that is not a delta.**
+- **The fitting never sees the held-out rows.** The test carries a corpus where each pull request's noise lives in a
+  category of its own: a leaked fit reports a gain there and an honest one reports exactly zero.
+
+### 108.2 The category column: a table invites a gain that does not exist
+
+`44721942627`'s verdicts, shipped cut `drop test, drop path test, budget 12` (283 comments, 82 true positives, F1
+0.2231), with one more category removed, chosen in sample:
+
+| removal           | comments | true positives | precision | recall | F1         |
+| ----------------- | -------: | -------------: | --------: | -----: | ---------- |
+| `style`           |      280 |             82 |     0.293 |  0.181 | **0.2240** |
+| nothing (shipped) |      283 |             82 |     0.290 |  0.181 | 0.2231     |
+| `performance`     |      277 |             81 |     0.292 |  0.179 | 0.2222     |
+| `security`        |      269 |             80 |     0.297 |  0.177 | 0.2219     |
+| `architecture`    |      216 |             73 |     0.338 |  0.162 | 0.2186     |
+| `documentation`   |      269 |             78 |     0.290 |  0.173 | 0.2164     |
+| `maintainability` |      262 |             76 |     0.290 |  0.168 | 0.2129     |
+
+**The best removal buys 0.0009 of F1, a fifth of the noise band, for three comments** - and the same table on the arm
+that lacks `drop path test` pointed somewhere else entirely (`architecture`, −59 comments), which is the first sign that
+the winner is the row and not the category. Then the same procedure with one pull request held out:
+
+| reading                            | F1         | Δ against published |
+| ---------------------------------- | ---------- | ------------------- |
+| shipped, in sample                 | 0.2231     | -                   |
+| category removal, chosen in sample | 0.2240     | +0.0009             |
+| category removal, held out         | **0.2075** | **−0.0157**         |
+
+**The procedure loses seven per cent of F1 out of sample while choosing a category in 49 folds of 50** - `style` in 46 of
+them. That is what fitting looks like from the inside: **a decision that is confident in every fold and wrong in
+aggregate.** The category door is closed, and this is the evidence that closes it. `drop test` is not refuted by this
+section: it was never chosen from a table.
+
+### 108.3 The budget column: the cap is a policy, and even raising it is not earned
+
+The same instrument over the cap, on the same artifact:
+
+| cap    | comments | true positives | precision | recall | F1         |
+| ------ | -------: | -------------: | --------: | -----: | ---------- |
+| 6      |      206 |             68 |     0.330 |  0.150 | 0.2067     |
+| 8      |      239 |             74 |     0.310 |  0.164 | 0.2142     |
+| 10     |      263 |             77 |     0.293 |  0.170 | 0.2154     |
+| **12** |  **283** |         **82** | **0.290** |  0.181 | **0.2231** |
+| 14     |      300 |             86 |     0.287 |  0.190 | 0.2287     |
+| 16     |      316 |             88 |     0.278 |  0.195 | 0.2292     |
+| 20     |      343 |             91 |     0.265 |  0.201 | 0.2289     |
+| 24     |      363 |             95 |     0.262 |  0.210 | **0.2331** |
+| 32     |      395 |             98 |     0.248 |  0.217 | 0.2314     |
+
+**The curve has an interior maximum at 24, worth +0.0100 in sample.** Its shape is explained by `breakEvenPrecision`:
+F1's derivative is positive while precision exceeds `F1 / 2` ≈ 0.117, and the eighty comments between caps 12 and 24 carry
+13 true positives - precision 0.163 - so they pay at every cap up to the point where their precision falls below that
+line. **Then the held-out reading:**
+
+| reading                              | F1         | Δ against published |
+| ------------------------------------ | ---------- | ------------------- |
+| chosen in sample (cap 24)            | 0.2331     | +0.0100             |
+| chosen held out (cap 24 in 48 of 50) | **0.2258** | **+0.0027**         |
+
+**Seventy-three per cent of the in-sample gain does not survive**, and what survives is under the noise band. So the cap
+is not an optimum this corpus can certify: **it is a product decision about how much noise a reader is asked to triage**,
+and 12 is a product decision too. What follows is not "raise the cap" but **"a point is not comparable to another point
+unless it names its cap"** - which is why every table in this document prints the cut beside the figure.
+
+### 108.4 The same audit on the fused arm: both knobs are dead
+
+`44746539970` (§107.6), same instrument, nothing to find:
+
+| knob             | in-sample best                 | held out                       | reading    |
+| ---------------- | ------------------------------ | ------------------------------ | ---------- |
+| category removal | `performance`, +0.0003         | 0.1966 against 0.2047, −0.0081 | not earned |
+| budget cap       | F1 flat to 32; 20 chosen 44/50 | 0.2025 against 0.2047, −0.0022 | not earned |
+
+**A fused call files 3.9 comments per pull request, so the cap never binds; its pool is 228 findings over 50 requests, so
+removing a category removes very little.** The arm's F1 is its pool and nothing else - the same sentence §107.7 wrote
+about its histogram, arriving from the other side.
+
+### 108.5 What this section establishes, and what it forbids
+
+- **A campaign that ships a cut has to say which corpus chose it.** Two of the three shipped steps were argued or
+  counted; the third is a product cap and is now labelled one.
+- **Selection is closed as a direction.** Three knobs were priced on these artifacts: which category to drop (−0.0157
+  held out), **neighbourhood dedupe** (+0.0009 at a five-line gap and −0.0093 at twelve, on 283 comments - the engine
+  already merges findings that share a range, so what is left to merge is two comments about one defect on two lines), and **ordering inside the cap** (worth nothing at all: the cap binds on 9 of 50 pull requests and
+  the true positives in those are the high-score ones).
+- **The remaining lever is emission** - something that changes what a lane says, not which of its sentences survive. That
+  is what R-48 buys, and what a sixth question would buy after it.
