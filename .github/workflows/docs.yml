@@ -15,6 +15,8 @@ on:
     paths:
       - '**.md'
       - 'docs/**'
+      - 'benchmarks/**'
+      - 'scripts/competitive-position.mjs'
       - 'README.md'
       - 'CONTRIBUTING.md'
       - 'CHANGELOG.md'
@@ -24,6 +26,8 @@ on:
     paths:
       - '**.md'
       - 'docs/**'
+      - 'benchmarks/**'
+      - 'scripts/competitive-position.mjs'
       - '.github/workflows/docs.yml'
   workflow_dispatch:
 
@@ -38,6 +42,22 @@ jobs:
     timeout-minutes: 15
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+
+      # **A figure that no longer matches its data is a claim with a picture in front of it.** `docs/figures/` is
+      # generated from `benchmarks/*.json` and committed, so the two can drift in exactly one direction: somebody edits
+      # the JSON, or the renderer, and the SVG a reader clicks is the one from before. **Nothing else in this repository
+      # reads the committed SVG** - the figure tests render into a temporary directory and compare a render against
+      # itself - so this step is the only place a stale picture is noticed, and it is noticed by regenerating and
+      # diffing rather than by asking anyone to remember.
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7
+        with:
+          node-version-file: .nvmrc
+
+      - name: Check every figure against the data it was drawn from
+        run: |
+          set -e
+          node scripts/competitive-position.mjs --out "$RUNNER_TEMP/figures"
+          diff -ru docs/figures "$RUNNER_TEMP/figures"
 
       # `spec.modelcontextprotocol.io` completes a TLS handshake from a browser but not from the runner, with
       # `--max-retries 3` already in effect. It is excluded by name below so the failure is recorded rather
