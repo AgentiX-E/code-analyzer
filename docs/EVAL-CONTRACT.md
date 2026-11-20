@@ -11448,7 +11448,7 @@ Every figure this document publishes is a selection over a pool. The pool's own 
 | share of that ceiling the shipped policy realises | 61.7 %             |
 
 **A perfect ranker over the findings this engine already wrote would score 266/585, which is 0.45 at two
-digits, and not more.** Four of five goldens in
+digits, and not more** - and §106.7's pool, where six fewer goldens are reachable, puts the same bound at 0.44. Four of five goldens in
 this corpus have no finding anywhere near them in wording the judge accepts, and **no cut, budget or threshold can move
 that number** - which is why §99's price list for the tail and this round's sweeps of the budget axis both came back
 nearly flat:
@@ -11536,7 +11536,39 @@ the same bytes.
 **No competitor row is on this axis.** The recorded competitor figure is a different corpus slice (§105.3), and mixing
 the two would be the comparison §105.4 refused. The only line above the points is arithmetic about this pool.
 
-### 106.7 What this does not claim
+### 106.7 The confirming dispatch, and the two rows it printed from one pool
+
+Run `44721942627` at `6c332374` reviewed the same fifty pull requests with the index on, and printed **both policies from
+its own pool** - so the difference between the two rows is the step and not the day:
+
+| run `44721942627`, 50 pull requests | `drop test, budget 12` (before §106) | `drop test, drop path test, budget 12` (after) |
+| ----------------------------------- | ------------------------------------ | ---------------------------------------------- |
+| comments                            | 298                                  | **283**                                        |
+| true / false positives              | 81 / 217                             | **82 / 201**                                   |
+| precision                           | 0.2718                               | **0.2898**                                     |
+| recall                              | 0.1792                               | **0.1814**                                     |
+| F1                                  | 0.2160                               | **0.2231**                                     |
+| what the path step removed          | -                                    | 27 findings on `test` paths                    |
+
+**Both halves of the trade move the same way**: one more true positive, sixteen fewer false positives, fifteen fewer
+comments. The step is worth **+3.3 % relative** on this pool, against the **+4.9 %** exact replay of the previous run's
+verdicts predicted - and the two numbers differ because they are two pools: this run wrote 573 findings where the last
+wrote 593, and 127 goldens are reachable where the last reached 133.
+
+**What that difference is worth stating.** The same policy scored **0.2119** on `44693503049` and **0.2160** here, so
+**two runs of one configuration move this figure by about ±2 %**, and a device worth +3.3 % is above that floor without
+being far above it. **The within-run pair is the measurement; the cross-run comparison is a sanity check**, which is why
+the harness prints both rows and why this section quotes the pair.
+
+**And the ceiling moved with the pool**: 127 of 452 goldens are reachable on this run, so perfect selection over it scores
+254/579, which is **0.44** at two digits, and the shipped policy realises **64.6 %** of it. The 0.45 §106.3 printed and the
+0.44 this run supports are the same statement about two pools, not two measurements of one.
+
+**The run itself cost 0.55 USD** (3 195 calls, 6.86 M prompt tokens, 91 % of them cache hits, no failures, no retries)
+and 94 minutes. **The token count is the stable axis and the money is not** - the previous arm spent 1.24 USD on 6.86 M
+tokens for the same work, because its cache hit ratio was 84 % and this one's was 91 %.
+
+### 106.8 What this does not claim
 
 - **R-44 is not confirmed.** Its bar was missed on both clauses and this section says so rather than re-registering a bar
   after the fact.
@@ -11549,6 +11581,7 @@ the two would be the comparison §105.4 refused. The only line above the points 
 - **No AUC is a forecast.** 0.642 is leave-one-pull-request-out over 50 folds of a corpus that was not designed for
   fitting, and the fitted model is **not shipped**: only the classifier is, and the classifier is a rule about paths.
 
-**The bill for §106 is zero model calls and 0 CNY for the analysis** - every number above is arithmetic over verdicts
-§103's run already paid for. The confirming dispatch below costs the price of one run, which is the price of any figure
-that a reader wants computed by the harness rather than by a section of this document.
+**The bill for §106 is 0.55 USD for the confirmation and 0 CNY for everything else** - every number before 106.7 is
+arithmetic over verdicts §103's run already paid for, and the one dispatch bought the two emission rows that a section of
+this document could only predict. **That is the cheapest kind of device this campaign has priced**: no new lane, no new
+prompt, no new call, and a rule about a filename.
