@@ -12032,3 +12032,154 @@ that evicts the prefix between them.
   `spend.judge.cacheHitRatio`, which every artifact already carries.
 - **Why it is worth a registration for a 20 % saving.** Because 46 % of the bill is the largest single line in it, and
   the campaign has spent four sections reducing a line that is now the smaller one.
+
+## §111 The judge's prompt was too short to cache, and the equivalence check found a pair nobody judged
+
+§110 registered R-49 as an ordering claim: lead with the constant block, group calls so consecutive ones share the longest
+prefix, and the judge's 8.5 % cache ratio becomes 40 %. **The ordering was already in place.** `judgeMatrix` has been
+golden-major with a sequential warm pass since the run of 2026-11-10, the prefix it writes is
+`instructions + golden`, and three artifacts later the ratio is still 8.5 %. **So the claim is not unfinished, it is
+false**, and this section is what replaces it.
+
+### 111.1 Why an ordering could not have worked, in two numbers
+
+`44758245838` bought **5 080 judge calls for 1 270 331 prompt tokens** - **250.1 tokens a call** - of which the three
+instruction lines are **57** and the expert-confirmed issue is the rest. **A prefix cache works in blocks of 64 tokens**
+on this provider. **The block that is shared does not exist**: the constant part is under one block, so there is nothing
+for a cache to hit, whatever order the requests arrive in. The reviewer's 52.9 % is the same client on prompts of
+**six thousand tokens**, where the shared block is ninety blocks deep.
+
+**A correction to §110's own reading.** §110 said the ratio "should be hitting" because the rubric is a shared prefix.
+It is a shared prefix **and it is smaller than the unit the cache works in**, which is a different statement, and the
+one that predicts what a batch does.
+
+### 111.2 The device: one call, eight pairs
+
+`AACR_JUDGE_BATCH=8` sends one request per (golden, eight comments), with **the rubric and the golden in the system
+message** - so the prefix is one rubric and one golden, read by every batch against that golden - and the comments
+numbered in the user message, with the answer constrained to `{"matches":[true|false,…]}` of exactly that length.
+
+| what             | per pair (`44758245838`) | batched, arithmetic               |
+| ---------------- | -----------------------: | --------------------------------- |
+| requests         |                    5 080 | 635 (`⌈5 080 / 8⌉`)               |
+| prompt tokens    |                1 270 331 | ≈ 490 000 (rubric once per eight) |
+| instruction cost |     57 × 5 080 = 289 560 | 57 × 635 = 36 195                 |
+| cacheable prefix |             57 (1 block) | 57 + one golden (3–4 blocks)      |
+
+**The 289 560 tokens of instruction that were paid 5 080 times are the arithmetic**, and the batch pays them 635 times.
+The comments themselves are not compressible and are not claimed to be.
+
+**`1` is the default on both sides of the dispatch**, because every figure before this section was measured per pair and
+**a device that changes the instrument is not a default**. The artifact records `configuration.judgeBatch` beside
+`laneMode`, so two prices for one figure can be told apart by reading them.
+
+### 111.3 The defect the equivalence check found
+
+The batched arm is only a price device if it returns the same verdicts, so `--dry-run` - which CI runs on every push -
+now judges one hand-computed fixture **twice**: once per pair and once in batches of three, and asserts the two matrices
+are equal. **It failed, and the failure was in the arm that was already shipping.**
+
+```js
+const judged = new Set();                    // goldens seen by the warm pass
+...
+if (judged.has(golden)) continue;
+judged.add(golden);
+verdicts[at] = await judgeFn(...);           // `at` is a pair index
+const rest = pairs.map((_, at) => at).filter((at) => !judged.has(at));
+```
+
+**Pairs are golden-major, so a pair's index and its golden's index are small integers from the same range**, and the
+last line tested the _indices_ against a set of _goldens_. For every golden `g`, the pair at index `g` was skipped -
+**unless it happened to be the warm call for some other golden**, which is why the call count still added up: the four
+warm calls replaced four skipped ones, and `judgeCalls.length === pairs` held.
+
+**What it cost, counted from the artifact**: the corpus drew **452 goldens across 50 pull requests**, so the skipped
+pairs are `Σ(G_pr − 1) = 402` of **5 080, or 7.9 % of the matrix** - and every one of them against **the first golden of
+its pull request**, the one a corpus cites most. A skipped pair is recorded as a non-match, so **`judgeUnanswered` was
+0 throughout**: the number that exists to count verdicts nobody got was blind to exactly this.
+
+**Two changes, and the second is the guard.** The warm pass now records the pair indices it judged, and `undefined`
+counts as unanswered so a pair the loop never reached can never be read as a miss. **`--dry-run` fails on the old code
+and passes on the new one**, which is what makes this a regression test rather than a repair.
+
+### 111.4 R-50, registered before its run
+
+- **Claim.** At `judgeBatch: 8` on the same fifty pull requests, the judge's **prompt tokens per pair fall to at most
+  45 %** of 250.1 and its **cost per fifty pull requests falls by at least 0.09 USD**, with **the verdict matrix equal to
+  the per-pair arm's on the dry-run fixture** and **`judgeUnanswered` at 0**.
+- **Falsifier.** Prompt tokens per pair above 112, or a cost above 0.10 USD per fifty pull requests, or any
+  `judgeUnanswered` above zero. **The batch then ships as an arithmetic claim with no measurement attached** - the
+  arithmetic is not in doubt, the model's compliance is.
+- **Price.** The run pays for itself: the arm it replaces cost 0.1899 USD of judge on the same rows, and the claim is
+  that the same rows cost less.
+- **What it does not claim.** Nothing about F1. **A batch that moved the score would be a second finding** - the device
+  is a change of address, and §111.3's repair is the only thing in this section that can move a verdict.
+
+### 111.5 What this section does not claim
+
+- **That 7.9 % of the matrix was 7.9 % of the recall.** A skipped pair is a missed opportunity, not a missed hit: a
+  finding that matched its first golden may also have matched another. The next per-pair run reports the difference; the
+  arithmetic here is an upper bound and is stated as one.
+- **That batching is safe for every judge.** The equivalence is asserted on a fixture with hand-written answers, and a
+  fixture is a case somebody thought of. The falsifier is what a real run can say, and only about this corpus.
+
+## §112 The ArkTS corpus the repository did not have, and the two defects it found in its first run
+
+Every ArkTS case in this repository was a string this repository wrote. **A grammar is only ever as good as the code
+nobody here wrote**, and the `struct` production itself was found by a probe - which is the shape of evidence that finds
+what someone thought to look for. So six application sources were taken from the platform's own sample repository,
+pinned by commit, with the digest of each beside it (`tests/fixtures/corpus/arkts/SOURCES.json`).
+
+### 112.1 The corpus, and why one of its six files cannot be parsed
+
+| file                           | bytes | structs | components drawn | `build()` | parse         |
+| ------------------------------ | ----: | ------: | ---------------: | --------: | ------------- |
+| `camera-index.ets` (ArkTS 1.2) | 3 755 |       1 |                5 |       yes | **1 `ERROR`** |
+| `camera-comment-item-view.ets` | 2 219 |       1 |                3 |       yes | clean         |
+| `camera-image-list-view.ets`   | 1 757 |       1 |                2 |       yes | clean         |
+| `asr-index.ets`                | 2 763 |       1 |                4 |       yes | clean         |
+| `v1-home.ets`                  | 3 036 |       2 |                7 |       yes | clean         |
+| `v1-new.ets`                   | 1 916 |       1 |                4 |       yes | clean         |
+
+**The error is one statement**: `wrapper = @memo () => {…}`, ArkTS 1.2's memoised closure, which `tree-sitter-arkts`
+0.3.0 has no production for. **It is kept in the corpus rather than dropped**, and the test asserts the exact text of the
+error: a corpus that keeps only what passes reports one hundred per cent forever, and **a test that names the unsupported
+construct fails on the day the grammar gains it** instead of quietly staying green.
+
+### 112.2 Defect one: a layout component is not a call in this grammar
+
+`Column() { Text('x') }` parses as `arkui_component_expression function: (identifier) arguments: (arguments) children:
+(arkui_children …)` - **not a `call_expression`** - so the provider that inherited the TypeScript call mapping captured
+`Text`, which _is_ a call inside the children, and dropped `Column`, `Row`, `Stack`, `List`: **the leaf of every UI tree
+was in the graph and the container it hangs from was not.**
+
+**What that costs is not cosmetic.** "Who renders this component" is a walk up the callers, and **the caller of a layout
+component is the component that draws it**; with the container missing, a change to a page reached nothing above its
+widgets. Measured across the six files: **0 of 25 components captured before, 25 of 25 after**, and the capture carries
+`arkuiComponent: true` so a rule that ranks callees can tell a framework component from a user function.
+
+### 112.3 Defect two: one statement the grammar cannot read cost the whole page
+
+The base class treats any `ERROR` node as _the grammar cannot read this file_ and hands the file to the regular-expression
+reader. **On `camera-index.ets` that reader returned the page's struct name and its twelve imports and nothing else**:
+**0 of 5 components, 0 of 3 methods, no call under any of them.** The tree was correct everywhere except one statement.
+
+The walk now steps over the `ERROR` subtree rather than abandoning the tree - **on ArkTS only**, through
+`readsThroughErrors()`, because a provider that has a walk is the only thing that knows whether its grammar's errors are
+local or global - and `lastParseReadThroughErrors` reports that the read was partial. Measured on the same page: **5 of 5
+components and 3 of 3 methods**, with the flag true; on the five clean files the flag is false, which is the assertion
+that the device does not claim a partial read it did not make.
+
+**The equivalence is asserted on one file, twice**: the same page through a subclass that restores the old policy (0
+components, no `build`) and through the provider (5 components, `build` present). **A control that is a copy of the old
+behaviour is the only control that can price the new one.**
+
+### 112.4 What this section does not claim
+
+- **Nothing about the review's F1.** ArkTS is not in AACR-Bench, so an index capability gained here cannot move a review
+  figure on that corpus today; the claim is that the index reads an ArkTS page rather than its name.
+- **Nothing about ArkTS 1.2 being supported.** One of its statements has no production in the grammar, and the read-through
+  makes the _rest_ of the file usable - which is a smaller claim than parsing the language.
+- **Nothing about the other ten languages.** The per-language capability figures this campaign quotes come from
+  `benchmarks/polyglot-index.json`, measured on ten repositories at named commits, and they carry the same gap this
+  section found: **fifteen JavaScript files and one TypeScript file in that corpus, and no Groovy**.
