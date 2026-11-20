@@ -723,9 +723,30 @@ function documentSpecifiers(language: string, line: string): string[] {
     // **The comment is already gone**: `readDocumentRefs` strips it and carries the state across lines, so a check for one
     // here would be a branch no input reaches.
     const stripped = line;
-    const out: string[] = [];
-    for (const match of stripped.matchAll(/schemaLocation\s*=\s*"([^"]+)"/gu)) out.push(match[1]!);
-    return out;
+    const found: { at: number; specifier: string }[] = [];
+    /**
+     * **Three attributes can name a document and they are three different languages.** `schemaLocation` is XML Schema's,
+     * `href` on an element whose local name is `include` is XInclude's (**whatever prefix the file bound**, because the
+     * prefix is the file's choice), and a `SYSTEM` literal is the DTD's. **An `href` on anything else is not read** -
+     * `xsl:template@href` and `<link href>` are attributes, and an attribute alone does not include a document.
+     */
+    for (const match of stripped.matchAll(/schemaLocation\s*=\s*"([^"]+)"/gu)) {
+      found.push({ at: match.index, specifier: match[1]! });
+    }
+    for (const match of stripped.matchAll(
+      /<(?:[\w.-]+:)?include\b[^>]*?\bhref\s*=\s*"([^"]*)"/gu,
+    )) {
+      found.push({ at: match.index, specifier: match[1]! });
+    }
+    for (const match of stripped.matchAll(
+      /<!DOCTYPE\s[^>]*?\b(?:SYSTEM|PUBLIC)\s+(?:"[^"]*"\s+)?(?:"([^"]*)"|'([^']*)')/gu,
+    )) {
+      found.push({ at: match.index, specifier: match[1] ?? match[2]! });
+    }
+    return found
+      .sort((left, right) => left.at - right.at)
+      .map((entry) => entry.specifier)
+      .filter((specifier) => specifier.length > 0);
   }
   if (language === 'json') {
     const out: string[] = [];

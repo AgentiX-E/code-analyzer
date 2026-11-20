@@ -18,7 +18,7 @@
         "overCap": 0,
         "overBytes": 0
       },
-      "indexMs": 56,
+      "indexMs": 58,
       "stats": {
         "files": 110,
         "symbols": 1937,
@@ -72,7 +72,7 @@
         "overCap": 0,
         "overBytes": 0
       },
-      "indexMs": 64,
+      "indexMs": 67,
       "stats": {
         "files": 124,
         "symbols": 2038,
@@ -146,7 +146,7 @@
         "overCap": 0,
         "overBytes": 0
       },
-      "indexMs": 182,
+      "indexMs": 195,
       "stats": {
         "files": 109,
         "symbols": 9087,
@@ -230,7 +230,7 @@
         "overCap": 0,
         "overBytes": 0
       },
-      "indexMs": 536,
+      "indexMs": 544,
       "stats": {
         "files": 685,
         "symbols": 5526,
@@ -304,7 +304,7 @@
         "overCap": 0,
         "overBytes": 0
       },
-      "indexMs": 40,
+      "indexMs": 45,
       "stats": {
         "files": 49,
         "symbols": 723,
@@ -367,7 +367,7 @@
         "overCap": 0,
         "overBytes": 0
       },
-      "indexMs": 154,
+      "indexMs": 174,
       "stats": {
         "files": 140,
         "symbols": 4360,
@@ -377,7 +377,7 @@
         "missingImports": 0,
         "ambiguousImports": 0,
         "namespaceImports": 0,
-        "edges": 265
+        "edges": 251
       },
       "byLanguage": {
         "yaml": {
@@ -428,16 +428,16 @@
           "external": 140,
           "missing": 0,
           "ambiguous": 0,
-          "edges": 265
+          "edges": 251
         }
       },
       "reach": {
         "filesWithSymbols": 131,
         "filesWithReach": 131,
-        "emptyNotes": 101,
-        "chars": 7150,
-        "medianChars": 184,
-        "charsPerNonEmptyNote": 238.3333
+        "emptyNotes": 100,
+        "chars": 7140,
+        "medianChars": 172,
+        "charsPerNonEmptyNote": 230.3226
       }
     },
     {
@@ -451,7 +451,7 @@
         "overCap": 0,
         "overBytes": 0
       },
-      "indexMs": 226,
+      "indexMs": 234,
       "stats": {
         "files": 1120,
         "symbols": 3538,
@@ -545,7 +545,7 @@
         "overCap": 0,
         "overBytes": 0
       },
-      "indexMs": 94,
+      "indexMs": 89,
       "stats": {
         "files": 106,
         "symbols": 18394,
@@ -613,22 +613,22 @@
       "commit": "21c8223ac091b81d5914c52eb20b1b063e29cb92",
       "goModule": null,
       "swiftModules": [],
-      "files": 1377,
+      "files": 1416,
       "readerSkipped": {
         "bySize": 2,
         "overCap": 0,
         "overBytes": 0
       },
-      "indexMs": 532,
+      "indexMs": 593,
       "stats": {
-        "files": 1377,
+        "files": 1416,
         "symbols": 39259,
-        "imports": 1515,
-        "resolvedImports": 303,
-        "externalImports": 1194,
-        "missingImports": 18,
+        "imports": 1728,
+        "resolvedImports": 336,
+        "externalImports": 1250,
+        "missingImports": 142,
         "ambiguousImports": 0,
-        "namespaceImports": 25,
+        "namespaceImports": 58,
         "edges": 65
       },
       "byLanguage": {
@@ -663,12 +663,12 @@
           "edges": 0
         },
         "xml": {
-          "files": 1159,
+          "files": 1198,
           "symbols": 34761,
-          "imports": 99,
-          "resolved": 25,
-          "external": 64,
-          "missing": 10,
+          "imports": 312,
+          "resolved": 58,
+          "external": 120,
+          "missing": 134,
           "ambiguous": 0,
           "edges": 0
         }

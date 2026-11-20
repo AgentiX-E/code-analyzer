@@ -1443,7 +1443,13 @@ const SWIFT_BINDING = /^(?:let|var)\s+([A-Za-z_]\w*)/u;
 export function scanSwift(file: PreparedFile): ScannedDeclarations {
   const symbols: DeclaredSymbol[] = [];
   const exported: string[] = [];
+  // **The types this line is inside, outermost first**, because Swift's own scope rule makes the name of a nested
+  // declaration the parent's name plus its own. A cross-file edge is written outside the type by definition, so
+  // `JSONEncoding.Error` is the only spelling that can cross a file boundary - and a symbol called `Error` is a symbol
+  // that matches the word `Error` in every file that writes one.
+  const enclosing: { name: string; endLine: number }[] = [];
   for (let at = 0; at < file.lines.length; at += 1) {
+    while (enclosing.length > 0 && enclosing[enclosing.length - 1]!.endLine < at) enclosing.pop();
     const depth = file.depthAtStart[at]!;
     if (depth > 1) continue;
     const code = file.codes[at]!.trim();
@@ -1467,8 +1473,12 @@ export function scanSwift(file: PreparedFile): ScannedDeclarations {
             : 'class';
       // **An extension offers nothing**, so it is neither in the exported list nor a second entry in it.
       const offers = isExported && keyword !== 'extension';
+      // **A `typealias` opens no scope**, so it is named by its parent and encloses nothing itself.
+      const opens = keyword !== 'typealias';
+      const parent = enclosing.map((entry) => entry.name).join('.');
+      const name = parent.length === 0 ? type[2]! : `${parent}.${type[2]!}`;
       symbols.push({
-        name: type[2]!,
+        name,
         kind,
         startLine: at + 1,
         endLine: end + 1,
@@ -1476,7 +1486,8 @@ export function scanSwift(file: PreparedFile): ScannedDeclarations {
         signature: signatureOf(file.lines, at, end),
         members: swiftMembers(file, at, end, type[2]!),
       });
-      if (offers) exported.push(type[2]!);
+      if (offers) exported.push(name);
+      if (opens) enclosing.push({ name, endLine: end });
       continue;
     }
     if (depth === 1) continue;

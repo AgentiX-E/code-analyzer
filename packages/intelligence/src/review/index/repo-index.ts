@@ -521,6 +521,21 @@ export function buildRepoIndex(
         if (used === null) continue;
         references.push({ fromPath: path, fromLine: used, toPath: to, toName: name });
       }
+      /**
+       * **A nested declaration is spelled with its parent, and a word index cannot see two words as one name.** Swift's
+       * scope rule makes `JSONEncoding.Error` the only spelling that crosses a file, and the symbol is now recorded
+       * under it - so the second half of this read is the dotted uses of the importing file against the same name set.
+       * **It is the file's own vocabulary that is walked**, for the reason the word pass is: a target's nested types are
+       * a list to iterate and a file's dotted uses are three.
+       */
+      for (const [name, lines] of dottedUsesOf(path)) {
+        if (own.has(name)) continue;
+        const to = byName.get(name);
+        if (to === undefined) continue;
+        const used = firstAtOrAfter(lines, statement.endLine);
+        if (used === null) continue;
+        references.push({ fromPath: path, fromLine: used, toPath: to, toName: name });
+      }
       return;
     }
 
@@ -548,7 +563,7 @@ export function buildRepoIndex(
           if (at === undefined) continue;
           references.push({
             fromPath: path,
-            fromLine: at + 1,
+            fromLine: at[0]! + 1,
             toPath: target,
             toName: symbol.name,
           });
@@ -603,17 +618,24 @@ export function buildRepoIndex(
     return built;
   };
 
-  /** **The `pkg.Name` pairs a file writes**, which is the only form a Go use takes across a package boundary. */
-  const dottedUse = new Map<string, Map<string, number>>();
-  const dottedUsesOf = (path: string): Map<string, number> => {
+  /**
+   * **The `pkg.Name` pairs a file writes**, which is the only form a Go use takes across a package boundary - and, since
+   * §104, the only form a nested Swift declaration takes across a file boundary. **Every line is kept, not the first**:
+   * the Go arm wants the first use and the Swift arm wants the first use *after the import*, and a map that kept one line
+   * answered the second question by losing the edge.
+   */
+  const dottedUse = new Map<string, Map<string, number[]>>();
+  const dottedUsesOf = (path: string): Map<string, number[]> => {
     const cached = dottedUse.get(path);
     if (cached !== undefined) return cached;
-    const built = new Map<string, number>();
+    const built = new Map<string, number[]>();
     const codes = codesOf(path);
     for (let at = 0; at < codes.length; at += 1) {
       for (const match of codes[at]!.matchAll(/\b([A-Za-z_]\w*)\.([A-Za-z_]\w*)\b/gu)) {
         const key = `${match[1]!}.${match[2]!}`;
-        if (!built.has(key)) built.set(key, at);
+        const bucket = built.get(key);
+        if (bucket === undefined) built.set(key, [at]);
+        else if (bucket[bucket.length - 1] !== at) bucket.push(at);
       }
     }
     dottedUse.set(path, built);

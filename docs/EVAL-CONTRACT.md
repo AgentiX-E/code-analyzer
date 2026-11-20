@@ -11153,3 +11153,94 @@ corpus and far below the 0.45 F1 its registered rule targeted, because **the dom
 `findingOnPathRejected` - 93 of 170 goldens are on a file the engine reviewed with a finding, and the judge says the
 finding does not address the golden.** The index moved the recall the registration asked about; **the emitter is where the
 remaining 55 % sits**, and no reader closes that.
+
+---
+
+## §104 A nested declaration is named by its parent, and XML names two more documents
+
+**§103.8 ended with a defect it could not fix in a line**: *"a nested type is declared by its parent's name
+(`ParameterEncoding.Error`) and the index knows it by its own (`Error`), so a file that mentions `Error` can get an edge
+into `ParameterEncoding.swift`. The fix is to qualify a nested declaration, which changes the shape of every symbol this
+index reports, and that is a section rather than a line."* This is that section, and **the defect is measured here rather
+than argued**: eleven files held an edge into `Source/Core/ParameterEncoding.swift` whose name was the word `Error`.
+
+### 104.1 What the word `Error` was doing
+
+`Alamofire` declares `public enum Error: Swift.Error` **inside** `public struct JSONEncoding`. The scanner read the line,
+took the second word as the name, and recorded a symbol called `Error`. The edge layer matches a target's exported names
+against the words the importing file writes, so **every file that wrote `Error` - unqualified, meaning Swift's own error
+protocol - was recorded as using a declaration of `ParameterEncoding.swift`**. Sixteen of them did, in sixteen files. The
+files compile; the edges were false.
+
+**Swift's rule is not ambiguous.** Outside the type the name is `JSONEncoding.Error`; inside it, `Error`. **A cross-file
+edge is written outside the type by definition**, so the qualified spelling is the only one that can cross a file
+boundary, and the short one is exactly the name that must not.
+
+### 104.2 The reader: a stack of the types a line is inside
+
+`scanSwift` keeps the enclosing type declarations in a stack that pops on the line each one ends, and a type's symbol name
+is the enclosing names joined by `.` plus its own. Three facts about Swift decide the details:
+
+| fact                                                | the reading it forces                                                                                                                              |
+| --------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `extension JSONEncoding { public struct Options }`   | **an extension is a scope too**, so `Options` is `JSONEncoding.Options` - the extension declares the range, not the name                             |
+| `public typealias ValidationResult = …`              | **a typealias opens no scope**, so it is named by its parent and encloses nothing - the stack pushes only declarations that have a body              |
+| `public enum Error` inside a `struct` inside a `struct` | **not read**, because the scanner stops at the second level - stated as a limit rather than closed, and no corpus here nests three deep             |
+
+**The export rule is unchanged**: `public`/`open` only, and an `extension` offers nothing. A nested type that is public is
+offered under its qualified name, which is what `Outer.Shown` in the tests asserts.
+
+### 104.3 The edge: a word index cannot see two words as one name
+
+The target arm walks the importing file's vocabulary and looks each word up, which is the inversion §103 measured at
+4 959 ms → 196 ms. **A qualified name is two words**, so it needs a second read: the file's `a.b` pairs against the same
+name set. `dottedUsesOf` is that index, and it **kept only the first line a pair was written on** because the Go arm only
+ever asked for the first. The Swift arm asks for the first line *after the import*, and a map holding one line answered
+that question by losing the edge - so it now keeps every line and both arms binary-search it.
+
+**Measured on `Alamofire`, edge by edge rather than by count** (`reach: on`, same checkout, the two builds diffed):
+
+| what happened to the 265 edges of §103 | rows  | example                                                                                                            |
+| -------------------------------------- | ----- | ------------------------------------------------------------------------------------------------------------------ |
+| same site, same name                   | 225   | `Tests/AFError+AlamofireTests.swift:201 AFError`                                                                   |
+| same site, **name qualified**           | 21    | `…:187 ParameterEncodingFailureReason` → `AFError.ParameterEncodingFailureReason`                                   |
+| **site gone**                           | 19    | `Tests/AuthenticationInterceptorTests.swift:53 Error` → `ParameterEncoding.swift`; **16 of the 19 were `Error`**     |
+| same name, **another file**             | 5     | `Completion` now resolves to the file that declares a top-level one, not to the nested `DataStreamRequest.Completion` |
+| **total**                               | 251   | 225 + 21 + 19 = 265 out; 225 + 21 + 5 = 251 in                                                                     |
+
+The 21 renames are the point of the section: a reach note that says `AFError.ServerTrustFailureReason` is a sentence the
+reviewer can check against the source, and one that says `ServerTrustFailureReason` is a word that appears in eleven
+files. **The 19 that went were not renames**: `Stream` in `ConcurrencyTests.swift` names `AsyncStream`'s cousin in the
+standard library, and `Error` names Swift's own protocol.
+
+### 104.4 Two more documents an XML file names
+
+§103.5 published the gap beside the language: *"`xi:include`'s `href` and a `<!DOCTYPE … SYSTEM>` are not read"*. Both are
+older than XML Schema and both are how a document corpus splits itself:
+
+| form                                              | read how                                                                                     | refused when                                                        |
+| ------------------------------------------------- | -------------------------------------------------------------------------------------------- | ------------------------------------------------------------------- |
+| `<xi:include href="chapter1.xml"/>`               | the **local name** `include` with any prefix bound to it, so `<x:include>` is the same element | the element is not named `include` - `<link href>` includes nothing |
+| `<!DOCTYPE book SYSTEM "book.dtd">`               | the system literal                                                                           | there is no system literal - a `PUBLIC` id alone names a catalogue  |
+| `<!DOCTYPE html PUBLIC "-//W3C//…" "https://…">`  | the literal after the public id, **and the URI rule then calls it `module`**                  | the value is absolute, which is somebody else's repository          |
+
+**A reference resolves only to a file the walk read**, so `.dtd` is now in the extension list and in the language map.
+Without it the DOCTYPE reader would name 213 documents and resolve none of them **by construction rather than by
+absence** - the defect §103.8 found one level up, in the same shape.
+
+`GNOME/libxml2`, the only document corpus in the table: **1 377 → 1 416 files** (39 of them `.dtd`), **1 515 → 1 728
+import statements**, **303 → 336 resolved**, **edges unchanged at 65**. The edges do not move because **a document
+reference crosses no name** - the same reason `import a.b.*` is a resolution with no edge (§102).
+
+### 104.5 What this does not claim
+
+- **No name is resolved through its parent's file.** `Foo.Bar` is the name the reader derived, not a lookup of `Bar`
+  inside `Foo`; a parent that is itself a typealias or a protocol composition is spelled as written.
+- **A type nested two deep is not a symbol at all**, so it cannot be named. Nothing in the nine checkouts needs it.
+- **No review was run.** The 50-pull-request confirmation of R-44 was dispatched at `7bf85fc6` and therefore measures
+  §103's vocabulary, not this one. **R-45 is registered here, before its run**: the qualified vocabulary moves matched
+  goldens by **≥ +5 %** with prompt tokens **≤ +2 %**, refuted if goldens are flat or the tokens move more than 2 %;
+  **≈16 CNY at fifty pull requests**, and it is not dispatched by this section.
+
+**The bill for §104 is 0 CNY**: two readers, one stack, one index that keeps lines instead of one line, one extension in a
+list and two extensions in a map - no model call anywhere in it.

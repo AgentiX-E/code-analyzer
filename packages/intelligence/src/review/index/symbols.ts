@@ -131,6 +131,9 @@ const EXTENSION_LANGUAGE: Readonly<Record<string, SourceLanguage>> = {
   '.yml': 'yaml',
   '.xml': 'xml',
   '.xsd': 'xml',
+  // **A DTD is the one document a `<!DOCTYPE … SYSTEM "x.dtd">` names**, and a target the walk does not read is a target
+  // no reference can resolve: the attribute was read and the file was missing from the index by construction.
+  '.dtd': 'xml',
   '.svg': 'xml',
   '.plist': 'xml',
 };

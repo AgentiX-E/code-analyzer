@@ -138,6 +138,8 @@ const DEFAULT_EXTENSIONS = [
   '.yml',
   '.xml',
   '.xsd',
+  // **The DTD a DOCTYPE names**, added with the DOCTYPE reader: a reference resolves only to a file the walk read.
+  '.dtd',
 ] as const;
 
 /** Directories that are never this repository's sources. */
