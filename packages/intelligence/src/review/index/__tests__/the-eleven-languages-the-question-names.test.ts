@@ -362,6 +362,22 @@ describe('Swift, which spells a type struct, protocol and extension and writes n
     expect(index.exported.filter((name) => name === 'Widget')).toHaveLength(1);
   });
 
+  it('reads `class func` as a function, because there `class` is a modifier and not a declaration', () => {
+    // **`class func` is Swift's spelling of a static method**, and a reader that took the first word as a keyword
+    // declared a type called `func` - one symbol named `func` in `Alamofire`, which then matched every file that wrote
+    // the word `func` and made an edge out of it.
+    const index = buildSymbolIndex(
+      'Download.swift',
+      ['public class func suggested(_ name: String) -> String {', '    return name', '}', ''].join(
+        '\n',
+      ),
+    );
+    expect(index.symbols.map((symbol) => `${symbol.kind}:${symbol.name}`)).toEqual([
+      'function:suggested',
+    ]);
+    expect(index.exported).toEqual(['suggested']);
+  });
+
   it('reads a func whose name is written with a generic clause', () => {
     const index = buildSymbolIndex(
       'Generic.swift',

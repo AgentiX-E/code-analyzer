@@ -440,6 +440,8 @@ export function buildRepoIndex(
     targets: readonly string[] | null,
     why: 'missing' | 'external' | 'ambiguous' | 'package',
     namesFrom: 'statement' | 'target' | 'package' = 'statement',
+    /** Whether only the declarations the language exports can cross - true for a module, false for a header. */
+    onlyExported = false,
   ): void => {
     imports += 1;
     /**
@@ -503,7 +505,7 @@ export function buildRepoIndex(
       // **Keyed by the target list and not by its directory**, because two headers in one directory are two different
       // sets of names and a cache keyed by the directory answered the second with the first's - which cost `jq` 636 of
       // its 728 edges the first time this was written.
-      const byName = namesOfTarget(targets.join('\u0000'), targets);
+      const byName = namesOfTarget(targets.join('\u0000'), targets, onlyExported);
       /**
        * **The importer's vocabulary is walked once rather than the target's declarations once per name.** A Swift target
        * is a hundred files and a header is forty declarations, so the first version asked *is `name` used here* of every
@@ -626,12 +628,26 @@ export function buildRepoIndex(
    * extended afterwards.
    */
   const targetNames = new Map<string, Map<string, string>>();
-  const namesOfTarget = (key: string, targets: readonly string[]): Map<string, string> => {
+  const namesOfTarget = (
+    key: string,
+    targets: readonly string[],
+    onlyExported: boolean,
+  ): Map<string, string> => {
     const cached = targetNames.get(key);
     if (cached !== undefined) return cached;
     const built = new Map<string, string>();
     for (const target of targets) {
       for (const symbol of indices.get(target)!.symbols) {
+        /**
+         * **A Swift module offers what it marks `public` or `open`, and nothing else** - that is Swift's own rule, and
+         * the scanner already encodes it. Without it the name set of a target is every `extension URLRequest { … }`
+         * header in it, so **`URLRequest` looked like a declaration of `HTTPHeaders.swift`** and a test that merely
+         * mentioned `URLRequest` got an edge into a file that only adds methods to it.
+         *
+         * **A C header is the other way round**: a `static inline` helper in a `.h` is visible to every file that
+         * includes it, so the C reader keeps the whole list.
+         */
+        if (onlyExported && !symbol.exported) continue;
         if (!built.has(symbol.name)) built.set(symbol.name, target);
       }
     }
@@ -746,7 +762,7 @@ export function buildRepoIndex(
           record(path, statement, null, 'external');
           continue;
         }
-        record(path, statement, targets, 'external', 'target');
+        record(path, statement, targets, 'external', 'target', true);
       }
       continue;
     }

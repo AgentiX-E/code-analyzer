@@ -10987,9 +10987,10 @@ from module to directory is not a guess**: `Package.swift` declares its targets,
 whole module into scope. A file that declares a name it also imports is not reading the module for it - the shadowing
 filter §102 added for C is the same rule here.
 
-**`Alamofire` at `dea4bab`**: 170 imports and 0 resolved → **185 imports, 43 resolved, 430 edges**, and 43 of the 142
+**`Alamofire` at `dea4bab`**: 170 imports and 0 resolved → **185 imports, 43 resolved, 265 edges**, and 142 of the
 `external` are Apple frameworks the package genuinely does not contain. The 13 extra statements are `@testable import`
-lines that no reader saw before.
+lines that no reader saw before. **The edge count was 430 when this reader first ran, and two of the defects §103.8
+reports were found by reading a sample of them.**
 
 ### 103.2 A schema that names a schema is the only edge a document corpus has
 
@@ -11014,7 +11015,7 @@ answer; a review asking _which names cross_ is asking a question the document do
 | `stedolan/jq`                            | `5c001b1` | 109   | 447     | 173      | 263      | 11      | 0         | 721     | 172 ms |
 | `apache/commons-lang`                    | `9e224bc` | 685   | 4 697   | 751      | 3 946    | 0       | 0         | 605     | 602 ms |
 | `psf/requests`                           | `3c7baaa` | 49    | 324     | 89       | 235      | 0       | 0         | 120     | 48 ms  |
-| `Alamofire/Alamofire`                    | `dea4bab` | 140   | 185     | **43**   | 142      | 0       | 0         | **430** | 196 ms |
+| `Alamofire/Alamofire`                    | `dea4bab` | 140   | 185     | **43**   | 142      | 0       | 0         | **265** | 196 ms |
 | `Kotlin/kotlinx.coroutines`              | `7f4d6cf` | 1 120 | 4 421   | 1 888    | 2 533    | 0       | 0         | 118     | 272 ms |
 | `json-schema-org/JSON-Schema-Test-Suite` | `e2a68a1` | 106   | 193     | 3        | 93       | 97      | 0         | 0       | 101 ms |
 | `GNOME/libxml2`                          | `21c8223` | 1 377 | 1 515   | 303      | 1 194    | 18      | 0         | 65      | 562 ms |
@@ -11082,3 +11083,27 @@ direction and is stated here rather than discovered in the artifact.
 Two readers, one manifest parser, one resolver, three defects in an existing scanner, four test files, one artifact
 regenerated and one table corrected - **no model call in the code of this section.** The dispatch in §103.6 is the only
 spend: **≈5.5 CNY for the pair**, which is inside the registration's estimate for one arm and twice its count.
+
+### 103.8 What a sample of the new edges found, and why the count fell from 430 to 265
+
+**A count is not a correctness claim**, so five edges out of the first 430 were read. Two of them were wrong, both for a
+reason the reader can check:
+
+| edge the reader made                      | what the sample showed                                                                        | the rule it broke                                                                  |
+| ----------------------------------------- | --------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------- |
+| `HTTPHeaders.swift` declares `URLRequest` | the file says `extension URLRequest { … }` - **it adds methods to a type it did not declare** | a Swift module offers what it marks `public` or `open`; `extension` offers nothing |
+| `DownloadRequest.swift` declares `func`   | the line is `public class func suggestedDownloadDestination(…)` - **`class` is the modifier** | `class func` / `class var` mark a static member, not a type                        |
+
+**The first is a language rule this index already encoded and the edge layer ignored**: `scanSwift` sets `exported` from
+`public`/`open` and refuses to offer an `extension`'s name, and `namesFrom: 'target'` took every symbol anyway. **A C
+header is the other way round** - a `static inline` helper in a `.h` is visible to every file that includes it - so the
+filter is a parameter of the reader and not a rule of the layer. `Alamofire` 430 → 304.
+
+**The second was a defect in the scanner, not in the filter**: `SWIFT_TYPE` matched `class` and then took the next word
+as the type's name, so a static method declared a symbol called `func` - **which then matched the word `func` in every
+file that wrote one**. Fixed where it was wrong; `Alamofire` 304 → 265, and the symbol count is 4 360.
+
+**What is still wrong and is not fixed here.** A nested type is declared by its parent's name (`ParameterEncoding.Error`)
+and the index knows it by its own (`Error`), so a file that mentions `Error` can get an edge into
+`ParameterEncoding.swift`. **The fix is to qualify a nested declaration, which changes the shape of every symbol this
+index reports**, and that is a section rather than a line.

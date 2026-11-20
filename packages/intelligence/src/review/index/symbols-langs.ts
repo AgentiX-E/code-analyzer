@@ -1423,6 +1423,9 @@ const SWIFT_MODIFIERS =
  */
 const SWIFT_TYPE = /^(class|struct|enum|protocol|extension|actor|typealias)\s+([A-Za-z_]\w*)/u;
 
+/** The words that follow `class` when `class` is marking a member rather than declaring a type. */
+const SWIFT_MEMBER_KEYWORDS = new Set(['func', 'var', 'let', 'init', 'subscript', 'deinit']);
+
 /** `func identity(` and `func identity<T>(` are one rule: the name stops where the paren or the generic clause does. */
 const SWIFT_FUNC = /^func\s+([A-Za-z_]\w*)/u;
 
@@ -1450,7 +1453,10 @@ export function scanSwift(file: PreparedFile): ScannedDeclarations {
     const isExported = /\b(?:public|open)\b/u.test(code);
     const rest = code.replace(SWIFT_MODIFIERS, '');
     const type = SWIFT_TYPE.exec(rest);
-    if (type !== null) {
+    // **`class func` and `class var` are modifiers, not declarations**: Swift marks a static member with `class`, and a
+    // reader that took the first word as a keyword declared a type called `func` - one such symbol in `Alamofire`, which
+    // then matched every file that wrote the word and made an edge of it.
+    if (type !== null && !SWIFT_MEMBER_KEYWORDS.has(type[2]!)) {
       const end = file.endOf(at);
       const keyword = type[1]!;
       const kind: SymbolKind =
@@ -1474,7 +1480,10 @@ export function scanSwift(file: PreparedFile): ScannedDeclarations {
       continue;
     }
     if (depth === 1) continue;
-    const call = SWIFT_FUNC.exec(rest);
+    // **`class` is Swift's marker for a static member**, so it is stripped here and the member is read by the two rules
+    // below - which is the reading a person does when they see `public class func f()`.
+    const member = type === null ? rest : rest.replace(/^class\s+/u, '');
+    const call = SWIFT_FUNC.exec(member);
     if (call !== null) {
       const end = file.endOf(at);
       symbols.push({
@@ -1489,7 +1498,7 @@ export function scanSwift(file: PreparedFile): ScannedDeclarations {
       if (isExported) exported.push(call[1]!);
       continue;
     }
-    const binding = SWIFT_BINDING.exec(rest);
+    const binding = SWIFT_BINDING.exec(member);
     if (binding !== null) {
       const end = file.endOf(at);
       symbols.push({

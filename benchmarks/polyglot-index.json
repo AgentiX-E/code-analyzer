@@ -18,7 +18,7 @@
         "overCap": 0,
         "overBytes": 0
       },
-      "indexMs": 57,
+      "indexMs": 59,
       "stats": {
         "files": 110,
         "symbols": 1937,
@@ -72,7 +72,7 @@
         "overCap": 0,
         "overBytes": 0
       },
-      "indexMs": 63,
+      "indexMs": 65,
       "stats": {
         "files": 124,
         "symbols": 2038,
@@ -146,7 +146,7 @@
         "overCap": 0,
         "overBytes": 0
       },
-      "indexMs": 172,
+      "indexMs": 174,
       "stats": {
         "files": 109,
         "symbols": 9087,
@@ -230,7 +230,7 @@
         "overCap": 0,
         "overBytes": 0
       },
-      "indexMs": 602,
+      "indexMs": 638,
       "stats": {
         "files": 685,
         "symbols": 5526,
@@ -304,7 +304,7 @@
         "overCap": 0,
         "overBytes": 0
       },
-      "indexMs": 48,
+      "indexMs": 44,
       "stats": {
         "files": 49,
         "symbols": 723,
@@ -361,17 +361,17 @@
         "overCap": 0,
         "overBytes": 0
       },
-      "indexMs": 196,
+      "indexMs": 189,
       "stats": {
         "files": 140,
-        "symbols": 4365,
+        "symbols": 4360,
         "imports": 185,
         "resolvedImports": 43,
         "externalImports": 142,
         "missingImports": 0,
         "ambiguousImports": 0,
         "namespaceImports": 0,
-        "edges": 430
+        "edges": 265
       },
       "byLanguage": {
         "yaml": {
@@ -416,22 +416,22 @@
         },
         "swift": {
           "files": 101,
-          "symbols": 617,
+          "symbols": 612,
           "imports": 183,
           "resolved": 43,
           "external": 140,
           "missing": 0,
           "ambiguous": 0,
-          "edges": 430
+          "edges": 265
         }
       },
       "reach": {
         "filesWithSymbols": 131,
         "filesWithReach": 131,
-        "emptyNotes": 95,
-        "chars": 9047,
-        "medianChars": 199,
-        "charsPerNonEmptyNote": 251.3056
+        "emptyNotes": 101,
+        "chars": 7150,
+        "medianChars": 184,
+        "charsPerNonEmptyNote": 238.3333
       }
     },
     {
@@ -445,7 +445,7 @@
         "overCap": 0,
         "overBytes": 0
       },
-      "indexMs": 272,
+      "indexMs": 276,
       "stats": {
         "files": 1120,
         "symbols": 3538,
@@ -539,7 +539,7 @@
         "overCap": 0,
         "overBytes": 0
       },
-      "indexMs": 101,
+      "indexMs": 98,
       "stats": {
         "files": 106,
         "symbols": 18394,
@@ -613,7 +613,7 @@
         "overCap": 0,
         "overBytes": 0
       },
-      "indexMs": 562,
+      "indexMs": 590,
       "stats": {
         "files": 1377,
         "symbols": 39259,
