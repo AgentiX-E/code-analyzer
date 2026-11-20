@@ -11443,10 +11443,11 @@ Every figure this document publishes is a selection over a pool. The pool's own 
 | goldens in the slice                                        | 452    |
 | goldens **any** of the 593 findings could claim              | 133    |
 | recall ceiling at perfect selection                          | 0.2942 |
-| **F1 ceiling at perfect selection**                          | **0.4546** |
+| **F1 ceiling at perfect selection**                          | **0.45** (266/585) |
 | share of that ceiling the shipped policy realises            | 61.7 % |
 
-**A perfect ranker over the findings this engine already wrote would score 0.4546 and not more.** Four of five goldens in
+**A perfect ranker over the findings this engine already wrote would score 266/585, which is 0.45 at two
+digits, and not more.** Four of five goldens in
 this corpus have no finding anywhere near them in wording the judge accepts, and **no cut, budget or threshold can move
 that number** - which is why §99's price list for the tail and this round's sweeps of the budget axis both came back
 nearly flat:
@@ -11521,7 +11522,7 @@ rather than an artifact that prices a step the command does not apply.
 ### 106.6 The figure, and why six points need a second axis
 
 `docs/figures/emission-frontier.svg` draws the six cuts above on one plane, F1 against comments emitted, with **the
-selection ceiling as a dashed line at 0.4546 and the number written on it.** The plane's y axis starts at zero, so the
+selection ceiling as a dashed line at 0.45 and the number written on it.** The plane's y axis starts at zero, so the
 band the six points occupy is a tenth of the frame - and that is the sentence: **six policies that differ by 0.014 sit
 under a ceiling that is twice the best of them.**
 
@@ -11541,7 +11542,7 @@ the two would be the comparison §105.4 refused. The only line above the points 
 - **The path-class step is priced on one corpus.** 72 findings and 0 golden paths is a fact about AACR-Bench's first
   fifty pull requests, whose goldens are written about `src/`. It is a budget rule, not a claim that test files deserve
   no review, and the report says which class refused a comment so a reader can disagree with the rule in the output.
-- **The ceiling is a ceiling for this reader, not for the field.** 0.4546 is what perfect selection over *these five
+- **The ceiling is a ceiling for this reader, not for the field.** 0.45 is what perfect selection over *these five
   lanes'* sentences would score. A reviewer that wrote different sentences has a different ceiling, and raising this one
   is the only route to the competitor's 0.45 that does not require the judge to accept a defect we did not describe.
 - **No AUC is a forecast.** 0.642 is leave-one-pull-request-out over 50 folds of a corpus that was not designed for
