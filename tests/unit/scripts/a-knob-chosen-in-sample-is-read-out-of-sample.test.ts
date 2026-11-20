@@ -25,16 +25,18 @@ import {
   emittedCategories,
   verdictOf,
 } from '../../../scripts/lib/selection-audit.mjs';
-import { score } from '../../../scripts/lib/operating-point.mjs';
+import { score, type EmittedFinding } from '../../../scripts/lib/operating-point.mjs';
 
-interface Row {
-  pr: string;
-  path: string;
-  startLine: number;
-  category: string;
-  score: number;
-  matchedGoldens: Array<{ index: number }>;
-}
+/**
+ * **A row of the artifact this audit reads, taken from the artifact's own type rather than restated here**: the audit is
+ * only as good as its agreement with the reader that produced these fields, and a fixture that declared its own shape
+ * could pass while disagreeing with every real artifact.
+ */
+type Row = EmittedFinding & {
+  readonly pr: string;
+  readonly startLine: number;
+  readonly category: string;
+};
 
 /** One pull request's worth of rows: `hits` of them carry a golden, the rest are noise in `noiseCategory`. */
 function pullRequest(
@@ -53,7 +55,7 @@ function pullRequest(
       startLine: 1 + rows.length * 10,
       category,
       score: 1 - at * 0.01,
-      matchedGoldens: matched ? [{ index: pr * 100 + rows.length }] : [],
+      matchedGoldens: matched ? [pr * 100 + rows.length] : [],
     });
   };
   for (let at = 0; at < hits; at += 1) push('bug', at, true);
@@ -61,8 +63,9 @@ function pullRequest(
   return rows;
 }
 
-const creditOf = (finding: Row): number[] => finding.matchedGoldens.map((golden) => golden.index);
-const goldensOf = (findings: Row[]): number => new Set(findings.flatMap(creditOf)).size;
+const creditOf = (finding: EmittedFinding): readonly number[] => finding.matchedGoldens ?? [];
+const goldensOf = (findings: readonly Row[]): number =>
+  new Set(findings.flatMap((finding) => [...creditOf(finding)])).size;
 
 function corpus(
   count: number,

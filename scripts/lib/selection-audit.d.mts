@@ -6,18 +6,10 @@
  * describes a measurement that needs a dispatch.
  */
 
-/** One finding as the artifact carries it: the fields a cut reads, and nothing else. */
-export interface EmittedRow {
-  pr?: string;
-  pullRequest?: string;
-  path?: string;
-  file?: string;
-  category?: string;
-  startLine?: number;
-  endLine?: number;
-  score?: number;
-  matchedGoldens?: Array<{ index?: number } | number>;
-}
+import type { CutStep, EmittedFinding } from './operating-point.mjs';
+
+/** One finding as the artifact carries it: **the same shape `operating-point.mjs` reads**, not a second opinion of it. */
+export type EmittedRow = EmittedFinding;
 
 /** A point of the corpus's own arithmetic: what a cut emitted and what the matching credited. */
 export interface AuditPoint {
@@ -45,7 +37,7 @@ export interface Audit<T> {
   choices: Map<T, number>;
 }
 
-export type CreditOf = (finding: EmittedRow) => number[];
+export type CreditOf = (finding: EmittedRow) => readonly number[];
 
 export declare function emittedCategories(findings: readonly EmittedRow[]): string[];
 export declare function pullRequestsOf(findings: readonly EmittedRow[]): string[];
@@ -54,26 +46,26 @@ export declare function heldOut<T>(
   fittings: readonly EmittedRow[],
   options: {
     choose: (rows: readonly EmittedRow[]) => T;
-    stepsOf: (choice: T) => Array<Record<string, unknown>>;
-    baseSteps: ReadonlyArray<Record<string, unknown>>;
+    stepsOf: (choice: T) => readonly CutStep[];
+    baseSteps: readonly CutStep[];
   },
 ): { kept: EmittedRow[]; choices: Map<T, number> };
 
-export declare function categorySteps(category: string): Array<Record<string, unknown>>;
-export declare function budgetSteps(k: number): Array<Record<string, unknown>>;
+export declare function categorySteps(category: string): readonly CutStep[];
+export declare function budgetSteps(k: number): readonly CutStep[];
 
 export declare function auditCategories(
   findings: readonly EmittedRow[],
   creditOf: CreditOf,
   goldens: number,
-  baseSteps: ReadonlyArray<Record<string, unknown>>,
+  baseSteps: readonly CutStep[],
 ): Audit<string>;
 
 export declare function auditBudgets(
   findings: readonly EmittedRow[],
   creditOf: CreditOf,
   goldens: number,
-  baseSteps: ReadonlyArray<Record<string, unknown>>,
+  baseSteps: readonly CutStep[],
   budgets: readonly number[],
 ): Audit<number>;
 
