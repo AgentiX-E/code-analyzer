@@ -278,6 +278,19 @@ on:
         options: ['separate', 'fused']
         default: 'separate'
 
+      judge_batch:
+        # **How many pairs one judge call carries.** §110 priced the judge at 46 % of the bill and measured a prompt
+        # cache ratio of 8.5 % against the reviewer's 52.9 % on the same day: the constant block of a judge prompt is
+        # about 57 tokens and a prefix cache works in blocks of 64, so **the shared block did not exist**. A batch is
+        # the device that creates it - one instruction block and one golden behind eight comments.
+        #
+        # **`1` is the default because the history is priced in singles.** A device that changes the instrument is not a
+        # default: every figure before §111 was measured one pair at a time, and a dispatch that wants the batched arm
+        # asks for it and gets an artifact that says so.
+        description: 'Pairs per judge call (1 = the per-pair arm every earlier figure used, 8 = the batched arm)'
+        type: string
+        default: '1'
+
       max_findings_per_file:
         # **The cap that turned out to be a ceiling on the work rather than a rail on the noise.** §23.7 measured 25 of
         # one run's 225 drafts refused a slot, and 74 of that run's missed goldens sitting on files it had read - so the
@@ -584,6 +597,11 @@ jobs:
           # for. It is not a matrix key because a pair here would double a bill to answer a question whose token side is
           # already exact, and a diagnostic arm beside the same day's `separate` run is what the claim is read against.
           AACR_LANE_MODE: ${{ inputs.lane_mode || 'separate' }}
+          # **The judge's call shape, which the artifact records beside the reviewer's.** Passed explicitly so a
+          # dispatch cannot produce a figure whose instrument is only in the script's default; the script rejects a value
+          # that is not a positive integer rather than falling back, because a run labelled `8` that bought singles would
+          # be a comparison against the wrong history.
+          AACR_JUDGE_BATCH: ${{ inputs.judge_batch || '1' }}
           # **The merge of the two reviewers**, read from the matrix for the same reason as every other arm: the artifact
           # and the workflow cannot disagree about which reviewer produced the figure. Off means the arm reviewed with one
           # reviewer, which is what every figure before §56 was measured under.

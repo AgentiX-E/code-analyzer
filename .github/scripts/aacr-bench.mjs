@@ -33,6 +33,7 @@ import {
 import { requestedPullRequests, skippedPullRequests, spendCeilingUsd } from './lib/run-config.mjs';
 import { checkoutsToPrune, createOneIndexCache } from './lib/one-index-cache.mjs';
 import { DEFAULT_ATTEMPTS, backoffMs, retryAfterMs } from './lib/retry-after.mjs';
+import { buildJudgeMessages, chunkIndices, parseJudgeBatch } from './lib/judge-batch.mjs';
 import { exactMcNemar } from './lib/paired-test.mjs';
 import {
   WITHHELD,
@@ -513,36 +514,44 @@ const judgeSpend = {
 };
 
 /** Their judge prompt, reconstructed from their paper's description: same defect, different words is a match. */
-async function judgeImpl(comment, golden) {
-  const prompt = [
-    'You are comparing a code review comment against an expert-confirmed issue from the same pull request.',
-    'Answer with one JSON object: {"match": true|false}.',
-    'They match when they describe the same underlying defect, even in different words.',
-    '',
-    `Expert-confirmed issue:\n${golden}`,
-    '',
-    `Review comment:\n${comment}`,
-  ].join('\n');
+const JUDGE_SYSTEM = 'You compare code review statements. Reply with JSON only.';
+
+/** The instructions and the golden, in one message, for the arm that judges several comments at once. */
+function judgeMessages(comment, golden) {
+  return [
+    { role: 'system', content: JUDGE_SYSTEM },
+    {
+      role: 'user',
+      content: [
+        'You are comparing a code review comment against an expert-confirmed issue from the same pull request.',
+        'Answer with one JSON object: {"match": true|false}.',
+        'They match when they describe the same underlying defect, even in different words.',
+        '',
+        `Expert-confirmed issue:\n${golden}`,
+        '',
+        `Review comment:\n${comment}`,
+      ].join('\n'),
+    },
+  ];
+}
+
+/**
+ * **One judge request, retried, with the reading of its answer inside the retry.**
+ *
+ * The retry exists because a refusal and a malformed answer have the same fix - ask again - and **the reading has to be
+ * inside it**: an answer that is not a verdict is an answer this call cannot use, and a `JSON.parse` outside the loop
+ * turned three attempts at a transient refusal into one attempt and a recorded non-match.
+ *
+ * **`undefined` is the only failure value**, so a caller can read a legitimate `null` from its own parser - which the
+ * batch arm does, because a batch it cannot read is a request to fall back rather than a pair of non-matches.
+ */
+async function postJudge(messages, maxTokens, read) {
   for (let attempt = 0; attempt < DEFAULT_ATTEMPTS; attempt += 1) {
     try {
       const res = await fetch(`${BASE}/chat/completions`, {
         method: 'POST',
         headers: { 'content-type': 'application/json', authorization: `Bearer ${KEY}` },
-        body: JSON.stringify({
-          model: MODEL,
-          temperature: 0,
-          // **A verdict is four tokens wide.** The prompt says "reply with JSON only" and the model complies, but an
-          // unbounded field is an instruction rather than a bound, and **the difference between a bound and an
-          // instruction is the half of the bill that arrives on the days the model explains itself.**
-          max_tokens: 16,
-          messages: [
-            {
-              role: 'system',
-              content: 'You compare code review statements. Reply with JSON only.',
-            },
-            { role: 'user', content: prompt },
-          ],
-        }),
+        body: JSON.stringify({ model: MODEL, temperature: 0, max_tokens: maxTokens, messages }),
       });
       if (!res.ok) {
         // **The wait the endpoint asked for, carried on the error so the catch block can honour it.** A `Retry-After`
@@ -554,10 +563,11 @@ async function judgeImpl(comment, golden) {
       }
       const body = await res.json();
       recordJudgeUsage(body.usage);
-      const text = String(body.choices?.[0]?.message?.content ?? '')
-        .replace(/```json|```/g, '')
-        .trim();
-      return Boolean(JSON.parse(text).match);
+      return read(
+        String(body.choices?.[0]?.message?.content ?? '')
+          .replace(/```json|```/g, '')
+          .trim(),
+      );
     } catch (error) {
       // **A header wins over the schedule, and the schedule is long enough to cross a window.** Three attempts inside
       // six seconds was three attempts inside one rate-limit window: the same request refused three times, and the third
@@ -569,9 +579,58 @@ async function judgeImpl(comment, golden) {
       await new Promise((r) => setTimeout(r, Math.min(wait, 60_000)));
     }
   }
-  // **A judge that did not answer is not a non-match**, the same distinction as everywhere else in this repository.
-  judgeSpend.failures += 1;
-  return null;
+  return undefined;
+}
+
+async function judgeImpl(comment, golden) {
+  // **A verdict is four tokens wide.** The prompt says "reply with JSON only" and the model complies, but an unbounded
+  // field is an instruction rather than a bound, and **the difference between a bound and an instruction is the half of
+  // the bill that arrives on the days the model explains itself.**
+  const verdict = await postJudge(judgeMessages(comment, golden), 16, (text) =>
+    Boolean(JSON.parse(text).match),
+  );
+  if (verdict === undefined) {
+    // **A judge that did not answer is not a non-match**, the same distinction as everywhere else in this repository.
+    judgeSpend.failures += 1;
+    return null;
+  }
+  return verdict;
+}
+
+/**
+ * **Several comments against one golden, in one request.**
+ *
+ * The constant block and the golden are the system message, so **every batch scored against one golden shares a prefix
+ * larger than a cache block** - which the per-pair prompt was too short to have. The comments arrive numbered and the
+ * answer is one boolean per comment.
+ *
+ * **`null` means "this batch could not be read", not "none of these matched"**, and the caller answers it by paying for
+ * the pairs one at a time. A batch that fails is therefore a batch that costs what it would have cost without the
+ * device, and never a silent row of misses.
+ */
+async function judgeBatchImpl(comments, golden) {
+  const { system, user } = buildJudgeMessages(golden, comments);
+  const verdicts = await postJudge(
+    [
+      { role: 'system', content: system },
+      { role: 'user', content: user },
+    ],
+    // **Eight tokens per verdict and a margin**, because a JSON array of booleans is `true,` and the model is told to
+    // emit nothing else; the margin is what absorbs a model that answers `[true, false]` with spaces.
+    comments.length * 8 + 16,
+    (text) => {
+      const parsed = parseJudgeBatch(text, comments.length);
+      // Thrown rather than returned, so the retry above sees it: an unreadable batch is worth asking again, and only a
+      // batch that is still unreadable after every attempt costs the fallback.
+      if (parsed === null) throw new Error('unreadable batch');
+      return parsed;
+    },
+  );
+  if (verdicts === undefined) {
+    judgeSpend.failures += 1;
+    return null;
+  }
+  return verdicts;
 }
 
 /**
@@ -598,6 +657,35 @@ let judgeFn = judgeImpl;
  * concurrency below is a limit on calls in flight and not a race between them.
  */
 const JUDGE_CONCURRENCY = Number(process.env['AACR_JUDGE_CONCURRENCY'] ?? '6');
+
+/**
+ * **How many pairs one judge call carries.**
+ *
+ * `1` is the per-pair arm every figure before §111 was measured under, and it stays the default because **a device that
+ * changes the measurement instrument is not a default**: the corpus's own history is priced in per-pair calls, and a run
+ * that silently changed the instrument would make every earlier figure incomparable.
+ *
+ * **A value that is not a positive integer throws rather than falling back**, the same discipline as `parseLaneMode`: a
+ * dispatch that asked for `8` and got `1` would produce a figure labelled with a device it did not use.
+ */
+const JUDGE_BATCH = (() => {
+  const raw = process.env['AACR_JUDGE_BATCH'];
+  if (raw === undefined || raw === '') return 1;
+  const value = Number(raw);
+  if (!Number.isInteger(value) || value < 1) {
+    throw new Error(`AACR_JUDGE_BATCH=${raw} is not a positive integer`);
+  }
+  return value;
+})();
+
+/**
+ * **And the seam for the arm that judges several pairs at once**, which is `null` unless the run asked for a batch size.
+ *
+ * **Two seams rather than a flag inside one**, because `judgeFn` is the per-pair contract every test and every fallback
+ * reads, and **a batched arm that fails must be able to become the per-pair arm rather than a second implementation of
+ * it**: the fallback below calls `judgeFn`, so there is exactly one per-pair path in the file.
+ */
+let judgeManyFn = JUDGE_BATCH > 1 ? judgeBatchImpl : null;
 
 /**
  * Run `task` over `items` with at most `limit` in flight.
@@ -645,7 +733,8 @@ async function mapLimit(items, limit, task) {
  * that changes is which request pays the full price for the prefix. **This is the same device as `planLaneWaves`, applied
  * to the judge**, and it is here rather than in the provider because the judge is a bare `fetch` in this file.
  */
-async function judgeMatrix(texts, goldens) {
+async function judgeMatrix(texts, goldens, batch = JUDGE_BATCH) {
+  if (batch > 1 && judgeManyFn !== null) return judgeMatrixBatched(texts, goldens, batch);
   const pairs = [];
   // **Golden-major**, so a golden's prefix is written once and read `texts.length - 1` times.
   for (let golden = 0; golden < goldens.length; golden += 1) {
@@ -653,14 +742,22 @@ async function judgeMatrix(texts, goldens) {
   }
   const verdicts = new Array(pairs.length);
   const judged = new Set();
+  const warm = [];
   // The warm pass: one call per golden, in sequence, so each prefix exists before anything tries to read it.
   for (let at = 0; at < pairs.length; at += 1) {
     const [finding, golden] = pairs[at];
     if (judged.has(golden)) continue;
     judged.add(golden);
+    // **The index, not only the golden.** The pairs are golden-major, so a pair's index and its golden's index are
+    // small integers drawn from the same range - and the line below used to test the *indices* against a set of
+    // *goldens*, which skipped the pair at index `g` for every golden `g` in the corpus. **Measured on the fixture
+    // below: three of twenty-four pairs were never judged and were recorded as non-matches**, always against the first
+    // golden, which is the one a corpus cites most. A missing verdict is not a verdict, and this is where one was
+    // manufactured.
+    warm.push(at);
     verdicts[at] = await judgeFn(texts[finding], goldens[golden]);
   }
-  const rest = pairs.map((_, at) => at).filter((at) => !judged.has(at));
+  const rest = pairs.map((_, at) => at).filter((at) => !warm.includes(at));
   const tail = await mapLimit(rest, JUDGE_CONCURRENCY, (at) => {
     const [finding, golden] = pairs[at];
     return judgeFn(texts[finding], goldens[golden]);
@@ -672,8 +769,67 @@ async function judgeMatrix(texts, goldens) {
   let unanswered = 0;
   pairs.forEach(([finding, golden], at) => {
     const verdict = verdicts[at];
-    if (verdict === null) unanswered += 1;
+    // **`undefined` counts as unanswered too**, because a pair the loop never reached is a pair that has no verdict -
+    // and the defect above recorded exactly those as non-matches, where nothing counted them.
+    if (verdict === null || verdict === undefined) unanswered += 1;
     else if (verdict) matches[finding].push(golden);
+  });
+  return { matches, unanswered };
+}
+
+/**
+ * **The same matrix, bought in batches of `JUDGE_BATCH` pairs.**
+ *
+ * **What changes is the number of requests, not the number of verdicts**: every pair is still judged once, against the
+ * same golden, at temperature zero - and the verdicts land in the same `matches` structure the per-pair arm produces, so
+ * everything downstream (the matching, the curve, the paired test) reads one shape.
+ *
+ * **The warm pass survives the change and for the same reason.** A prefix cache is written by the first request that
+ * carries a prefix, so the first batch of each golden is submitted alone; **the batches after it share a prefix that now
+ * exists and is larger than a cache block**, which is the property the per-pair prompt never had.
+ *
+ * **And a batch that cannot be read is paid for again one pair at a time**, through the per-pair seam. That is the whole
+ * safety argument for changing an instrument that has measured every figure in this document: **the fallback is the old
+ * instrument, not a new one.**
+ */
+async function judgeMatrixBatched(texts, goldens, batch) {
+  const jobs = [];
+  for (let golden = 0; golden < goldens.length; golden += 1) {
+    const chunks = chunkIndices(texts.length, batch);
+    chunks.forEach((chunk, index) => jobs.push({ golden, chunk, warm: index === 0 }));
+  }
+  const verdicts = new Array(jobs.length);
+
+  const run = async (job) => {
+    const comments = job.chunk.map((finding) => texts[finding]);
+    const answered = await judgeManyFn(comments, goldens[job.golden]);
+    if (answered !== null) return answered;
+    // **One call per pair, the seam the per-pair arm uses**, so a fallback is the old instrument rather than a second
+    // implementation of it.
+    const single = [];
+    for (const comment of comments) single.push(await judgeFn(comment, goldens[job.golden]));
+    return single;
+  };
+
+  // The warm pass: one batch per golden, in sequence, so each golden's prefix exists before anything tries to read it.
+  for (let at = 0; at < jobs.length; at += 1) {
+    if (jobs[at].warm) verdicts[at] = await run(jobs[at]);
+  }
+  const rest = jobs.map((_, at) => at).filter((at) => !jobs[at].warm);
+  const tail = await mapLimit(rest, JUDGE_CONCURRENCY, (at) => run(jobs[at]));
+  rest.forEach((at, index) => {
+    verdicts[at] = tail[index];
+  });
+
+  const matches = texts.map(() => []);
+  let unanswered = 0;
+  jobs.forEach((job, at) => {
+    const answered = verdicts[at] ?? [];
+    job.chunk.forEach((finding, index) => {
+      const verdict = answered[index];
+      if (verdict === null || verdict === undefined) unanswered += 1;
+      else if (verdict) matches[finding].push(job.golden);
+    });
   });
   return { matches, unanswered };
 }
@@ -814,10 +970,8 @@ async function dryRun() {
     'the gate keeps the three grounded findings that say what to change',
   );
 
-  const matrix = await judgeMatrix(
-    ranked.map((entry) => `${entry.finding.title} :: ${entry.finding.description}`),
-    goldens,
-  );
+  const texts = ranked.map((entry) => `${entry.finding.title} :: ${entry.finding.description}`);
+  const matrix = await judgeMatrix(texts, goldens);
   assert.deepEqual(matrix.matches[0], [0], 'the first finding matches the first golden');
   assert.equal(matrix.unanswered, 0, 'a scripted judge never fails to answer');
 
@@ -841,6 +995,38 @@ async function dryRun() {
     matrix.matches.length * goldens.length,
     'the reordering judges every pair exactly once, so the call count is unchanged',
   );
+
+  // **And the batched arm reads the same corpus to the same verdicts.**
+  //
+  // The device that makes the judge's prompt long enough to cache is a change of instrument, and **an instrument that
+  // changes an answer is not a price**: so the same fixture is judged twice - once per pair, once in batches of three -
+  // and the two matrices must be equal, pair for pair. **The call count is asserted separately and is the thing that is
+  // supposed to change**: `findings × goldens` pairs, `ceil(findings / 3) × goldens` requests.
+  const batchedRequests = [];
+  judgeManyFn = async (comments, golden) => {
+    const goldenAt = goldens.indexOf(golden);
+    batchedRequests.push(comments.length);
+    return comments.map((comment) => {
+      const title = comment.slice(0, comment.indexOf(' :: '));
+      judgeCalls.push({ title, goldenAt, batched: true });
+      return (answers.get(title) ?? []).some((at) => at === goldenAt);
+    });
+  };
+  judgeCalls.length = 0;
+  const batched = await judgeMatrix(texts, goldens, 3);
+  assert.deepEqual(batched.matches, matrix.matches, 'a batch must not change a verdict');
+  assert.equal(batched.unanswered, 0, 'a scripted batch never fails to answer');
+  assert.equal(
+    judgeCalls.length,
+    matrix.matches.length * goldens.length,
+    'every pair is still judged once, however many of them share a request',
+  );
+  assert.deepEqual(
+    batchedRequests,
+    goldens.flatMap(() => [3, 3]),
+    'six findings in batches of three is two requests per golden, and no more',
+  );
+  judgeManyFn = null;
 
   // **Hand-computed, in the comment, before the assertion.** Gate keeps F1 (golden 0), F4 (golden 3) and F5 (nothing):
   // 2 true positives, 1 false positive, 2 goldens missed, so precision 2/3, recall 2/4 and F1 0.5714. The whole list is
@@ -2147,9 +2333,14 @@ async function main() {
     // **The shape of the calls, beside the questions they ask**: a run that recorded five lanes and sent one call would
     // be an artifact about a reviewer nobody dispatched.
     laneMode: LANE_MODE,
+    // **And how many pairs one judge call carried**, because the judge is 46 % of the bill and **a figure priced in
+    // batches of eight and one priced in singles are two instruments**: the fallback path is per pair, so a run whose
+    // batches were unreadable would report a batch size it did not actually use - which is why the artifact also carries
+    // the judge's own call count.
+    judgeBatch: JUDGE_BATCH,
   });
   console.log(
-    `AACR-BENCH dedup threshold ${DEDUP_THRESHOLD} · prompt order ${PROMPT_ORDER} · adjudicate ${ADJUDICATE} · idioms ${IDIOMS} · remarks ${REMARKS} · second concern ${SECOND_CONCERN} · lanes ${LANE_SET} (${LANE_MODE})`,
+    `AACR-BENCH dedup threshold ${DEDUP_THRESHOLD} · prompt order ${PROMPT_ORDER} · adjudicate ${ADJUDICATE} · idioms ${IDIOMS} · remarks ${REMARKS} · second concern ${SECOND_CONCERN} · lanes ${LANE_SET} (${LANE_MODE}) · judge batch ${JUDGE_BATCH}`,
   );
 
   /**
@@ -4802,6 +4993,10 @@ async function main() {
       // one diff, and a device that removes four of them changes the *price* of a figure rather than its meaning - so
       // the axis travels beside `laneSet` and a comparison between two artifacts read both.
       laneMode: LANE_MODE,
+      // **The judge's call shape, beside the reviewer's.** The judge is the larger half of the bill and it has its own
+      // instrument; **a comparison between two artifacts that differ here is a comparison of two prices for one figure**,
+      // and the judge's `calls` and `promptTokens` are what let a reader check that the batch size was honoured.
+      judgeBatch: JUDGE_BATCH,
       // **Whether a model was asked for the rest of that bucket**, and the families it was asked for rather than "some
       // remarks": **a figure from a run with this on and one with it off are two reviewers**, and a family list that is
       // not in the artifact is a prompt nobody can reproduce.
