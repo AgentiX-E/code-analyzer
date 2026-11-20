@@ -81,6 +81,26 @@ ranking: **at our precision the ceiling is 0.4231, the registered target of 0.45
 inside theirs** (§96.1, §96.2). **The cost column is missing on both sides** - their artifact records findings, not their
 token bill - and a comparison of quality at unknown cost is a comparison of quality.
 
+## 2c. The same comparison as a figure, and the axis the field does not publish
+
+`docs/figures/` holds four generated charts (`scripts/competitive-position.mjs` over
+`benchmarks/competitive-position.json`, nine tests in `tests/unit/scripts/a-figure-names-every-row.test.ts`):
+
+| figure                                                           | what it plots                                                                                         |
+| ---------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------- |
+| [`martian-offline.svg`](figures/martian-offline.svg)             | the offline board's twenty-two rows: **F1 against prompt tokens per pull request**                    |
+| [`aacr-same-corpus.svg`](figures/aacr-same-corpus.svg)           | three rows on one corpus and one judge: the recorded competitor, our index arm, our no-index arm      |
+| [`our-budget-frontier.svg`](figures/our-budget-frontier.svg)     | what a larger per-file cap buys in F1, for finding text - the curve this engine can move along itself |
+| [`boards-one-per-column.svg`](figures/boards-one-per-column.svg) | seven boards whose seven metrics must not be read as one scale                                        |
+
+**The panel on the right of the first two is the finding.** Of the twenty-two rows on the offline board, **one publishes a
+token count for a review: this one.** The rest are drawn as ranked bars at their accuracy with no price, because the
+alternative - dropping them, or estimating - is either the crop that flatters whoever has a number or the fabrication this
+page exists to avoid.
+
+**And the row this project does have two axes for is 38.2 F1 points below the leader at 155 233 prompt tokens per pull
+request**, scored by a different judge than the rest, which the figure says on its own face.
+
 ---
 
 ## 2c. The cost side of the same comparison, which no vendor publishes but this repository can measure

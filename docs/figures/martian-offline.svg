@@ -1,0 +1,113 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="960" height="600" viewBox="0 0 960 600" role="img" aria-label="Martian Code Review Bench, offline: 50 pull requests, 173 goldens">
+<rect width="960" height="600" fill="#ffffff" />
+<text x="24" y="34" font-size="16" font-weight="700" fill="#1f2328">Martian Code Review Bench, offline: 50 pull requests, 173 goldens</text>
+<text x="24" y="54" font-size="11" fill="#57606a">F1 with the survey's 95 % interval. Left: rows that publish a price. Right: rows that do not.</text>
+<text x="24" y="72" font-size="9" fill="#8c959f">source: survey recomputation of benchmark_dashboard.json at e616e84975 (2026-08-30); our row from benchmarks/martian-bench.json (2026-11-18)</text>
+<line x1="86" y1="462" x2="430" y2="462" stroke="#d0d7de" stroke-width="1" />
+<text x="78" y="465" text-anchor="end" font-size="10" fill="#57606a">0</text>
+<line x1="86" y1="373.5" x2="430" y2="373.5" stroke="#d0d7de" stroke-width="1" />
+<text x="78" y="376.5" text-anchor="end" font-size="10" fill="#57606a">18</text>
+<line x1="86" y1="285" x2="430" y2="285" stroke="#d0d7de" stroke-width="1" />
+<text x="78" y="288" text-anchor="end" font-size="10" fill="#57606a">36</text>
+<line x1="86" y1="196.5" x2="430" y2="196.5" stroke="#d0d7de" stroke-width="1" />
+<text x="78" y="199.5" text-anchor="end" font-size="10" fill="#57606a">54</text>
+<line x1="86" y1="108" x2="430" y2="108" stroke="#d0d7de" stroke-width="1" />
+<text x="78" y="111" text-anchor="end" font-size="10" fill="#57606a">72</text>
+<line x1="86" y1="108" x2="86" y2="462" stroke="#eaeef2" stroke-width="1" />
+<text x="86" y="478" text-anchor="middle" font-size="10" fill="#57606a">10k</text>
+<line x1="137.77715925420478" y1="108" x2="137.77715925420478" y2="462" stroke="#eaeef2" stroke-width="1" />
+<text x="137.77715925420478" y="478" text-anchor="middle" font-size="10" fill="#57606a">20k</text>
+<line x1="189.55431850840955" y1="108" x2="189.55431850840955" y2="462" stroke="#eaeef2" stroke-width="1" />
+<text x="189.55431850840955" y="478" text-anchor="middle" font-size="10" fill="#57606a">40k</text>
+<line x1="241.33147776261433" y1="108" x2="241.33147776261433" y2="462" stroke="#eaeef2" stroke-width="1" />
+<text x="241.33147776261433" y="478" text-anchor="middle" font-size="10" fill="#57606a">80k</text>
+<line x1="293.1086370168191" y1="108" x2="293.1086370168191" y2="462" stroke="#eaeef2" stroke-width="1" />
+<text x="293.1086370168191" y="478" text-anchor="middle" font-size="10" fill="#57606a">160k</text>
+<line x1="344.8857962710239" y1="108" x2="344.8857962710239" y2="462" stroke="#eaeef2" stroke-width="1" />
+<text x="344.8857962710239" y="478" text-anchor="middle" font-size="10" fill="#57606a">320k</text>
+<line x1="396.66295552522865" y1="108" x2="396.66295552522865" y2="462" stroke="#eaeef2" stroke-width="1" />
+<text x="396.66295552522865" y="478" text-anchor="middle" font-size="10" fill="#57606a">640k</text>
+<polygon points="290.8492567116792,319.9475 297.3492567116792,326.4475 290.8492567116792,332.9475 284.3492567116792,326.4475" fill="#1a7f37" />
+<text x="281.8492567116792" y="329.4475" text-anchor="end" font-size="11" font-weight="600" fill="#1f2328">code-analyzer</text>
+<text x="281.8492567116792" y="341.4475" text-anchor="end" font-size="9" fill="#57606a">27.6 F1 · 155.233k tokens</text>
+<line x1="86" y1="138.48333333333335" x2="430" y2="138.48333333333335" stroke="#cf222e" stroke-width="1.5" stroke-dasharray="6 4" />
+<text x="90" y="132.48333333333335" font-size="10" fill="#cf222e">Qodo Extended: 65.8, price not published</text>
+<line x1="404" y1="138.48333333333335" x2="404" y2="326.4475" stroke="#8c959f" stroke-width="1" stroke-dasharray="2 3" />
+<text x="400" y="232.46541666666667" text-anchor="end" font-size="10" fill="#57606a">38.2 F1 of headroom</text>
+<text x="258" y="496" text-anchor="middle" font-size="10" fill="#1f2328">prompt tokens per pull request (log)</text>
+<text x="42" y="285" font-size="10" fill="#1f2328" transform="rotate(-90 42 285)" text-anchor="middle">F1</text>
+<text x="86" y="96" font-size="10" font-weight="600" fill="#1f2328">rows with a price</text>
+<text x="496" y="96" font-size="10" font-weight="600" fill="#1f2328">rows whose price is not published</text>
+<text x="496" y="118.45142857142858" font-size="9" fill="#1f2328">Qodo Extended</text>
+<rect x="664" y="109" width="204.7111111111111" height="12.857142857142858" fill="#57606a" opacity="0.75" />
+<text x="872.7111111111111" y="118.45142857142858" font-size="9" fill="#57606a">65.8</text>
+<text x="496" y="135.30857142857144" font-size="9" fill="#1f2328">cubic v2</text>
+<rect x="664" y="125.85714285714286" width="197.86666666666667" height="12.857142857142858" fill="#57606a" opacity="0.75" />
+<text x="865.8666666666667" y="135.30857142857144" font-size="9" fill="#57606a">63.6</text>
+<text x="496" y="152.1657142857143" font-size="9" fill="#1f2328">Augment</text>
+<rect x="664" y="142.71428571428572" width="193.51111111111112" height="12.857142857142858" fill="#57606a" opacity="0.75" />
+<text x="861.5111111111112" y="152.1657142857143" font-size="9" fill="#57606a">62.2</text>
+<text x="496" y="169.02285714285713" font-size="9" fill="#1f2328">Qodo v2</text>
+<rect x="664" y="159.57142857142856" width="182" height="12.857142857142858" fill="#8250df" opacity="0.75" />
+<text x="850" y="169.02285714285713" font-size="9" fill="#57606a">58.5</text>
+<text x="496" y="185.88000000000002" font-size="9" fill="#1f2328">Macroscope</text>
+<rect x="664" y="176.42857142857144" width="168.6222222222222" height="12.857142857142858" fill="#57606a" opacity="0.75" />
+<text x="836.6222222222223" y="185.88000000000002" font-size="9" fill="#57606a">54.2</text>
+<text x="496" y="202.73714285714286" font-size="9" fill="#1f2328">GitLab Duo</text>
+<rect x="664" y="193.28571428571428" width="164.8888888888889" height="12.857142857142858" fill="#8250df" opacity="0.75" />
+<text x="832.8888888888889" y="202.73714285714286" font-size="9" fill="#57606a">53.0</text>
+<text x="496" y="219.59428571428572" font-size="9" fill="#1f2328">Devin</text>
+<rect x="664" y="210.14285714285714" width="160.53333333333333" height="12.857142857142858" fill="#57606a" opacity="0.75" />
+<text x="828.5333333333333" y="219.59428571428572" font-size="9" fill="#57606a">51.6</text>
+<text x="496" y="236.45142857142858" font-size="9" fill="#1f2328">Cursor Bugbot</text>
+<rect x="664" y="227" width="159.91111111111113" height="12.857142857142858" fill="#57606a" opacity="0.75" />
+<text x="827.9111111111112" y="236.45142857142858" font-size="9" fill="#57606a">51.4</text>
+<text x="496" y="253.30857142857144" font-size="9" fill="#1f2328">Greptile v4</text>
+<rect x="664" y="243.85714285714286" width="158.9777777777778" height="12.857142857142858" fill="#8250df" opacity="0.75" />
+<text x="826.9777777777778" y="253.30857142857144" font-size="9" fill="#57606a">51.1</text>
+<text x="496" y="270.1657142857143" font-size="9" fill="#1f2328">Gemini</text>
+<rect x="664" y="260.7142857142857" width="154.6222222222222" height="12.857142857142858" fill="#57606a" opacity="0.75" />
+<text x="822.6222222222223" y="270.1657142857143" font-size="9" fill="#57606a">49.7</text>
+<text x="496" y="287.0228571428571" font-size="9" fill="#1f2328">Copilot v2</text>
+<rect x="664" y="277.57142857142856" width="151.51111111111112" height="12.857142857142858" fill="#57606a" opacity="0.75" />
+<text x="819.5111111111112" y="287.0228571428571" font-size="9" fill="#57606a">48.7</text>
+<text x="496" y="303.88" font-size="9" fill="#1f2328">Claude Code (CLI)</text>
+<rect x="664" y="294.42857142857144" width="146.84444444444443" height="12.857142857142858" fill="#57606a" opacity="0.75" />
+<text x="814.8444444444444" y="303.88" font-size="9" fill="#57606a">47.2</text>
+<text x="496" y="320.7371428571428" font-size="9" fill="#1f2328">Sourcery</text>
+<rect x="664" y="311.2857142857143" width="146.22222222222223" height="12.857142857142858" fill="#57606a" opacity="0.75" />
+<text x="814.2222222222222" y="320.7371428571428" font-size="9" fill="#57606a">47.0</text>
+<text x="496" y="337.59428571428566" font-size="9" fill="#1f2328">Kodus</text>
+<rect x="664" y="328.1428571428571" width="145.2888888888889" height="12.857142857142858" fill="#1a7f37" opacity="0.75" />
+<text x="813.2888888888889" y="337.59428571428566" font-size="9" fill="#57606a">46.7</text>
+<text x="496" y="354.45142857142855" font-size="9" fill="#1f2328">Baz</text>
+<rect x="664" y="345" width="144.66666666666669" height="12.857142857142858" fill="#57606a" opacity="0.75" />
+<text x="812.6666666666667" y="354.45142857142855" font-size="9" fill="#57606a">46.5</text>
+<text x="496" y="371.30857142857144" font-size="9" fill="#1f2328">CodeRabbit</text>
+<rect x="664" y="361.8571428571429" width="131.2888888888889" height="12.857142857142858" fill="#8250df" opacity="0.75" />
+<text x="799.2888888888889" y="371.30857142857144" font-size="9" fill="#57606a">42.2</text>
+<text x="496" y="388.1657142857143" font-size="9" fill="#1f2328">gitar</text>
+<rect x="664" y="378.7142857142857" width="128.48888888888888" height="12.857142857142858" fill="#57606a" opacity="0.75" />
+<text x="796.4888888888888" y="388.1657142857143" font-size="9" fill="#57606a">41.3</text>
+<text x="496" y="405.0228571428571" font-size="9" fill="#1f2328">CodeAnt</text>
+<rect x="664" y="395.57142857142856" width="126.3111111111111" height="12.857142857142858" fill="#57606a" opacity="0.75" />
+<text x="794.3111111111111" y="405.0228571428571" font-size="9" fill="#57606a">40.6</text>
+<text x="496" y="421.88" font-size="9" fill="#1f2328">Claude Code</text>
+<rect x="664" y="412.42857142857144" width="125.6888888888889" height="12.857142857142858" fill="#57606a" opacity="0.75" />
+<text x="793.6888888888889" y="421.88" font-size="9" fill="#57606a">40.4</text>
+<text x="496" y="438.7371428571428" font-size="9" fill="#1f2328">KG</text>
+<rect x="664" y="429.2857142857143" width="76.22222222222223" height="12.857142857142858" fill="#57606a" opacity="0.75" />
+<text x="744.2222222222222" y="438.7371428571428" font-size="9" fill="#57606a">24.5</text>
+<text x="496" y="455.5942857142857" font-size="9" fill="#1f2328">Graphite</text>
+<rect x="664" y="446.14285714285717" width="43.86666666666667" height="12.857142857142858" fill="#57606a" opacity="0.75" />
+<text x="711.8666666666667" y="455.5942857142857" font-size="9" fill="#57606a">14.1</text>
+<polygon points="90,518.5 95.5,524 90,529.5 84.5,524" fill="#1a7f37" />
+<text x="99" y="528" font-size="10" fill="#57606a">open source, self-hosted</text>
+<rect x="235.2" y="520" width="8" height="8" fill="#8250df" />
+<text x="248.2" y="528" font-size="10" fill="#57606a">closed, self-host option published</text>
+<circle cx="441.4" cy="524" r="4" fill="#57606a" />
+<text x="450.4" y="528" font-size="10" fill="#57606a">closed cloud service</text>
+<text x="24" y="556" font-size="9" fill="#8c959f">a row whose judge differs from the rest is not the same measurement: the survey reports the judge moving the top rows by up to nine F1 points.</text>
+<text x="24" y="572" font-size="9" fill="#8c959f">an interval is the survey's 95 % one; a mark without one is a measurement this repository made and whose interval it did not.</text>
+<text x="24" y="588" font-size="9" fill="#8c959f">generated from benchmarks/competitive-position.json by scripts/competitive-position.mjs; do not edit by hand.</text>
+</svg>

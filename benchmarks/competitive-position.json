@@ -1,0 +1,409 @@
+{
+  "comment": [
+    "**The position of this engine in its field, on two axes at once: accuracy, and what accuracy costs.**",
+    "Every competitor's score is somebody else's number, quoted with the source that published it, and **the only rows",
+    "measured here are the ones whose `origin` says `measured`**. A figure this project did not measure is not a",
+    "comparison - it is a citation - and the renderer draws them differently for exactly that reason.",
+    "**The cost axis is mostly empty, and that is the finding rather than a defect of the chart.** Of the twenty-two rows",
+    "on the Martian offline board, one publishes a token count for a review: this one. The others are drawn as bars in",
+    "the right-hand panel, at their accuracy, with `tokensPerReview: null` - which is what 'we cannot price it' looks",
+    "like when it is said in a chart instead of a paragraph."
+  ],
+  "measuredAt": "2026-11-20",
+  "figures": [
+    {
+      "id": "martian-offline",
+      "title": "Martian Code Review Bench, offline: 50 pull requests, 173 goldens",
+      "subtitle": "F1 with the survey's 95 % interval. Left: rows that publish a price. Right: rows that do not.",
+      "metric": "F1",
+      "axisMax": 72,
+      "tokensAxis": [10000, 1000000],
+      "source": "survey recomputation of benchmark_dashboard.json at e616e84975 (2026-08-30); our row from benchmarks/martian-bench.json (2026-11-18)",
+      "rows": [
+        {
+          "tool": "Qodo Extended",
+          "score": 65.8,
+          "low": 60.6,
+          "high": 70.5,
+          "precision": 67.1,
+          "recall": 64.6,
+          "tokensPerReview": null,
+          "kind": "closed",
+          "judge": "opus-4.5",
+          "origin": "published"
+        },
+        {
+          "tool": "cubic v2",
+          "score": 63.6,
+          "low": 56.6,
+          "high": 70.6,
+          "precision": 61.5,
+          "recall": 65.8,
+          "tokensPerReview": null,
+          "kind": "closed",
+          "judge": "opus-4.5",
+          "origin": "published"
+        },
+        {
+          "tool": "Augment",
+          "score": 62.2,
+          "low": 55.2,
+          "high": 69.1,
+          "precision": 59.5,
+          "recall": 65.2,
+          "tokensPerReview": null,
+          "kind": "closed",
+          "judge": "opus-4.5",
+          "origin": "published"
+        },
+        {
+          "tool": "Qodo v2",
+          "score": 58.5,
+          "low": 52.0,
+          "high": 65.0,
+          "precision": 55.4,
+          "recall": 62.0,
+          "tokensPerReview": null,
+          "kind": "closed-self-host",
+          "judge": "opus-4.5",
+          "origin": "published"
+        },
+        {
+          "tool": "Macroscope",
+          "score": 54.2,
+          "low": 47.1,
+          "high": 60.9,
+          "precision": 61.1,
+          "recall": 48.7,
+          "tokensPerReview": null,
+          "kind": "closed",
+          "judge": "opus-4.5",
+          "origin": "published"
+        },
+        {
+          "tool": "GitLab Duo",
+          "score": 53.0,
+          "low": 45.0,
+          "high": 60.5,
+          "precision": 53.5,
+          "recall": 52.5,
+          "tokensPerReview": null,
+          "kind": "closed-self-host",
+          "judge": "opus-4.5",
+          "origin": "published"
+        },
+        {
+          "tool": "Devin",
+          "score": 51.6,
+          "low": 44.4,
+          "high": 58.1,
+          "precision": 69.1,
+          "recall": 41.1,
+          "tokensPerReview": null,
+          "kind": "closed",
+          "judge": "opus-4.5",
+          "origin": "published"
+        },
+        {
+          "tool": "Cursor Bugbot",
+          "score": 51.4,
+          "low": 44.1,
+          "high": 58.4,
+          "precision": 56.9,
+          "recall": 46.8,
+          "tokensPerReview": null,
+          "kind": "closed",
+          "judge": "opus-4.5",
+          "origin": "published"
+        },
+        {
+          "tool": "Greptile v4",
+          "score": 51.1,
+          "low": 44.7,
+          "high": 56.6,
+          "precision": 50.9,
+          "recall": 51.3,
+          "tokensPerReview": null,
+          "kind": "closed-self-host",
+          "judge": "opus-4.5",
+          "origin": "published"
+        },
+        {
+          "tool": "Gemini",
+          "score": 49.7,
+          "low": 43.2,
+          "high": 56.0,
+          "precision": 45.3,
+          "recall": 55.1,
+          "tokensPerReview": null,
+          "kind": "closed",
+          "judge": "opus-4.5",
+          "origin": "published"
+        },
+        {
+          "tool": "Copilot v2",
+          "score": 48.7,
+          "low": 42.5,
+          "high": 54.7,
+          "precision": 38.5,
+          "recall": 66.5,
+          "tokensPerReview": null,
+          "kind": "closed",
+          "judge": "opus-4.5",
+          "origin": "published"
+        },
+        {
+          "tool": "Claude Code (CLI)",
+          "score": 47.2,
+          "low": 38.8,
+          "high": 55.3,
+          "precision": 46.3,
+          "recall": 48.1,
+          "tokensPerReview": null,
+          "kind": "closed",
+          "judge": "opus-4.5",
+          "origin": "published"
+        },
+        {
+          "tool": "Sourcery",
+          "score": 47.0,
+          "low": 40.6,
+          "high": 53.1,
+          "precision": 41.0,
+          "recall": 55.1,
+          "tokensPerReview": null,
+          "kind": "closed",
+          "judge": "opus-4.5",
+          "origin": "published"
+        },
+        {
+          "tool": "Kodus",
+          "score": 46.7,
+          "low": 39.0,
+          "high": 53.5,
+          "precision": 59.2,
+          "recall": 38.6,
+          "tokensPerReview": null,
+          "kind": "open-source",
+          "judge": "opus-4.5",
+          "origin": "published"
+        },
+        {
+          "tool": "Baz",
+          "score": 46.5,
+          "low": 38.1,
+          "high": 54.5,
+          "precision": 61.5,
+          "recall": 37.3,
+          "tokensPerReview": null,
+          "kind": "closed",
+          "judge": "opus-4.5",
+          "origin": "published"
+        },
+        {
+          "tool": "CodeRabbit",
+          "score": 42.2,
+          "low": 36.6,
+          "high": 47.6,
+          "precision": 32.6,
+          "recall": 59.5,
+          "tokensPerReview": null,
+          "kind": "closed-self-host",
+          "judge": "opus-4.5",
+          "origin": "published"
+        },
+        {
+          "tool": "gitar",
+          "score": 41.3,
+          "low": 33.3,
+          "high": 48.8,
+          "precision": 38.3,
+          "recall": 44.9,
+          "tokensPerReview": null,
+          "kind": "closed",
+          "judge": "opus-4.5",
+          "origin": "published"
+        },
+        {
+          "tool": "CodeAnt",
+          "score": 40.6,
+          "low": 32.6,
+          "high": 48.1,
+          "precision": 40.1,
+          "recall": 41.1,
+          "tokensPerReview": null,
+          "kind": "closed",
+          "judge": "opus-4.5",
+          "origin": "published"
+        },
+        {
+          "tool": "Claude Code",
+          "score": 40.4,
+          "low": 31.2,
+          "high": 48.6,
+          "precision": 43.2,
+          "recall": 38.0,
+          "tokensPerReview": null,
+          "kind": "closed",
+          "judge": "opus-4.5",
+          "origin": "published"
+        },
+        {
+          "tool": "code-analyzer",
+          "score": 27.57,
+          "low": null,
+          "high": null,
+          "precision": 19.35,
+          "recall": 47.98,
+          "tokensPerReview": 155233,
+          "kind": "open-source",
+          "judge": "deepseek-chat",
+          "origin": "measured"
+        },
+        {
+          "tool": "KG",
+          "score": 24.5,
+          "low": 15.8,
+          "high": 33.5,
+          "precision": 54.3,
+          "recall": 15.8,
+          "tokensPerReview": null,
+          "kind": "closed",
+          "judge": "opus-4.5",
+          "origin": "published"
+        },
+        {
+          "tool": "Graphite",
+          "score": 14.1,
+          "low": 6.8,
+          "high": 22.3,
+          "precision": 100.0,
+          "recall": 7.6,
+          "tokensPerReview": null,
+          "kind": "closed",
+          "judge": "opus-4.5",
+          "origin": "published"
+        }
+      ]
+    },
+    {
+      "id": "aacr-same-corpus",
+      "title": "AACR-Bench: the one corpus where a competitor's findings and ours were scored against the same key",
+      "subtitle": "Left: rows with a measured price. Right: rows without one. Both scales are this project's own measurements or the competitor's recorded rows.",
+      "metric": "F1",
+      "axisMax": 40,
+      "tokensAxis": [50000, 500000],
+      "source": "run 44664411046 (reach on) and 44664407799 (reach off), 14 pull requests; competitor rows from benchmarks/aacr/competitor-baseline.json over the 47 shared pull requests",
+      "rows": [
+        {
+          "tool": "open-code-review (recorded)",
+          "score": 28.21,
+          "low": null,
+          "high": null,
+          "precision": 70.0,
+          "recall": 17.66,
+          "tokensPerReview": null,
+          "kind": "open-source",
+          "judge": "deepseek-chat",
+          "origin": "measured"
+        },
+        {
+          "tool": "code-analyzer, index in the prompt",
+          "score": 23.16,
+          "low": null,
+          "high": null,
+          "precision": 28.7,
+          "recall": 19.41,
+          "tokensPerReview": 254442,
+          "kind": "open-source",
+          "judge": "deepseek-chat",
+          "origin": "measured"
+        },
+        {
+          "tool": "code-analyzer, no index",
+          "score": 18.12,
+          "low": null,
+          "high": null,
+          "precision": 23.58,
+          "recall": 14.71,
+          "tokensPerReview": 250253,
+          "kind": "open-source",
+          "judge": "deepseek-chat",
+          "origin": "measured"
+        }
+      ]
+    }
+  ],
+  "boards": [
+    {
+      "id": "martian-offline",
+      "label": "Martian offline",
+      "metric": "F1",
+      "leader": 65.8,
+      "leaderName": "Qodo Extended",
+      "ours": 27.57,
+      "corpus": "50 PRs, 173 goldens",
+      "note": "our row scored by deepseek-chat, theirs by opus-4.5"
+    },
+    {
+      "id": "martian-online",
+      "label": "Martian online",
+      "metric": "score",
+      "leader": 65.7,
+      "leaderName": "cubic",
+      "ours": null,
+      "corpus": "~16 000 scored PRs",
+      "note": "needs a bot account; not entered"
+    },
+    {
+      "id": "aacr",
+      "label": "AACR-Bench",
+      "metric": "F1",
+      "leader": null,
+      "leaderName": "vendor's own tool (33.9 precision)",
+      "ours": 23.16,
+      "corpus": "200 PRs, 1 505 issues",
+      "note": "the leader's published figure is precision, not F1"
+    },
+    {
+      "id": "cr-bench",
+      "label": "CR-Bench",
+      "metric": "KDDR",
+      "leader": 33.0,
+      "leaderName": "best agent",
+      "ours": null,
+      "corpus": "584 instances, 174 verified",
+      "note": "no key built here yet"
+    },
+    {
+      "id": "swe-prbench",
+      "label": "SWE-PRBench",
+      "metric": "detection",
+      "leader": 31.0,
+      "leaderName": "best model",
+      "ours": null,
+      "corpus": "350 PRs, 6 languages",
+      "note": "the ceiling any model reached"
+    },
+    {
+      "id": "codescalebench",
+      "label": "CodeScaleBench",
+      "metric": "P@5",
+      "leader": 47.8,
+      "leaderName": "index-backed arm",
+      "ours": null,
+      "corpus": "370 tasks",
+      "note": "index arm beats local source 14.0 → 47.8"
+    },
+    {
+      "id": "owasp-cosqa",
+      "label": "OWASP / CoSQA",
+      "metric": "own",
+      "leader": null,
+      "leaderName": "-",
+      "ours": null,
+      "corpus": "taint cases, query-code pairs",
+      "note": "entered; not a code-review ranking"
+    }
+  ]
+}

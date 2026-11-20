@@ -1,0 +1,50 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="960" height="600" viewBox="0 0 960 600" role="img" aria-label="AACR-Bench: the one corpus where a competitor's findings and ours were scored against the same key">
+<rect width="960" height="600" fill="#ffffff" />
+<text x="24" y="34" font-size="16" font-weight="700" fill="#1f2328">AACR-Bench: the one corpus where a competitor's findings and ours were scored against the same key</text>
+<text x="24" y="54" font-size="11" fill="#57606a">Left: rows with a measured price. Right: rows without one. Both scales are this project's own measurements or the competitor's recorded rows.</text>
+<text x="24" y="72" font-size="9" fill="#8c959f">source: run 44664411046 (reach on) and 44664407799 (reach off), 14 pull requests; competitor rows from benchmarks/aacr/competitor-baseline.json over the 47 shared pull requests</text>
+<line x1="86" y1="462" x2="430" y2="462" stroke="#d0d7de" stroke-width="1" />
+<text x="78" y="465" text-anchor="end" font-size="10" fill="#57606a">0</text>
+<line x1="86" y1="373.5" x2="430" y2="373.5" stroke="#d0d7de" stroke-width="1" />
+<text x="78" y="376.5" text-anchor="end" font-size="10" fill="#57606a">10</text>
+<line x1="86" y1="285" x2="430" y2="285" stroke="#d0d7de" stroke-width="1" />
+<text x="78" y="288" text-anchor="end" font-size="10" fill="#57606a">20</text>
+<line x1="86" y1="196.5" x2="430" y2="196.5" stroke="#d0d7de" stroke-width="1" />
+<text x="78" y="199.5" text-anchor="end" font-size="10" fill="#57606a">30</text>
+<line x1="86" y1="108" x2="430" y2="108" stroke="#d0d7de" stroke-width="1" />
+<text x="78" y="111" text-anchor="end" font-size="10" fill="#57606a">40</text>
+<line x1="86" y1="108" x2="86" y2="462" stroke="#eaeef2" stroke-width="1" />
+<text x="86" y="478" text-anchor="middle" font-size="10" fill="#57606a">50k</text>
+<line x1="189.55431850840955" y1="108" x2="189.55431850840955" y2="462" stroke="#eaeef2" stroke-width="1" />
+<text x="189.55431850840955" y="478" text-anchor="middle" font-size="10" fill="#57606a">100k</text>
+<line x1="293.1086370168191" y1="108" x2="293.1086370168191" y2="462" stroke="#eaeef2" stroke-width="1" />
+<text x="293.1086370168191" y="478" text-anchor="middle" font-size="10" fill="#57606a">200k</text>
+<line x1="396.66295552522865" y1="108" x2="396.66295552522865" y2="462" stroke="#eaeef2" stroke-width="1" />
+<text x="396.66295552522865" y="478" text-anchor="middle" font-size="10" fill="#57606a">400k</text>
+<polygon points="329.0768659213881,250.534 335.5768659213881,257.034 329.0768659213881,263.534 322.5768659213881,257.034" fill="#1a7f37" />
+<text x="320.0768659213881" y="260.034" text-anchor="end" font-size="11" font-weight="600" fill="#1f2328">code-analyzer, index in the prompt</text>
+<text x="320.0768659213881" y="272.034" text-anchor="end" font-size="9" fill="#57606a">23.2 F1 · 254.442k tokens</text>
+<polygon points="326.5967951103857,295.13800000000003 333.0967951103857,301.63800000000003 326.5967951103857,308.13800000000003 320.0967951103857,301.63800000000003" fill="#1a7f37" />
+<text x="317.5967951103857" y="304.63800000000003" text-anchor="end" font-size="11" font-weight="600" fill="#1f2328">code-analyzer, no index</text>
+<text x="317.5967951103857" y="316.63800000000003" text-anchor="end" font-size="9" fill="#57606a">18.1 F1 · 250.253k tokens</text>
+<line x1="86" y1="212.3415" x2="430" y2="212.3415" stroke="#cf222e" stroke-width="1.5" stroke-dasharray="6 4" />
+<text x="90" y="206.3415" font-size="10" fill="#cf222e">open-code-review (recorded): 28.2, price not published</text>
+<line x1="404" y1="212.3415" x2="404" y2="257.034" stroke="#8c959f" stroke-width="1" stroke-dasharray="2 3" />
+<text x="400" y="234.68775" text-anchor="end" font-size="10" fill="#57606a">5.1 F1 of headroom</text>
+<text x="258" y="496" text-anchor="middle" font-size="10" fill="#1f2328">prompt tokens per pull request (log)</text>
+<text x="42" y="285" font-size="10" fill="#1f2328" transform="rotate(-90 42 285)" text-anchor="middle">F1</text>
+<text x="86" y="96" font-size="10" font-weight="600" fill="#1f2328">rows with a price</text>
+<text x="496" y="96" font-size="10" font-weight="600" fill="#1f2328">rows whose price is not published</text>
+<text x="496" y="118.53999999999999" font-size="9" fill="#1f2328">open-code-review (recorded)</text>
+<rect x="664" y="109" width="157.976" height="13" fill="#1a7f37" opacity="0.75" />
+<text x="825.976" y="118.53999999999999" font-size="9" fill="#57606a">28.2</text>
+<polygon points="90,518.5 95.5,524 90,529.5 84.5,524" fill="#1a7f37" />
+<text x="99" y="528" font-size="10" fill="#57606a">open source, self-hosted</text>
+<rect x="235.2" y="520" width="8" height="8" fill="#8250df" />
+<text x="248.2" y="528" font-size="10" fill="#57606a">closed, self-host option published</text>
+<circle cx="441.4" cy="524" r="4" fill="#57606a" />
+<text x="450.4" y="528" font-size="10" fill="#57606a">closed cloud service</text>
+
+<text x="24" y="572" font-size="9" fill="#8c959f">an interval is the survey's 95 % one; a mark without one is a measurement this repository made and whose interval it did not.</text>
+<text x="24" y="588" font-size="9" fill="#8c959f">generated from benchmarks/competitive-position.json by scripts/competitive-position.mjs; do not edit by hand.</text>
+</svg>

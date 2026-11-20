@@ -11255,3 +11255,128 @@ crosses nothing; that is the same statement as `import a.b.*`, and it is only de
 
 **The bill for §104 is 0 CNY**: two readers, one stack, one index that keeps lines instead of one line, one extension in a
 list and two extensions in a map - no model call anywhere in it.
+
+---
+
+## §105 The run that died of its own cache, and the figure that says what the field does not publish
+
+**Two things happened before any optimising this round, and both are corrections rather than features.** The
+fifty-pull-request confirmation of R-44 **crashed**, and the crash was the harness's own bookkeeping rather than the
+corpus - so it is fixed here, with the arithmetic. And the comparison this project keeps making in prose now has a figure
+that a reader can check against the JSON it comes from, **whose most visible feature is a panel of rows the field will
+not price.**
+
+### 105.1 `FATAL ERROR: Reached heap limit` at fifty pull requests
+
+The dispatch of 2026-11-20 at `7bf85fc6` reviewed the corpus' first fifty pull requests and died in the engine step:
+
+```
+[2825:0x190fd000] 2765524 ms: Mark-Compact 4055.0 (4141.3) -> 4040.2 (4142.6) MB
+FATAL ERROR: Reached heap limit Allocation failed - JavaScript heap out of memory
+```
+
+**Fourteen pull requests of the same code had passed six hours earlier.** That is the shape of a leak and not of a big
+input: the corpus grew by 3.6x and the retained heap grew with it, per pull request.
+
+The leak was in the source with a comment arguing for it:
+
+```js
+/** One index per head commit, because two pull requests can share a commit and a rebuild would be the same answer. */
+const reachIndexes = new Map();
+```
+
+**Every clause of that comment is true and the conclusion does not follow.** The loop reviews one pull request at a time
+and **consecutive pull requests never share a head**, so the map was written once per pull request, read once, and never
+read again: it was not a cache, it was a list of every index the run had ever built.
+
+**The cost per entry, measured rather than estimated** (`buildRepoIndex` over two checkouts, heap after `global.gc()`):
+
+| checkout                    | files read | heap retained | per indexed file |
+| --------------------------- | ---------- | ------------- | ---------------- |
+| `Kotlin/kotlinx.coroutines` | 1 120      | 19.1 MB       | **17.5 KB**      |
+| `apache/commons-lang`       | 685        | 40.8 MB       | **61.0 KB**      |
+
+At the reach arm's own twenty-thousand-file cap that is **350 MB to 1.2 GB per index**, and fifty of them is **ten to
+sixty gigabytes against a four-gigabyte default heap**. The crash was arithmetic.
+
+**The fix is the loop's own shape.** `createOneIndexCache` holds one entry and counts its evictions, so the artifact can
+show the bound was reached instead of asserting it; `checkoutsToPrune` closes the same hole on disk, where the failure
+would have been `ENOSPC` in the middle of a `git checkout` - which reads like a network fault and is not.
+
+**What the smaller cache trades, stated rather than hidden**: a head that recurs after another pull request was reviewed
+is **rebuilt rather than served**. A rebuild is seconds; a heap limit is a run that produced nothing. **Two counters,
+`reach.indexEvictions` and `reach.checkoutsPruned`, make the trade visible in every artifact.**
+
+### 105.1b The baseline that did finish, and what fifty pull requests do to a figure
+
+The companion arm - the same corpus, the same profile, **the index off** - completed, so the confirmation's denominator
+exists even though its numerator was still running when this section was written:
+
+| 50 pull requests, reach off            | 14 pull requests, reach off (§103) |
+| -------------------------------------- | ---------------------------------- |
+| 79 TP / 241 FP / 373 FN                | 25 TP / 81 FP / 145 FN             |
+| **P 0.2469, R 0.1748, F1 0.2047**      | P 0.2358, R 0.1471, F1 0.1812      |
+| 133 895 prompt tokens per pull request | 250 253 per pull request           |
+| 2.38 USD for the run                   | 0.89 USD                           |
+
+**The larger slice is easier and cheaper per pull request**, which is a fact about the first fifty pull requests and not
+about the engine: the corpus is ordered, so the fourteen were not a sample of the fifty. **Any comparison across corpus
+sizes in this document is a comparison of two different corpora**, and the R-44 figure of +32 % matched goldens is a
+fourteen-pull-request figure until the arm that is running says otherwise.
+
+### 105.2 The figure, and the panel that is the finding
+
+`docs/figures/` now holds four generated charts, from `benchmarks/competitive-position.json` by
+`scripts/competitive-position.mjs`, with nine tests holding the three properties that make the pair checkable: **every row
+appears by name, a row with no price is never drawn as one, and the same JSON twice produces the same bytes.**
+
+| figure                      | what it is for                                                                                            |
+| --------------------------- | --------------------------------------------------------------------------------------------------------- |
+| `martian-offline.svg`       | the twenty-two rows of the offline board, F1 against **prompt tokens per pull request**                   |
+| `aacr-same-corpus.svg`      | the only corpus where a competitor's findings and ours were scored by the same judge against the same key |
+| `our-budget-frontier.svg`   | what a larger per-file cap buys, in F1, for finding text - the curve this engine can move along by itself |
+| `boards-one-per-column.svg` | seven boards whose seven metrics must not be read as one scale                                            |
+
+**The left panel of the first two holds the rows with a price. The right panel holds the rows without one, ranked.** That
+split is not a layout convenience: **twenty-one of the twenty-two rows on the Martian offline board publish no token
+count for a review**, and a scatter of the full board would have had to either drop them - which is the crop that flatters
+whoever has a number - or invent a price for them.
+
+**So the empty half of the left panel is the result.** On that board this engine is **the only row with both axes
+measured**: 27.6 F1 at **155 233 prompt tokens per pull request** (7 761 632 tokens, 1.32 USD, fifty pull requests,
+§102's run). The leader is **38.2 F1 points above it at a price nobody published**, and the figure draws that as a dashed
+line with the number on it rather than leaving a reader to notice the gap.
+
+**Two honest annotations ride on that figure.** The intervals are the survey's 95 % ones and our row has none, because
+this project measured one run; and **our row's judge is `deepseek-chat` while the other twenty-one are Opus 4.5** - the
+same survey reports the judge moving the top rows by up to nine F1 points, so **the 27.6 is not the same measurement as
+the rows above it**, only the same corpus. The figure carries both sentences rather than a footnote a reader may skip.
+
+### 105.3 What the second figure says that no leaderboard does
+
+`aacr-same-corpus.svg` is three rows on one corpus and one judge:
+
+| row                                | F1     | prompt tokens per pull request |
+| ---------------------------------- | ------ | ------------------------------ |
+| `open-code-review` (recorded rows) | 0.2821 | **not published**              |
+| this engine, index in the prompt   | 0.2316 | 254 442                        |
+| this engine, no index              | 0.1812 | 250 253                        |
+
+**The competitor is ahead by 5.1 F1 points and the index costs 1.7 % of the prompt.** Those two numbers together are the
+honest summary of this project's position: **the device works and the sentences are not yet good enough** - which is the
+same conclusion §96.3 reached from the other side, when the ceiling at our precision was 0.4231 against a registered
+target of 0.4500.
+
+### 105.4 What this does not claim
+
+- **No new review was run for the figures.** Every number in them is a number already paid for in §102/§103/§104.
+- **The fifty-pull-request confirmation of R-44 is not concluded here.** Its second arm was in flight at `9249179e`; the
+  figure and this section will be extended when it lands, and until then **R-44 remains a fourteen-pull-request result**.
+- **The cost axis is prompt tokens and not money**, because the two disagree across models: the same 254 442 tokens cost
+  0.0441 USD per pull request here and would cost 3.8 USD at a frontier model's price.
+- **A figure is not a benchmark run.** It reads a JSON that other sections measured; if the JSON is wrong the figure is
+  wrong in the same direction, and the test that holds that is `a-figure-names-every-row`.
+
+**The bill for §105 is 0 CNY**: one cache of one entry, one working-tree pruner, one generator and nine tests. **The
+crashed run cost about 1.4 USD of work that produced no artifact**, which is the price of the leak and is charged here
+rather than quietly dropped.

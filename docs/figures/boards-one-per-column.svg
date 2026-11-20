@@ -1,0 +1,79 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="960" height="420" viewBox="0 0 960 420" role="img" aria-label="one column per leaderboard">
+<rect width="960" height="420" fill="#ffffff" />
+<text x="24" y="34" font-size="15" font-weight="700" fill="#1f2328">Seven boards, seven metrics, and no shared scale</text>
+<text x="24" y="54" font-size="10" fill="#57606a">each column is scaled to its own leader; a column without a green mark is a board this engine has not been entered on, which is a different fact from a low score</text>
+<line x1="104.28571428571429" y1="118" x2="104.28571428571429" y2="292" stroke="#d0d7de" />
+<text x="104.28571428571429" y="300" text-anchor="middle" font-size="8" fill="#d0d7de">0</text>
+<text x="104.28571428571429" y="110" text-anchor="middle" font-size="10" font-weight="600" fill="#1f2328">Martian offline</text>
+<text x="104.28571428571429" y="124" text-anchor="middle" font-size="8" fill="#8c959f">F1</text>
+<circle cx="90.28571428571429" cy="134" r="4" fill="#57606a" />
+<text x="82.28571428571429" y="137" text-anchor="end" font-size="9" fill="#1f2328">65.8</text>
+<text x="106.28571428571429" y="137" font-size="8" fill="#57606a">leader</text>
+<polygon points="118.28571428571429,220.29848024316107 123.78571428571429,225.79848024316107 118.28571428571429,231.29848024316107 112.78571428571429,225.79848024316107" fill="#1a7f37" />
+<text x="126.28571428571429" y="228.79848024316107" font-size="9" fill="#1f2328">27.6</text>
+<text x="106.28571428571429" y="239.79848024316107" font-size="8" fill="#1a7f37">ours</text>
+<text x="104.28571428571429" y="310" text-anchor="middle" font-size="8" fill="#8c959f">50 PRs, 173 goldens</text>
+<text x="104.28571428571429" y="321" text-anchor="middle" font-size="8" fill="#8c959f">our row scored by</text>
+<text x="104.28571428571429" y="332" text-anchor="middle" font-size="8" fill="#8c959f">deepseek-chat, theirs</text>
+<text x="104.28571428571429" y="343" text-anchor="middle" font-size="8" fill="#8c959f">by opus-4.5</text>
+<line x1="232.8571428571429" y1="118" x2="232.8571428571429" y2="292" stroke="#d0d7de" />
+<text x="232.8571428571429" y="300" text-anchor="middle" font-size="8" fill="#d0d7de">0</text>
+<text x="232.8571428571429" y="110" text-anchor="middle" font-size="10" font-weight="600" fill="#1f2328">Martian online</text>
+<text x="232.8571428571429" y="124" text-anchor="middle" font-size="8" fill="#8c959f">score</text>
+<circle cx="218.8571428571429" cy="134" r="4" fill="#57606a" />
+<text x="210.8571428571429" y="137" text-anchor="end" font-size="9" fill="#1f2328">65.7</text>
+<text x="234.8571428571429" y="137" font-size="8" fill="#57606a">leader</text>
+<text x="232.8571428571429" y="310" text-anchor="middle" font-size="8" fill="#8c959f">~16 000 scored PRs</text>
+<text x="232.8571428571429" y="321" text-anchor="middle" font-size="8" fill="#8c959f">needs a bot account;</text>
+<text x="232.8571428571429" y="332" text-anchor="middle" font-size="8" fill="#8c959f">not entered</text>
+<line x1="361.42857142857144" y1="118" x2="361.42857142857144" y2="292" stroke="#d0d7de" />
+<text x="361.42857142857144" y="300" text-anchor="middle" font-size="8" fill="#d0d7de">0</text>
+<text x="361.42857142857144" y="110" text-anchor="middle" font-size="10" font-weight="600" fill="#1f2328">AACR-Bench</text>
+<text x="361.42857142857144" y="124" text-anchor="middle" font-size="8" fill="#8c959f">F1</text>
+<polygon points="375.42857142857144,173.64285714285714 380.92857142857144,179.14285714285714 375.42857142857144,184.64285714285714 369.92857142857144,179.14285714285714" fill="#1a7f37" />
+<text x="383.42857142857144" y="182.14285714285714" font-size="9" fill="#1f2328">23.2</text>
+<text x="363.42857142857144" y="193.14285714285714" font-size="8" fill="#1a7f37">ours</text>
+<text x="361.42857142857144" y="310" text-anchor="middle" font-size="8" fill="#8c959f">200 PRs, 1 505 issues</text>
+<text x="361.42857142857144" y="321" text-anchor="middle" font-size="8" fill="#8c959f">the leader's published</text>
+<text x="361.42857142857144" y="332" text-anchor="middle" font-size="8" fill="#8c959f">figure is precision,</text>
+<text x="361.42857142857144" y="343" text-anchor="middle" font-size="8" fill="#8c959f">not F1</text>
+<line x1="490.00000000000006" y1="118" x2="490.00000000000006" y2="292" stroke="#d0d7de" />
+<text x="490.00000000000006" y="300" text-anchor="middle" font-size="8" fill="#d0d7de">0</text>
+<text x="490.00000000000006" y="110" text-anchor="middle" font-size="10" font-weight="600" fill="#1f2328">CR-Bench</text>
+<text x="490.00000000000006" y="124" text-anchor="middle" font-size="8" fill="#8c959f">KDDR</text>
+<circle cx="476.00000000000006" cy="134" r="4" fill="#57606a" />
+<text x="468.00000000000006" y="137" text-anchor="end" font-size="9" fill="#1f2328">33.0</text>
+<text x="492.00000000000006" y="137" font-size="8" fill="#57606a">leader</text>
+<text x="490.00000000000006" y="310" text-anchor="middle" font-size="8" fill="#8c959f">584 instances, 174</text>
+<text x="490.00000000000006" y="321" text-anchor="middle" font-size="8" fill="#8c959f">verified</text>
+<text x="490.00000000000006" y="332" text-anchor="middle" font-size="8" fill="#8c959f">no key built here yet</text>
+<line x1="618.5714285714287" y1="118" x2="618.5714285714287" y2="292" stroke="#d0d7de" />
+<text x="618.5714285714287" y="300" text-anchor="middle" font-size="8" fill="#d0d7de">0</text>
+<text x="618.5714285714287" y="110" text-anchor="middle" font-size="10" font-weight="600" fill="#1f2328">SWE-PRBench</text>
+<text x="618.5714285714287" y="124" text-anchor="middle" font-size="8" fill="#8c959f">detection</text>
+<circle cx="604.5714285714287" cy="134" r="4" fill="#57606a" />
+<text x="596.5714285714287" y="137" text-anchor="end" font-size="9" fill="#1f2328">31.0</text>
+<text x="620.5714285714287" y="137" font-size="8" fill="#57606a">leader</text>
+<text x="618.5714285714287" y="310" text-anchor="middle" font-size="8" fill="#8c959f">350 PRs, 6 languages</text>
+<text x="618.5714285714287" y="321" text-anchor="middle" font-size="8" fill="#8c959f">the ceiling any model</text>
+<text x="618.5714285714287" y="332" text-anchor="middle" font-size="8" fill="#8c959f">reached</text>
+<line x1="747.1428571428572" y1="118" x2="747.1428571428572" y2="292" stroke="#d0d7de" />
+<text x="747.1428571428572" y="300" text-anchor="middle" font-size="8" fill="#d0d7de">0</text>
+<text x="747.1428571428572" y="110" text-anchor="middle" font-size="10" font-weight="600" fill="#1f2328">CodeScaleBench</text>
+<text x="747.1428571428572" y="124" text-anchor="middle" font-size="8" fill="#8c959f">P@5</text>
+<circle cx="733.1428571428572" cy="134" r="4" fill="#57606a" />
+<text x="725.1428571428572" y="137" text-anchor="end" font-size="9" fill="#1f2328">47.8</text>
+<text x="749.1428571428572" y="137" font-size="8" fill="#57606a">leader</text>
+<text x="747.1428571428572" y="310" text-anchor="middle" font-size="8" fill="#8c959f">370 tasks</text>
+<text x="747.1428571428572" y="321" text-anchor="middle" font-size="8" fill="#8c959f">index arm beats local</text>
+<text x="747.1428571428572" y="332" text-anchor="middle" font-size="8" fill="#8c959f">source 14.0 → 47.8</text>
+<line x1="875.7142857142859" y1="118" x2="875.7142857142859" y2="292" stroke="#d0d7de" />
+<text x="875.7142857142859" y="300" text-anchor="middle" font-size="8" fill="#d0d7de">0</text>
+<text x="875.7142857142859" y="110" text-anchor="middle" font-size="10" font-weight="600" fill="#1f2328">OWASP / CoSQA</text>
+<text x="875.7142857142859" y="124" text-anchor="middle" font-size="8" fill="#8c959f">own</text>
+<text x="875.7142857142859" y="310" text-anchor="middle" font-size="8" fill="#8c959f">taint cases,</text>
+<text x="875.7142857142859" y="321" text-anchor="middle" font-size="8" fill="#8c959f">query-code pairs</text>
+<text x="875.7142857142859" y="332" text-anchor="middle" font-size="8" fill="#8c959f">entered; not a</text>
+<text x="875.7142857142859" y="343" text-anchor="middle" font-size="8" fill="#8c959f">code-review ranking</text>
+<text x="24" y="408" font-size="9" fill="#8c959f">generated from benchmarks/competitive-position.json; sources per row are in docs/LEADERBOARDS.md.</text>
+</svg>
