@@ -9,27 +9,38 @@
   "repos": [
     {
       "repo": "gin-gonic_gin",
-      "commit": "0f09c3a9b4626d9fe9979cf4d0521d6ae32ab646",
+      "commit": "0f09c3a9b462",
       "goModule": "github.com/gin-gonic/gin",
-      "files": 99,
+      "swiftModules": [],
+      "files": 110,
       "readerSkipped": {
         "bySize": 0,
         "overCap": 0,
         "overBytes": 0
       },
-      "indexMs": 56,
+      "indexMs": 57,
       "stats": {
-        "files": 99,
-        "symbols": 1600,
+        "files": 110,
+        "symbols": 1937,
         "imports": 521,
         "resolvedImports": 31,
         "externalImports": 490,
         "missingImports": 0,
         "ambiguousImports": 0,
         "namespaceImports": 0,
-        "edges": 94
+        "edges": 89
       },
       "byLanguage": {
+        "yaml": {
+          "files": 11,
+          "symbols": 337,
+          "imports": 0,
+          "resolved": 0,
+          "external": 0,
+          "missing": 0,
+          "ambiguous": 0,
+          "edges": 0
+        },
         "go": {
           "files": 99,
           "symbols": 1600,
@@ -38,41 +49,52 @@
           "external": 490,
           "missing": 0,
           "ambiguous": 0,
-          "edges": 94
+          "edges": 89
         }
       },
       "reach": {
-        "filesWithSymbols": 98,
-        "filesWithReach": 98,
-        "emptyNotes": 69,
-        "chars": 2206,
+        "filesWithSymbols": 109,
+        "filesWithReach": 109,
+        "emptyNotes": 80,
+        "chars": 2167,
         "medianChars": 48,
-        "charsPerNonEmptyNote": 76.069
+        "charsPerNonEmptyNote": 74.7241
       }
     },
     {
       "repo": "DaveGamble_cJSON",
-      "commit": "6d9f2443ab071f86e5d9b43025a40929ec41c46c",
+      "commit": "6d9f2443ab07",
       "goModule": null,
-      "files": 101,
+      "swiftModules": [],
+      "files": 124,
       "readerSkipped": {
         "bySize": 0,
         "overCap": 0,
         "overBytes": 0
       },
-      "indexMs": 53,
+      "indexMs": 63,
       "stats": {
-        "files": 101,
-        "symbols": 1430,
+        "files": 124,
+        "symbols": 2038,
         "imports": 389,
         "resolvedImports": 163,
         "externalImports": 169,
         "missingImports": 49,
         "ambiguousImports": 8,
         "namespaceImports": 0,
-        "edges": 52
+        "edges": 38
       },
       "byLanguage": {
+        "yaml": {
+          "files": 19,
+          "symbols": 600,
+          "imports": 0,
+          "resolved": 0,
+          "external": 0,
+          "missing": 0,
+          "ambiguous": 0,
+          "edges": 0
+        },
         "c": {
           "files": 99,
           "symbols": 1420,
@@ -81,7 +103,17 @@
           "external": 160,
           "missing": 49,
           "ambiguous": 8,
-          "edges": 52
+          "edges": 38
+        },
+        "json": {
+          "files": 4,
+          "symbols": 8,
+          "imports": 0,
+          "resolved": 0,
+          "external": 0,
+          "missing": 0,
+          "ambiguous": 0,
+          "edges": 0
         },
         "python": {
           "files": 2,
@@ -95,37 +127,48 @@
         }
       },
       "reach": {
-        "filesWithSymbols": 97,
-        "filesWithReach": 97,
-        "emptyNotes": 89,
-        "chars": 1856,
-        "medianChars": 202,
-        "charsPerNonEmptyNote": 232
+        "filesWithSymbols": 117,
+        "filesWithReach": 117,
+        "emptyNotes": 109,
+        "chars": 1673,
+        "medianChars": 200,
+        "charsPerNonEmptyNote": 209.125
       }
     },
     {
       "repo": "stedolan_jq",
-      "commit": "5c001b18d7237cce1fdba63608732163f978dd23",
+      "commit": "5c001b18d723",
       "goModule": null,
-      "files": 87,
+      "swiftModules": [],
+      "files": 109,
       "readerSkipped": {
         "bySize": 0,
         "overCap": 0,
         "overBytes": 0
       },
-      "indexMs": 102,
+      "indexMs": 172,
       "stats": {
-        "files": 87,
-        "symbols": 1862,
+        "files": 109,
+        "symbols": 9087,
         "imports": 447,
         "resolvedImports": 173,
         "externalImports": 263,
         "missingImports": 11,
         "ambiguousImports": 0,
         "namespaceImports": 0,
-        "edges": 728
+        "edges": 721
       },
       "byLanguage": {
+        "yaml": {
+          "files": 20,
+          "symbols": 7216,
+          "imports": 0,
+          "resolved": 0,
+          "external": 0,
+          "missing": 0,
+          "ambiguous": 0,
+          "edges": 0
+        },
         "python": {
           "files": 5,
           "symbols": 23,
@@ -154,41 +197,72 @@
           "external": 241,
           "missing": 11,
           "ambiguous": 0,
-          "edges": 728
+          "edges": 721
+        },
+        "json": {
+          "files": 2,
+          "symbols": 9,
+          "imports": 0,
+          "resolved": 0,
+          "external": 0,
+          "missing": 0,
+          "ambiguous": 0,
+          "edges": 0
         }
       },
       "reach": {
-        "filesWithSymbols": 79,
-        "filesWithReach": 79,
-        "emptyNotes": 50,
-        "chars": 6685,
+        "filesWithSymbols": 101,
+        "filesWithReach": 101,
+        "emptyNotes": 72,
+        "chars": 6646,
         "medianChars": 241,
-        "charsPerNonEmptyNote": 230.5172
+        "charsPerNonEmptyNote": 229.1724
       }
     },
     {
       "repo": "apache_commons-lang",
-      "commit": "9e224bc34f8003041375d207be859b951ce505b4",
+      "commit": "9e224bc34f80",
       "goModule": null,
-      "files": 647,
+      "swiftModules": [],
+      "files": 685,
       "readerSkipped": {
         "bySize": 0,
         "overCap": 0,
         "overBytes": 0
       },
-      "indexMs": 513,
+      "indexMs": 602,
       "stats": {
-        "files": 647,
-        "symbols": 1115,
-        "imports": 4670,
+        "files": 685,
+        "symbols": 5526,
+        "imports": 4697,
         "resolvedImports": 751,
-        "externalImports": 3919,
+        "externalImports": 3946,
         "missingImports": 0,
         "ambiguousImports": 0,
         "namespaceImports": 0,
         "edges": 605
       },
       "byLanguage": {
+        "yaml": {
+          "files": 6,
+          "symbols": 166,
+          "imports": 0,
+          "resolved": 0,
+          "external": 0,
+          "missing": 0,
+          "ambiguous": 0,
+          "edges": 0
+        },
+        "xml": {
+          "files": 31,
+          "symbols": 4245,
+          "imports": 27,
+          "resolved": 0,
+          "external": 27,
+          "missing": 0,
+          "ambiguous": 0,
+          "edges": 0
+        },
         "java": {
           "files": 647,
           "symbols": 1115,
@@ -198,12 +272,22 @@
           "missing": 0,
           "ambiguous": 0,
           "edges": 605
+        },
+        "json": {
+          "files": 1,
+          "symbols": 0,
+          "imports": 0,
+          "resolved": 0,
+          "external": 0,
+          "missing": 0,
+          "ambiguous": 0,
+          "edges": 0
         }
       },
       "reach": {
-        "filesWithSymbols": 629,
-        "filesWithReach": 629,
-        "emptyNotes": 518,
+        "filesWithSymbols": 666,
+        "filesWithReach": 666,
+        "emptyNotes": 555,
         "chars": 17224,
         "medianChars": 148,
         "charsPerNonEmptyNote": 155.1712
@@ -211,18 +295,19 @@
     },
     {
       "repo": "psf_requests",
-      "commit": "3c7baaa05ab4aa49cc819ce3a819d260de19c157",
+      "commit": "3c7baaa05ab4",
       "goModule": null,
-      "files": 37,
+      "swiftModules": [],
+      "files": 49,
       "readerSkipped": {
         "bySize": 0,
         "overCap": 0,
         "overBytes": 0
       },
-      "indexMs": 60,
+      "indexMs": 48,
       "stats": {
-        "files": 37,
-        "symbols": 382,
+        "files": 49,
+        "symbols": 723,
         "imports": 324,
         "resolvedImports": 89,
         "externalImports": 235,
@@ -232,6 +317,16 @@
         "edges": 120
       },
       "byLanguage": {
+        "yaml": {
+          "files": 12,
+          "symbols": 341,
+          "imports": 0,
+          "resolved": 0,
+          "external": 0,
+          "missing": 0,
+          "ambiguous": 0,
+          "edges": 0
+        },
         "python": {
           "files": 37,
           "symbols": 382,
@@ -244,9 +339,9 @@
         }
       },
       "reach": {
-        "filesWithSymbols": 34,
-        "filesWithReach": 34,
-        "emptyNotes": 18,
+        "filesWithSymbols": 46,
+        "filesWithReach": 46,
+        "emptyNotes": 30,
         "chars": 3205,
         "medianChars": 151,
         "charsPerNonEmptyNote": 200.3125
@@ -254,27 +349,41 @@
     },
     {
       "repo": "Alamofire_Alamofire",
-      "commit": "dea4bab91767a971d6e112bc955c6a82295589b7",
+      "commit": "dea4bab91767",
       "goModule": null,
-      "files": 111,
+      "swiftModules": [
+        ["Alamofire", "Source"],
+        ["AlamofireTests", "Tests"]
+      ],
+      "files": 140,
       "readerSkipped": {
         "bySize": 0,
         "overCap": 0,
         "overBytes": 0
       },
-      "indexMs": 121,
+      "indexMs": 196,
       "stats": {
-        "files": 111,
-        "symbols": 623,
-        "imports": 170,
-        "resolvedImports": 0,
-        "externalImports": 170,
+        "files": 140,
+        "symbols": 4365,
+        "imports": 185,
+        "resolvedImports": 43,
+        "externalImports": 142,
         "missingImports": 0,
         "ambiguousImports": 0,
         "namespaceImports": 0,
-        "edges": 0
+        "edges": 430
       },
       "byLanguage": {
+        "yaml": {
+          "files": 5,
+          "symbols": 553,
+          "imports": 0,
+          "resolved": 0,
+          "external": 0,
+          "missing": 0,
+          "ambiguous": 0,
+          "edges": 0
+        },
         "javascript": {
           "files": 10,
           "symbols": 6,
@@ -285,40 +394,61 @@
           "ambiguous": 0,
           "edges": 0
         },
-        "swift": {
-          "files": 101,
-          "symbols": 617,
-          "imports": 168,
+        "json": {
+          "files": 23,
+          "symbols": 3186,
+          "imports": 0,
           "resolved": 0,
-          "external": 168,
+          "external": 0,
           "missing": 0,
           "ambiguous": 0,
           "edges": 0
+        },
+        "xml": {
+          "files": 1,
+          "symbols": 3,
+          "imports": 0,
+          "resolved": 0,
+          "external": 0,
+          "missing": 0,
+          "ambiguous": 0,
+          "edges": 0
+        },
+        "swift": {
+          "files": 101,
+          "symbols": 617,
+          "imports": 183,
+          "resolved": 43,
+          "external": 140,
+          "missing": 0,
+          "ambiguous": 0,
+          "edges": 430
         }
       },
       "reach": {
-        "filesWithSymbols": 103,
-        "filesWithReach": 103,
-        "emptyNotes": 103,
-        "chars": 0,
-        "medianChars": 0,
-        "charsPerNonEmptyNote": 0
+        "filesWithSymbols": 131,
+        "filesWithReach": 131,
+        "emptyNotes": 95,
+        "chars": 9047,
+        "medianChars": 199,
+        "charsPerNonEmptyNote": 251.3056
       }
     },
     {
       "repo": "Kotlin_kotlinx.coroutines",
-      "commit": "7f4d6cf2414937b50291df6169a69afbaf9c5a20",
+      "commit": "7f4d6cf24149",
       "goModule": null,
-      "files": 1105,
+      "swiftModules": [],
+      "files": 1120,
       "readerSkipped": {
         "bySize": 0,
         "overCap": 0,
         "overBytes": 0
       },
-      "indexMs": 255,
+      "indexMs": 272,
       "stats": {
-        "files": 1105,
-        "symbols": 3271,
+        "files": 1120,
+        "symbols": 3538,
         "imports": 4421,
         "resolvedImports": 1888,
         "externalImports": 2533,
@@ -328,6 +458,26 @@
         "edges": 118
       },
       "byLanguage": {
+        "yaml": {
+          "files": 6,
+          "symbols": 199,
+          "imports": 0,
+          "resolved": 0,
+          "external": 0,
+          "missing": 0,
+          "ambiguous": 0,
+          "edges": 0
+        },
+        "xml": {
+          "files": 8,
+          "symbols": 55,
+          "imports": 0,
+          "resolved": 0,
+          "external": 0,
+          "missing": 0,
+          "ambiguous": 0,
+          "edges": 0
+        },
         "kotlin": {
           "files": 1082,
           "symbols": 3250,
@@ -357,15 +507,173 @@
           "missing": 1,
           "ambiguous": 0,
           "edges": 17
+        },
+        "json": {
+          "files": 1,
+          "symbols": 13,
+          "imports": 0,
+          "resolved": 0,
+          "external": 0,
+          "missing": 0,
+          "ambiguous": 0,
+          "edges": 0
         }
       },
       "reach": {
-        "filesWithSymbols": 1065,
-        "filesWithReach": 1065,
-        "emptyNotes": 1015,
+        "filesWithSymbols": 1080,
+        "filesWithReach": 1080,
+        "emptyNotes": 1030,
         "chars": 6613,
         "medianChars": 101,
         "charsPerNonEmptyNote": 132.26
+      }
+    },
+    {
+      "repo": "json-schema-org_JSON-Schema-Test-Suite",
+      "commit": "e2a68a15cd49",
+      "goModule": null,
+      "swiftModules": [],
+      "files": 106,
+      "readerSkipped": {
+        "bySize": 0,
+        "overCap": 0,
+        "overBytes": 0
+      },
+      "indexMs": 101,
+      "stats": {
+        "files": 106,
+        "symbols": 18394,
+        "imports": 193,
+        "resolvedImports": 3,
+        "externalImports": 93,
+        "missingImports": 97,
+        "ambiguousImports": 0,
+        "namespaceImports": 3,
+        "edges": 0
+      },
+      "byLanguage": {
+        "yaml": {
+          "files": 4,
+          "symbols": 61,
+          "imports": 0,
+          "resolved": 0,
+          "external": 0,
+          "missing": 0,
+          "ambiguous": 0,
+          "edges": 0
+        },
+        "typescript": {
+          "files": 1,
+          "symbols": 2,
+          "imports": 2,
+          "resolved": 0,
+          "external": 2,
+          "missing": 0,
+          "ambiguous": 0,
+          "edges": 0
+        },
+        "json": {
+          "files": 100,
+          "symbols": 18310,
+          "imports": 183,
+          "resolved": 3,
+          "external": 83,
+          "missing": 97,
+          "ambiguous": 0,
+          "edges": 0
+        },
+        "python": {
+          "files": 1,
+          "symbols": 21,
+          "imports": 8,
+          "resolved": 0,
+          "external": 8,
+          "missing": 0,
+          "ambiguous": 0,
+          "edges": 0
+        }
+      },
+      "reach": {
+        "filesWithSymbols": 106,
+        "filesWithReach": 106,
+        "emptyNotes": 106,
+        "chars": 0,
+        "medianChars": 0,
+        "charsPerNonEmptyNote": 0
+      }
+    },
+    {
+      "repo": "GNOME_libxml2",
+      "commit": "21c8223ac091",
+      "goModule": null,
+      "swiftModules": [],
+      "files": 1377,
+      "readerSkipped": {
+        "bySize": 2,
+        "overCap": 0,
+        "overBytes": 0
+      },
+      "indexMs": 562,
+      "stats": {
+        "files": 1377,
+        "symbols": 39259,
+        "imports": 1515,
+        "resolvedImports": 303,
+        "externalImports": 1194,
+        "missingImports": 18,
+        "ambiguousImports": 0,
+        "namespaceImports": 25,
+        "edges": 65
+      },
+      "byLanguage": {
+        "yaml": {
+          "files": 1,
+          "symbols": 228,
+          "imports": 0,
+          "resolved": 0,
+          "external": 0,
+          "missing": 0,
+          "ambiguous": 0,
+          "edges": 0
+        },
+        "c": {
+          "files": 155,
+          "symbols": 3754,
+          "imports": 1196,
+          "resolved": 228,
+          "external": 960,
+          "missing": 8,
+          "ambiguous": 0,
+          "edges": 65
+        },
+        "python": {
+          "files": 62,
+          "symbols": 516,
+          "imports": 220,
+          "resolved": 50,
+          "external": 170,
+          "missing": 0,
+          "ambiguous": 0,
+          "edges": 0
+        },
+        "xml": {
+          "files": 1159,
+          "symbols": 34761,
+          "imports": 99,
+          "resolved": 25,
+          "external": 64,
+          "missing": 10,
+          "ambiguous": 0,
+          "edges": 0
+        }
+      },
+      "reach": {
+        "filesWithSymbols": 1255,
+        "filesWithReach": 1255,
+        "emptyNotes": 1242,
+        "chars": 1038,
+        "medianChars": 46,
+        "charsPerNonEmptyNote": 79.8462
       }
     }
   ]

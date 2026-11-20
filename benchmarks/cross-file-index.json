@@ -13,23 +13,23 @@
     "web"
   ],
   "files": 485,
-  "lines": 186552,
+  "lines": 186941,
   "stats": {
     "files": 485,
-    "symbols": 4337,
-    "imports": 1884,
-    "resolvedImports": 1264,
+    "symbols": 4346,
+    "imports": 1885,
+    "resolvedImports": 1265,
     "externalImports": 620,
     "missingImports": 0,
     "ambiguousImports": 0,
     "namespaceImports": 0,
-    "edges": 1286
+    "edges": 1266
   },
-  "elapsedMs": 438,
+  "elapsedMs": 429,
   "agreement": {
-    "compared": 1264,
+    "compared": 1265,
     "bareSpecifiers": 620,
-    "agreed": 1264,
+    "agreed": 1265,
     "rate": 1,
     "weResolveTheyDoNot": 0,
     "theyResolveWeDoNot": 0,
@@ -41,10 +41,10 @@
     "bothResolveDifferently": []
   },
   "coverage": {
-    "declarations": 4337,
-    "readFromAnotherFile": 665,
-    "share": 0.1533,
-    "meanCallers": 1.9338,
+    "declarations": 4346,
+    "readFromAnotherFile": 666,
+    "share": 0.1532,
+    "meanCallers": 1.9009,
     "topFanOut": [
       ["ParsedImport", 34],
       ["namedChildrenOf", 26],
@@ -53,29 +53,29 @@
       ["lineOf", 24],
       ["TreeSitterLanguage", 22],
       ["TreeSitterBaseProvider", 21],
-      ["ExecutablePhase", 19]
+      ["ExecutablePhase", 18]
     ]
   },
   "reach": {
     "files": 463,
     "withoutNote": 22,
-    "chars": 75561,
-    "medianChars": 109,
+    "chars": 74640,
+    "medianChars": 107,
     "p90Chars": 393,
     "maxChars": 919,
-    "meanImporters": 1.5011,
-    "tokensByProxy": 18890,
+    "meanImporters": 1.5032,
+    "tokensByProxy": 18660,
     "medianTokensByProxy": 27
   },
   "reader": {
     "readable": true,
     "considered": 485,
     "read": 485,
-    "bytes": 6949064,
+    "bytes": 6968595,
     "skippedBySize": 0,
     "skippedOverCap": 0,
     "skippedOverBytes": 0,
     "skippedUnreadable": 0,
-    "directoriesSkipped": 34
+    "directoriesSkipped": 35
   }
 }
