@@ -2,7 +2,7 @@
 <rect width="900" height="420" fill="#ffffff" />
 <text x="24" y="34" font-size="15" font-weight="700" fill="#1f2328">Six cuts of one run, and the ceiling none of them reach</text>
 <text x="24" y="54" font-size="10" fill="#57606a">the same 593 findings, the same verdicts, the same 452 goldens; the green point is what ships after §106</text>
-<text x="24" y="72" font-size="9" fill="#8c959f">both axes start at zero where they can: the six points are one band of 0.014, and the ceiling is 0.4546</text>
+<text x="24" y="72" font-size="9" fill="#8c959f">both axes start at zero where they can: the six points are one band of 0.014, and the ceiling is 0.45</text>
 <text x="24" y="90" font-size="9" fill="#8c959f">source: run 44693503049, exact replay of its own verdicts (docs/EVAL-CONTRACT.md §106) measured 2026-11-20</text>
 <line x1="88" y1="330" x2="588" y2="330" stroke="#8c959f" />
 <line x1="88" y1="116" x2="88" y2="330" stroke="#8c959f" />
@@ -23,8 +23,8 @@
 <text x="338" y="346" text-anchor="middle" font-size="9" fill="#57606a">300</text>
 <text x="463" y="346" text-anchor="middle" font-size="9" fill="#57606a">450</text>
 <text x="588" y="346" text-anchor="middle" font-size="9" fill="#57606a">600</text>
-<line x1="88" y1="135.4312" x2="588" y2="135.4312" stroke="#bf3989" stroke-width="1.5" stroke-dasharray="6 4" />
-<text x="92" y="128.4312" font-size="10" fill="#bf3989">ceiling 0.4546: perfect selection over the 133 goldens this pool can reach</text>
+<line x1="88" y1="137.4" x2="588" y2="137.4" stroke="#bf3989" stroke-width="1.5" stroke-dasharray="6 4" />
+<text x="92" y="130.4" font-size="10" fill="#bf3989">ceiling 0.4500: perfect selection over the 133 goldens this pool can reach</text>
 <text x="36" y="223" font-size="10" fill="#1f2328" transform="rotate(-90 36 223)" text-anchor="middle">F1</text>
 <text x="620" y="108" font-size="10" font-weight="700" fill="#1f2328">the same six, magnified to 0.205–0.230</text>
 <text x="620" y="140" font-size="9" fill="#57606a">consensus and score, no budget</text>

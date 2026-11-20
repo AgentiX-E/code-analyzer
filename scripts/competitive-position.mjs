@@ -284,9 +284,10 @@ function renderFrontier(frontier) {
  * **The ceiling a cut cannot reach, drawn on the same axis as the cuts.**
  *
  * §106 measured that 133 of this corpus's 452 goldens are reachable by any of the 593 findings the five lanes wrote, so
- * **a perfect ranker over this pool scores 0.4546 and not more** - and every cut below it lands inside a band of 0.014.
+ * **a perfect ranker over this pool scores 266/585 - 0.45 at two digits - and not more**, and every cut below it
+ * lands inside a band of 0.014.
  * The figure exists because that pair of facts is invisible in a table: six rows that differ by 0.006 look like six
- * candidates, and one dashed line at 0.4546 says they are six ways of dividing the same small pool.
+ * candidates, and one dashed line at 0.45 says they are six ways of dividing the same small pool.
  *
  * **Nothing here is a competitor row.** The recorded competitor figure is a different corpus slice and putting it on this
  * axis would be the comparison §105.4 refused; the only line above the points is arithmetic about our own pool.
@@ -371,7 +372,7 @@ function renderEmissionFrontier(frontier) {
     `<rect width="${String(width)}" height="${String(height)}" fill="#ffffff" />`,
     `<text x="24" y="34" font-size="15" font-weight="700" fill="#1f2328">Six cuts of one run, and the ceiling none of them reach</text>`,
     `<text x="24" y="54" font-size="10" fill="#57606a">the same ${String(frontier.poolFindings)} findings, the same verdicts, the same ${String(frontier.corpusGoldens)} goldens; the green point is what ships after §106</text>`,
-    `<text x="24" y="72" font-size="9" fill="#8c959f">both axes start at zero where they can: the six points are one band of 0.014, and the ceiling is 0.4546</text>`,
+    `<text x="24" y="72" font-size="9" fill="#8c959f">both axes start at zero where they can: the six points are one band of 0.014, and the ceiling is 0.45</text>`,
     `<text x="24" y="90" font-size="9" fill="#8c959f">source: ${escape(frontier.source ?? '')} measured ${escape(frontier.measuredAt ?? '')}</text>`,
     ...parts,
     `<text x="24" y="${String(height - 12)}" font-size="9" fill="#8c959f">generated from benchmarks/emission-frontier.json by scripts/competitive-position.mjs.</text>`,

@@ -1,7 +1,7 @@
 {
   "corpusGoldens": 452,
   "reachableGoldens": 133,
-  "ceilingF1": 0.4546,
+  "ceilingF1": 0.45,
   "poolFindings": 593,
   "source": "run 44693503049, exact replay of its own verdicts (docs/EVAL-CONTRACT.md §106)",
   "measuredAt": "2026-11-20",
