@@ -270,7 +270,8 @@ describe('the path-class step §106 ships', () => {
       ['LICENSE', 'other'],
       ['', 'other'],
     ];
-    for (const [path, expected] of cases) expect([path, reviewPathClass(path)]).toEqual([path, expected]);
+    for (const [path, expected] of cases)
+      expect([path, reviewPathClass(path)]).toEqual([path, expected]);
   });
 
   it('answers a class the list names for every path it is given, so the two cannot drift apart', () => {
@@ -300,9 +301,7 @@ describe('the path-class step §106 ships', () => {
       { id: 'lens', category: 'bug', filePath: 'tests/c.test.ts' },
       { id: 'source', category: 'bug', filePath: 'src/a.ts' },
     ];
-    const kept = applyEmissionPolicy(items, [
-      { kind: 'drop-path-class', classes: ['test'] },
-    ]).kept;
+    const kept = applyEmissionPolicy(items, [{ kind: 'drop-path-class', classes: ['test'] }]).kept;
     expect(kept.map((item) => item.id)).toEqual(['source']);
   });
 
@@ -312,9 +311,7 @@ describe('the path-class step §106 ships', () => {
       { id: 'f', category: 'bug', path: 'testdata/goldens/a.txt' },
       { id: 's', category: 'bug', path: 'src/a.ts' },
     ];
-    const outcome = applyEmissionPolicy(items, [
-      { kind: 'drop-path-class', classes: ['test'] },
-    ]);
+    const outcome = applyEmissionPolicy(items, [{ kind: 'drop-path-class', classes: ['test'] }]);
     expect(outcome.kept.map((item) => item.id)).toEqual(['f', 's']);
     expect(outcome.droppedByPathClass).toEqual([{ pathClass: 'test', count: 1 }]);
     // **The drop is not a truncation**, and a report that counted it as one would tell a reader the budget refused a
@@ -325,9 +322,10 @@ describe('the path-class step §106 ships', () => {
   it('keeps a finding whose path is absent rather than reading absence as a test', () => {
     // A caller assembling findings by hand has no path to give, and **nothing equals `test`**, so the step must pass it
     // through - the same rule `drop test` follows for an uncategorised finding.
-    const outcome = applyEmissionPolicy([{ id: 'no-path', category: 'bug' }], [
-      { kind: 'drop-path-class', classes: ['test'] },
-    ]);
+    const outcome = applyEmissionPolicy(
+      [{ id: 'no-path', category: 'bug' }],
+      [{ kind: 'drop-path-class', classes: ['test'] }],
+    );
     expect(outcome.kept.map((item) => item.id)).toEqual(['no-path']);
     expect(outcome.droppedByPathClass).toEqual([]);
   });
@@ -356,9 +354,9 @@ describe('the path-class step §106 ships', () => {
   });
 
   it('names the step in the label a table row prints', () => {
-    expect(
-      describeEmissionSteps([{ kind: 'drop-path-class', classes: ['test', 'fixture'] }]),
-    ).toBe('drop path test+fixture');
+    expect(describeEmissionSteps([{ kind: 'drop-path-class', classes: ['test', 'fixture'] }])).toBe(
+      'drop path test+fixture',
+    );
     // **And an empty policy has a name too**, because a table row for "we applied nothing" has to print something and
     // the alternative is a row whose cut column is empty.
     expect(describeEmissionSteps([])).toBe('no rule');

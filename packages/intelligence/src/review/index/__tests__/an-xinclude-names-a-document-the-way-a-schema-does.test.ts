@@ -49,9 +49,7 @@ describe('the documents an XML document names', () => {
     // **The URL is somebody else's repository**, so it is `module` rather than `file` - which is the refusal the kind
     // already carries, and the reason the DOCTYPE reader does not need a rule of its own about catalogues.
     const refs = readDocumentRefs('xml', publicId);
-    expect(refs.map((ref) => ref.specifier)).toEqual([
-      'https://www.w3.org/TR/xhtml1/xhtml1.dtd',
-    ]);
+    expect(refs.map((ref) => ref.specifier)).toEqual(['https://www.w3.org/TR/xhtml1/xhtml1.dtd']);
     expect(refs[0]!.kind).toBe('module');
   });
 

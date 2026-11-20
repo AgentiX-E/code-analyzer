@@ -916,9 +916,7 @@ describe('the shipped emission policy — §54, §106', () => {
       });
       if (!run.ok) throw new Error(run.error);
 
-      expect(run.report.summary.emissionPolicy?.rule).toBe(
-        'drop test, drop path test, budget 12',
-      );
+      expect(run.report.summary.emissionPolicy?.rule).toBe('drop test, drop path test, budget 12');
       // **Two things the policy guarantees whichever corpus this fixture is**: no test-category finding reaches a
       // reader, and no pull request carries more than twelve comments.
       expect(run.report.findings.filter((finding) => finding.category === 'test')).toEqual([]);
@@ -964,6 +962,26 @@ describe('the shipped emission policy — §54, §106', () => {
         'the shipped emission policy (drop test, drop path test, budget 12) removed test 2, path test 4 and 1 beyond',
       );
       expect(formatPrReviewMarkdown(truncated)).toContain('the shipped emission policy');
+
+      /**
+       * **And a report from before §106 has no path-class counts**, which is the branch that keeps an older artifact
+       * readable: a formatter that printed `path undefined 0` for it would be a sentence about a step the run did not
+       * have. The field is optional in the report for exactly this case, so the branch is exercised where it is reachable.
+       */
+      const beforePathClass = {
+        ...truncated,
+        summary: {
+          ...truncated.summary,
+          emissionPolicy: {
+            rule: 'drop test, budget 12',
+            droppedByCategory: [{ category: 'test', count: 2 }],
+            truncatedByBudget: 1,
+          },
+        },
+      };
+      expect(formatPrReviewText(beforePathClass)).toContain(
+        'the shipped emission policy (drop test, budget 12) removed test 2 and 1 beyond',
+      );
     } finally {
       repo.cleanup();
     }

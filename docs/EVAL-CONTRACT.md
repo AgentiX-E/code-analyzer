@@ -11380,6 +11380,7 @@ target of 0.4500.
 **The bill for §105 is 0 CNY**: one cache of one entry, one working-tree pruner, one generator and nine tests. **The
 crashed run cost about 1.4 USD of work that produced no artifact**, which is the price of the leak and is charged here
 rather than quietly dropped.
+
 ## §106 R-44 misses its bar at fifty, the ceiling is the pool, and the ranker is noise
 
 **Three measurements this round, and the third one changes what the campaign should do next.** R-44's fifty-pull-request
@@ -11393,16 +11394,16 @@ than from the sentence** - and the reason a ranker cannot buy more is arithmetic
 
 The companion arm of §105.1b finished as `44693503049` at `9249179e` (101 minutes, 3 195 calls, no failures, no retries).
 
-| 50 pull requests, reach **off** (§105.1b) | 50 pull requests, reach **on** | delta         |
-| ----------------------------------------- | ------------------------------ | ------------- |
-| 79 TP / 241 FP / 373 FN                   | 82 TP / 240 FP / 370 FN        | **+3 goldens** |
-| P 0.2469, R 0.1748, **F1 0.2047**         | P 0.2547, R 0.1814, **F1 0.2119** | **+3.5 % relative** |
-| 133 895 prompt tokens per pull request    | 137 186 prompt tokens per pull request | **+2.5 %**     |
-| 2.38 USD                                  | 1.24 USD                       | not comparable |
+| 50 pull requests, reach **off** (§105.1b) | 50 pull requests, reach **on**         | delta               |
+| ----------------------------------------- | -------------------------------------- | ------------------- |
+| 79 TP / 241 FP / 373 FN                   | 82 TP / 240 FP / 370 FN                | **+3 goldens**      |
+| P 0.2469, R 0.1748, **F1 0.2047**         | P 0.2547, R 0.1814, **F1 0.2119**      | **+3.5 % relative** |
+| 133 895 prompt tokens per pull request    | 137 186 prompt tokens per pull request | **+2.5 %**          |
+| 2.38 USD                                  | 1.24 USD                               | not comparable      |
 
 **The registration asked for matched goldens ≥ +5 % and prompt tokens ≤ +2 %. The run delivered +3.8 % and +2.5 %**, so
 R-44 is **not confirmed** at this size. It is not refuted in the other direction either - F1 rose 3.5 %, precision rose,
-and the arm cost *less* money because its cache hit ratio was 84 % - so the honest verdict is the one §103 already wrote
+and the arm cost _less_ money because its cache hit ratio was 84 % - so the honest verdict is the one §103 already wrote
 at fourteen pull requests and this section can now write at fifty: **the device moves the figure in the right direction,
 by less than the bar, at a token cost that is above the ceiling it was given.** The registration is retired and the
 device stays enabled, because a device that raises F1 and costs 2.5 % of a prompt that is 0.18 USD per million tokens is
@@ -11417,12 +11418,12 @@ a finer grain than the table above**, which is the rule §21 set for exactly thi
 
 `missedGoldens` partitions the corpus, and the partition is the finding:
 
-| bucket                  | goldens | share | what it says                                                    |
-| ----------------------- | ------- | ----- | --------------------------------------------------------------- |
-| `hit`                   | 133     | 29.4 % | a finding we filed was accepted as this issue                    |
-| `findingOnPathRejected` | 248     | 54.9 % | **we commented on this file and the judge did not accept it**     |
-| `noFindingOnPath`       | 35      | 7.7 % | the file was read and the lanes said nothing                     |
-| `pathNotInPull`         | 36      | 8.0 % | the corpus moved; nobody can answer these today                  |
+| bucket                  | goldens | share  | what it says                                                  |
+| ----------------------- | ------- | ------ | ------------------------------------------------------------- |
+| `hit`                   | 133     | 29.4 % | a finding we filed was accepted as this issue                 |
+| `findingOnPathRejected` | 248     | 54.9 % | **we commented on this file and the judge did not accept it** |
+| `noFindingOnPath`       | 35      | 7.7 %  | the file was read and the lanes said nothing                  |
+| `pathNotInPull`         | 36      | 8.0 %  | the corpus moved; nobody can answer these today               |
 
 **Fifty-five per cent of the corpus is a file we already commented on.** Of those 248 rejections, the nearest finding
 stands **on the golden's own line for 139**, within ten lines for 50, and beyond fifty for 59.
@@ -11431,20 +11432,20 @@ stands **on the golden's own line for 139**, within ten lines for 50, and beyond
 The first example read by hand is a finding whose range runs from 1108 to 1131 and whose sentence is about validation
 while the golden is about a redundant call - **twenty-four lines is a range that covers a golden by construction**, and a
 `sameLine` count built on ranges like that measures the range. What the table supports is the weaker sentence it always
-did: *we were in the neighbourhood and said something else*, which is the same evidence for **look for different things**
+did: _we were in the neighbourhood and said something else_, which is the same evidence for **look for different things**
 as for **say the same thing differently**.
 
 ### 106.3 The ceiling, which is arithmetic and not an opinion
 
 Every figure this document publishes is a selection over a pool. The pool's own ceiling has not been printed before:
 
-| quantity                                                    | value  |
-| ----------------------------------------------------------- | ------ |
-| goldens in the slice                                        | 452    |
-| goldens **any** of the 593 findings could claim              | 133    |
-| recall ceiling at perfect selection                          | 0.2942 |
-| **F1 ceiling at perfect selection**                          | **0.45** (266/585) |
-| share of that ceiling the shipped policy realises            | 61.7 % |
+| quantity                                          | value              |
+| ------------------------------------------------- | ------------------ |
+| goldens in the slice                              | 452                |
+| goldens **any** of the 593 findings could claim   | 133                |
+| recall ceiling at perfect selection               | 0.2942             |
+| **F1 ceiling at perfect selection**               | **0.45** (266/585) |
+| share of that ceiling the shipped policy realises | 61.7 %             |
 
 **A perfect ranker over the findings this engine already wrote would score 266/585, which is 0.45 at two
 digits, and not more.** Four of five goldens in
@@ -11452,14 +11453,14 @@ this corpus have no finding anywhere near them in wording the judge accepts, and
 that number** - which is why §99's price list for the tail and this round's sweeps of the budget axis both came back
 nearly flat:
 
-| policy over run `44693503049`'s own rows  | comments | F1     |
-| ----------------------------------------- | -------- | ------ |
-| consensus (≥2 lanes agreed), no budget     | 402      | 0.2225 |
-| consensus and score ≥ 0.4, no budget       | 388      | 0.2238 |
+| policy over run `44693503049`'s own rows   | comments | F1         |
+| ------------------------------------------ | -------- | ---------- |
+| consensus (≥2 lanes agreed), no budget     | 402      | 0.2225     |
+| consensus and score ≥ 0.4, no budget       | 388      | 0.2238     |
 | **path-class eligible, budget 12**         | **304**  | **0.2222** |
-| shipped before §106 (drop test, budget 12) | 322      | 0.2119 |
-| consensus (≥2 lanes), budget 12            | 281      | 0.2101 |
-| no policy at all                           | 593      | 0.2201 |
+| shipped before §106 (drop test, budget 12) | 322      | 0.2119     |
+| consensus (≥2 lanes), budget 12            | 281      | 0.2101     |
+| no policy at all                           | 593      | 0.2201     |
 
 **Four policies inside 0.006 of each other, and one of them is the one that ships.** That is what a selection problem
 looks like when the selection has nothing to select: the differences between cuts are smaller than the corpus's noise.
@@ -11467,33 +11468,33 @@ looks like when the selection has nothing to select: the differences between cut
 ### 106.4 The ranker's own number, and the feature that carries the signal
 
 The score the pipeline ranks by is a weighted sum of eight engine-side facts (§33). Its discrimination, measured as the
-area under the ROC curve for *this finding will be accepted*, on the 593 findings and 174 of them matched:
+area under the ROC curve for _this finding will be accepted_, on the 593 findings and 174 of them matched:
 
-| ranker                                                         | AUC       | F1 at budget 12 |
-| -------------------------------------------------------------- | --------- | --------------- |
-| **the score the pipeline ships**                                | **0.554** | 0.2119          |
-| a logistic model fitted on the same eight features, leave-one-pull-request-out | 0.511 | 0.2145     |
-| the same, plus **the class of the file the finding stands on**  | **0.642** | **0.2222**      |
-| the same, plus the width of the finding's own range             | 0.505     | 0.2145          |
+| ranker                                                                         | AUC       | F1 at budget 12 |
+| ------------------------------------------------------------------------------ | --------- | --------------- |
+| **the score the pipeline ships**                                               | **0.554** | 0.2119          |
+| a logistic model fitted on the same eight features, leave-one-pull-request-out | 0.511     | 0.2145          |
+| the same, plus **the class of the file the finding stands on**                 | **0.642** | **0.2222**      |
+| the same, plus the width of the finding's own range                            | 0.505     | 0.2145          |
 
 **0.554 is one hand's width above a coin.** Re-weighting the eight features cannot fix it - a fitted model over them
-scores *worse* on AUC than the hand-set weights - and the width of a finding's range carries nothing at all. **The one
+scores _worse_ on AUC than the hand-set weights - and the width of a finding's range carries nothing at all. **The one
 feature that carries signal is the file**, and it is the feature the engine has never given the ranker.
 
 ### 106.5 The device: a class of path, priced before it was shipped
 
 `reviewPathClass` answers one of six classes from a path and nothing else. On this run the `test` class alone is decisive:
 
-| class of path        | findings | accepted | on a path a golden is written about |
-| -------------------- | -------- | -------- | ----------------------------------- |
-| `source`             | 326      | 132      | 197                                 |
-| `other`              | 129      | 26       | 74                                  |
-| **`test`**           | **72**   | **3**    | **0**                               |
-| `docs` / fixture     | 55       | 10       | 34                                  |
-| `vendored`           | 11       | 3        | 6                                   |
+| class of path    | findings | accepted | on a path a golden is written about |
+| ---------------- | -------- | -------- | ----------------------------------- |
+| `source`         | 326      | 132      | 197                                 |
+| `other`          | 129      | 26       | 74                                  |
+| **`test`**       | **72**   | **3**    | **0**                               |
+| `docs` / fixture | 55       | 10       | 34                                  |
+| `vendored`       | 11       | 3        | 6                                   |
 
 **Not one of the 72 findings on a test path stands on a file the corpus wrote a golden about**; the three the judge
-accepted describe goldens from *other* files, which is the judge reading a pull request rather than a line. So the step
+accepted describe goldens from _other_ files, which is the judge reading a pull request rather than a line. So the step
 does not claim test findings are bad. It claims something narrower and checkable: **a comment on a test file does not
 find the defect this corpus is asking about, and the per-pull-request budget is twelve.**
 
@@ -11501,10 +11502,10 @@ find the defect this corpus is asking about, and the per-pull-request budget is 
 because that is the only order in which it raises the score rather than merely removing comments. Exact replay of the
 run's own verdicts:
 
-| 50 pull requests            | comments | TP | P      | R      | F1         |
-| --------------------------- | -------- | -- | ------ | ------ | ---------- |
-| before §106                 | 322      | 82 | 0.2547 | 0.1814 | 0.2119     |
-| **after §106**              | **304**  | **84** | **0.2763** | **0.1858** | **0.2222** |
+| 50 pull requests | comments | TP     | P          | R          | F1         |
+| ---------------- | -------- | ------ | ---------- | ---------- | ---------- |
+| before §106      | 322      | 82     | 0.2547     | 0.1814     | 0.2119     |
+| **after §106**   | **304**  | **84** | **0.2763** | **0.1858** | **0.2222** |
 
 **Two more true positives on eighteen fewer comments**, and the two halves of the corpus agree: `0.1924 → 0.1985` on the
 odd pull requests and `0.2322 → 0.2479` on the even ones. A step that removed precision would have shown one half
@@ -11542,8 +11543,8 @@ the two would be the comparison §105.4 refused. The only line above the points 
 - **The path-class step is priced on one corpus.** 72 findings and 0 golden paths is a fact about AACR-Bench's first
   fifty pull requests, whose goldens are written about `src/`. It is a budget rule, not a claim that test files deserve
   no review, and the report says which class refused a comment so a reader can disagree with the rule in the output.
-- **The ceiling is a ceiling for this reader, not for the field.** 0.45 is what perfect selection over *these five
-  lanes'* sentences would score. A reviewer that wrote different sentences has a different ceiling, and raising this one
+- **The ceiling is a ceiling for this reader, not for the field.** 0.45 is what perfect selection over _these five
+  lanes'_ sentences would score. A reviewer that wrote different sentences has a different ceiling, and raising this one
   is the only route to the competitor's 0.45 that does not require the judge to accept a defect we did not describe.
 - **No AUC is a forecast.** 0.642 is leave-one-pull-request-out over 50 folds of a corpus that was not designed for
   fitting, and the fitted model is **not shipped**: only the classifier is, and the classifier is a rule about paths.

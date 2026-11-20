@@ -124,13 +124,7 @@ describe('the edge a nested declaration makes', () => {
     },
     {
       path: 'Source/Bare.swift',
-      text: [
-        'import Alamofire',
-        '',
-        'func g() {',
-        '    let error = decodeError()',
-        '}',
-      ].join('\n'),
+      text: ['import Alamofire', '', 'func g() {', '    let error = decodeError()', '}'].join('\n'),
     },
     {
       path: 'Package.swift',
@@ -198,10 +192,9 @@ describe('the edge a nested declaration makes', () => {
       { path: 'Source/JSONEncoding.swift', text: NESTED },
       {
         path: 'Source/Before.swift',
-        text: [
-          'func h() { _ = JSONEncoding.Error.invalidJSONObject }',
-          'import Alamofire',
-        ].join('\n'),
+        text: ['func h() { _ = JSONEncoding.Error.invalidJSONObject }', 'import Alamofire'].join(
+          '\n',
+        ),
       },
       {
         path: 'Package.swift',
@@ -212,7 +205,9 @@ describe('the edge a nested declaration makes', () => {
       swiftModules: new Map([['Alamofire', 'Source']]),
     });
     expect(
-      indexWithBefore.references.filter((reference) => reference.fromPath === 'Source/Before.swift'),
+      indexWithBefore.references.filter(
+        (reference) => reference.fromPath === 'Source/Before.swift',
+      ),
     ).toEqual([]);
   });
 

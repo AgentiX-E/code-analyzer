@@ -842,7 +842,8 @@ export async function runPrReview(options: PrReviewOptions): Promise<PrReviewRun
    * **An explicit `--max-findings` wins**, because a command line is a decision and the policy is a default - and
    * `CODE_ANALYZER_REVIEW_MAX_COMMENTS` is read the same way it always was.
    */
-  const policy = cap === undefined ? applyEmissionPolicy(reported, SHIPPED_EMISSION_STEPS) : null;  const findings = policy === null ? reported.slice(0, cap) : [...policy.kept];
+  const policy = cap === undefined ? applyEmissionPolicy(reported, SHIPPED_EMISSION_STEPS) : null;
+  const findings = policy === null ? reported.slice(0, cap) : [...policy.kept];
 
   const report: PrReviewReport = {
     schema: PR_REVIEW_SCHEMA,
@@ -1223,9 +1224,7 @@ function truncationNote(summary: PrReviewReport['summary'], style: 'text' | 'mar
       ...policy.droppedByCategory.map((entry) => `${entry.category} ${entry.count}`),
       // **A second list and not a merge into the first**, because a category and a path class are different reasons and a
       // sentence that printed `test 2` for both would be a sentence a reader cannot act on.
-      ...(policy.droppedByPathClass ?? []).map(
-        (entry) => `path ${entry.pathClass} ${entry.count}`,
-      ),
+      ...(policy.droppedByPathClass ?? []).map((entry) => `path ${entry.pathClass} ${entry.count}`),
     ].join(', ') || 'nothing';
   return (
     `${count} finding(s) were not reported: the shipped emission policy (${policy.rule}) removed ` +

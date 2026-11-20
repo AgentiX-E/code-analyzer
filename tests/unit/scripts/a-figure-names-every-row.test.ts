@@ -21,8 +21,37 @@ import { join, resolve } from 'node:path';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 
 const ROOT = resolve(__dirname, '../../..');
-const DATA = JSON.parse(readFileSync(join(ROOT, 'benchmarks/competitive-position.json'), 'utf8'));
-const EMISSION = JSON.parse(readFileSync(join(ROOT, 'benchmarks/emission-frontier.json'), 'utf8'));
+/**
+ * **Typed at the boundary, because `JSON.parse` returns `any` and an `any` figure makes every row read below untyped** -
+ * which is how a test that checks `row.score` keeps passing after the field is renamed. The shapes are the fields this
+ * file reads and not the whole of the JSON: a type that restated every field would be a second copy of the data.
+ */
+interface CompetitorRow {
+  readonly tool: string;
+  readonly score: number;
+  readonly tokensPerReview: number | null;
+}
+const DATA: {
+  readonly figures: readonly { readonly id: string; readonly rows: readonly CompetitorRow[] }[];
+  readonly boards: readonly { readonly label: string; readonly metric: string }[];
+} = JSON.parse(readFileSync(join(ROOT, 'benchmarks/competitive-position.json'), 'utf8'));
+/**
+ * **Typed at the boundary, because `JSON.parse` returns `any`** and an `any` row makes every field read in the tests
+ * below untyped - which is how a test that checks `row.f1` keeps passing after the field is renamed.
+ */
+interface EmissionRow {
+  readonly policy: string;
+  readonly comments: number;
+  readonly f1: number;
+  readonly note: string;
+}
+const EMISSION: {
+  readonly corpusGoldens: number;
+  readonly reachableGoldens: number;
+  readonly ceilingF1: number;
+  readonly poolFindings: number;
+  readonly rows: readonly EmissionRow[];
+} = JSON.parse(readFileSync(join(ROOT, 'benchmarks/emission-frontier.json'), 'utf8'));
 
 let first: string;
 let second: string;

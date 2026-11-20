@@ -159,8 +159,14 @@ export function projectAddition(point, { comments, truePositives }) {
  */
 const PATH_CLASS_RULES = [
   ['fixture', /(^|\/)(testdata|__snapshots__|baselines|goldens?)(\/|$)/u],
-  ['test', /(^|\/)(test|tests|testing|spec|specs|__tests__|e2e)(\/|$)|(^|\/)[^/]*[._-](test|spec)\.[a-z]+$/u],
-  ['vendored', /(^|\/)(3rdparty|third[_-]party|vendor|vendored|external|extern|node_modules)(\/|$)/u],
+  [
+    'test',
+    /(^|\/)(test|tests|testing|spec|specs|__tests__|e2e)(\/|$)|(^|\/)[^/]*[._-](test|spec)\.[a-z]+$/u,
+  ],
+  [
+    'vendored',
+    /(^|\/)(3rdparty|third[_-]party|vendor|vendored|external|extern|node_modules)(\/|$)/u,
+  ],
   ['docs', /(^|\/)(docs?|documentation)(\/|$)|\.(md|mdx|rst|adoc|txt)$/u],
   [
     'source',
@@ -196,7 +202,10 @@ export function applyCut(findings, steps) {
     if (step.kind === 'drop-path-class') {
       const unwanted = new Set(step.classes);
       kept = kept.filter(
-        (finding) => !unwanted.has(pathClassOf(finding?.['filePath'] ?? finding?.['path'] ?? finding?.['file'])),
+        (finding) =>
+          !unwanted.has(
+            pathClassOf(finding?.['filePath'] ?? finding?.['path'] ?? finding?.['file']),
+          ),
       );
     } else if (step.kind === 'drop') {
       const unwanted = new Set(step.categories);

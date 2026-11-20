@@ -470,7 +470,9 @@ function main() {
   const boardsFile = join(out, 'boards-one-per-column.svg');
   writeFileSync(boardsFile, renderBoards(data.boards));
   written.push(boardsFile);
-  const emission = JSON.parse(readFileSync(join(root, 'benchmarks/emission-frontier.json'), 'utf8'));
+  const emission = JSON.parse(
+    readFileSync(join(root, 'benchmarks/emission-frontier.json'), 'utf8'),
+  );
   const emissionFile = join(out, 'emission-frontier.svg');
   writeFileSync(emissionFile, renderEmissionFrontier(emission));
   written.push(emissionFile);

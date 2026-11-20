@@ -313,7 +313,10 @@ const keepUnder = (steps, entries, pullRequest, profileKept) => {
     steps,
   );
   const keep = new Set(published.kept.map((item) => item.entry));
-  return { keep: entries.map((entry) => keep.has(entry)), droppedByPathClass: published.droppedByPathClass };
+  return {
+    keep: entries.map((entry) => keep.has(entry)),
+    droppedByPathClass: published.droppedByPathClass,
+  };
 };
 
 /**

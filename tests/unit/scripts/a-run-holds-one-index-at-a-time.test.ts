@@ -67,7 +67,10 @@ describe('a run holds one index at a time', () => {
 
 describe('a run keeps one checkout on disk', () => {
   it('names every directory but the one in use', () => {
-    const entries = [
+    // **Typed as tuples rather than inferred**, because an array of two-element arrays infers as `(string | null)[][]`
+    // and the function's signature takes pairs: the inference is what the type error was about, and a cast at the call
+    // would have hidden the next one.
+    const entries: [string, string | null][] = [
       ['sha-new', '/tmp/agent-new'],
       ['sha-old', '/tmp/agent-old'],
       ['sha-failed', null],
@@ -81,7 +84,7 @@ describe('a run keeps one checkout on disk', () => {
   });
 
   it('never names the directory a pull request is about to read', () => {
-    const entries = [
+    const entries: [string, string | null][] = [
       ['sha-a', '/tmp/agent-a'],
       ['sha-b', '/tmp/agent-b'],
     ];

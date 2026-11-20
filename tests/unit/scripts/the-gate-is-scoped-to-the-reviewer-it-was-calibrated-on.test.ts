@@ -92,7 +92,9 @@ describe('the emission rule, per reviewer', () => {
     // profile dropped. The advisory profile removes nothing, which is why the excursion was invisible in every dispatch
     // so far and is fixed here instead of after a `defect` run had quoted a figure about two rules.
     const declared = [
-      ...SOURCE.matchAll(/keepUnder\(SHIPPED_EMISSION_STEPS, ranked, competitorKey, profileKept\)/g),
+      ...SOURCE.matchAll(
+        /keepUnder\(SHIPPED_EMISSION_STEPS, ranked, competitorKey, profileKept\)/g,
+      ),
     ];
     expect(declared).toHaveLength(1);
     const declarationAt = SOURCE.indexOf(

@@ -50,28 +50,28 @@ export const REVIEW_PATH_CLASSES = [
 export type ReviewPathClass = (typeof REVIEW_PATH_CLASSES)[number];
 
 /** Directories whose every file is a test, a golden output, a third party's, or documentation. */
-const PATH_CLASS_RULES: readonly { readonly pathClass: ReviewPathClass; readonly test: RegExp }[] = [
-  // **First, because a golden output under `testdata/` would otherwise be read as a test** by the directory rule below,
-  // and the two classes carry different prices.
-  { pathClass: 'fixture', test: /(^|\/)(testdata|__snapshots__|baselines|goldens?)(\/|$)/u },
-  {
-    pathClass: 'test',
-    test: /(^|\/)(test|tests|testing|spec|specs|__tests__|e2e)(\/|$)|(^|\/)[^/]*[._-](test|spec)\.[a-z]+$/u,
-  },
-  {
-    pathClass: 'vendored',
-    test: /(^|\/)(3rdparty|third[_-]party|vendor|vendored|external|extern|node_modules)(\/|$)/u,
-  },
-  {
-    pathClass: 'docs',
-    test: /(^|\/)(docs?|documentation)(\/|$)|\.(md|mdx|rst|adoc|txt)$/u,
-  },
-  {
-    pathClass: 'source',
-    test:
-      /\.(c|cc|cpp|cxx|h|hh|hpp|hxx|m|mm|py|pyi|js|jsx|mjs|cjs|ts|tsx|java|kt|kts|groovy|scala|swift|go|rs|rb|php|cs|dart|lua|pl|r|jl|ex|exs|hs|ml|clj)$/u,
-  },
-];
+const PATH_CLASS_RULES: readonly { readonly pathClass: ReviewPathClass; readonly test: RegExp }[] =
+  [
+    // **First, because a golden output under `testdata/` would otherwise be read as a test** by the directory rule below,
+    // and the two classes carry different prices.
+    { pathClass: 'fixture', test: /(^|\/)(testdata|__snapshots__|baselines|goldens?)(\/|$)/u },
+    {
+      pathClass: 'test',
+      test: /(^|\/)(test|tests|testing|spec|specs|__tests__|e2e)(\/|$)|(^|\/)[^/]*[._-](test|spec)\.[a-z]+$/u,
+    },
+    {
+      pathClass: 'vendored',
+      test: /(^|\/)(3rdparty|third[_-]party|vendor|vendored|external|extern|node_modules)(\/|$)/u,
+    },
+    {
+      pathClass: 'docs',
+      test: /(^|\/)(docs?|documentation)(\/|$)|\.(md|mdx|rst|adoc|txt)$/u,
+    },
+    {
+      pathClass: 'source',
+      test: /\.(c|cc|cpp|cxx|h|hh|hpp|hxx|m|mm|py|pyi|js|jsx|mjs|cjs|ts|tsx|java|kt|kts|groovy|scala|swift|go|rs|rb|php|cs|dart|lua|pl|r|jl|ex|exs|hs|ml|clj)$/u,
+    },
+  ];
 
 /**
  * **Which class a changed path belongs to, from the path and nothing else.**
