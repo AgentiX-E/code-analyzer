@@ -11518,7 +11518,23 @@ import the package. §54's own solution to that - two implementations of one cut
 the one followed here, and the test was extended to one path per class so the day the two diverge is a failing test
 rather than an artifact that prices a step the command does not apply.
 
-### 106.6 What this does not claim
+### 106.6 The figure, and why six points need a second axis
+
+`docs/figures/emission-frontier.svg` draws the six cuts above on one plane, F1 against comments emitted, with **the
+selection ceiling as a dashed line at 0.4546 and the number written on it.** The plane's y axis starts at zero, so the
+band the six points occupy is a tenth of the frame - and that is the sentence: **six policies that differ by 0.014 sit
+under a ceiling that is twice the best of them.**
+
+**A detail panel repeats the six rows magnified to 0.205–0.230, and it declares its range in its own title.** Six labels
+inside 0.014 cannot be placed on one axis without becoming the figure; a magnification that does not print its range is
+a magnification that changes the size of a number. Both are held by tests: every policy appears by name with its score
+and its comment count, the dashed line's y is asserted against the ceiling's own value, and the same JSON twice produces
+the same bytes.
+
+**No competitor row is on this axis.** The recorded competitor figure is a different corpus slice (§105.3), and mixing
+the two would be the comparison §105.4 refused. The only line above the points is arithmetic about this pool.
+
+### 106.7 What this does not claim
 
 - **R-44 is not confirmed.** Its bar was missed on both clauses and this section says so rather than re-registering a bar
   after the fact.

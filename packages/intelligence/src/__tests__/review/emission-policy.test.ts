@@ -359,5 +359,8 @@ describe('the path-class step §106 ships', () => {
     expect(
       describeEmissionSteps([{ kind: 'drop-path-class', classes: ['test', 'fixture'] }]),
     ).toBe('drop path test+fixture');
+    // **And an empty policy has a name too**, because a table row for "we applied nothing" has to print something and
+    // the alternative is a row whose cut column is empty.
+    expect(describeEmissionSteps([])).toBe('no rule');
   });
 });

@@ -22,6 +22,7 @@ import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 
 const ROOT = resolve(__dirname, '../../..');
 const DATA = JSON.parse(readFileSync(join(ROOT, 'benchmarks/competitive-position.json'), 'utf8'));
+const EMISSION = JSON.parse(readFileSync(join(ROOT, 'benchmarks/emission-frontier.json'), 'utf8'));
 
 let first: string;
 let second: string;
@@ -56,6 +57,7 @@ describe('a figure names every row it was given', () => {
       'aacr-same-corpus',
       'our-budget-frontier',
       'boards-one-per-column',
+      'emission-frontier',
     ]) {
       expect(read(first, name)).toContain('<svg');
     }
@@ -115,6 +117,40 @@ describe('a row with no price is drawn as a row with no price', () => {
   });
 });
 
+describe('a cut frontier names its own ceiling', () => {
+  it('prints every policy it was given, with its score and its comment count', () => {
+    // **The name and the number**, for the same reason the competitor rows are checked that way: a name alone survives a
+    // renderer that printed the wrong row's figure.
+    const svg = read(first, 'emission-frontier');
+    for (const row of EMISSION.rows) {
+      expect(svg).toContain(row.policy.replace(/&/gu, '&amp;'));
+      expect(svg).toContain(row.f1.toFixed(4));
+      expect(svg).toContain(`${String(row.comments)}</text>`);
+    }
+  });
+
+  it('draws the ceiling as a line with the number on it, not as an axis that stops short', () => {
+    // **A ceiling drawn as the top of the frame would read as the scale**; a dashed line at its own y with the number
+    // beside it cannot be read that way, and the test holds the arithmetic - the line's y must be where the value is.
+    const svg = read(first, 'emission-frontier');
+    expect(svg).toContain(`ceiling ${EMISSION.ceilingF1.toFixed(4)}`);
+    expect(svg).toContain('stroke-dasharray');
+    const line = /<line x1="[\d.]+" y1="([\d.]+)" x2="[\d.]+" y2="\1" stroke="#bf3989"/u.exec(svg);
+    expect(line).not.toBeNull();
+    const y = Number(line?.[1]);
+    // The plane is 116..330 for F1 0.5..0, so the ceiling's y is `330 - 0.4546/0.5 * 214`.
+    expect(y).toBeCloseTo(330 - (EMISSION.ceilingF1 / 0.5) * (330 - 116), 0);
+  });
+
+  it('says which file it was generated from and which run the rows are', () => {
+    // **The provenance is not decoration here**: six cuts of one run are only comparable to each other, and a figure
+    // that did not name the run would be six points a reader has to guess the corpus of.
+    const svg = read(first, 'emission-frontier');
+    expect(svg).toContain('benchmarks/emission-frontier.json');
+    expect(svg).toContain('44693503049');
+  });
+});
+
 describe('the figure is a function of the data', () => {
   it('renders the same bytes twice', () => {
     for (const name of [
@@ -122,6 +158,7 @@ describe('the figure is a function of the data', () => {
       'aacr-same-corpus',
       'our-budget-frontier',
       'boards-one-per-column',
+      'emission-frontier',
     ]) {
       expect(read(second, name)).toBe(read(first, name));
     }

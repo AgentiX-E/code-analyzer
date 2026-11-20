@@ -280,6 +280,105 @@ function renderFrontier(frontier) {
   ].join('\n');
 }
 
+/**
+ * **The ceiling a cut cannot reach, drawn on the same axis as the cuts.**
+ *
+ * §106 measured that 133 of this corpus's 452 goldens are reachable by any of the 593 findings the five lanes wrote, so
+ * **a perfect ranker over this pool scores 0.4546 and not more** - and every cut below it lands inside a band of 0.014.
+ * The figure exists because that pair of facts is invisible in a table: six rows that differ by 0.006 look like six
+ * candidates, and one dashed line at 0.4546 says they are six ways of dividing the same small pool.
+ *
+ * **Nothing here is a competitor row.** The recorded competitor figure is a different corpus slice and putting it on this
+ * axis would be the comparison §105.4 refused; the only line above the points is arithmetic about our own pool.
+ */
+function renderEmissionFrontier(frontier) {
+  const width = 900;
+  const height = 420;
+  const x0 = 88;
+  const x1 = 588;
+  const top = 116;
+  const bottom = 330;
+  const panelX = 620;
+  const rows = [...(frontier.rows ?? [])];
+  const maxComments = Math.ceil(Math.max(...rows.map((row) => row.comments)) / 100) * 100;
+  const maxF1 = 0.5;
+  const xOf = (comments) => x0 + (comments / maxComments) * (x1 - x0);
+  const yOf = (f1) => bottom - (f1 / maxF1) * (bottom - top);
+  const parts = [
+    `<line x1="${String(x0)}" y1="${String(bottom)}" x2="${String(x1)}" y2="${String(bottom)}" stroke="#8c959f" />`,
+    `<line x1="${String(x0)}" y1="${String(top)}" x2="${String(x0)}" y2="${String(bottom)}" stroke="#8c959f" />`,
+  ];
+  for (let step = 0; step <= 5; step += 1) {
+    const value = (maxF1 / 5) * step;
+    const y = yOf(value);
+    parts.push(
+      `<line x1="${String(x0)}" y1="${String(y)}" x2="${String(x1)}" y2="${String(y)}" stroke="#eaeef2" />`,
+      `<text x="${String(x0 - 8)}" y="${String(y + 3)}" text-anchor="end" font-size="9" fill="#57606a">${value.toFixed(2)}</text>`,
+    );
+  }
+  for (let step = 0; step <= 4; step += 1) {
+    const comments = Math.round((maxComments / 4) * step);
+    parts.push(
+      `<text x="${String(xOf(comments))}" y="${String(bottom + 16)}" text-anchor="middle" font-size="9" fill="#57606a">${String(comments)}</text>`,
+    );
+  }
+  // **The ceiling, drawn where it is and labelled where there is room**, because a label on the line would sit on top of
+  // the number it is explaining.
+  const ceilingY = yOf(frontier.ceilingF1);
+  parts.push(
+    `<line x1="${String(x0)}" y1="${String(ceilingY)}" x2="${String(x1)}" y2="${String(ceilingY)}" stroke="#bf3989" stroke-width="1.5" stroke-dasharray="6 4" />`,
+    `<text x="${String(x0 + 4)}" y="${String(ceilingY - 7)}" font-size="10" fill="#bf3989">ceiling ${frontier.ceilingF1.toFixed(4)}: perfect selection over the ${String(frontier.reachableGoldens)} goldens this pool can reach</text>`,
+    `<text x="${String(x0 - 52)}" y="${String((top + bottom) / 2)}" font-size="10" fill="#1f2328" transform="rotate(-90 ${String(x0 - 52)} ${String((top + bottom) / 2)})" text-anchor="middle">F1</text>`,
+  );
+  /**
+   * **And the band, magnified beside the plot rather than labelled on it.**
+   *
+   * Six points inside 0.014 of each other cannot carry six labels on one axis: the labels would be the figure and the
+   * measurement would be a knot. **The magnification is a second axis and it says so in its own title**, which is the
+   * one thing a detail panel has to do - a zoom that does not declare its range is a zoom that changes a number's size.
+   */
+  const magnifyTop = top;
+  const magnifyBottom = bottom;
+  const magnifyLow = 0.205;
+  const magnifyHigh = 0.23;
+  const magnifyY = (f1) =>
+    magnifyBottom - ((f1 - magnifyLow) / (magnifyHigh - magnifyLow)) * (magnifyBottom - magnifyTop);
+  const ordered = [...rows].sort((left, right) => right.f1 - left.f1);
+  const rowHeight = 26;
+  const panelTop = top + 24;
+  parts.push(
+    `<text x="${String(panelX)}" y="${String(top - 8)}" font-size="10" font-weight="700" fill="#1f2328">the same six, magnified to 0.205–0.230</text>`,
+  );
+  ordered.forEach((row, index) => {
+    const y = panelTop + index * rowHeight;
+    const shipped = row.policy.startsWith('drop test, drop path');
+    parts.push(
+      `<text x="${String(panelX)}" y="${String(y)}" font-size="9" fill="${shipped ? '#1a7f37' : '#57606a'}"${shipped ? ' font-weight="700"' : ''}>${escape(row.policy)}</text>`,
+      `<text x="${String(width - 24)}" y="${String(y)}" text-anchor="end" font-size="9" fill="${shipped ? '#1a7f37' : '#57606a'}">${row.f1.toFixed(4)}</text>`,
+      `<text x="${String(width - 76)}" y="${String(y)}" text-anchor="end" font-size="8" fill="#8c959f">${String(row.comments)}</text>`,
+      `<rect x="${String(panelX)}" y="${String(y + 4)}" width="${String(((row.f1 - magnifyLow) / (magnifyHigh - magnifyLow)) * (width - 24 - panelX))}" height="3" fill="${shipped ? '#1a7f37' : '#d0d7de'}" />`,
+      // **The bar's length is the magnified axis**, and its origin is the same 0.205 the panel names - a bar drawn from
+      // zero inside a magnified panel would be a bar whose length means something else than the axis above it.
+      `<circle cx="${String(xOf(row.comments))}" cy="${String(yOf(row.f1))}" r="${shipped ? '5' : '3.5'}" fill="${shipped ? '#1a7f37' : '#8c959f'}" stroke="#1f2328" stroke-width="${shipped ? '1' : '0'}" />`,
+    );
+  });
+  parts.push(
+    `<text x="${String((x0 + x1) / 2)}" y="${String(bottom + 40)}" text-anchor="middle" font-size="10" fill="#1f2328">comments the policy emits, over 50 pull requests</text>`,
+    `<text x="${String(panelX)}" y="${String(panelTop + ordered.length * rowHeight + 12)}" font-size="8" fill="#8c959f">right column: comments emitted · bar length is F1 above 0.205</text>`,
+  );
+  return [
+    `<svg xmlns="http://www.w3.org/2000/svg" width="${String(width)}" height="${String(height)}" viewBox="0 0 ${String(width)} ${String(height)}" role="img" aria-label="emission policies against the selection ceiling">`,
+    `<rect width="${String(width)}" height="${String(height)}" fill="#ffffff" />`,
+    `<text x="24" y="34" font-size="15" font-weight="700" fill="#1f2328">Six cuts of one run, and the ceiling none of them reach</text>`,
+    `<text x="24" y="54" font-size="10" fill="#57606a">the same ${String(frontier.poolFindings)} findings, the same verdicts, the same ${String(frontier.corpusGoldens)} goldens; the green point is what ships after §106</text>`,
+    `<text x="24" y="72" font-size="9" fill="#8c959f">both axes start at zero where they can: the six points are one band of 0.014, and the ceiling is 0.4546</text>`,
+    `<text x="24" y="90" font-size="9" fill="#8c959f">source: ${escape(frontier.source ?? '')} measured ${escape(frontier.measuredAt ?? '')}</text>`,
+    ...parts,
+    `<text x="24" y="${String(height - 12)}" font-size="9" fill="#8c959f">generated from benchmarks/emission-frontier.json by scripts/competitive-position.mjs.</text>`,
+    `</svg>`,
+  ].join('\n');
+}
+
 /** A caption wide enough for the column and no wider, so that two of them cannot print on top of each other. */
 function wrap(text, perLine) {
   const words = String(text).split(/\s+/u);
@@ -370,6 +469,10 @@ function main() {
   const boardsFile = join(out, 'boards-one-per-column.svg');
   writeFileSync(boardsFile, renderBoards(data.boards));
   written.push(boardsFile);
+  const emission = JSON.parse(readFileSync(join(root, 'benchmarks/emission-frontier.json'), 'utf8'));
+  const emissionFile = join(out, 'emission-frontier.svg');
+  writeFileSync(emissionFile, renderEmissionFrontier(emission));
+  written.push(emissionFile);
   for (const file of written) process.stdout.write(`${file}\n`);
 }
 

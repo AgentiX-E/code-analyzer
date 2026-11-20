@@ -1,0 +1,16 @@
+{
+  "corpusGoldens": 452,
+  "reachableGoldens": 133,
+  "ceilingF1": 0.4546,
+  "poolFindings": 593,
+  "source": "run 44693503049, exact replay of its own verdicts (docs/EVAL-CONTRACT.md §106)",
+  "measuredAt": "2026-11-20",
+  "rows": [
+    { "policy": "no policy", "comments": 593, "f1": 0.2201, "note": "every finding the five lanes wrote" },
+    { "policy": "consensus, no budget", "comments": 402, "f1": 0.2225, "note": "two lanes agreed" },
+    { "policy": "consensus and score, no budget", "comments": 388, "f1": 0.2238, "note": "the best cut this pool has" },
+    { "policy": "drop test, drop path test, budget 12", "comments": 304, "f1": 0.2222, "note": "what ships after §106" },
+    { "policy": "drop test, budget 12", "comments": 322, "f1": 0.2119, "note": "what shipped before §106" },
+    { "policy": "consensus, budget 12", "comments": 281, "f1": 0.2101, "note": "consensus under the budget floor" }
+  ]
+}
