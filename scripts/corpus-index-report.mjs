@@ -61,7 +61,6 @@ for (const [at, root] of roots.entries()) {
   const started = Date.now();
   const index = buildRepoIndex(tree.files, {
     goModule: tree.goModule,
-    swiftModules: [...(tree.swiftModules ?? new Map())],
     swiftModules: tree.swiftModules ?? new Map(),
   });
   const indexMs = Date.now() - started;
