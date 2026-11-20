@@ -145,6 +145,83 @@ describe('walkPreOrder', () => {
     ]);
   });
 
+  /**
+   * **The three routes by which a sibling arrives**, because the opacity test sits on the current node rather than on the
+   * child: a node reached by descent, by a sibling step and by an ascent are one test each, and a check at only one of
+   * them would visit the node it was told to skip.
+   */
+  it('steps over an opaque node reached as a sibling, and one reached by ascent', () => {
+    const seen: string[] = [];
+    walkPreOrder(
+      walkable(() =>
+        scriptedCursor({
+          type: 'program',
+          children: [
+            { type: 'first', children: [{ type: 'inner', text: 'visited' }] },
+            { type: 'ERROR', children: [{ type: 'garbage', text: 'never' }] },
+            { type: 'last', text: 'visited' },
+          ],
+        }),
+      ),
+      (type, depth) => seen.push(`${depth}:${type}`),
+      new Set(['ERROR']),
+    );
+
+    // `first` and its child are visited; `ERROR` and `garbage` are not; `last` is, at the same depth as `first`.
+    expect(seen).toEqual(['0:program', '1:first', '2:inner', '1:last']);
+  });
+
+  it('steps over an opaque node reached by descent, which is where the depth is already counted', () => {
+    const seen: string[] = [];
+    walkPreOrder(
+      walkable(() =>
+        scriptedCursor({
+          type: 'program',
+          children: [
+            { type: 'ERROR', children: [{ type: 'garbage', text: 'never' }] },
+            { type: 'after', text: 'visited' },
+          ],
+        }),
+      ),
+      (type, depth) => seen.push(`${depth}:${type}`),
+      new Set(['ERROR']),
+    );
+
+    expect(seen).toEqual(['0:program', '1:after']);
+  });
+
+  it('ends the walk when the last child is the opaque one', () => {
+    const seen: string[] = [];
+    walkPreOrder(
+      walkable(() =>
+        scriptedCursor({
+          type: 'program',
+          children: [
+            { type: 'kept', text: 'visited' },
+            { type: 'ERROR', children: [{ type: 'garbage', text: 'never' }] },
+          ],
+        }),
+      ),
+      (type) => seen.push(type),
+      new Set(['ERROR']),
+    );
+
+    expect(seen).toEqual(['program', 'kept']);
+  });
+
+  it('visits the root even when its type is the opaque one, because a walk needs somewhere to start', () => {
+    const seen: string[] = [];
+    walkPreOrder(
+      walkable(() =>
+        scriptedCursor({ type: 'ERROR', children: [{ type: 'garbage', text: 'never' }] }),
+      ),
+      (type) => seen.push(type),
+      new Set(['ERROR']),
+    );
+
+    expect(seen).toEqual(['ERROR']);
+  });
+
   it('visits a leaf tree once and stops', () => {
     const seen: string[] = [];
     walkPreOrder(
