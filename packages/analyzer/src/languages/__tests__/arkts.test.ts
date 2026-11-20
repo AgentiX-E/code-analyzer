@@ -80,6 +80,52 @@ describe('ArkTS Provider', () => {
     expect(defs).toContain('title');
   });
 
+  /**
+   * **The container of a UI tree, which this grammar spells with a production no mapping row names.**
+   *
+   * A probe of `Column() { Text('x') }` gives
+   * `arkui_component_expression function: (identifier) arguments: (arguments) children: (arkui_children …)` - **not a
+   * `call_expression`** - so the provider that inherited the TypeScript call mapping captured `Text` (which *is* a call,
+   * inside the children) and **dropped `Column`, `Row`, `Stack`, `List` and every other layout component**: the root of
+   * every UI tree was a node `Text('x')` had a parent of, and the graph had no such node.
+   *
+   * **What that costs is not cosmetic.** Impact analysis answers "who renders this component" by walking callers, and
+   * **the caller of a layout component is the component that draws it**; with the container missing, a change to a page
+   * reached nothing above the leaf. And **an `arkui_children` block is the one place a component is used without being
+   * called**, so no other arm can pick it up.
+   */
+  it('captures the layout components a UI tree is built from', () => {
+    const captures = provider.parse(
+      [
+        '@Component',
+        'struct App {',
+        '  build() {',
+        '    Column() {',
+        '      Row() { Text("hi") }',
+        '    }',
+        '  }',
+        '}',
+      ].join('\n'),
+      'App.ets',
+    );
+    const calls = captures
+      .filter((c) => c.tag === CAPTURE_TAGS.FUNCTION_CALL)
+      .map((c) => String(c.name));
+    expect(calls).toContain('Column');
+    expect(calls).toContain('Row');
+    // **And the leaf is still captured once**, not once per enclosing production.
+    expect(calls.filter((name) => name === 'Text')).toHaveLength(1);
+  });
+
+  it('marks a layout component as one, because a component is not a function', () => {
+    const captures = provider.parse(
+      '@Component\nstruct App {\n  build() {\n    Column() {}\n  }\n}\n',
+      'App.ets',
+    );
+    const column = captures.find((c) => String(c.name) === 'Column');
+    expect(column?.properties?.['arkuiComponent']).toBe('true');
+  });
+
   it('captures a member that carries an accessibility modifier and no decorator', () => {
     const captures = provider.parse(
       '@Component\nstruct Plain {\n  private total: number = 0\n}\n',

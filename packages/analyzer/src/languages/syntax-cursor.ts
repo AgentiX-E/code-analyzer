@@ -35,6 +35,14 @@ export interface CursorWalkable {
 }
 
 /**
+ * The default: no subtree is opaque.
+ *
+ * **Allocated once and shared**, because a walk is opened once per file and an empty set per file is an allocation per
+ * file on the path that exists to avoid allocations.
+ */
+const NO_OPAQUE_TYPES: ReadonlySet<string> = new Set<string>();
+
+/**
  * Visit every node exactly once, in source order, with its depth.
  *
  * **A node is visited before its children and never revisited**, which is what makes the walk usable for a collector:
@@ -48,19 +56,28 @@ export interface CursorWalkable {
 export function walkPreOrder(
   root: CursorWalkable,
   visit: (type: string, depth: number, cursor: TreeSitterTreeCursor) => void,
+  opaque: ReadonlySet<string> = NO_OPAQUE_TYPES,
 ): void {
   const cursor = root.walk();
   let depth = 0;
   visit(cursor.nodeType, depth, cursor);
 
   outer: for (;;) {
-    if (cursor.gotoFirstChild()) {
+    // **A subtree the caller declared opaque is stepped over rather than entered.** The node is visited by nobody and
+    // its children are never reached, so the walk continues from its first sibling - which is exactly the shape the
+    // descent below already handles when a node has no children at all.
+    //
+    // **The test is on the current node rather than on the child**, because a sibling arrives here by three different
+    // routes and a check at only one of them would visit the node it was told to skip.
+    if (!opaque.has(cursor.nodeType) && cursor.gotoFirstChild()) {
       depth += 1;
-      visit(cursor.nodeType, depth, cursor);
-      continue;
+      if (!opaque.has(cursor.nodeType)) {
+        visit(cursor.nodeType, depth, cursor);
+        continue;
+      }
     }
     if (cursor.gotoNextSibling()) {
-      visit(cursor.nodeType, depth, cursor);
+      if (!opaque.has(cursor.nodeType)) visit(cursor.nodeType, depth, cursor);
       continue;
     }
     for (;;) {
@@ -69,7 +86,7 @@ export function walkPreOrder(
       if (!cursor.gotoParent()) break outer;
       depth -= 1;
       if (cursor.gotoNextSibling()) {
-        visit(cursor.nodeType, depth, cursor);
+        if (!opaque.has(cursor.nodeType)) visit(cursor.nodeType, depth, cursor);
         continue outer;
       }
     }

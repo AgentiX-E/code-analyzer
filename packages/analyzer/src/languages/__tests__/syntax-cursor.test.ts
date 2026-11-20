@@ -119,6 +119,32 @@ describe('walkPreOrder', () => {
     ]);
   });
 
+  /**
+   * **A subtree the caller declares opaque is visited by nobody and entered by nobody.**
+   *
+   * The one caller is the ArkTS walk, after a real page showed what an `ERROR` node costs: the node is the parser
+   * saying *this span has no structure*, so descending into it reads tokens as if they were syntax. **Stepping over it
+   * is what makes the surrounding tree trustworthy** - and the surrounding tree is the part the grammar did read.
+   */
+  it('steps over an opaque subtree without visiting it or its children', () => {
+    const seen: string[] = [];
+    walkPreOrder(
+      walkable(() => scriptedCursor(PROGRAM)),
+      (type, depth) => seen.push(`${depth}:${type}`),
+      new Set(['function_declaration']),
+    );
+
+    // The declaration and its `identifier` are gone; its siblings are not, and the depths around them are unchanged.
+    expect(seen).toEqual([
+      '0:program',
+      '1:export_statement',
+      '2:export',
+      '1:lexical_declaration',
+      '2:variable_declarator',
+      '3:identifier',
+    ]);
+  });
+
   it('visits a leaf tree once and stops', () => {
     const seen: string[] = [];
     walkPreOrder(

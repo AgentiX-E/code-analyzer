@@ -374,6 +374,47 @@ export abstract class TreeSitterBaseProvider implements LanguageProvider {
   get lastParseWasARegularExpressionFallback(): boolean {
     return this.parseFellBack;
   }
+
+  /**
+   * Whether the last `parse` kept the grammar's tree even though the tree held an `ERROR` node.
+   *
+   * **The third answer a parse can give**, between "read the file" and "gave up on it": *read most of it*. A grammar
+   * that has no production for one statement produces one `ERROR` node around that statement and a valid tree around
+   * it - and **the base class treated the two as the same thing, so one line this year's dialect added cost the file
+   * every symbol under it.** This flag is how a caller tells a whole read from a partial one.
+   */
+  protected parseReadThroughErrors = false;
+
+  /** Whether the last `parse` read a tree that contained an `ERROR` node rather than falling back. */
+  get lastParseReadThroughErrors(): boolean {
+    return this.parseReadThroughErrors;
+  }
+
+  /**
+   * Node types whose subtrees the walk must step over.
+   *
+   * **`ERROR` is the only one any provider names**, and it is named by the provider that reads through errors: the node
+   * is the parser saying *this span has no structure*, so a walk that descended would read tokens as if they were
+   * syntax. **Stepping over it is what makes the surrounding tree trustworthy** - the parent and its siblings were
+   * parsed by the same grammar, and they are the part the grammar did read.
+   */
+  protected opaqueSubtrees(): ReadonlySet<string> {
+    return NO_OPAQUE_SUBTREES;
+  }
+
+  /**
+   * Whether a tree with an `ERROR` node in it is walked rather than handed to the reader.
+   *
+   * **Off by default, and on for one language**, because the conservative answer is right for a grammar that is
+   * guessing: a Groovy file whose `MISSING ";"` nodes repaired the tree is a different case from a TypeScript file with
+   * a `struct` in it, and only the provider knows which it has. **ArkTS turns it on** for the reason the corpus in
+   * `__tests__/arkts-real-corpus.test.ts` measures: its dialect gained syntax its grammar has no production for, and
+   * the file that contains one such statement was contributing its name and nothing else.
+   */
+  protected readsThroughErrors(): boolean {
+    return false;
+  }
+
   protected filePath: string = '';
 
   abstract readonly language: string;
@@ -421,6 +462,7 @@ export abstract class TreeSitterBaseProvider implements LanguageProvider {
     this.pendingDocComment = null;
     this.pendingDocCommentEndLine = -1;
     this.parseFellBack = false;
+    this.parseReadThroughErrors = false;
     // Strip BOM (Byte Order Mark) and zero-width characters before parsing.
     const sanitized = this.sanitizeSource(source);
     this.filePath = filePath;
@@ -440,8 +482,14 @@ export abstract class TreeSitterBaseProvider implements LanguageProvider {
 
     if (hasUnrecoverableError(rootNode)) {
       // **A tree the parser could not read at all goes to the reader; one it repaired does not.**
-      this.parseFellBack = true;
-      return this.finishCaptures(this.fallbackParse(this.boundedSource(sanitized), filePath));
+      if (!this.readsThroughErrors()) {
+        this.parseFellBack = true;
+        return this.finishCaptures(this.fallbackParse(this.boundedSource(sanitized), filePath));
+      }
+      // **A provider that reads through an error keeps the tree**, and the flag is how the caller knows the read was
+      // partial: every symbol outside the `ERROR` span is the grammar's answer, and there is exactly one span it does
+      // not cover.
+      this.parseReadThroughErrors = true;
     }
 
     // **The tree this parse just built is the one the next question about this file needs.** `isExported` and
@@ -2136,6 +2184,12 @@ function isClassNodeType(type: string): boolean {
 function isContainerNodeType(type: string): boolean {
   return CONTAINER_NODE_TYPES.has(type);
 }
+
+/**
+ * The default for `opaqueSubtrees`: nothing is stepped over, and **the empty set is shared** because the default is
+ * read once per file on a path that exists to avoid per-file work.
+ */
+const NO_OPAQUE_SUBTREES: ReadonlySet<string> = new Set<string>();
 
 /**
  * Whether a tree holds an error a walk cannot work around.

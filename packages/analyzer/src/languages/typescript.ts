@@ -365,10 +365,14 @@ export class TypeScriptProvider extends TreeSitterBaseProvider {
     const mappings = this.getNodeMappings();
     const wanted = this.captureTypes(mappings);
 
-    walkPreOrder(root, (nodeType, _depth, cursor) => {
-      if (!wanted.has(nodeType)) return;
-      this.captureNode(cursorNode<TreeSitterSyntaxNode>(cursor), nodeType, mappings, captures);
-    });
+    walkPreOrder(
+      root,
+      (nodeType, _depth, cursor) => {
+        if (!wanted.has(nodeType)) return;
+        this.captureNode(cursorNode<TreeSitterSyntaxNode>(cursor), nodeType, mappings, captures);
+      },
+      this.opaqueSubtrees(),
+    );
   }
 
   /**

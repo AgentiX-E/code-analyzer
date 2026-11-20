@@ -1,0 +1,65 @@
+{
+  "note": "Real ArkTS application sources, pinned by commit. Code under the License Notice of applications_app_samples is Apache-2.0; testing materials are not vendored here.",
+  "sources": [
+    {
+      "file": "camera-index.ets",
+      "repo": "openharmony/applications_app_samples",
+      "commit": "a826ab0e75fe51d028c1c5af58188e908736b53b",
+      "path": "code/ArkTS1.2/CameraSample/entry/src/main/ets/pages/Index.ets",
+      "license": "Apache-2.0",
+      "sha256": "1f08cf53b8ff8809ebcc79411cde21b869d8316342b4bec469f786d558070be8",
+      "bytes": 3755,
+      "lines": 96
+    },
+    {
+      "file": "camera-comment-item-view.ets",
+      "repo": "openharmony/applications_app_samples",
+      "commit": "a826ab0e75fe51d028c1c5af58188e908736b53b",
+      "path": "code/ArkTS1.2/CameraSample/entry/src/main/ets/pages/Components/CommentItemView.ets",
+      "license": "Apache-2.0",
+      "sha256": "73f70351d220e93b943a820b1af7278fcd4eb49e72ef6bcd3ab6bf66faf29db4",
+      "bytes": 2219,
+      "lines": 56
+    },
+    {
+      "file": "camera-image-list-view.ets",
+      "repo": "openharmony/applications_app_samples",
+      "commit": "a826ab0e75fe51d028c1c5af58188e908736b53b",
+      "path": "code/ArkTS1.2/CameraSample/entry/src/main/ets/pages/Components/ImageListView.ets",
+      "license": "Apache-2.0",
+      "sha256": "d1f91e8b96ce69f03ad4164d2d945c37d7b712b07df3b38f5c3d670eb1ef49c2",
+      "bytes": 1757,
+      "lines": 37
+    },
+    {
+      "file": "asr-index.ets",
+      "repo": "openharmony/applications_app_samples",
+      "commit": "a826ab0e75fe51d028c1c5af58188e908736b53b",
+      "path": "code/AI/MindSporeLiteCDemoASR/entry/src/main/ets/pages/Index.ets",
+      "license": "Apache-2.0",
+      "sha256": "ef67ab91aea31b2cd49555da6d814c955af50b16e6546a20661a91cda3e91c59",
+      "bytes": 2763,
+      "lines": 88
+    },
+    {
+      "file": "v1-home.ets",
+      "repo": "openharmony/applications_app_samples",
+      "commit": "a826ab0e75fe51d028c1c5af58188e908736b53b",
+      "path": "code/BasicFeature/ApplicationModels/AbilityStartMode/entry/src/main/ets/pages/Home.ets",
+      "license": "Apache-2.0",
+      "sha256": "69f2dc1f36d20fc58710f20e207823e145f7142d78536bf7932fc1c9a05f4a26",
+      "bytes": 3036,
+      "lines": 107
+    },
+    {
+      "file": "v1-new.ets",
+      "repo": "openharmony/applications_app_samples",
+      "commit": "a826ab0e75fe51d028c1c5af58188e908736b53b",
+      "path": "code/BasicFeature/Ability/AbilityFeature/entry/src/main/ets/pages/New.ets",
+      "license": "Apache-2.0",
+      "sha256": "50cb6369d4f7f09075eb3437a0eb155954b447fae62cfbcda6d14ee30d6741bc",
+      "bytes": 1916,
+      "lines": 57
+    }
+  ]
+}
