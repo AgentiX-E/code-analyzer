@@ -536,13 +536,21 @@ export type {
   ProfileOutcome,
 } from './review/category-prior.js';
 
-// Emission policy — the cut the product ships, priced by the table that chose it (§54)
+// Emission policy — the cut the product ships, priced by the table that chose it (§54, §106)
 export {
   applyEmissionPolicy,
   describeEmissionSteps,
+  PREVIOUS_EMISSION_STEPS,
+  REVIEW_PATH_CLASSES,
+  reviewPathClass,
   SHIPPED_EMISSION_STEPS,
 } from './review/emission-policy.js';
-export type { EmissionOutcome, EmissionStep, EmissionSubject } from './review/emission-policy.js';
+export type {
+  EmissionOutcome,
+  EmissionStep,
+  EmissionSubject,
+  ReviewPathClass,
+} from './review/emission-policy.js';
 
 // Merging two reviewers — the second field of view, at the comment budget one review may spend (§56)
 export {

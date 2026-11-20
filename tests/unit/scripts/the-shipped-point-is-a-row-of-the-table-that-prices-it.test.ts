@@ -18,18 +18,39 @@
 import { describe, expect, it } from 'vitest';
 
 import {
+  PREVIOUS_EMISSION_STEPS,
   SHIPPED_EMISSION_STEPS,
   applyEmissionPolicy,
   describeEmissionSteps,
+  reviewPathClass,
 } from '../../../packages/intelligence/src/review/emission-policy.js';
 import {
   applyCut,
   describeCut,
   operatingPointTable,
+  pathClassOf,
   score,
 } from '../../../scripts/lib/operating-point.mjs';
 
 const creditOf = (finding: { matchedGoldens?: readonly number[] }) => finding.matchedGoldens ?? [];
+
+/**
+ * **The paths the two classifiers must agree on, one per class plus the degenerate ones.**
+ *
+ * §106 added `drop-path-class`, which means this module and the package now hold *two* classifiers of the same six
+ * classes. The name-equality test above was written for two copies of a *label*; a copy of a *rule* needs one path per
+ * class, or the day they diverge is the day the artifact prices a step the command does not apply.
+ */
+const PATHS_PER_CLASS: readonly (readonly [string, string])[] = [
+  ['src/Mod/Part/App/FeaturePartCommon.cpp', 'source'],
+  ['packages/cli/src/commands/pr-review.ts', 'source'],
+  ['testdata/baselines/reference/importTag1.errors.txt', 'fixture'],
+  ['tests/unit/scripts/a-figure-names-every-row.test.ts', 'test'],
+  ['src/3rdparty/salomesmesh/src/DriverSTL.cpp', 'vendored'],
+  ['docs/EVAL-CONTRACT.md', 'docs'],
+  ['LICENSE', 'other'],
+  ['', 'other'],
+];
 
 /** Two pull requests, one of them with a test finding at the top of its ranking and one without. */
 function artifact() {
@@ -92,6 +113,33 @@ describe('the shipped emission policy and the table', () => {
     expect(row.f1).toBeCloseTo(fromPolicy.f1, 10);
     expect(row.truePositives).toBe(fromPolicy.truePositives);
     expect(row.emitted).toBe(fromPolicy.emitted);
+  });
+
+  it('classifies every path the way the product does, including the empty one', () => {
+    // **Two classifiers, one rule**, and the guard is that both answer the same on a path from each class. A shared
+    // fixture would make this test pass on the classes it carries and say nothing about the rest, so the list is one
+    // path per class and both sides must answer the expected class rather than merely agreeing with each other.
+    for (const [path, expected] of PATHS_PER_CLASS) {
+      expect([path, reviewPathClass(path)]).toEqual([path, expected]);
+      expect([path, pathClassOf(path)]).toEqual([path, expected]);
+    }
+  });
+
+  it('keeps the finding on a test path only under the policy §106 replaced', () => {
+    // **The step, end to end, on the two implementations.** Every field is the same in the two rows but the path, so a
+    // difference between the two policies can only come from the classifier.
+    const pair = [
+      { pr: 'o/r#1', filePath: 'tests/a.test.ts', category: 'bug', score: 9, matchedGoldens: [0] },
+      { pr: 'o/r#1', filePath: 'src/a.ts', category: 'bug', score: 1, matchedGoldens: [1] },
+    ];
+    const now = applyEmissionPolicy(pair, SHIPPED_EMISSION_STEPS).kept.map((item) => item.filePath);
+    const before = applyEmissionPolicy(pair, PREVIOUS_EMISSION_STEPS).kept.map(
+      (item) => item.filePath,
+    );
+    expect(now).toEqual(['src/a.ts']);
+    expect(before).toEqual(['tests/a.test.ts', 'src/a.ts']);
+    expect(applyCut(pair, SHIPPED_EMISSION_STEPS).map((item) => item.filePath)).toEqual(now);
+    expect(applyCut(pair, PREVIOUS_EMISSION_STEPS).map((item) => item.filePath)).toEqual(before);
   });
 
   it('agrees with the harness on a pull request with no key and on a tie', () => {

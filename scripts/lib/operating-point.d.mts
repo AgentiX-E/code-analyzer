@@ -14,6 +14,8 @@ export interface EmittedFinding {
   readonly endLine?: number;
   readonly category?: string;
   readonly severity?: string;
+  /** The field a report's findings carry, which `drop-path-class` reads when `path` is absent. */
+  readonly filePath?: string;
   readonly actionable?: boolean;
   readonly score?: number | { readonly score?: number; readonly actionable?: boolean };
   /** The golden indices this finding's judge verdicts allow it to claim, **within its own pull request**. */
@@ -23,6 +25,7 @@ export interface EmittedFinding {
 export type CutStep =
   | { readonly kind: 'drop'; readonly categories: readonly string[] }
   | { readonly kind: 'keep-category'; readonly categories: readonly string[] }
+  | { readonly kind: 'drop-path-class'; readonly classes: readonly string[] }
   | { readonly kind: 'gate' }
   | { readonly kind: 'budget'; readonly k: number };
 
@@ -71,6 +74,9 @@ export function applyCut(
 ): EmittedFinding[];
 
 export function describeCut(steps: readonly CutStep[]): string;
+
+/** The class a path belongs to, from the path alone - the analysis side's copy of the product's classifier. */
+export function pathClassOf(path: string | null | undefined): string;
 
 export function registeredCuts(
   budgets?: readonly number[],

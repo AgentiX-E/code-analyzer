@@ -278,11 +278,46 @@ const laneRuleKeep = (entries, profileKept) =>
  * the dry run (`Build all packages` precedes `--dry-run`), which is the same order every other built import in this file
  * relies on; a checkout without it fails by name instead of silently measuring something else.
  */
-const { applyEmissionPolicy, describeEmissionSteps, SHIPPED_EMISSION_STEPS } =
-  await import('../../packages/intelligence/dist/review/emission-policy.js');
+const {
+  applyEmissionPolicy,
+  describeEmissionSteps,
+  PREVIOUS_EMISSION_STEPS,
+  SHIPPED_EMISSION_STEPS,
+} = await import('../../packages/intelligence/dist/review/emission-policy.js');
 
 /**
- * **Which findings reach a reader: the cut §54 prices, applied to one pull request's ranked findings.**
+ * **One pull request's findings under a named policy, with the counts the policy refused them on.**
+ *
+ * The steps are an argument rather than a constant because §106 has to print two rows - the cut that ships and the cut
+ * every figure before it was filed under - **from one pool and one set of verdicts**, and a second copy of this loop for
+ * the second row is a second rule that will drift one field at a time. Every finding's path travels into the policy:
+ * a path-class step handed no path reads every finding as `other` and would price a step that never fires.
+ */
+const keepUnder = (steps, entries, pullRequest, profileKept) => {
+  if (entries.length === 0) return { keep: [], droppedByPathClass: [] };
+  // **The profile is applied before the policy, not instead of it.** `drop test, budget 12` was priced on the advisory
+  // profile, where the floor removes nothing; a `defect` run would otherwise publish a point that quietly posted the
+  // categories its own profile had dropped - **one figure about two rules**, which is the defect §54 fixed one level up.
+  const published = applyEmissionPolicy(
+    entries
+      .filter((entry) => profileKept === undefined || profileKept.has(entry))
+      .map((entry) => ({
+        entry,
+        category: entry.finding?.category,
+        score: entry.score?.score,
+        // **The path, because §106's step classifies it** and a policy handed no path classifies every finding as
+        // `other` - which would price a step that never fires.
+        path: entry.path,
+        pr: pullRequest,
+      })),
+    steps,
+  );
+  const keep = new Set(published.kept.map((item) => item.entry));
+  return { keep: entries.map((entry) => keep.has(entry)), droppedByPathClass: published.droppedByPathClass };
+};
+
+/**
+ * **Which findings reach a reader: the cut the product ships, applied to one pull request's ranked findings.**
  *
  * **This used to be the actionability gate and the category floor**, and it was wrong by measurement: on the pair
  * `43676036390` the gate scored F1 0.1823 while `drop test, budget 12` - the same findings, the same goldens, the same
@@ -294,24 +329,12 @@ const { applyEmissionPolicy, describeEmissionSteps, SHIPPED_EMISSION_STEPS } =
  * scoping decision that stops being re-measured is a decision that can quietly become wrong, and the artifact still
  * prints the gate beside the headline.
  */
-const shippedRuleKeep = (entries, pullRequest, profileKept) => {
-  if (entries.length === 0) return [];
-  // **The profile is applied before the policy, not instead of it.** `drop test, budget 12` was priced on the advisory
-  // profile, where the floor removes nothing; a `defect` run would otherwise publish a point that quietly posted the
-  // categories its own profile had dropped - **one figure about two rules**, which is the defect §54 fixed one level up.
-  const published = applyEmissionPolicy(
-    entries
-      .filter((entry) => profileKept === undefined || profileKept.has(entry))
-      .map((entry) => ({
-        entry,
-        category: entry.finding?.category,
-        score: entry.score?.score,
-        pr: pullRequest,
-      })),
-  );
-  const keep = new Set(published.kept.map((item) => item.entry));
-  return entries.map((entry) => keep.has(entry));
-};
+const shippedRuleKeep = (entries, pullRequest, profileKept) =>
+  keepUnder(SHIPPED_EMISSION_STEPS, entries, pullRequest, profileKept).keep;
+
+/** **The point every figure before §106 was filed under**, so the artifact holds the comparison rather than a changelog. */
+const previousRuleKeep = (entries, pullRequest, profileKept) =>
+  keepUnder(PREVIOUS_EMISSION_STEPS, entries, pullRequest, profileKept).keep;
 
 /**
  * **The switch this iteration is about: whether a lane is shown the code each hunk sits in.**
@@ -1019,8 +1042,38 @@ async function dryRun() {
   );
   assert.equal(
     describeEmissionSteps(SHIPPED_EMISSION_STEPS),
-    'drop test, budget 12',
+    'drop test, drop path test, budget 12',
     'and the rule it applies is the row of the table the headline is filed under',
+  );
+  // **§106's step is about the file, and this fixture has no test file** - so the two policies must agree here, and a
+  // run that saw them differ on source paths would be reading the step as a category filter.
+  assert.deepEqual(
+    previousRuleKeep(ranked, 'fixture'),
+    shipped,
+    'the policy before §106 and the one after agree on a fixture whose paths are all source',
+  );
+  // **And it fires on the path, on two findings that differ only there.** The category is the same in both rows, so a
+  // step that dropped on the category would drop both and one that read no path would drop neither; only a step that
+  // classifies the file drops the first.
+  const pathPair = [
+    { path: 'tests/a.test.ts', finding: { category: 'bug' }, score: { score: 9 } },
+    { path: 'src/a.ts', finding: { category: 'bug' }, score: { score: 1 } },
+  ];
+  const underShipped = keepUnder(SHIPPED_EMISSION_STEPS, pathPair, 'p1', undefined);
+  assert.deepEqual(
+    underShipped.keep,
+    [false, true],
+    'the finding on the test path is refused and the one on the source path is kept',
+  );
+  assert.deepEqual(
+    underShipped.droppedByPathClass,
+    [{ pathClass: 'test', count: 1 }],
+    'and the artifact can say it was the class of the file that refused it',
+  );
+  assert.deepEqual(
+    keepUnder(PREVIOUS_EMISSION_STEPS, pathPair, 'p1', undefined).keep,
+    [true, true],
+    'the policy before §106 keeps both, so the difference between the two rows is the step and not the pool',
   );
 
   const curve = topKCurve(matrix.matches, goldens.length);
@@ -2150,6 +2203,14 @@ async function main() {
     fileFailures: 0,
     firstFileFailure: null,
     laneStats: null,
+    /**
+     * **What §106's path-class step removed, by class**, summed over the corpus.
+     *
+     * **A count and not a silent filter**, because the step drops findings whose category the policy keeps: without this
+     * number, a reader comparing the new headline against an old one would be comparing two pools and calling the
+     * difference a device.
+     */
+    emissionPathDrops: {},
     // **What the remark pass kept and what its two rails removed**, summed over the corpus, because **a pass that filed
     // nothing is two different findings depending on which rail fired**: a model that said nothing about a clean diff is
     // the device working, and a rail that refused every line it named is the device measuring its own prompt.
@@ -3861,7 +3922,12 @@ async function main() {
     // second call to `shippedRuleKeep` would be a second rule, and two figures about two rules is how a run reports a
     // comparison between itself and itself. **The pull-request key is passed rather than implied**, because the budget
     // counts twelve per pull request and a run-wide count would be a different rule with a better score.
-    const shippedKeepFlags = shippedRuleKeep(ranked, competitorKey, profileKept);
+    const shippedCut = keepUnder(SHIPPED_EMISSION_STEPS, ranked, competitorKey, profileKept);
+    const shippedKeepFlags = shippedCut.keep;
+    for (const entry of shippedCut.droppedByPathClass) {
+      engineCounters.emissionPathDrops[entry.pathClass] =
+        (engineCounters.emissionPathDrops[entry.pathClass] ?? 0) + entry.count;
+    }
     // **The pull request's own file list, one request before the attribution**, because the difference between *the
     // corpus moved* and *this run dropped a file* is the difference between no work and a filter to fix. A refusal
     // leaves the older reading in place rather than emptying the list.
@@ -3981,6 +4047,10 @@ async function main() {
       // which is the failure mode of a decision made once and never re-checked. One boolean per finding, already
       // computed, charged to nothing.
       laneGateKeep: laneRuleKeep(ranked, profileKept),
+      // **And the same findings under the policy §106 replaced.** Printed beside the headline rather than remembered, so
+      // **the two rows differ in one step and not in the day** - which is the only way a policy change can be read as a
+      // change rather than as noise between two dispatches.
+      previousKeep: previousRuleKeep(ranked, competitorKey, profileKept),
       // **Index-aligned with `matches` and `keep`**, because the only way to attribute an owned golden to a category is
       // to look up the finding that owns it - and `goldenOwners` answers with a position in this very list.
       categories: ranked.map((entry) => entry.finding.category),
@@ -4100,6 +4170,18 @@ async function main() {
     return { indices: matchedGoldenIndices(kept, pull.goldens), emitted: kept.length };
   };
 
+  /**
+   * **The point every figure before §106 was filed under, recomputed from this run's own findings.**
+   *
+   * `shipped` is `drop test, drop path test, budget 12` and this is `drop test, budget 12`: one step apart, one pool, one
+   * judge. **A run that printed only the new number would make its own history unreadable**, because the reader would
+   * have no way to tell a device from a corpus that moved.
+   */
+  const previousEmission = (pull) => {
+    const kept = pull.matches.filter((_, at) => pull.previousKeep[at]);
+    return { indices: matchedGoldenIndices(kept, pull.goldens), emitted: kept.length };
+  };
+
   const countsOver = (perPull, rule) =>
     perPull.reduce((total, pull) => {
       const covered = rule(pull);
@@ -4127,6 +4209,7 @@ async function main() {
   // **And what the lanes' rule would have done to the same findings**, so §23.7's scoping is re-measured every run rather
   // than argued once. Under the lanes' rule `keep` and `laneGateKeep` are the same vector and this is the same point.
   const laneGate = asPoint(countsOver(perPr, laneGateEmission));
+  const previousShippedPoint = asPoint(countsOver(perPr, previousEmission));
 
   /**
    * **The corpus's arithmetic, applied to the verdicts this run already bought.**
@@ -4817,6 +4900,17 @@ async function main() {
         rule: 'actionability gate (the range covers an added line AND (a suggestion names an action OR the finding quotes added code)) AND the profile floor',
         point: laneGate,
       },
+      /**
+       * **The point §106 replaced, computed in the same pass**, because a policy change published alone is a number a
+       * reader has to take on trust. The two rows differ in one step - `drop path test` - and in nothing else.
+       */
+      previousShipped: {
+        rule: `${describeEmissionSteps(PREVIOUS_EMISSION_STEPS)} (the policy §106 replaced)`,
+        steps: PREVIOUS_EMISSION_STEPS,
+        point: previousShippedPoint,
+      },
+      /** **What the path-class step refused, by class**, because it drops findings whose category the policy keeps. */
+      droppedByPathClass: engineCounters.emissionPathDrops,
     },
     // **The list before the rule, because the rule is only interesting beside it.**
     fullEmission: allEmitted,

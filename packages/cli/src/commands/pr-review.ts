@@ -179,6 +179,8 @@ export interface PrReviewReport {
     emissionPolicy?: {
       rule: string;
       droppedByCategory: readonly { readonly category: string; readonly count: number }[];
+      /** Findings the path-class step removed, by class. Absent on a policy that has no such step. */
+      droppedByPathClass?: readonly { readonly pathClass: string; readonly count: number }[];
       truncatedByBudget: number;
     };
   };
@@ -840,8 +842,7 @@ export async function runPrReview(options: PrReviewOptions): Promise<PrReviewRun
    * **An explicit `--max-findings` wins**, because a command line is a decision and the policy is a default - and
    * `CODE_ANALYZER_REVIEW_MAX_COMMENTS` is read the same way it always was.
    */
-  const policy = cap === undefined ? applyEmissionPolicy(reported, SHIPPED_EMISSION_STEPS) : null;
-  const findings = policy === null ? reported.slice(0, cap) : [...policy.kept];
+  const policy = cap === undefined ? applyEmissionPolicy(reported, SHIPPED_EMISSION_STEPS) : null;  const findings = policy === null ? reported.slice(0, cap) : [...policy.kept];
 
   const report: PrReviewReport = {
     schema: PR_REVIEW_SCHEMA,
@@ -888,6 +889,10 @@ export async function runPrReview(options: PrReviewOptions): Promise<PrReviewRun
             emissionPolicy: {
               rule: describeEmissionSteps(SHIPPED_EMISSION_STEPS),
               droppedByCategory: policy.droppedByCategory,
+              // **What the path-class step removed, beside the categories**, because §106's step drops findings whose
+              // category the rule keeps: a reader who misses a comment on a test file must be able to see that it was the
+              // file's class and not the lane's category that refused it.
+              droppedByPathClass: policy.droppedByPathClass,
               truncatedByBudget: policy.truncated,
             },
           }),
@@ -1214,8 +1219,14 @@ function truncationNote(summary: PrReviewReport['summary'], style: 'text' | 'mar
   const flag = style === 'markdown' ? '`--max-findings`' : '--max-findings';
   if (policy === undefined) return `${count} finding(s) beyond ${flag} were not reported.`;
   const dropped =
-    policy.droppedByCategory.map((entry) => `${entry.category} ${entry.count}`).join(', ') ||
-    'nothing';
+    [
+      ...policy.droppedByCategory.map((entry) => `${entry.category} ${entry.count}`),
+      // **A second list and not a merge into the first**, because a category and a path class are different reasons and a
+      // sentence that printed `test 2` for both would be a sentence a reader cannot act on.
+      ...(policy.droppedByPathClass ?? []).map(
+        (entry) => `path ${entry.pathClass} ${entry.count}`,
+      ),
+    ].join(', ') || 'nothing';
   return (
     `${count} finding(s) were not reported: the shipped emission policy (${policy.rule}) removed ` +
     `${dropped} and ${policy.truncatedByBudget} beyond the per-pull-request budget.`

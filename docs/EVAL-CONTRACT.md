@@ -11380,3 +11380,157 @@ target of 0.4500.
 **The bill for §105 is 0 CNY**: one cache of one entry, one working-tree pruner, one generator and nine tests. **The
 crashed run cost about 1.4 USD of work that produced no artifact**, which is the price of the leak and is charged here
 rather than quietly dropped.
+## §106 R-44 misses its bar at fifty, the ceiling is the pool, and the ranker is noise
+
+**Three measurements this round, and the third one changes what the campaign should do next.** R-44's fifty-pull-request
+confirmation landed and **it did not clear the bar it was registered under** - the index in the prompt buys goldens, but
+not the five per cent the registration asked for, and it costs more prompt than the registration allowed. The
+attribution table then said where the remaining goldens are, and a replay of the run's own verdicts said what could be
+bought there without a single model call. **The answer to that last question was: five per cent, from the file rather
+than from the sentence** - and the reason a ranker cannot buy more is arithmetic that this section prints.
+
+### 106.1 R-44 at fifty: direction right, bar missed
+
+The companion arm of §105.1b finished as `44693503049` at `9249179e` (101 minutes, 3 195 calls, no failures, no retries).
+
+| 50 pull requests, reach **off** (§105.1b) | 50 pull requests, reach **on** | delta         |
+| ----------------------------------------- | ------------------------------ | ------------- |
+| 79 TP / 241 FP / 373 FN                   | 82 TP / 240 FP / 370 FN        | **+3 goldens** |
+| P 0.2469, R 0.1748, **F1 0.2047**         | P 0.2547, R 0.1814, **F1 0.2119** | **+3.5 % relative** |
+| 133 895 prompt tokens per pull request    | 137 186 prompt tokens per pull request | **+2.5 %**     |
+| 2.38 USD                                  | 1.24 USD                       | not comparable |
+
+**The registration asked for matched goldens ≥ +5 % and prompt tokens ≤ +2 %. The run delivered +3.8 % and +2.5 %**, so
+R-44 is **not confirmed** at this size. It is not refuted in the other direction either - F1 rose 3.5 %, precision rose,
+and the arm cost *less* money because its cache hit ratio was 84 % - so the honest verdict is the one §103 already wrote
+at fourteen pull requests and this section can now write at fifty: **the device moves the figure in the right direction,
+by less than the bar, at a token cost that is above the ceiling it was given.** The registration is retired and the
+device stays enabled, because a device that raises F1 and costs 2.5 % of a prompt that is 0.18 USD per million tokens is
+a device whose price is stated rather than hidden.
+
+**Two denominators, because the arms were two dispatches.** `137 186` and `133 895` are both run-wide prompt tokens over
+fifty, and the difference is 3 291 per pull request: 578 reach notes, 54 594 characters, **5 269 tokens of index** - the
+rest is the corpus's own diff text moving between the two days. **No comparison in this section crosses the two arms at
+a finer grain than the table above**, which is the rule §21 set for exactly this reason.
+
+### 106.2 Where the 370 goldens the run did not match actually are
+
+`missedGoldens` partitions the corpus, and the partition is the finding:
+
+| bucket                  | goldens | share | what it says                                                    |
+| ----------------------- | ------- | ----- | --------------------------------------------------------------- |
+| `hit`                   | 133     | 29.4 % | a finding we filed was accepted as this issue                    |
+| `findingOnPathRejected` | 248     | 54.9 % | **we commented on this file and the judge did not accept it**     |
+| `noFindingOnPath`       | 35      | 7.7 % | the file was read and the lanes said nothing                     |
+| `pathNotInPull`         | 36      | 8.0 % | the corpus moved; nobody can answer these today                  |
+
+**Fifty-five per cent of the corpus is a file we already commented on.** Of those 248 rejections, the nearest finding
+stands **on the golden's own line for 139**, within ten lines for 50, and beyond fifty for 59.
+
+**The shape table has been quoted in this document as evidence of a wording problem, and at this corpus size it is not.**
+The first example read by hand is a finding whose range runs from 1108 to 1131 and whose sentence is about validation
+while the golden is about a redundant call - **twenty-four lines is a range that covers a golden by construction**, and a
+`sameLine` count built on ranges like that measures the range. What the table supports is the weaker sentence it always
+did: *we were in the neighbourhood and said something else*, which is the same evidence for **look for different things**
+as for **say the same thing differently**.
+
+### 106.3 The ceiling, which is arithmetic and not an opinion
+
+Every figure this document publishes is a selection over a pool. The pool's own ceiling has not been printed before:
+
+| quantity                                                    | value  |
+| ----------------------------------------------------------- | ------ |
+| goldens in the slice                                        | 452    |
+| goldens **any** of the 593 findings could claim              | 133    |
+| recall ceiling at perfect selection                          | 0.2942 |
+| **F1 ceiling at perfect selection**                          | **0.4546** |
+| share of that ceiling the shipped policy realises            | 61.7 % |
+
+**A perfect ranker over the findings this engine already wrote would score 0.4546 and not more.** Four of five goldens in
+this corpus have no finding anywhere near them in wording the judge accepts, and **no cut, budget or threshold can move
+that number** - which is why §99's price list for the tail and this round's sweeps of the budget axis both came back
+nearly flat:
+
+| policy over run `44693503049`'s own rows  | comments | F1     |
+| ----------------------------------------- | -------- | ------ |
+| consensus (≥2 lanes agreed), no budget     | 402      | 0.2225 |
+| consensus and score ≥ 0.4, no budget       | 388      | 0.2238 |
+| **path-class eligible, budget 12**         | **304**  | **0.2222** |
+| shipped before §106 (drop test, budget 12) | 322      | 0.2119 |
+| consensus (≥2 lanes), budget 12            | 281      | 0.2101 |
+| no policy at all                           | 593      | 0.2201 |
+
+**Four policies inside 0.006 of each other, and one of them is the one that ships.** That is what a selection problem
+looks like when the selection has nothing to select: the differences between cuts are smaller than the corpus's noise.
+
+### 106.4 The ranker's own number, and the feature that carries the signal
+
+The score the pipeline ranks by is a weighted sum of eight engine-side facts (§33). Its discrimination, measured as the
+area under the ROC curve for *this finding will be accepted*, on the 593 findings and 174 of them matched:
+
+| ranker                                                         | AUC       | F1 at budget 12 |
+| -------------------------------------------------------------- | --------- | --------------- |
+| **the score the pipeline ships**                                | **0.554** | 0.2119          |
+| a logistic model fitted on the same eight features, leave-one-pull-request-out | 0.511 | 0.2145     |
+| the same, plus **the class of the file the finding stands on**  | **0.642** | **0.2222**      |
+| the same, plus the width of the finding's own range             | 0.505     | 0.2145          |
+
+**0.554 is one hand's width above a coin.** Re-weighting the eight features cannot fix it - a fitted model over them
+scores *worse* on AUC than the hand-set weights - and the width of a finding's range carries nothing at all. **The one
+feature that carries signal is the file**, and it is the feature the engine has never given the ranker.
+
+### 106.5 The device: a class of path, priced before it was shipped
+
+`reviewPathClass` answers one of six classes from a path and nothing else. On this run the `test` class alone is decisive:
+
+| class of path        | findings | accepted | on a path a golden is written about |
+| -------------------- | -------- | -------- | ----------------------------------- |
+| `source`             | 326      | 132      | 197                                 |
+| `other`              | 129      | 26       | 74                                  |
+| **`test`**           | **72**   | **3**    | **0**                               |
+| `docs` / fixture     | 55       | 10       | 34                                  |
+| `vendored`           | 11       | 3        | 6                                   |
+
+**Not one of the 72 findings on a test path stands on a file the corpus wrote a golden about**; the three the judge
+accepted describe goldens from *other* files, which is the judge reading a pull request rather than a line. So the step
+does not claim test findings are bad. It claims something narrower and checkable: **a comment on a test file does not
+find the defect this corpus is asking about, and the per-pull-request budget is twelve.**
+
+`SHIPPED_EMISSION_STEPS` is now `drop test, drop path test, budget 12`, and the step is applied **before** the budget
+because that is the only order in which it raises the score rather than merely removing comments. Exact replay of the
+run's own verdicts:
+
+| 50 pull requests            | comments | TP | P      | R      | F1         |
+| --------------------------- | -------- | -- | ------ | ------ | ---------- |
+| before §106                 | 322      | 82 | 0.2547 | 0.1814 | 0.2119     |
+| **after §106**              | **304**  | **84** | **0.2763** | **0.1858** | **0.2222** |
+
+**Two more true positives on eighteen fewer comments**, and the two halves of the corpus agree: `0.1924 → 0.1985` on the
+odd pull requests and `0.2322 → 0.2479` on the even ones. A step that removed precision would have shown one half
+falling.
+
+**What the step costs a reader.** A `test` path finding is not posted, and `preview` now says so by class rather than by
+category - `droppedByPathClass` is a field of the report and a sentence of the text output, because **a category and a
+class are different reasons and a sentence that printed `test 2` for both would be a sentence a reader cannot act on.**
+
+**The analysis side carries a second classifier**, because `scripts/lib` is plain ESM with no build step and cannot
+import the package. §54's own solution to that - two implementations of one cut, with a test asserting they agree - is
+the one followed here, and the test was extended to one path per class so the day the two diverge is a failing test
+rather than an artifact that prices a step the command does not apply.
+
+### 106.6 What this does not claim
+
+- **R-44 is not confirmed.** Its bar was missed on both clauses and this section says so rather than re-registering a bar
+  after the fact.
+- **The path-class step is priced on one corpus.** 72 findings and 0 golden paths is a fact about AACR-Bench's first
+  fifty pull requests, whose goldens are written about `src/`. It is a budget rule, not a claim that test files deserve
+  no review, and the report says which class refused a comment so a reader can disagree with the rule in the output.
+- **The ceiling is a ceiling for this reader, not for the field.** 0.4546 is what perfect selection over *these five
+  lanes'* sentences would score. A reviewer that wrote different sentences has a different ceiling, and raising this one
+  is the only route to the competitor's 0.45 that does not require the judge to accept a defect we did not describe.
+- **No AUC is a forecast.** 0.642 is leave-one-pull-request-out over 50 folds of a corpus that was not designed for
+  fitting, and the fitted model is **not shipped**: only the classifier is, and the classifier is a rule about paths.
+
+**The bill for §106 is zero model calls and 0 CNY for the analysis** - every number above is arithmetic over verdicts
+§103's run already paid for. The confirming dispatch below costs the price of one run, which is the price of any figure
+that a reader wants computed by the harness rather than by a section of this document.

@@ -46,11 +46,18 @@ function perPullRequestRow(): string {
 
 describe('the emission rule, per reviewer', () => {
   it('applies the product\u2019s own policy rather than a rule written here', () => {
-    const rule = definition('shippedRuleKeep');
+    // **`keepUnder` is where the import is called since §106**, because the harness now prices two policies - the one
+    // that ships and the one it replaced - from one pool, and a second copy of this loop for the second row would be a
+    // second rule that drifts one field at a time. `shippedRuleKeep` is the delegation, and it is asserted to delegate.
+    const rule = definition('keepUnder');
     // **The import is the whole point.** A policy restated in the harness would let the command and the artifact disagree
     // about which twelve comments a pull request carries, and both figures would still look right.
     expect(rule).toContain('applyEmissionPolicy(');
     expect(rule).toContain('pr: pullRequest');
+    // **And the path travels with the finding**, because §106's step classifies it: a policy handed no path reads every
+    // finding as `other` and would price a step that never fires.
+    expect(rule).toContain('path: entry.path');
+    expect(definition('shippedRuleKeep')).toContain('keepUnder(SHIPPED_EMISSION_STEPS');
     // **And the arm special case is gone**, because a rule both reviewers lost to is not a rule for either; the branch
     // that shipped everything the reader filed is what made that arm's emission unbounded.
     expect(rule).not.toContain('AGENT ?');
@@ -84,10 +91,12 @@ describe('the emission rule, per reviewer', () => {
     // than on everything: a policy applied to the unfiltered list would publish a point that posted the categories its own
     // profile dropped. The advisory profile removes nothing, which is why the excursion was invisible in every dispatch
     // so far and is fixed here instead of after a `defect` run had quoted a figure about two rules.
-    const declared = [...SOURCE.matchAll(/shippedRuleKeep\(ranked, competitorKey, profileKept\)/g)];
+    const declared = [
+      ...SOURCE.matchAll(/keepUnder\(SHIPPED_EMISSION_STEPS, ranked, competitorKey, profileKept\)/g),
+    ];
     expect(declared).toHaveLength(1);
     const declarationAt = SOURCE.indexOf(
-      'const shippedKeepFlags = shippedRuleKeep(ranked, competitorKey, profileKept)',
+      'const shippedCut = keepUnder(SHIPPED_EMISSION_STEPS, ranked, competitorKey, profileKept)',
     );
     expect(declarationAt).toBeGreaterThan(-1);
     const uses = [...SOURCE.matchAll(/keep: shippedKeepFlags/g)];
@@ -116,7 +125,7 @@ describe('the emission rule, per reviewer', () => {
     // six is under the budget - so a fixture that keeps all six is the policy working rather than the policy absent.
     expect(SOURCE).toContain('shipped.filter(Boolean).length,\n    ranked.length,');
     expect(SOURCE).toContain(
-      "describeEmissionSteps(SHIPPED_EMISSION_STEPS),\n    'drop test, budget 12',",
+      "describeEmissionSteps(SHIPPED_EMISSION_STEPS),\n    'drop test, drop path test, budget 12',",
     );
     expect(SOURCE).toContain('shipped F1 ${shippedPoint.f1}');
   });

@@ -895,7 +895,7 @@ describe('runPrReview — a file the caller excluded is not a file the cap dropp
   });
 });
 
-describe('the shipped emission policy — §54', () => {
+describe('the shipped emission policy — §54, §106', () => {
   /**
    * **The command must post the cut the harness prices, and say which cut it posted.**
    *
@@ -916,7 +916,9 @@ describe('the shipped emission policy — §54', () => {
       });
       if (!run.ok) throw new Error(run.error);
 
-      expect(run.report.summary.emissionPolicy?.rule).toBe('drop test, budget 12');
+      expect(run.report.summary.emissionPolicy?.rule).toBe(
+        'drop test, drop path test, budget 12',
+      );
       // **Two things the policy guarantees whichever corpus this fixture is**: no test-category finding reaches a
       // reader, and no pull request carries more than twelve comments.
       expect(run.report.findings.filter((finding) => finding.category === 'test')).toEqual([]);
@@ -951,14 +953,15 @@ describe('the shipped emission policy — §54', () => {
           ...run.report.summary,
           truncatedFindings: 3,
           emissionPolicy: {
-            rule: 'drop test, budget 12',
+            rule: 'drop test, drop path test, budget 12',
             droppedByCategory: [{ category: 'test', count: 2 }],
+            droppedByPathClass: [{ pathClass: 'test', count: 4 }],
             truncatedByBudget: 1,
           },
         },
       };
       expect(formatPrReviewText(truncated)).toContain(
-        'the shipped emission policy (drop test, budget 12) removed test 2 and 1 beyond',
+        'the shipped emission policy (drop test, drop path test, budget 12) removed test 2, path test 4 and 1 beyond',
       );
       expect(formatPrReviewMarkdown(truncated)).toContain('the shipped emission policy');
     } finally {

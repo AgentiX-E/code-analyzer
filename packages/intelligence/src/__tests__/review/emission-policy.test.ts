@@ -7,10 +7,10 @@
 // reviewer nobody can run, so the cut moved here: one function, applied by the command that posts comments and by the
 // harness that measures them, and priced by the table that chose it.
 //
-// **What a policy is allowed to be.** Three steps — drop a category, keep a category, keep at most k per pull request —
-// because that is the whole space the campaign has ever registered (§50's table prints every combination of them). **A
-// rule language with more expressive power than the campaign has hypotheses is a rule language that can fit the
-// corpus**, which is why there is no predicate seam here.
+// **What a policy is allowed to be.** Four steps — drop a category, keep a category, drop a class of path, keep at most
+// k per pull request — because each of them is a row in a published table. **A rule language with more expressive power
+// than the campaign has hypotheses is a rule language that can fit the corpus**, which is why there is no predicate seam
+// here: §106's step takes a class list and the classifier that answers it is this module's, not the caller's.
 //
 // **What it is not.** It never adds a finding, never rewrites one, and never looks at a golden: it chooses which of the
 // comments a reviewer already wrote reach a reader. That is the difference between a cut, which is arithmetic a run's
@@ -19,9 +19,12 @@
 import { describe, expect, it } from 'vitest';
 
 import {
+  PREVIOUS_EMISSION_STEPS,
+  REVIEW_PATH_CLASSES,
   SHIPPED_EMISSION_STEPS,
   applyEmissionPolicy,
   describeEmissionSteps,
+  reviewPathClass,
 } from '../../review/emission-policy.js';
 
 interface Subject {
@@ -29,6 +32,7 @@ interface Subject {
   readonly category?: string;
   readonly score?: number;
   readonly pr?: string;
+  readonly path?: string;
 }
 
 /** `n` findings on one pull request, all `bug`, scored in descending order. */
@@ -43,11 +47,24 @@ function bullets(n: number, pr = 'p1'): Subject[] {
 
 describe('the shipped emission policy', () => {
   it('is the cut the table prices, and says so in the same words', () => {
-    // **The label is the join between the policy and the artifact.** §54's table has a row called
-    // `drop test, budget 12`; if this string and that row ever disagree, the shipped point is a point the table does
-    // not price, and every figure filed under it is the price of something else.
-    expect(describeEmissionSteps(SHIPPED_EMISSION_STEPS)).toBe('drop test, budget 12');
+    // **The label is the join between the policy and the artifact.** §106's table has a row called
+    // `drop test, drop path test, budget 12`; if this string and that row ever disagree, the shipped point is a point the
+    // table does not price, and every figure filed under it is the price of something else.
+    expect(describeEmissionSteps(SHIPPED_EMISSION_STEPS)).toBe(
+      'drop test, drop path test, budget 12',
+    );
     expect(SHIPPED_EMISSION_STEPS).toEqual([
+      { kind: 'drop', categories: ['test'] },
+      { kind: 'drop-path-class', classes: ['test'] },
+      { kind: 'budget', k: 12 },
+    ]);
+  });
+
+  it('keeps the point before §106 as a value, so a row can be re-priced without reading a changelog', () => {
+    // The two policies differ in exactly one step, and **a run prints both from one pool** - which is what makes the
+    // difference between the rows the step rather than the day.
+    expect(describeEmissionSteps(PREVIOUS_EMISSION_STEPS)).toBe('drop test, budget 12');
+    expect(PREVIOUS_EMISSION_STEPS).toEqual([
       { kind: 'drop', categories: ['test'] },
       { kind: 'budget', k: 12 },
     ]);
@@ -56,6 +73,7 @@ describe('the shipped emission policy', () => {
   it('is frozen, because a policy that can be edited at runtime is a figure that moves without a run', () => {
     expect(Object.isFrozen(SHIPPED_EMISSION_STEPS)).toBe(true);
     expect(Object.isFrozen(SHIPPED_EMISSION_STEPS[0])).toBe(true);
+    expect(Object.isFrozen(PREVIOUS_EMISSION_STEPS)).toBe(true);
   });
 
   it('drops the test category and nothing else', () => {
@@ -227,5 +245,119 @@ describe('the shipped emission policy', () => {
     const outcome = applyEmissionPolicy([], SHIPPED_EMISSION_STEPS);
     expect(outcome.kept).toEqual([]);
     expect(outcome.truncated).toBe(0);
+  });
+});
+
+describe('the path-class step §106 ships', () => {
+  it('classifies the four populations the corpus prices, from the path alone', () => {
+    // **Every path here is a real one from run `44693503049`**, because a classifier tested on invented paths is a
+    // classifier tested on the shape its author imagined. The three `fixture` paths are golden outputs committed as
+    // text; reading them as `test` would price them at the wrong class.
+    const cases: readonly (readonly [string, string])[] = [
+      ['src/Mod/TechDraw/App/DrawProjGroup.cpp', 'source'],
+      ['src/gpu/vulkan/SDL_gpu_vulkan.c', 'source'],
+      ['packages/intelligence/src/review/emission-policy.ts', 'source'],
+      ['src/others/xml/parsers/lv_xml_obj_parser.c', 'source'],
+      ['testdata/baselines/reference/submodule/conformance/importTag1.errors.txt', 'fixture'],
+      ['src/Mod/TechDraw/__snapshots__/x.snap', 'fixture'],
+      ['src/Mod/Part/App/Tests/FeaturePartCommon.cpp', 'test'],
+      ['tests/unit/scripts/a-figure-names-every-row.test.ts', 'test'],
+      ['src/3rdparty/salomesmesh/src/DriverSTL.cpp', 'vendored'],
+      ['node_modules/left-pad/index.js', 'vendored'],
+      ['docs/EVAL-CONTRACT.md', 'docs'],
+      ['CHANGELOG.md', 'docs'],
+      ['README.txt', 'docs'],
+      ['LICENSE', 'other'],
+      ['', 'other'],
+    ];
+    for (const [path, expected] of cases) expect([path, reviewPathClass(path)]).toEqual([path, expected]);
+  });
+
+  it('answers a class the list names for every path it is given, so the two cannot drift apart', () => {
+    // **A classifier that returned a seventh class would make `classes: ['test']` a filter that silently misses.** The
+    // property is checked over the paths above plus the degenerate ones a caller really produces.
+    const paths = [
+      'a/b.c',
+      'A\\B\\C.PY',
+      '.github/workflows/aacr-bench.yml',
+      'src/',
+      '/',
+      'x',
+      'packages/cli/src/commands/pr-review.ts',
+      undefined,
+    ];
+    for (const path of paths) expect(REVIEW_PATH_CLASSES).toContain(reviewPathClass(path));
+  });
+
+  it('reads the file key when a report calls it that, because the command does', () => {
+    // The harness's ranked rows call the field `path`, a report's findings call it `file`, and a lens finding - the shape
+    // `review pr` passes - calls it `filePath`. **A step that read one of them would drop nothing on the callers that used
+    // the others**, and the artifact would price a step the command does not apply - §54's defect one level down. The
+    // third key was added because this test was written with the command's real shape and failed.
+    const items = [
+      { id: 'ranked', category: 'bug', path: 'tests/a.test.ts' },
+      { id: 'reported', category: 'bug', file: 'tests/b.test.ts' },
+      { id: 'lens', category: 'bug', filePath: 'tests/c.test.ts' },
+      { id: 'source', category: 'bug', filePath: 'src/a.ts' },
+    ];
+    const kept = applyEmissionPolicy(items, [
+      { kind: 'drop-path-class', classes: ['test'] },
+    ]).kept;
+    expect(kept.map((item) => item.id)).toEqual(['source']);
+  });
+
+  it('drops only the classes it names, and counts what it dropped', () => {
+    const items: Subject[] = [
+      { id: 't', category: 'bug', path: 'tests/a.test.ts' },
+      { id: 'f', category: 'bug', path: 'testdata/goldens/a.txt' },
+      { id: 's', category: 'bug', path: 'src/a.ts' },
+    ];
+    const outcome = applyEmissionPolicy(items, [
+      { kind: 'drop-path-class', classes: ['test'] },
+    ]);
+    expect(outcome.kept.map((item) => item.id)).toEqual(['f', 's']);
+    expect(outcome.droppedByPathClass).toEqual([{ pathClass: 'test', count: 1 }]);
+    // **The drop is not a truncation**, and a report that counted it as one would tell a reader the budget refused a
+    // comment the policy had already refused on the file's account.
+    expect(outcome.truncated).toBe(0);
+  });
+
+  it('keeps a finding whose path is absent rather than reading absence as a test', () => {
+    // A caller assembling findings by hand has no path to give, and **nothing equals `test`**, so the step must pass it
+    // through - the same rule `drop test` follows for an uncategorised finding.
+    const outcome = applyEmissionPolicy([{ id: 'no-path', category: 'bug' }], [
+      { kind: 'drop-path-class', classes: ['test'] },
+    ]);
+    expect(outcome.kept.map((item) => item.id)).toEqual(['no-path']);
+    expect(outcome.droppedByPathClass).toEqual([]);
+  });
+
+  it('runs before the budget, so the slots it frees are spent on findings that can carry goldens', () => {
+    // This is the arithmetic §106 priced: on the run above, the step raises the *score* because the twelve slots a pull
+    // request has go to other files. A step applied after the budget would remove comments and buy nothing - which the
+    // reversed order shows, keeping the test finding and dropping the source one.
+    const items: Subject[] = [
+      { id: 't1', category: 'bug', score: 9, pr: 'p1', path: 'tests/a.test.ts' },
+      { id: 't2', category: 'bug', score: 8, pr: 'p1', path: 'tests/b.test.ts' },
+      { id: 's1', category: 'bug', score: 7, pr: 'p1', path: 'src/a.ts' },
+    ];
+    const ordered = applyEmissionPolicy(items, [
+      { kind: 'drop-path-class', classes: ['test'] },
+      { kind: 'budget', k: 1 },
+    ]);
+    expect(ordered.kept.map((item) => item.id)).toEqual(['s1']);
+    expect(ordered.droppedByPathClass).toEqual([{ pathClass: 'test', count: 2 }]);
+    expect(ordered.truncated).toBe(0);
+    const reversed = applyEmissionPolicy(items, [
+      { kind: 'budget', k: 1 },
+      { kind: 'drop-path-class', classes: ['test'] },
+    ]);
+    expect(reversed.kept).toEqual([]);
+  });
+
+  it('names the step in the label a table row prints', () => {
+    expect(
+      describeEmissionSteps([{ kind: 'drop-path-class', classes: ['test', 'fixture'] }]),
+    ).toBe('drop path test+fixture');
   });
 });

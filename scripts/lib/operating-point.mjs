@@ -150,6 +150,35 @@ export function projectAddition(point, { comments, truePositives }) {
 }
 
 /**
+ * **Which class a finding's path belongs to, for `drop-path-class`.**
+ *
+ * **A second implementation of `reviewPathClass`, and the test is the guard.** `scripts/lib` is plain ESM with no build
+ * step, so it cannot import the package; §54's own solution to this - two implementations of one cut, with
+ * `the-shipped-point-is-a-row-of-the-table-that-prices-it.test.ts` asserting they agree on a fixture that reaches every
+ * branch - is the one followed here, and the fixture was extended by §106 to carry one path per class.
+ */
+const PATH_CLASS_RULES = [
+  ['fixture', /(^|\/)(testdata|__snapshots__|baselines|goldens?)(\/|$)/u],
+  ['test', /(^|\/)(test|tests|testing|spec|specs|__tests__|e2e)(\/|$)|(^|\/)[^/]*[._-](test|spec)\.[a-z]+$/u],
+  ['vendored', /(^|\/)(3rdparty|third[_-]party|vendor|vendored|external|extern|node_modules)(\/|$)/u],
+  ['docs', /(^|\/)(docs?|documentation)(\/|$)|\.(md|mdx|rst|adoc|txt)$/u],
+  [
+    'source',
+    /\.(c|cc|cpp|cxx|h|hh|hpp|hxx|m|mm|py|pyi|js|jsx|mjs|cjs|ts|tsx|java|kt|kts|groovy|scala|swift|go|rs|rb|php|cs|dart|lua|pl|r|jl|ex|exs|hs|ml|clj)$/u,
+  ],
+];
+
+/** The class of one path, from the path alone. */
+export function pathClassOf(path) {
+  const normalised = String(path ?? '')
+    .replace(/\\/gu, '/')
+    .toLowerCase();
+  if (normalised === '') return 'other';
+  for (const [pathClass, test] of PATH_CLASS_RULES) if (test.test(normalised)) return pathClass;
+  return 'other';
+}
+
+/**
  * **A cut, as steps applied in order.**
  *
  * The structure is the smallest that can express the two things a run has ever varied: **what kind of finding may
@@ -164,7 +193,12 @@ export function projectAddition(point, { comments, truePositives }) {
 export function applyCut(findings, steps) {
   let kept = [...findings];
   for (const step of steps) {
-    if (step.kind === 'drop') {
+    if (step.kind === 'drop-path-class') {
+      const unwanted = new Set(step.classes);
+      kept = kept.filter(
+        (finding) => !unwanted.has(pathClassOf(finding?.['filePath'] ?? finding?.['path'] ?? finding?.['file'])),
+      );
+    } else if (step.kind === 'drop') {
       const unwanted = new Set(step.categories);
       kept = kept.filter((finding) => !unwanted.has(String(finding?.['category'] ?? '')));
     } else if (step.kind === 'keep-category') {
@@ -204,6 +238,7 @@ export function describeCut(steps) {
     .map((step) => {
       if (step.kind === 'drop') return `drop ${step.categories.join('+')}`;
       if (step.kind === 'keep-category') return `keep ${step.categories.join('+')}`;
+      if (step.kind === 'drop-path-class') return `drop path ${step.classes.join('+')}`;
       if (step.kind === 'gate') return 'actionability gate';
       if (step.kind === 'budget') return `budget ${step.k}`;
       return String(step.kind);
@@ -233,6 +268,15 @@ export function registeredCuts(budgets = [6, 8, 10, 12, 13, 14, 16, 20, 24]) {
     cuts.push({
       steps: [
         { kind: 'drop', categories: ['test'] },
+        { kind: 'budget', k: budget },
+      ],
+    });
+    // **And the same cut with §106's path step**, because the shipped policy is this pair and a table that priced the
+    // policy without one of its steps would be pricing a reviewer nobody runs.
+    cuts.push({
+      steps: [
+        { kind: 'drop', categories: ['test'] },
+        { kind: 'drop-path-class', classes: ['test'] },
         { kind: 'budget', k: budget },
       ],
     });
