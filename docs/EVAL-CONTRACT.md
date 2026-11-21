@@ -14104,3 +14104,120 @@ the bar first is what stops that.
 **0 CNY** - four documents read, one comparison table, and a registration. **R-65 is an estimated 9 CNY** and is not
 dispatched in this iteration: it needs the second provider wired, and §122.2's rule about a shared vendor cache applies
 to it twice over.
+
+---
+
+## §126 R-64 met its bar by 27 true positives, and the cap it priced was not the only thing that moved
+
+**The claim was pool true positives from 91 to at least 110 of 330 on rows 150-195.** The arm returned **137**. **The
+control is exact rather than argued**: reviewer prompt tokens are **6 498 606 in both arms, to the token**, so the only
+thing that changed between the two dispatches is the number of findings the merge keeps at a site. **And the number §124.4
+predicted is the number that happened**: the goldens with no candidate fall **226 → 187**, a recovery of **39** against the
+"six in ten of 64 pairs" forecast of **38**.
+
+### 126.1 Two arms, one control, and four rows that moved
+
+Both dispatches read rows 150-195 of the same corpus, forty-six pull requests, five shipped lanes, `competitor: off`,
+`judge_batch: 1`, `dedupThreshold: 0.8`: **R-55** (`44891741390`, cap 1) and **R-64** (`44912204000`, cap 3).
+
+|                              | R-55 (cap 1) | R-64 (cap 3)  | change       |
+| ---------------------------- | ------------ | ------------- | ------------ |
+| reviewer prompt tokens       | 6 498 606    | **6 498 606** | **0.0 %**    |
+| findings into deduplication  | 1 646        | 1 638         | −0.5 %       |
+| findings out                 | 530          | **1 100**     | **+107.5 %** |
+| removed under `rangeOnly`    | 1 112        | **530**       | −52 %        |
+| **kept as a second concern** | **0**        | **609**       | —            |
+| **pool true positives**      | **91**       | **137**       | **+46**      |
+| **pool recall**              | 0.2758       | **0.4152**    | **+0.1394**  |
+| goldens with no candidate    | **226**      | **187**       | **−39**      |
+| emitted k (cap 3, budget 12) | 296          | 394           | +33 %        |
+| emitted true positives       | 71           | **86**        | **+15**      |
+| precision                    | **0.2399**   | 0.2183        | **−0.0216**  |
+| recall                       | 0.2152       | **0.2606**    | +0.0454      |
+| **F1**                       | 0.2268       | **0.2376**    | **+0.0108**  |
+
+**The bar is met and the guard rail is met in the direction that matters.** Pool true positives **137 against a bar of
+110** is a direct measurement and needs no interval. **F1 rose 0.0108, which is 0.38 of the slice's 0.0281 resolution** -
+so it is a point estimate and the registration's `registeredBelowResolution` is why this section does not claim it as a
+confirmation. **Precision fell 0.0216 and that is stated rather than buried**: the arm says seven things where the
+previous one said six, and it is right about one more of them.
+
+### 126.2 The 609 second concerns are mostly wrong, and it does not matter
+
+**609 findings were kept that the previous arm removed, and only 46 of them are true positives** - a precision of
+**0.0755** on the recovered population, well below the **0.119** that §59's arithmetic says an added comment needs. **So
+the gain did not come from the recovered findings being right.** It came from **what they did to the ranking**: with 1 100
+candidates instead of 530, the twelve-per-pull-request budget has 86 true positives to choose from instead of 71, and the
+top of the list is where the F1 is.
+
+**That is the distinction §122.3 could not make and this pair can**: a device that widens the pool is not a device that
+adds noise, **it is a device that gives the ranking a better pool to rank**, and the two are visible in the same artifact
+because the emitted TP count rises **while** the recovered population's own precision is below the threshold.
+
+### 126.3 What it cost, in the two units §117 built
+
+| unit                     | R-55      | R-64          | ratio     |
+| ------------------------ | --------- | ------------- | --------- |
+| judge requests           | 7 434     | **14 427**    | 1.94×     |
+| judge prompt tokens      | 2 152 529 | **4 263 779** | **1.98×** |
+| judge `cacheNeutralUsd`  | 0.3452    | 0.6828        | 1.98×     |
+| total `cacheNeutralUsd`  | 1.7551    | **2.0860**    | **1.19×** |
+| total billed USD         | 0.9221    | 1.0965        | 1.19×     |
+| reviewer cache hit ratio | —         | **94.07 %**   | —         |
+| judge cache hit ratio    | 18.97 %   | 14.48 %       | —         |
+
+**The judge's bill doubled and the total bill rose 18.9 %, because the reviewer's share is cached at 94 %.** A device that
+doubles the pool is a device that doubles **what the judge reads and nothing else**, which is the cheapest place in this
+harness for a pool to grow - and **the reason it is 1.19× rather than 1.98× is `promptOrder: boilerplate-first` doing its
+job**, not a saving this device made.
+
+### 126.4 The optimal budget moved, and that is a second device hiding inside the first
+
+The same artifact carries the emission rule at eleven budgets, so the interaction is read rather than guessed:
+
+| emission rule (R-64)                               | k   | TP      | precision  | recall     | F1         |
+| -------------------------------------------------- | --- | ------- | ---------- | ---------- | ---------- |
+| drop test, budget 12                               | 430 | 87      | 0.2023     | 0.2636     | 0.2289     |
+| **drop test, drop path test, budget 12 (shipped)** | 394 | 86      | **0.2183** | 0.2606     | 0.2376     |
+| drop test, budget 20                               | 613 | 106     | 0.1729     | 0.3212     | 0.2248     |
+| **drop test, drop path test, budget 20**           | 548 | **112** | 0.2044     | **0.3394** | **0.2551** |
+
+**With the pool at 1 100, the twelve-per-pull-request budget is no longer the F1 maximum: twenty is, by 0.0175.** §124.2
+measured 12 as the peak on the cap-1 arm and it was - **the peak is a property of the pool's size, and the cap changed
+it**. 0.2551 is **one resolution unit (0.0281) above R-55's 0.2268**, which is the first time a number in this document
+has cleared that bar on accuracy rather than on a pool count.
+
+**R-67 registers that pair** - cap 3 with budget 20 - because **a cap and a budget interact and pricing them separately
+would price neither**.
+
+### 126.5 R-67 - the pair, registered on the emitted arm this time
+
+**R-67 - three concerns at a site and twenty findings per pull request.** _Claim._ On the same 46 rows with the five
+shipped lanes, `sameSiteConcerns: 3` and `pullRequestBudget: 20` reach a file-arm **F1 of at least 0.2549**, which is
+**one resolution unit above R-55's 0.2268**, with precision not below **0.19**. _Falsifier._ An F1 below 0.2549 at that
+pair, or a precision below 0.19, **or** a total `cacheNeutralUsd` above **2.4** - the bill is a clause here because the
+pool doubling is what makes the budget affordable and the two together are what is being bought.
+
+**Why the bar is the resolution unit and not the 0.2551 that is already measured.** 0.2551 is **one cut of an artifact
+that exists**; a _dispatch_ at `pullRequestBudget: 20` is a different run, and §122.3's 3.4 %-at-the-top / 33.8 %-at-the-
+pool movement between two dispatches of one configuration is the reason a cut and a run are not the same evidence. **The
+claim is that the cut reproduces as a run**, and its falsifier is the honest one.
+
+**Price: ≈7 CNY**, because the pool and the judge are what a budget change moves and both are already paid for in the
+estimate above.
+
+### 126.6 What this section does not claim
+
+- **That the cap alone is worth +0.0108 of F1 everywhere.** It is worth that on 46 rows with this golden density; §124.3
+  says the density is the variable, and a corpus with one golden per file would move less.
+- **That precision 0.2183 is acceptable for a product.** It is **0.0216 worse than the arm before it**, and a product
+  that prefers precision to recall should keep the cap at 1 - which is why the cap is an input and not a default.
+- **That 609 recovered findings are 609 new comments.** The twelve- and twenty-per-pull-request budgets are what decide
+  how many reach a reviewer; 609 is what the _pool_ holds.
+- **That the judge's doubled bill is free.** It is 18.9 % of a total that was 1.76 USD; on a corpus ten times this size
+  the judge would be the line item that decides whether the device ships.
+
+### 126.7 Price
+
+**≈7 CNY** for R-64's arm (`44912204000`, 1.0965 USD billed, 2.0860 USD cold). **R-67 is an estimated 7 CNY** and is not
+dispatched in this iteration.

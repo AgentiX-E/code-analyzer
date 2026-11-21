@@ -191,3 +191,19 @@ describe('the same-site cap is wired end to end', () => {
     expect(registration!['confirmation']).toEqual([{ skip: 150, max: 46 }]);
   });
 });
+
+describe('the emission budget is an input, because the cap moved its maximum', () => {
+  it('is read from the environment the workflow sets, and validated', () => {
+    expect(BENCH).toContain("process.env['PR_BUDGET']");
+    expect(WORKFLOW).toContain('PR_BUDGET: ${{ inputs.pull_request_budget');
+    const block = BENCH.slice(BENCH.indexOf("process.env['PR_BUDGET']"));
+    expect(block.slice(0, 400)).toContain('Number.isInteger(parsed)');
+  });
+
+  it('is the same number the artifact publishes as the budget it ran', () => {
+    // **`pullRequestBudget: PR_BUDGET` in `configuration`**: a run whose artifact said 12 while the ranker cut at 20
+    // would be the §58.1 shape - an artifact internally consistent and about a reviewer nobody dispatched.
+    const configuration = BENCH.slice(BENCH.indexOf('configuration: {'));
+    expect(configuration.slice(0, 6000)).toContain('pullRequestBudget: PR_BUDGET');
+  });
+});

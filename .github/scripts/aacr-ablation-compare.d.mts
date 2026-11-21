@@ -91,6 +91,7 @@ export declare const REGISTRATIONS: Readonly<
     | 'secondConcern'
     | 'secondConcern200'
     | 'sameSiteConcerns'
+    | 'sameSiteConcerns20'
     | 'secondFamily'
     | 'removedLineReach'
     | 'laneSet',

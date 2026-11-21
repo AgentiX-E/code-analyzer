@@ -313,6 +313,14 @@ on:
         description: 'Findings one range may keep (default 1, the arm every figure was measured under; 3 is R-64)'
         type: string
         default: '1'
+      pull_request_budget:
+        # **The emission budget, which stopped being a constant when the pool doubled.** §124.2 measured twelve as the
+        # maximum of the F1 curve on the cap-1 arm; R-64 put the pool at 1 100 findings and moved that maximum to
+        # **twenty**, by 0.0175 - so the budget is a device and R-67 prices the pair (cap 3, budget 20) rather than
+        # either alone.
+        description: 'Findings one pull request may carry (default 12; 20 is the R-67 pair)'
+        type: string
+        default: '12'
       # **`code_context` used to be an input here, and its deletion is the fix rather than a tidy-up.** As an input it
       # had one value per dispatch, so measuring the device meant two dispatches - and two dispatches of this job have
       # reported the *same* configuration at 0.1691 and 0.2405, which is a spread larger than every effect registered in
@@ -629,6 +637,10 @@ jobs:
           # **The per-range cap, beside the per-file one and for the same reason**: the two are separate decisions and a
           # run that recorded one and applied the other would be an artifact about a reviewer nobody dispatched.
           AACR_SAME_SITE_CONCERNS: ${{ inputs.same_site_concerns || '1' }}
+          # **The emission budget, beside the two caps it interacts with**: the per-site cap decides what enters the
+          # ranking and this one decides how much of the ranking a reviewer sees, and §126.4 measured them moving
+          # together.
+          PR_BUDGET: ${{ inputs.pull_request_budget || '12' }}
           # **Whether this run buys a competitor result, or reads the one already paid for.** The script's own default
           # is `replay`; it is passed explicitly here so the artifact cannot disagree with the workflow about which run
           # produced it, and so a manual `record` is a line in the log rather than an environment variable someone set.

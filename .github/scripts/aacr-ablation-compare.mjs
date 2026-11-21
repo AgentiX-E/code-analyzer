@@ -541,6 +541,27 @@ export const REGISTRATIONS = Object.freeze({
     confirmation: [{ skip: 150, max: 46 }],
   },
   /**
+   * **§126.5's registration (R-67): the cap and the budget together, at 20.**
+   *
+   * R-64 measured the pool at **1 100 findings and 137 true positives** (from 530 and 91) with reviewer prompt tokens
+   * **identical to the token**. On that pool the twelve-per-pull-request budget is no longer the F1 maximum: **twenty is,
+   * by 0.0175**, and 0.2551 is one resolution unit above R-55's 0.2268.
+   *
+   * **A cut is not a run.** 0.2551 is one operating point of an artifact that exists; the claim is that it reproduces
+   * when `pullRequestBudget: 20` is dispatched, because §122.3 measured two dispatches of *one* configuration moving
+   * 33.8 % of the pool's marked positions.
+   */
+  sameSiteConcerns20: {
+    section: '§126.5 (R-67)',
+    claim:
+      'three concerns at a site with twenty findings per pull request reaches a file arm F1 of at least 0.2549, for at least 0.0281 of F1 over the cap-1 arm, with precision not below 0.19',
+    arm: 'file',
+    registeredGain: 0.0281,
+    mechanism: 'recall rises and precision does not fall by more than a golden is worth',
+    mechanismRule: 'recall-rises',
+    confirmation: [{ skip: 150, max: 46 }],
+  },
+  /**
    * **§68's registration: the same device over both halves of one corpus.**
    *
    * §67 turns two dispatches into one corpus of two hundred pull requests, which halves the standard deviation a bar has

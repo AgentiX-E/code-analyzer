@@ -451,7 +451,21 @@ const REACH = String(process.env['AACR_REACH'] ?? 'off').toLowerCase() === 'on';
  * goldens**, which at 338 emissions is precision 0.53. The registration is therefore *precision must stay above 0.24 and
  * matched goldens above 90 at the smaller budget* - a decay to 80 would mean the curve was a property of the old run.
  */
-const PR_BUDGET = Number(process.env['PR_BUDGET'] ?? '12');
+/**
+ * **The per-pull-request emission budget, and the knob §126.4 moved.**
+ *
+ * Twelve was the maximum of the F1 curve on the cap-1 arm (§124.2). **R-64 doubled the pool and moved the maximum to
+ * twenty**, by 0.0175 of F1, so the budget is now a device to be dispatched rather than a constant: R-67 prices the
+ * pair. **Validated rather than coerced**, because a run labelled 20 that bought 12 would be a comparison against the
+ * wrong arm - the defect §122.2 exists for.
+ */
+const PR_BUDGET = (() => {
+  const raw = String(process.env['PR_BUDGET'] ?? '12');
+  const parsed = Number(raw);
+  if (!Number.isInteger(parsed) || parsed < 1 || parsed > 64)
+    throw new Error(`PR_BUDGET must be an integer in 1..64, not "${raw}"`);
+  return parsed;
+})();
 
 function findSamples(name) {
   const hits = [];
