@@ -414,9 +414,11 @@ jobs:
       matrix: ${{ steps.plan.outputs.matrix }}
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+      # **`node-version-file` rather than a scalar**, because the version gate refuses a scalar that floats: a planner
+      # reading a different Node than the job it plans for would be a matrix built by one tool and run by another.
       - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7
         with:
-          node-version: '22'
+          node-version-file: '.nvmrc'
       - id: plan
         # **Every input is mapped explicitly**, because a planner that scanned `INPUT_*` by prefix would turn an
         # unrelated variable into a factor the moment one was renamed.
