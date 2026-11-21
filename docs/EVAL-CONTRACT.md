@@ -13817,6 +13817,12 @@ the full pool emits 530 and finds 91. **The rule buys 0.0806 of precision for 20
 why F1 is higher at 296 than at 530 - **and it means a perfect ranking inside the shipped rule can add at most 20 true
 positives**, because §124.1's first table is a statement about the corpus and not about the order it is read in.
 
+**The four rows are one picture**, `docs/aacr-recall-ceiling.svg`, drawn by `scripts/recall-ceiling-figure.mjs` from
+`benchmarks/recall-ceiling.json` rather than by hand - the figure that names what the campaign cannot reach, in the
+colour this document uses for a refuted claim:
+
+![Where 330 goldens went](aacr-recall-ceiling.svg)
+
 ### 124.2 The budget curve: recall is buyable and F1 is not
 
 The artifact carries the same arm cut at eleven budgets, which prices the emission rule rather than asserting it:
