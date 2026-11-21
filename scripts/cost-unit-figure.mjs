@@ -12,6 +12,12 @@
 // failing gate rather than a paragraph someone has to notice.
 //
 // **Usage.** `node scripts/cost-unit-figure.mjs <a.json> <b.json> [out.svg]`, where `b` is the arm the claim is about.
+//
+// **Why the figure is not in `docs/figures/`.** That directory is regenerated from data committed to the tree, and the
+// link-check job diffs it against a fresh render so a stale picture is a failing build. This figure's data is two
+// artifacts of a paid run - 6 MB of JSON that is a run's output and not the repository's - so it cannot be guarded that
+// way, and putting it in a guarded directory would either fail every build or force 6 MB into the tree to satisfy a
+// diff. `--check` is the guard instead, and it runs when a person regenerates.
 
 import { readFileSync, writeFileSync } from 'node:fs';
 
@@ -20,7 +26,7 @@ import { readArm } from './lib/spend-pair.mjs';
 // **Flags are stripped before the paths are read**, because `--check` in the third position used to be taken as the
 // output path and the tool then compared the figure against a file called `--check`.
 const positional = process.argv.slice(2).filter((value) => !value.startsWith('--'));
-const [aPath, bPath, out = 'docs/figures/aacr-cost-two-units.svg'] = positional;
+const [aPath, bPath, out = 'docs/aacr-cost-two-units.svg'] = positional;
 if (aPath === undefined || bPath === undefined) {
   console.error('usage: node scripts/cost-unit-figure.mjs <a.json> <b.json> [out.svg]');
   process.exit(1);

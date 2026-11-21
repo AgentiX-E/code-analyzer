@@ -13091,11 +13091,16 @@ prompt tokens fall together.
 
 ### 117.7 The figure, and why it is generated
 
-`docs/figures/aacr-cost-two-units.svg` is drawn by `scripts/cost-unit-figure.mjs` from the two artifacts, not by hand:
+`docs/aacr-cost-two-units.svg` is drawn by `scripts/cost-unit-figure.mjs` from the two artifacts, not by hand:
 three groups (reviewer, judge, total), four bars each (both arms, both units), the two ratios printed under every group
 and the cache hit shares under the axis. **The point of the picture is the pair of numbers under each group** - billed
 110.5 % against cold 77.3 % on the reviewer - and a hand-drawn version of it would be a picture that outlives its run,
-which this repository already has one of in the same directory.
+which this repository already has one of in `docs/figures/`.
+
+**It sits outside `docs/figures/` on purpose.** That directory is regenerated from data in the tree and the link-check
+job diffs it against a fresh render, so a stale picture there is a failing build. This figure's data is two artifacts of
+a paid run - 6 MB that is a run's output and not the repository's - so it is guarded by `--check` instead, and putting it
+in the guarded directory would either fail every build or force 6 MB into the tree to satisfy a diff.
 
 `--check` compares the file it would write with the file in the tree, so a figure that has drifted from the artifacts it
 names is a command that exits non-zero rather than a paragraph someone has to notice.
