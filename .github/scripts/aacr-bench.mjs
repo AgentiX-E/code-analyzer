@@ -511,6 +511,12 @@ const judgeSpend = {
   // **How many refusals were rate limits**, because a judge that gave up on a 429 and a judge that gave up on a bad
   // answer are different failures with different fixes, and `failures` alone cannot tell them apart.
   rateLimited: 0,
+  // **The batched arm's own two numbers, because a batch that fell back is a batch that was paid for twice** - and the
+  // run of 2026-11-21 that first used one could not say how often that happened: 2 206 requests where the arithmetic
+  // said 657 is a fact without a cause, and `calls` alone cannot separate *small batches* from *batches that had to be
+  // re-bought one pair at a time*.
+  batchCalls: 0,
+  batchFallbacks: 0,
 };
 
 /** Their judge prompt, reconstructed from their paper's description: same defect, different words is a match. */
@@ -609,6 +615,7 @@ async function judgeImpl(comment, golden) {
  * device, and never a silent row of misses.
  */
 async function judgeBatchImpl(comments, golden) {
+  judgeSpend.batchCalls += 1;
   const { system, user } = buildJudgeMessages(golden, comments);
   const verdicts = await postJudge(
     [
@@ -628,6 +635,7 @@ async function judgeBatchImpl(comments, golden) {
   );
   if (verdicts === undefined) {
     judgeSpend.failures += 1;
+    judgeSpend.batchFallbacks += 1;
     return null;
   }
   return verdicts;

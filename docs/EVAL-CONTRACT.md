@@ -12183,3 +12183,37 @@ behaviour is the only control that can price the new one.**
 - **Nothing about the other ten languages.** The per-language capability figures this campaign quotes come from
   `benchmarks/polyglot-index.json`, measured on ten repositories at named commits, and they carry the same gap this
   section found: **fifteen JavaScript files and one TypeScript file in that corpus, and no Groovy**.
+
+### 111.6 R-50 read back: the batch was falsified, and so was the block
+
+Run `44836602031` bought the batched arm on the same fifty pull requests (`judgeBatch: 8`, `laneMode: separate`,
+`pair: off`, `competitor: off`).
+
+|                       | per pair (`44758245838`) | batched (`44836602031`) | registered bar |
+| --------------------- | -----------------------: | ----------------------: | -------------: |
+| judge requests        |                    5 080 |               **2 206** |          ≈ 635 |
+| judge prompt tokens   |                1 270 331 |           **1 910 144** |      ≤ 571 000 |
+| judge prompt per pair |                    250.1 |               **≈ 367** |          ≤ 112 |
+| judge cache ratio     |                    8.5 % |               **2.5 %** |              — |
+| judge cost, 50 PRs    |               0.1899 USD |          **0.2982 USD** |         ≤ 0.10 |
+| judge failures        |                        0 |                  **57** |              0 |
+
+**Both clauses are falsified**, and the second one in the direction nobody registered: a batch made the judge **57 % more
+expensive**, not cheaper. `F1` did not move - **0.2234 against 0.2231 on the same rows** - so what the run measured is the
+same reviewer at a higher price, which is the one outcome that makes the readback unambiguous.
+
+**And the block hypothesis is falsified with it.** §111.1 said the reason the cache never hit was that the shared prefix
+was smaller than a 64-token block, and that a batch would create one. The batch did create one - rubric plus golden,
+shared by every batch of a golden, three to four blocks deep - and **the cache ratio fell from 8.5 % to 2.5 %**. So the
+provider's cache is not addressable from here by anything this file controls: not the order (§110/R-49), not the length
+of the shared prefix (R-50). **Two address hypotheses, both measured, both false**, and the remaining explanation is a
+policy the vendor does not publish - which is a fact to record, not a device to build.
+
+**The request count says most batches were re-bought.** 2 206 requests against an arithmetic expectation of about 657
+means the majority of batches did not survive `parseJudgeBatch`, and each one was paid for again eight times, one pair at
+a time. **That is the mechanism the next run can price**, because the counters to separate _small batches_ from _batches
+that fell back_ did not exist when this one ran; they do now (`spend.judge.batchCalls`, `spend.judge.batchFallbacks`).
+
+**What ships.** The batch stays in the tree as an ablation arm with its default at `1`, and the artifact of this run is the
+reason: a device that costs 57 % more and changes no verdict is not a default, and **it is still evidence** - about the
+provider's cache, which every other device in this document depends on.

@@ -54,6 +54,16 @@ describe('the judge batch size is wired from the dispatch to the artifact', () =
     expect(BENCH).toMatch(/const JUDGE_BATCH = \(\(\) => \{/);
   });
 
+  it('counts the batches it bought and the ones it had to re-buy, because those are two different prices', () => {
+    // **The first batched run could not say which of the two it had done**: 2 206 requests where the arithmetic said
+    // 657 was a fact without a cause. A counter for each makes the next run's answer arithmetic rather than inference.
+    expect(BENCH).toContain('judgeSpend.batchCalls += 1;');
+    expect(BENCH).toContain('judgeSpend.batchFallbacks += 1;');
+    // **And both reach the artifact**, because the spend block spreads the counters rather than naming them.
+    expect(BENCH).toContain('judge: {');
+    expect(BENCH).toContain('...judgeSpend,');
+  });
+
   it('is a dispatch input with the per-pair arm as its default', () => {
     const input = WORKFLOW.slice(WORKFLOW.indexOf('      judge_batch:'));
     expect(input.slice(0, 1600)).toContain("default: '1'");
