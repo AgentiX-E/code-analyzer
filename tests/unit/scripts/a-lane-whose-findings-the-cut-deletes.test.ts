@@ -2,7 +2,7 @@
 //
 // **The measurement this file was written after.** On two artifacts of fifty pull requests, `testing` filed 73 and 79
 // findings whose category is `test`, and the shipped cut (`drop test, drop path class test, budget 12`) emitted **zero**
-// of them - 169 findings in total, none of which reached a judge. The lane's own bill is not zero: five lanes see the
+// of them - 152 findings in total, none of which reached a judge. The lane's own bill is not zero: five lanes see the
 // same diff and pay for it five times, so `testing` is **19.9 % of a run's prompt tokens** (§107.1's ledger).
 //
 // **What that does and does not mean.** It does not mean the lane is worthless: a product reviewer that never asks for

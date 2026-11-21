@@ -843,10 +843,10 @@ export const LANE_SETS = {
   /**
    * **The four questions this corpus scores, and the one it pays for and deletes.**
    *
-   * On two artifacts of fifty pull requests `testing` filed **169 findings whose category is `test`** and the shipped
-   * cut emitted **none of them**: `drop test` is the first step of the cut, so the lane's entire product - in both runs,
-   * without exception - reached no judge. Its bill is not zero, because five lanes see the same diff five times:
-   * `testing` is **19.9 % of a run's prompt tokens** (§107.1's ledger, 1 362 399 of 6 859 281).
+   * On two artifacts of fifty pull requests `testing` filed **152 findings whose category is `test`** - 73 and 79 - and
+   * the shipped cut emitted **none of them**: `drop test` is the first step of the cut, so the lane's entire product - in
+   * both runs, without exception - reached no judge. Its bill is not zero, because five lanes see the same diff five
+   * times: `testing` is **19.9 % of a run's prompt tokens** (§107.1's ledger, 1 362 399 of 6 859 281).
    *
    * **The lane is not a defect and this set is not a removal.** A product reviewer that never asks for the missing test
    * is a worse reviewer, and `drop test` is a rule about *AACR-Bench*, whose goldens are written about `src/`. What is

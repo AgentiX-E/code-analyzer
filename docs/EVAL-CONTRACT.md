@@ -12217,3 +12217,142 @@ that fell back_ did not exist when this one ran; they do now (`spend.judge.batch
 **What ships.** The batch stays in the tree as an ablation arm with its default at `1`, and the artifact of this run is the
 reason: a device that costs 57 % more and changes no verdict is not a default, and **it is still evidence** - about the
 provider's cache, which every other device in this document depends on.
+
+## §113 Three readings off one artifact, and the fifth of the bill a lane spends reaching no judge
+
+**No model call bought anything in this section.** Two artifacts of fifty pull requests already carry every finding's
+eight features, its sentence and its row of the verdict matrix, so the three questions below are answered by reading
+rows a run paid for in November. The third question turned out to be a bill rather than a score, and it is the one that
+changes what ships.
+
+### 113.1 The ranker is at its ceiling, and a fitted model does not beat the hand-written weights
+
+§106.4 published an AUC of 0.642 for the eight engine-side features and said the fitted model was not shipped. **This
+asks the question that left open**: if the weights were fitted rather than chosen, would the cut score higher?
+
+The instrument is `scripts/lib/operating-point.mjs`'s own arithmetic - the same cut, the same maximum matching, the same
+`2·TP/(C+G)` - applied to the artifact's `rankedFindings`, with `score` replaced by a **leave-one-pull-request-out**
+prediction from the eight features. Fifty folds, each fitting on forty-nine pull requests and scoring the one held out,
+so no finding is ever ranked by a model that saw it.
+
+| ordering over run `44836602031`, shipped cut | emitted |     TP |  precision |         F1 |
+| -------------------------------------------- | ------: | -----: | ---------: | ---------: |
+| **the artifact's own score**                 |     299 | **84** | **0.2809** | **0.2237** |
+| fitted, eight features, leave-one-PR-out     |     299 |     82 |     0.2742 |     0.2184 |
+
+**The fit is worse than the weights it replaced**, and by more than the fold noise: the hand-tuned weights are not a
+naive guess that a logistic regression improves on, they are the same eight facts arranged by somebody who had read a
+table of them.
+
+**The second attempt is the interesting one, because it is the one the corpus suggests.** §47.7 found that 57 % of
+unmatched goldens are a remark rather than a defect, and §106.2 that the misses sit on lines we commented on. So the
+sentence itself might carry what the flags do not: `boundary`, `negation`, `copy`, `constness`, `lifecycle` and `api` are
+six vocabulary families, and a fit over the eight features **plus forty words** was tried with the vocabulary selected
+**inside each fold** - from that fold's forty-nine training pull requests only - and filtered to words that appear in at
+least five different pull requests, so that a word which names a file cannot stand in for the file.
+
+| ordering, shipped cut at budget 12          | run `44836602031` | run `44721942627` |
+| ------------------------------------------- | ----------------: | ----------------: |
+| the artifact's own score                    |            0.2237 |        **0.2231** |
+| eight features only                         |            0.2184 |                 - |
+| eight features + six families               |            0.2237 |                 - |
+| eight features + forty words chosen in-fold |        **0.2264** |        **0.2177** |
+| delta against the artifact's own score      |       **+0.0027** |       **−0.0054** |
+
+**The two runs disagree in sign, and the disagreement is the result.** A first reading that selected the vocabulary on
+the whole corpus reported +0.0239 and the top words were `modellibrarylocal`, `text_size` and `vertical` - three tokens
+that exist because one pull request's goldens live in one file. **Filtering them out and re-selecting inside the fold
+leaves +0.0027 on one run and −0.0054 on the other**, which is the same statement §106.7 made about the pool: an effect
+this size is inside the run-to-run band.
+
+**So the ordering direction is closed on evidence rather than on taste.** Two independent devices - a fitted model over
+the structured features and a fitted model over the sentence - each fail to beat the weights already in the tree, on
+corpora of the size this campaign can afford. **What remains is the pool**, which is where §106.3's ceiling of 0.45 has
+said it was since the day it was printed.
+
+### 113.2 The budget is a slider, and its two ends are two products
+
+The same replay prices the cut's `budget` step, which §108 audited at a ceiling of 24 and found inside the noise band.
+**Read as a curve rather than as one point, the step is monotone in F1 up to a point nobody had printed**, because the
+marginal finding in this region is better than half the F1 it joins.
+
+| `drop test, drop path class test`, budget | emitted |     TP |  precision |         F1 |
+| ----------------------------------------- | ------: | -----: | ---------: | ---------: |
+| 4                                         |     166 |     51 |     0.3072 |     0.1650 |
+| 6                                         |     214 |     64 |     0.2991 |     0.1922 |
+| 8                                         |     249 |     71 |     0.2851 |     0.2026 |
+| 10                                        |     276 |     78 |     0.2826 |     0.2143 |
+| **12 (shipped)**                          | **299** | **84** | **0.2809** | **0.2237** |
+| 16                                        |     332 |     91 |     0.2741 |     0.2321 |
+| 20                                        |     356 |     94 |     0.2640 |     0.2327 |
+| 24                                        |     374 |     96 |     0.2567 |     0.2324 |
+| 32                                        |     406 |    101 |     0.2488 |     0.2354 |
+| 48                                        |     448 |    111 |     0.2478 | **0.2467** |
+| no budget                                 |     469 |    111 |     0.2367 |     0.2410 |
+
+**`f1FromCounts` says why the curve rises**: an added comment earns its place exactly when its own precision exceeds
+half the F1 it joins, and the findings this cut adds between 300 and 448 carry 27 true positives in 149 comments -
+**0.181 against a threshold of 0.112**. The curve turns over at 48 because past it the additions are the ones the
+path-class step did not remove and they are worse than the average.
+
+**The two ends are not two estimates of one optimum, they are two products.** Budget 12 emits 299 comments at precision
+0.281; budget 48 emits 448 at 0.248. **A reviewer a person reads is priced by precision and a corpus is scored by F1**,
+and the same artifact supports both numbers, so the table is what this section publishes rather than a new default.
+
+**One step in the shipped cut is dominated and it is not this one.** `drop test` (the category) is applied before
+`drop path class test` (the path), and a tag `test` on a non-test path survives the second step but not the first. On
+`44836602031` removing the category step and keeping the path step raises F1 at **every** budget in the table above -
++0.0049 at 12, +0.0154 at 16, +0.0052 at 48 - and raises precision at 12 as well (0.2816 against 0.2809). **On
+`44721942627` the same change is −0.0006 at 12.** One run says dominated, the other says indistinguishable, and neither
+says worse; the honest reading is that the category step earns nothing and the path step earns what §106.7 measured.
+
+### 113.3 A lane whose every finding the cut deletes, and it is a fifth of the prompt
+
+**The cut's first step is `drop test` and the fifth lane is called `testing`.** Read as names that is a coincidence; read
+against the artifacts it is a contradiction: on two runs of fifty pull requests the lane filed **152 findings whose
+category is `test`** (73 and 79), the two artifacts carry **177 of them in total**, and **the shipped cut emitted none** -
+every one of them died on the first step, before a judge saw it.
+
+**The lane's bill is not a coincidence either.** Five lanes see the same diff, which is §107.1's finding, and the diff is
+the price: `testing` is **1 329 491 of 6 694 741 prompt tokens (19.9 %)** and **0.1405 of the 0.5498 USD of engine
+spend (25.6 %)** on `44836602031` - the largest single lane cost, because its completions are the longest.
+
+**What the lane earns is not literally zero, and the number is worth printing.** Its findings outside the `test`
+category - twelve on one run, thirteen on the other - do reach the judge. Removing the lane moves F1 by **+0.0006** on
+`44836602031` and **−0.0046** on `44721942627`: the sign disagrees and both magnitudes are inside the run-to-run band.
+**A fifth of the bill, and the score cannot tell that it went.**
+
+**This is not an argument that the lane is wrong.** A product reviewer that never asks for the missing test is a worse
+reviewer, and `drop test` is a rule about _this corpus_, whose goldens are written about `src/` (§106.8 said so when it
+shipped the rule). **What is true is narrower and it is about the instrument**: the benchmark pays a fifth of its price
+for findings its own cut deletes, and every device priced against that bill was priced against a figure that includes
+the waste. A run that omits the lane is the same measurement for 16.6 % less money (0.848 USD → 0.707 USD on
+`44836602031`, engine and judge together).
+
+### 113.4 R-52, registered before its run
+
+- **Claim.** On fifty pull requests with `lane_set: pair-lean`, the arm without `testing` **costs at most 85 % of the
+  shipped arm's total USD** and its **F1 is within 0.005** of the shipped arm's on the same rows, with **the same judge
+  and the same cut on both sides**.
+- **Falsifier.** Total spend above 85 %, or an F1 below `shipped − 0.005`. **The device then ships as a
+  money-for-accuracy trade that was measured rather than assumed** - which is a different sentence from the one this
+  section is written from, and the artifact would be the reason.
+- **Price.** Dispatch `eed20cee`, two arms of fifty pull requests, ≈0.7 USD of engine and ≈0.3 USD of judge per arm.
+  **The paired test is over (pull request, golden index)**, because both arms judged the same corpus with the same judge.
+- **What it does not claim.** Nothing about a sixth lane, a different cut, or the pool. **A `lean` arm that scored
+  higher would be a second finding** - the device removes a lane whose findings are all deleted, and the expectation is
+  a smaller bill rather than a better reviewer.
+
+### 113.5 What this section does not claim
+
+- **That the ranker cannot be improved.** It claims that two fitted orderings, each read out of sample, did not beat the
+  weights in the tree on this corpus. A ranker with features this artifact does not carry - a diff hunk, a callee list,
+  a file's own history - is a different question and a different run.
+- **That budget 48 is the right product.** It is the F1 maximum of one cut on one corpus, and §108 already said the
+  budget is a product decision. **What is now printed is the whole curve**, so a reader who wants precision 0.28 can see
+  what it costs in F1 and a reader who wants F1 0.247 can see what it costs in comments a person reads.
+- **That `drop test` should be removed.** Its removal is dominated on one run and indistinguishable on the other, and
+  **a step that earns nothing is not a step that costs nothing** - the category exists for a reason the corpus does not
+  test.
+- **That the 152 findings were bad findings.** They were never judged. **A finding the cut deletes has no verdict**, and
+  this section says so rather than calling them false positives.

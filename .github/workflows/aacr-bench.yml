@@ -867,7 +867,7 @@ jobs:
       # below**, because a step whose condition matched both values would download one arm twice under two titles.
       # **And the set the corpus does not score, which is the only arm here that is expected to cost less and score
       # the same.** `lane_set: pair-lean` uploads the five lanes as they ship and the same four without `testing`, whose
-      # 169 `test`-category findings reached a judge zero times on two artifacts because `drop test` is the first step of
+      # 152 `test`-category findings reached a judge zero times on two artifacts because `drop test` is the first step of
       # the cut. **A device that removes a fifth of the bill and nothing else is priced by its token count as much as by
       # its F1**, and the comparison job reports both.
       - name: Download the run with the lean lane set
