@@ -36,12 +36,66 @@ const KINDS = {
   closed: { colour: '#57606a', shape: 'circle', label: 'closed cloud service' },
 };
 
+/**
+ * **A figure that places rows from different row sets is a figure that has to say so, or it is not drawn.**
+ *
+ * §105.3 published three rows under a title that said *the same key*, and one of them was the competitor's recorded
+ * findings over **47 pull requests against 436 goldens** while the other two were **14 pull requests against 196**. The
+ * key was the same, the judge was the same, and the row sets were not: a reader comparing the numbers was comparing a
+ * position in a chart with an arm in an experiment. **The repair is not a wider caption, because a caption is a
+ * sentence somebody can drop** - a row now carries its scope, and a figure whose rows disagree has to carry a reason
+ * that is rendered, or the generator refuses to write the file.
+ */
+export function scopeOf(row) {
+  const scope = row.scope;
+  if (!scope) return null;
+  const { pullRequests, goldens } = scope;
+  if (!Number.isInteger(pullRequests) || !Number.isInteger(goldens)) {
+    throw new Error(
+      `row "${String(row.tool)}" declares a scope without integer pullRequests and goldens, so nothing can compare it`,
+    );
+  }
+  return `${String(pullRequests)} pr / ${String(goldens)} goldens`;
+}
+
+/** The reason a mixed-scope figure prints, or `null` when every row is on the same row set. */
+export function mixedScopeOf(figure) {
+  const scopes = figure.rows.map(scopeOf);
+  if (scopes.every((scope) => scope === null)) return null;
+  if (scopes.some((scope) => scope === null)) {
+    throw new Error(
+      `figure "${String(figure.id)}" scopes ${String(scopes.filter((s) => s !== null).length)} of its ${String(figure.rows.length)} rows and not the rest, which is worse than scoping none of them`,
+    );
+  }
+  const distinct = new Set(scopes);
+  if (distinct.size > 1) {
+    if (!figure.mixedScope) {
+      throw new Error(
+        `figure "${String(figure.id)}" mixes ${String(distinct.size)} row sets (${[...distinct].join(', ')}) and carries no mixedScope reason, so it cannot be cited as a comparison`,
+      );
+    }
+    return figure.mixedScope;
+  }
+  if (figure.mixedScope) {
+    throw new Error(
+      `figure "${String(figure.id)}" declares a mixedScope reason while every row is on one row set, and a stale warning is a warning that teaches readers to skip warnings`,
+    );
+  }
+  return null;
+}
+
 function escape(text) {
   return String(text)
     .replace(/&/gu, '&amp;')
     .replace(/</gu, '&lt;')
     .replace(/>/gu, '&gt;')
     .replace(/"/gu, '&quot;');
+}
+
+/** A row's scope in the place a reader looks for its score, because the legend is where a caption goes to be skipped. */
+function scopeSuffix(row) {
+  const scope = scopeOf(row);
+  return scope === null ? '' : ` · ${scope}`;
 }
 
 function mark(kind, x, y, radius) {
@@ -73,7 +127,7 @@ function tokenTick(value) {
  * **A point with no interval still gets a stem**, because a point drawn without one reads as *measured without error*
  * rather than as *no interval published*.
  */
-function plane(figure) {
+function plane(figure, comparable) {
   const height = BOTTOM - TOP;
   const yOf = (score) => BOTTOM - (score / figure.axisMax) * height;
   const parts = [];
@@ -120,13 +174,18 @@ function plane(figure) {
     const dx = anchor === 'end' ? -9 : 9;
     parts.push(
       `<text x="${String(cx + dx)}" y="${String(cy + 3)}" text-anchor="${anchor}" font-size="11" font-weight="600" fill="#1f2328">${escape(row.tool)}</text>`,
-      `<text x="${String(cx + dx)}" y="${String(cy + 15)}" text-anchor="${anchor}" font-size="9" fill="#57606a">${row.score.toFixed(1)} ${escape(figure.metric)} · ${tokenTick(row.tokensPerReview)} tokens</text>`,
+      `<text x="${String(cx + dx)}" y="${String(cy + 15)}" text-anchor="${anchor}" font-size="9" fill="#57606a">${row.score.toFixed(1)} ${escape(figure.metric)} · ${tokenTick(row.tokensPerReview)} tokens${scopeSuffix(row)}</text>`,
     );
   }
   /**
    * **The gap drawn rather than left to the reader.** A panel with one point in it invites the reading *we are the only
    * tool here*; the dashed line at the best score that has no published price is the sentence the picture is for:
    * **the leader is 38.2 points above us and nobody will say what that costs.**
+   *
+   * **And the gap is only drawn when the rows are one row set.** Subtracting a score measured on 47 pull requests from
+   * one measured on 14 is the arithmetic the scope gate exists to stop, and a gate that prints a warning while the
+   * figure still performs the subtraction is half a gate: the first render of this change carried
+   * *"5.1 F1 of headroom"* under a banner saying the rows are not comparable.
    */
   if (unpriced.length > 0 && priced.length > 0) {
     const best = unpriced.reduce((a, b) => (a.score > b.score ? a : b));
@@ -136,8 +195,14 @@ function plane(figure) {
     parts.push(
       `<line x1="${String(LEFT.x0)}" y1="${String(yBest)}" x2="${String(LEFT.x1)}" y2="${String(yBest)}" stroke="#cf222e" stroke-width="1.5" stroke-dasharray="6 4" />`,
       `<text x="${String(LEFT.x0 + 4)}" y="${String(yBest - 6)}" font-size="10" fill="#cf222e">${escape(best.tool)}: ${best.score.toFixed(1)}, price not published</text>`,
-      `<line x1="${String(LEFT.x1 - 26)}" y1="${String(yBest)}" x2="${String(LEFT.x1 - 26)}" y2="${String(yOurs)}" stroke="#8c959f" stroke-width="1" stroke-dasharray="2 3" />`,
-      `<text x="${String(LEFT.x1 - 30)}" y="${String((yBest + yOurs) / 2)}" text-anchor="end" font-size="10" fill="#57606a">${(best.score - ours.score).toFixed(1)} ${escape(figure.metric)} of headroom</text>`,
+      ...(comparable
+        ? [
+            `<line x1="${String(LEFT.x1 - 26)}" y1="${String(yBest)}" x2="${String(LEFT.x1 - 26)}" y2="${String(yOurs)}" stroke="#8c959f" stroke-width="1" stroke-dasharray="2 3" />`,
+            `<text x="${String(LEFT.x1 - 30)}" y="${String((yBest + yOurs) / 2)}" text-anchor="end" font-size="10" fill="#57606a">${(best.score - ours.score).toFixed(1)} ${escape(figure.metric)} of headroom</text>`,
+          ]
+        : [
+            `<text x="${String(LEFT.x1 - 4)}" y="${String(yBest + 13)}" text-anchor="end" font-size="9" fill="#cf222e">at its own row set; no gap is drawn</text>`,
+          ]),
     );
   }
   parts.push(
@@ -170,20 +235,20 @@ function rankedBars(figure, rows) {
     parts.push(
       `<text x="${String(RIGHT.x0)}" y="${String(y + rowHeight * 0.62)}" font-size="9" fill="#1f2328">${escape(row.tool)}</text>`,
       `<rect x="${String(barLeft)}" y="${String(y + 1)}" width="${String(width)}" height="${String(Math.max(4, rowHeight - 4))}" fill="${(KINDS[row.kind] ?? KINDS.closed).colour}" opacity="0.75" />`,
-      `<text x="${String(barLeft + width + 4)}" y="${String(y + rowHeight * 0.62)}" font-size="9" fill="#57606a">${row.score.toFixed(1)}</text>`,
+      `<text x="${String(barLeft + width + 4)}" y="${String(y + rowHeight * 0.62)}" font-size="9" fill="#57606a">${row.score.toFixed(1)}${scopeSuffix(row)}</text>`,
     );
   });
   return parts;
 }
 
-function legend() {
+function legend(topY) {
   const parts = [];
   let x = LEFT.x0;
   for (const [kind, spec] of Object.entries(KINDS)) {
     const width = spec.label.length * 5.3 + 22;
-    parts.push(mark(kind, x + 4, HEIGHT - 76, 4));
+    parts.push(mark(kind, x + 4, topY, 4));
     parts.push(
-      `<text x="${String(x + 13)}" y="${String(HEIGHT - 72)}" font-size="10" fill="#57606a">${escape(spec.label)}</text>`,
+      `<text x="${String(x + 13)}" y="${String(topY + 4)}" font-size="10" fill="#57606a">${escape(spec.label)}</text>`,
     );
     x += width;
   }
@@ -191,21 +256,36 @@ function legend() {
 }
 
 function renderFigure(figure) {
-  const { parts, unpriced } = plane(figure);
-  const body = [...parts, ...rankedBars(figure, unpriced), ...legend()];
+  const mixed = mixedScopeOf(figure);
+  // **The reason the rows are not one row set is drawn where the other caveats are**, and the figure grows a line taller
+  // for each line it needs rather than printing it on top of the axis. **A caveat that collides with a label is a caveat
+  // a reader discounts**, and the first draft of this change put the reason over the axis title.
+  const wrapped = mixed === null ? [] : wrap(mixed, 150);
+  const height = HEIGHT + wrapped.length * 12;
+  const { parts, unpriced } = plane(figure, mixed === null);
+  const body = [...parts, ...rankedBars(figure, unpriced), ...legend(BOTTOM + 62)];
   const judged = new Set(figure.rows.map((row) => row.judge)).size > 1;
+  const footer = [
+    ...wrapped.map(
+      (line, at) =>
+        `<text x="24" y="${String(height - 56 - (wrapped.length - 1 - at) * 12)}" font-size="9" font-weight="600" fill="#cf222e">${escape(line)}</text>`,
+    ),
+    ...(judged
+      ? [
+          `<text x="24" y="${String(height - 44)}" font-size="9" fill="#8c959f">a row whose judge differs from the rest is not the same measurement: the survey reports the judge moving the top rows by up to nine F1 points.</text>`,
+        ]
+      : []),
+    `<text x="24" y="${String(height - 28)}" font-size="9" fill="#8c959f">an interval is the survey's 95 % one; a mark without one is a measurement this repository made and whose interval it did not.</text>`,
+    `<text x="24" y="${String(height - 12)}" font-size="9" fill="#8c959f">generated from benchmarks/competitive-position.json by scripts/competitive-position.mjs; do not edit by hand.</text>`,
+  ];
   return [
-    `<svg xmlns="http://www.w3.org/2000/svg" width="${String(WIDTH)}" height="${String(HEIGHT)}" viewBox="0 0 ${String(WIDTH)} ${String(HEIGHT)}" role="img" aria-label="${escape(figure.title)}">`,
-    `<rect width="${String(WIDTH)}" height="${String(HEIGHT)}" fill="#ffffff" />`,
+    `<svg xmlns="http://www.w3.org/2000/svg" width="${String(WIDTH)}" height="${String(height)}" viewBox="0 0 ${String(WIDTH)} ${String(height)}" role="img" aria-label="${escape(figure.title)}">`,
+    `<rect width="${String(WIDTH)}" height="${String(height)}" fill="#ffffff" />`,
     `<text x="24" y="34" font-size="16" font-weight="700" fill="#1f2328">${escape(figure.title)}</text>`,
     `<text x="24" y="54" font-size="11" fill="#57606a">${escape(figure.subtitle)}</text>`,
     `<text x="24" y="72" font-size="9" fill="#8c959f">source: ${escape(figure.source)}</text>`,
     ...body,
-    judged
-      ? `<text x="24" y="${String(HEIGHT - 44)}" font-size="9" fill="#8c959f">a row whose judge differs from the rest is not the same measurement: the survey reports the judge moving the top rows by up to nine F1 points.</text>`
-      : '',
-    `<text x="24" y="${String(HEIGHT - 28)}" font-size="9" fill="#8c959f">an interval is the survey's 95 % one; a mark without one is a measurement this repository made and whose interval it did not.</text>`,
-    `<text x="24" y="${String(HEIGHT - 12)}" font-size="9" fill="#8c959f">generated from benchmarks/competitive-position.json by scripts/competitive-position.mjs; do not edit by hand.</text>`,
+    ...footer,
     `</svg>`,
   ].join('\n');
 }
@@ -479,4 +559,6 @@ function main() {
   for (const file of written) process.stdout.write(`${file}\n`);
 }
 
-main();
+// **The generator is only a program when it is run as one**, so a test can import the two predicates that refuse a
+// figure and ask them about a fixture - which is the only way to check a refusal without a second copy of the JSON.
+if (process.argv[1]?.endsWith('competitive-position.mjs') === true) main();

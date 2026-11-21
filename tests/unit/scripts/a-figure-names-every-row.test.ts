@@ -129,10 +129,13 @@ describe('a row with no price is drawn as a row with no price', () => {
   it('prints a token count for the rows that have one and for no others', () => {
     // **The count is the whole claim.** Twenty-one rows on the Martian board publish no price; if the renderer printed a
     // number for them it would have had to invent it, and the text is where that would show.
+    //
+    // **A priced row's label may carry its row set after the count** (`254.4k tokens · 14 pr / 196 goldens`), which is a
+    // scope and not a price: the pattern allows the suffix so that this test keeps measuring the thing it names.
     for (const figure of DATA.figures) {
       const svg = read(first, figure.id);
       const priced = figure.rows.filter((row) => row.tokensPerReview !== null).length;
-      expect((svg.match(/ tokens<\/text>/gu) ?? []).length).toBe(priced);
+      expect((svg.match(/ tokens(?: · \d+ pr \/ \d+ goldens)?<\/text>/gu) ?? []).length).toBe(priced);
     }
   });
 

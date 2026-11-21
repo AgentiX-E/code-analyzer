@@ -11360,6 +11360,11 @@ the rows above it**, only the same corpus. The figure carries both sentences rat
 
 ### 105.3 What the second figure says that no leaderboard does
 
+> **Amended by §121.** The three rows below are **three row sets, not one**. The competitor's 0.2821 is its own recorded
+> findings over **47 pull requests against 436 goldens**; the two arms are **14 pull requests against 196**. The "5.1 F1
+> points" in the next paragraph is a subtraction across row sets, and the figure no longer draws it. **§121.2 is the
+> like-for-like gap, and it is larger.**
+
 `aacr-same-corpus.svg` is three rows on one corpus and one judge:
 
 | row                                | F1     | prompt tokens per pull request |
@@ -13501,3 +13506,91 @@ right for the run it was written against and wrong for every other**, which is w
 
 **13 CNY** for R-55, as estimated. **R-56 is dispatched at an estimated 7 CNY** (one arm, forty-six rows, judge batched
 at four, competitor off) and its section is the next iteration's first act.
+
+---
+
+## §121 The figure compared a position with an arm, and the gap it published was a subtraction across row sets
+
+**The most confident wrong number a chart can carry is a difference between two points that look like they share an
+axis.** `docs/figures/aacr-same-corpus.svg` has carried one since §105.3: the title says _the one corpus where a
+competitor's findings and ours were scored against the same key_, the dashed line says **5.1 F1 of headroom**, and
+**the row sets underneath the three points are not the same**. The key was shared, the judge was shared, the file's
+fingerprint was shared - and the competitor's point was its own recorded findings over **47 pull requests against 436
+goldens** while both our arms were **14 pull requests against 196**. **A reader who compared those numbers was comparing
+a position in a chart with an arm in an experiment**, which is the defect §117 spent a section learning to price out of
+the spend ledger and §120.1 caught in a denominator printed beside a rate.
+
+**This section is the repair, and the repair is a gate rather than a wider caption**, because a caption is a sentence
+somebody can drop. The three numbers in it were already published and are not re-derived here: what changes is what a
+figure is allowed to draw.
+
+### 121.1 Three rows, three row sets
+
+| row in `benchmarks/competitive-position.json` | F1     | row set            | prompt tokens per pull request |
+| --------------------------------------------- | ------ | ------------------ | ------------------------------ |
+| `open-code-review (recorded)`                 | 0.2821 | **47 pr / 436 gl** | **not published**              |
+| `code-analyzer, index in the prompt`          | 0.2316 | **14 pr / 196 gl** | 254 442                        |
+| `code-analyzer, no index`                     | 0.1812 | **14 pr / 196 gl** | 250 253                        |
+
+**Two of the three row-set cells differ and none of the three numbers moved.** 0.2821 is the competitor's golden-basis
+figure on the pool both artifacts hold (LEADERBOARDS §2b, §116.1); 0.2316 and 0.1812 are R-44's two arms on the last
+fourteen rows of a different slice (§103.9). **Every number was true of its own scope. The difference between them was
+not**, and the figure printed it in red on a dashed line, which is the most readable form a wrong number takes.
+
+### 121.2 The like-for-like gaps, both of them, and which one to quote
+
+Two same-scope pairs exist in the tree, and **neither is on the figure** because neither has a price for both sides:
+
+| row set            | basis                   | this engine | competitor | gap         | where it is measured |
+| ------------------ | ----------------------- | ----------- | ---------- | ----------- | -------------------- |
+| **47 pr / 436 gl** | protocol (`2·TP/(C+G)`) | 0.1941      | **0.2125** | **−0.0184** | §116.2               |
+| 47 pr / 436 gl     | goldens                 | 0.2479      | **0.2821** | −0.0342     | §116.1               |
+| **14 pr / 170 gl** | published protocol      | 0.2405      | **0.3106** | **−0.0701** | §13.1, §13.4         |
+
+**The number to quote is the first row: −0.0184 on the largest shared pool and on the arithmetic the protocol defines.**
+The third row is the same kind of comparison on a slice of it and it is **four times larger**, which is itself the
+finding: **a fourteen-row slice is a small sample of a selection effect**, and the selection effect is what §116.2 says
+the gap is. **Quoting the third row would be quoting the more flattering of two true measurements**, which §116.1
+already named as a defect in the other direction; it is printed here so that the choice is visible rather than made.
+
+### 121.3 What a figure may now draw, expressed as a gate
+
+`benchmarks/competitive-position.json` rows carry a **scope** (`pullRequests`, `goldens`, both integers), and
+`scripts/competitive-position.mjs` refuses to write a figure that breaks any of three rules:
+
+| rule                                    | what it refuses                                                     | why                                                                       |
+| --------------------------------------- | ------------------------------------------------------------------- | ------------------------------------------------------------------------- |
+| a figure mixing row sets needs a reason | a figure whose rows disagree and which carries no `mixedScope` text | the caption is what a reader believes; it may not be optional             |
+| a figure whose rows agree has none      | a stale `mixedScope` on a figure whose rows all sit on one row set  | a warning that outlived its cause teaches a reader to skip warnings       |
+| some rows scoped and not others         | a figure where only the rows somebody remembered carry a scope      | the unscoped row silently borrows the scope of the rows printed beside it |
+
+**And the reason reaches the picture in two places**: printed in the colour this repository uses for a refuted claim
+under the plot, and **as a suffix on every score**, because the legend is where a caption goes to be skipped. **The gap
+line is not drawn at all when the rows disagree** - the first render of this change carried _"5.1 F1 of headroom"_
+underneath a banner saying the rows are not comparable, which is the gate printing a warning beside the arithmetic it
+exists to stop. **`a-figure-that-places-rows-that-are-not-one-row-set.test.ts` holds all four properties**, including
+that the mixed figure contains `no gap is drawn` and does not contain `of headroom`.
+
+**The four other figures are byte-identical to their committed versions**, which is the check that this change is about
+one figure and not about the renderer's layout: the legend was moved from a `HEIGHT`-relative coordinate to a
+`BOTTOM`-relative one so that a figure can grow a line taller for its reason without moving anything else, and the
+figures that need no reason do not grow.
+
+### 121.4 What this does not claim
+
+- **That the competitor is 1.8 points ahead, full stop.** It is 1.8 points ahead on 47 shared pull requests at the
+  protocol's arithmetic, and 7.0 points ahead on the fourteen-row slice. **The pool is the measurement**; §116.2 is
+  the one this document quotes, and this section does not add a second candidate.
+- **That the 47-row pair is free of selection.** It is the largest shared pool in the tree, not a random sample of the
+  corpus.
+- **That no figure may ever put two row sets on one axis.** It may, and this one does: **a placement is a legitimate
+  drawing** - _here is where each of us sits, and nobody published the price of the leader_ - and it stops being one at
+  the moment it subtracts.
+- **That the cost axis is comparable across the two arms.** 254 442 and 250 253 are the same ledger's arithmetic in two
+  dispatches whose vendor cache state differed, which is §117.6's caveat and not one this section re-opens.
+
+### 121.5 Price
+
+**0 CNY** - one predicate pair, one gate with three refusals, one declaration file, one figure regenerated, and eleven
+tests. No model was called, no corpus was re-read, and **the three numbers in §121.1 are the ones §103.9 and §116.2
+already paid for**.

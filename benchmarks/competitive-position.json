@@ -289,11 +289,12 @@
     {
       "id": "aacr-same-corpus",
       "title": "AACR-Bench: the one corpus where a competitor's findings and ours were scored against the same key",
-      "subtitle": "Left: rows with a measured price. Right: rows without one. Both scales are this project's own measurements or the competitor's recorded rows.",
+      "subtitle": "Left: rows with a measured price. Right: rows without one. Every row carries the row set it was scored on, because the same key over different row sets is not one comparison.",
       "metric": "F1",
       "axisMax": 40,
       "tokensAxis": [50000, 500000],
-      "source": "run 44664411046 (reach on) and 44664407799 (reach off), 14 pull requests; competitor rows from benchmarks/aacr/competitor-baseline.json over the 47 shared pull requests",
+      "source": "run 44664411046 (reach on) and 44664407799 (reach off): 14 pull requests, 196 goldens. Competitor: competitor-baseline.json, 47 pull requests, 436 goldens. Like-for-like: EVAL-CONTRACT §121.2",
+      "mixedScope": "Not one row set: the competitor's point is 47 pull requests against 436 goldens and ours are 14 against 196. Same judge, same answer key, different rows - this places three points and compares none of them; EVAL-CONTRACT §121.2 is the comparison.",
       "rows": [
         {
           "tool": "open-code-review (recorded)",
@@ -305,7 +306,11 @@
           "tokensPerReview": null,
           "kind": "open-source",
           "judge": "deepseek-chat",
-          "origin": "measured"
+          "origin": "measured",
+          "scope": {
+            "pullRequests": 47,
+            "goldens": 436
+          }
         },
         {
           "tool": "code-analyzer, index in the prompt",
@@ -317,7 +322,11 @@
           "tokensPerReview": 254442,
           "kind": "open-source",
           "judge": "deepseek-chat",
-          "origin": "measured"
+          "origin": "measured",
+          "scope": {
+            "pullRequests": 14,
+            "goldens": 196
+          }
         },
         {
           "tool": "code-analyzer, no index",
@@ -329,7 +338,11 @@
           "tokensPerReview": 250253,
           "kind": "open-source",
           "judge": "deepseek-chat",
-          "origin": "measured"
+          "origin": "measured",
+          "scope": {
+            "pullRequests": 14,
+            "goldens": 196
+          }
         }
       ]
     }

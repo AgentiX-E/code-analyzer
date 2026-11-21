@@ -124,13 +124,13 @@ artifact records findings, not their token bill - and a comparison of quality at
 `benchmarks/competitive-position.json` and `benchmarks/emission-frontier.json`, twelve tests in
 `tests/unit/scripts/a-figure-names-every-row.test.ts`):
 
-| figure                                                           | what it plots                                                                                         |
-| ---------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------- |
-| [`martian-offline.svg`](figures/martian-offline.svg)             | the offline board's twenty-two rows: **F1 against prompt tokens per pull request**                    |
-| [`aacr-same-corpus.svg`](figures/aacr-same-corpus.svg)           | three rows on one corpus and one judge: the recorded competitor, our index arm, our no-index arm      |
-| [`our-budget-frontier.svg`](figures/our-budget-frontier.svg)     | what a larger per-file cap buys in F1, for finding text - the curve this engine can move along itself |
-| [`boards-one-per-column.svg`](figures/boards-one-per-column.svg) | seven boards whose seven metrics must not be read as one scale                                        |
-| [`emission-frontier.svg`](figures/emission-frontier.svg)         | **six cuts of one run under the ceiling none of them reach**: F1 against comments, ceiling 0.45       |
+| figure                                                           | what it plots                                                                                                                                                                            |
+| ---------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| [`martian-offline.svg`](figures/martian-offline.svg)             | the offline board's twenty-two rows: **F1 against prompt tokens per pull request**                                                                                                       |
+| [`aacr-same-corpus.svg`](figures/aacr-same-corpus.svg)           | three rows on **two row sets**, each label carrying its scope: the recorded competitor, our index arm, our no-index arm; it places the three points and draws no gap between them (§121) |
+| [`our-budget-frontier.svg`](figures/our-budget-frontier.svg)     | what a larger per-file cap buys in F1, for finding text - the curve this engine can move along itself                                                                                    |
+| [`boards-one-per-column.svg`](figures/boards-one-per-column.svg) | seven boards whose seven metrics must not be read as one scale                                                                                                                           |
+| [`emission-frontier.svg`](figures/emission-frontier.svg)         | **six cuts of one run under the ceiling none of them reach**: F1 against comments, ceiling 0.45                                                                                          |
 
 **The panel on the right of the first two is the finding.** Of the twenty-two rows on the offline board, **one publishes a
 token count for a review: this one.** The rest are drawn as ranked bars at their accuracy with no price, because the
