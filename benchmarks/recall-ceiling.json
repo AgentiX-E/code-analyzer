@@ -1,0 +1,129 @@
+{
+  "provenance": {
+    "runId": "44891741390",
+    "sha": "c91c0535501655d2eb7277054212aec28fa300f5",
+    "prs": 46,
+    "datasetRows": 196,
+    "slice": {
+      "skip": 150,
+      "requested": 46
+    },
+    "goldens": 330,
+    "goldensAre": "truePositives + falseNegatives: the denominator recall is computed on",
+    "judge": "deepseek-chat",
+    "laneSet": "shipped",
+    "emissionRule": "drop test, drop path test, budget 12 (the policy packages/intelligence applies to the comments it posts)"
+  },
+  "stages": [
+    {
+      "name": "emitted and matched",
+      "goldens": 71,
+      "note": "the shipped rule: drop test, drop path class, budget 12 per pull request"
+    },
+    {
+      "name": "in the pool, blocked by the budget",
+      "goldens": 20,
+      "note": "a better ranking could reach these; nothing upstream has to change"
+    },
+    {
+      "name": "in the pool, dropped by the category and path rules",
+      "goldens": 13,
+      "note": "the finding exists and the emission rule refuses it: test findings and test paths"
+    },
+    {
+      "name": "no finding in the pool",
+      "goldens": 226,
+      "note": "the lanes, the merge or the diff never produced a candidate"
+    }
+  ],
+  "budgetCurve": [
+    {
+      "budgetPerPullRequest": 1,
+      "k": 45,
+      "truePositives": 15,
+      "precision": 0.3333,
+      "recall": 0.0456,
+      "f1": 0.0802
+    },
+    {
+      "budgetPerPullRequest": 2,
+      "k": 88,
+      "truePositives": 27,
+      "precision": 0.3068,
+      "recall": 0.0821,
+      "f1": 0.1295
+    },
+    {
+      "budgetPerPullRequest": 3,
+      "k": 126,
+      "truePositives": 33,
+      "precision": 0.2619,
+      "recall": 0.1003,
+      "f1": 0.1451
+    },
+    {
+      "budgetPerPullRequest": 4,
+      "k": 164,
+      "truePositives": 43,
+      "precision": 0.2622,
+      "recall": 0.1307,
+      "f1": 0.1744
+    },
+    {
+      "budgetPerPullRequest": 6,
+      "k": 227,
+      "truePositives": 52,
+      "precision": 0.2291,
+      "recall": 0.1581,
+      "f1": 0.1871
+    },
+    {
+      "budgetPerPullRequest": 8,
+      "k": 283,
+      "truePositives": 62,
+      "precision": 0.2191,
+      "recall": 0.1884,
+      "f1": 0.2026
+    },
+    {
+      "budgetPerPullRequest": 12,
+      "k": 369,
+      "truePositives": 75,
+      "precision": 0.2033,
+      "recall": 0.228,
+      "f1": 0.2149
+    },
+    {
+      "budgetPerPullRequest": 16,
+      "k": 438,
+      "truePositives": 80,
+      "precision": 0.1826,
+      "recall": 0.2432,
+      "f1": 0.2086
+    },
+    {
+      "budgetPerPullRequest": 24,
+      "k": 504,
+      "truePositives": 89,
+      "precision": 0.1766,
+      "recall": 0.2705,
+      "f1": 0.2137
+    },
+    {
+      "budgetPerPullRequest": 32,
+      "k": 522,
+      "truePositives": 91,
+      "precision": 0.1743,
+      "recall": 0.2766,
+      "f1": 0.2139
+    },
+    {
+      "budgetPerPullRequest": null,
+      "k": 530,
+      "truePositives": 91,
+      "precision": 0.1717,
+      "recall": 0.2766,
+      "f1": 0.2119
+    }
+  ]
+}

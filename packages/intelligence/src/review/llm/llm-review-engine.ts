@@ -1213,7 +1213,11 @@ export class LLMReviewEngine {
       // *different* category and so keeps one of those four; `sameSiteConcerns` asks for a *different sentence* and can
       // keep all four. A run that turns on §59 with the cap at its default still keeps one extra, because the wider of
       // the two instructions is the one applied.
-      const root = siteRoot[duplicateAt];
+      // **`?? duplicateAt` rather than a non-null assertion**: every survivor is registered at the moment it is pushed,
+      // so the fallback cannot fire - and the one place it could is a merge that matched a survivor pushed before this
+      // code existed, where *this entry is its own site* is the correct answer rather than a crash. The package compiles
+      // with `noUncheckedIndexedAccess`, which is why the read has to say what it does when the entry is absent.
+      const root = siteRoot[duplicateAt] ?? duplicateAt;
       const keptHere = keptAtSite.get(root) ?? 1;
       const capHere =
         this.options.secondConcern === true &&

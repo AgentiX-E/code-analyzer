@@ -13666,6 +13666,13 @@ The registration's second half could only fail **downwards**: _"an F1 below the 
 unit"_. The batched arm is **0.0394 above** the per-pair arm - outside the 0.0281 unit, in the direction nobody
 registered. **Read on its own that would be a pass; read beside the findings column it is not a measurement at all.**
 
+> **Amended by §124.3, in the direction that makes this paragraph stronger.** 3.4 % is the _emitted_ pool - the 296
+> and 286 rows after the twelve-per-pull-request budget. **The pools those were drawn from share only 179 of 530 marked
+> positions (33.8 %)**: the reviewer is not reproducing two-thirds of its own output between dispatches, and the budget
+> is what makes the two arms look alike at the top. **So the floor an A/B here carries is larger than 3.4 % and
+> invisible at the emitted layer**, which is the reason a device is judged against its own control rather than against
+> the other arm's number.
+
 - **The pool moved without the prompt moving.** 296 findings against 286 on **identical reviewer prompt tokens**, i.e.
   **3.4 % of the emitted pool is dispatch noise** - the two arms differ in `failures` (2 against 0) and in whatever the
   retried lane calls returned. **Any A/B in this harness carries that floor before a device is added**, and §104.3's
@@ -13765,3 +13772,169 @@ them. That the aggregate 24.8 % is wrong - it is the file-resolution rate and it
 That the other languages are unaffected - **Java and Groovy carry the bucket too**, at 2.1 and 6.9 points.
 
 **Price: 0 CNY.** One table read off `benchmarks/polyglot-index.json` and no new measurement.
+
+---
+
+## §124 The recall ceiling is 91 true positives, and no emission rule can raise it
+
+**Every device this repository has priced in the last twenty iterations moved the pool, the ranking, the judge or the
+bill. None of them moved the number that decides F1, and this section is the first one to read that number out of the
+artifact.** The R-55 arm matched **71 of its 330 goldens**; **the emission rules at their most permissive match 91**,
+which is a recall ceiling of **0.2758**; and **the pool contains a candidate for 104**. **So the twelve-per-pull-request
+budget is a cut inside a pool that was already short, and a third of the corpus is short of a pool.** §122 spent a
+section learning that a batched judge is not a token device; this one says what the next device has to be, because a
+token device on a pool this size is a discount on a small bill.
+
+### 124.1 The goldens, four ways: emitted, budgeted, rule-dropped, and absent
+
+**Every device this repository has priced in the last twenty iterations moved the pool, the ranking, the judge or the
+bill. None of them moved the number that decides F1, and this section is the first one to read that number out of the
+artifact.** Of R-55's **330 goldens** - the denominator `71 / 330 = 0.2152` is computed on - the arm finds **71**, and
+the 259 it misses are four different failures that want four different devices:
+
+| where the golden went                                          | goldens | share of 330 | what would reach it                                             |
+| -------------------------------------------------------------- | ------- | ------------ | --------------------------------------------------------------- |
+| **matched by an emitted finding**                              | **71**  | 21.5 %       | nothing: this is the arm                                        |
+| **in the pool, blocked by the twelve-per-pull-request budget** | 20      | 6.1 %        | **a better ranking** - the finding exists and the budget cut it |
+| **in the pool, dropped by the category and test-path rules**   | 13      | 3.9 %        | **an emission rule that keeps test findings**                   |
+| **no finding anywhere in the pool**                            | **226** | **68.5 %**   | **a lane, the merge, or the diff**                              |
+
+**The last row is 68.5 % of the corpus and it is the only row no emission rule can touch.** A finding the lanes never
+produced cannot be ranked, kept or re-judged; §124.4 says where candidates are lost between the lanes and the pool, and
+that is the one place left with room in it. **The two middle rows are the ranking's, and together they are 10 % of the
+corpus** - worth a device, and not worth a campaign.
+
+**The same arm at three emissions, which is what the table above looks like when the rule is the variable:**
+
+| emission                                | k   | TP  | FP  | precision  | recall     | F1         |
+| --------------------------------------- | --- | --- | --- | ---------- | ---------- | ---------- |
+| every finding the emission rules allow  | 530 | 91  | 439 | 0.1717     | **0.2758** | 0.2116     |
+| the shipped rule (drop test, budget 12) | 296 | 71  | 225 | **0.2399** | 0.2152     | **0.2268** |
+| the rule §106 replaced (budget 12 only) | 335 | 71  | 264 | 0.2119     | 0.2152     | 0.2135     |
+
+**Reading the first two rows together is the whole finding.** The shipped rule emits 296 findings and finds 71 goldens;
+the full pool emits 530 and finds 91. **The rule buys 0.0806 of precision for 20 goldens**, which is a good trade and is
+why F1 is higher at 296 than at 530 - **and it means a perfect ranking inside the shipped rule can add at most 20 true
+positives**, because §124.1's first table is a statement about the corpus and not about the order it is read in.
+
+### 124.2 The budget curve: recall is buyable and F1 is not
+
+The artifact carries the same arm cut at eleven budgets, which prices the emission rule rather than asserting it:
+
+| budget per pull request | k   | TP  | precision  | recall     | F1         |
+| ----------------------- | --- | --- | ---------- | ---------- | ---------- |
+| 1                       | 45  | 15  | 0.3333     | 0.0456     | 0.0802     |
+| 3                       | 126 | 33  | 0.2619     | 0.1003     | 0.1451     |
+| 6                       | 227 | 52  | 0.2291     | 0.1581     | 0.1871     |
+| 8                       | 283 | 62  | 0.2191     | 0.1884     | 0.2026     |
+| **12 (shipped)**        | 369 | 75  | 0.2033     | 0.2280     | **0.2149** |
+| 16                      | 438 | 80  | 0.1826     | 0.2432     | 0.2086     |
+| 24                      | 504 | 89  | 0.1766     | 0.2705     | 0.2137     |
+| 32                      | 522 | 91  | **0.1743** | **0.2766** | 0.2139     |
+
+**Recall rises monotonically from 0.0456 to 0.2766 and F1 peaks in the middle.** A budget of 32 buys **+0.0486 of
+recall** over the shipped twelve and **costs 0.0010 of F1**; a budget of 16 costs 0.0063. **So the emission rule is
+already near its own optimum and the constraint is upstream**: 91 is where the curve flattens because the pool contains
+91 matchable goldens, and **§122's 0.2149-versus-0.2268 difference between two numbers in this table is a different
+budget, not a different reviewer** - which is the third independent reason the batched arm's F1 was not attributable.
+
+### 124.3 The goldens are dense where the pool keeps one remark, and the density is what the rejection rates track
+
+The 330 goldens sit on 150 files, and **their density predicts the rejection rate monotonically**:
+
+| goldens on the file | goldens | rejected | rejection rate | of which on a line we had commented on |
+| ------------------- | ------- | -------- | -------------- | -------------------------------------- |
+| 1                   | 67      | 25       | **37.3 %**     | 14                                     |
+| 2                   | 74      | 44       | 59.5 %         | 29                                     |
+| 3-4                 | 104     | 69       | 66.3 %         | 43                                     |
+| **5 or more**       | 85      | 63       | **74.1 %**     | 34                                     |
+
+**Read down the last column and the mechanism is not the judge.** Of the **120** rejections whose nearest finding is on
+the golden's own line, **106 (88.3 %) sit on a file with at least two goldens** and **63 (59.4 %) on a file where we hit
+at least one golden already** - so these are not files we failed to look at or files we had nothing to say about. **They
+are files where the reviewer said something true and the merge kept one sentence out of several.**
+
+**And a same line is not a same defect, which the ten sampled pairs say in their own words:**
+
+| golden (abridged)                                                                                 | our finding at the same lines (abridged)                                   |
+| ------------------------------------------------------------------------------------------------- | -------------------------------------------------------------------------- |
+| `agentsModule` is required and not null-checked, so the entitlement branch silently falls through | inserting a required constructor parameter breaks every existing caller    |
+| `lastIndexOf("$$")` should be `lastIndexOf("$")` plus a preceding-character test                  | instance-checker signatures now derive the class name from the method name |
+| the error message still says the format may omit a class name                                     | the same signature change, stated once for eight goldens                   |
+| missing validation for an empty method name after `$$`                                            | the same signature change, stated once for eight goldens                   |
+
+**Every one of the ten is a different claim from the golden it was rejected against**, and four of the ten are one
+finding standing against four goldens on one range. **So `proximity: 0` is a statement about a line number and not about
+a defect**, and a campaign that read it as _the judge refused a match_ would spend its next iteration widening a judge.
+
+### 124.4 Where the candidates went: 1 646 in, 530 out, and 1 112 removed without reading a word
+
+The deduplication report is the arithmetic §124.1's 91 rests on:
+
+| measure                         | value              |
+| ------------------------------- | ------------------ |
+| findings entering deduplication | **1 646**          |
+| findings leaving it             | **530**            |
+| removed                         | 1 116              |
+| removed under `rangeOnly`       | **1 112** (99.6 %) |
+| removed under `rangeAndWords`   | 3                  |
+| removed under `wordsNearby`     | 1                  |
+| **kept as a second concern**    | **0**              |
+
+**`rangeOnly` is the rule with no textual evidence in it**: the ranges overlap and the sentences do not, which is the
+definition of two findings that happened to be marked on the same lines. **§59 built a switch for exactly this and the
+switch keeps one extra finding per site, only when the category differs** - and the goldens do not distribute themselves
+by category: three of the four at `ClusterChangedEvent.java:351-369` are `bug`.
+
+**An offline join puts an upper bound on what the cap can reach.** Of the **226 goldens with no candidate in the pool**,
+**195 (86.3 %) sit on a path where a removed finding was recorded, and 76 (33.6 %) have a removed finding on the same path
+sharing at least three content words with the golden's note**. Three of those pairs read as one defect said twice:
+
+- _"unnamed modules outside the agents package now fall through to server entitlements"_ against _"previously any
+  unnamed module was treated as an agent"_ (six shared content words);
+- _"trace logging allocates formatted strings on every `checkPath` call"_ against _"the debug log statement in
+  `checkPath` is too verbose for production"_;
+- _"repeated `getFileSystem()` calls in a hot path"_ against _"the method calls `path.getFileSystem().getClass()`
+  twice"_.
+
+**76 is an upper bound and not a forecast**, because the judge that rejected them would have to accept them, and a
+golden's note sharing three words with a removed title is a candidate rather than a match.
+
+### 124.5 The device: `sameSiteConcerns`, and the one thing it does not change
+
+`sameSiteConcerns` is **how many findings one range may keep**, and the test of _one remark_ does not move with it: a
+second finding is kept only when its ranges overlap a survivor's **and** its content words differ, so two lanes saying one
+sentence in one range are still one finding and the merge is counted under `rangeAndWords`. **The cap is counted at the
+site rather than at the entry**, because a kept second concern is itself a survivor and a third finding that overlaps
+only it must not read it as a fresh site with an empty budget. **§59's switch stays as the narrower instruction**, and a
+run that sets both gets the wider of the two.
+
+**R-64 is registered before the run and on the quantity the run measures directly**: the pool's true positives, from 91
+to at least 110 of 330, with recall rising and precision not falling by more than a golden is worth. **0.01 with
+`registeredBelowResolution`**, because 46 rows sign 0.0281 and a bar below its own resolution is a sentence that cannot
+be confirmed - the shape R-32's entry already has, and rewriting it after the number arrives is the defect that is worse
+than registering it too low.
+
+**What the device can and cannot do, said before the artifact exists.** It adds findings the merge removed; it cannot
+add a finding no lane produced, so **the 239 goldens with nothing in the pool stay missed whatever this does**. Its
+ceiling is the 76 pairs of §124.4, its floor is zero if the judge treats the recovered findings as restatements, and
+**the arm that reads it is one dispatch on rows 150-195, because that is the slice every number in this section was
+measured on.**
+
+### 124.6 What this section does not claim
+
+- **That the recall ceiling is 91 for all time.** It is 91 on 46 rows with five shipped lanes and `reach: off`, and
+  §103.9's +32 % for the index arm is measured on a different slice. **A device that changes what a lane can see moves
+  the ceiling**, which is the one direction this section does not close.
+- **That the merge is wrong.** Removing 1 112 findings kept precision at 0.240 rather than 0.172; **the claim is that
+  the removal was made without reading the sentences, not that it should not have been made.**
+- **That 120 same-line rejections are all true positives we lost.** Ten sampled pairs say ten are; the remaining 110
+  were not read, and a sample of ten is a direction rather than a rate.
+- **That a budget above 12 is a mistake.** It buys 0.0486 of recall for 0.0010 of F1; a product that prefers recall to
+  F1 should raise it, and the curve is printed so the choice is visible rather than made.
+- **That R-64 will pass.** Its bar sits below the resolution of the slice that reads it, which the registration says.
+
+### 124.7 Price
+
+**0 CNY** - one option, one gate, twenty-one tests, and four tables read off artifacts R-55 already paid for. **R-64 is
+an estimated 7 CNY** (one arm, 46 rows, `competitor: off`).
