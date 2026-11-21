@@ -10,19 +10,26 @@ import { describe, expect, it } from 'vitest';
 
 import { checkStages } from '../../../scripts/recall-ceiling-figure.mjs';
 
+import type { RecallCeilingData } from '../../../scripts/recall-ceiling-figure.mjs';
+
 const ROOT = join(import.meta.dirname, '..', '..', '..');
-const DATA = JSON.parse(readFileSync(join(ROOT, 'benchmarks', 'recall-ceiling.json'), 'utf8')) as {
-  provenance: { runId: string; goldens: number; prs: number };
-  stages: Array<{ name: string; goldens: number; note: string }>;
-};
+// **Typed by the generator's own declaration, not by a second shape written here.** The narrow literal type this file
+// used to declare was assignable to nothing the renderer accepts - the type-error ratchet counted two `TS2345`s on it -
+// and a fixture that describes the data differently from the renderer is the drift the figure exists to prevent, one
+// layer up.
+const DATA = JSON.parse(
+  readFileSync(join(ROOT, 'benchmarks', 'recall-ceiling.json'), 'utf8'),
+) as RecallCeilingData;
 const SVG = readFileSync(join(ROOT, 'docs', 'aacr-recall-ceiling.svg'), 'utf8');
 
 describe('the figure about what was not produced', () => {
   it('adds up to its own corpus, and refuses to draw when it does not', () => {
     expect(checkStages(DATA)).toBe(DATA.provenance.goldens);
     // **One golden short**, which is the shape an error takes when a stage's note is edited and its count is not.
-    const broken = {
-      provenance: DATA.provenance,
+    // **Spread rather than rebuilt**, so the only thing wrong with the fixture is the count - a fixture missing a field
+    // would fail the *type* check for a reason unrelated to what the assertion is about.
+    const broken: RecallCeilingData = {
+      ...DATA,
       stages: DATA.stages.map((stage, at) =>
         at === 0 ? { ...stage, goldens: stage.goldens - 1 } : stage,
       ),
