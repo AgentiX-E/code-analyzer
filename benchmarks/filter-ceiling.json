@@ -20,8 +20,26 @@
     "f1": 0.2479,
     "generatorRecall": 0.2721,
     "generatorMatched": 123,
-    "ceilingAtPerfectPrecision": 0.4278,
-    "ceilingRescued": 0.402,
+    "reachableGoldens": 123,
+    "reachablePairs": 103,
+    "bases": {
+      "golden": {
+        "kept": 387,
+        "matchedGoldens": 104,
+        "precision": 0.268733850129199,
+        "recall": 0.23008849557522124,
+        "f1": 0.24791418355184747
+      },
+      "finding": {
+        "kept": 387,
+        "matchedFindings": 124,
+        "precision": 0.32041343669250644,
+        "recall": 0.2743362831858407,
+        "f1": 0.29558998808104886
+      }
+    },
+    "ceilingAtPerfectPrecision": 0.3712,
+    "ceilingRescued": 0.3366,
     "asymptoteAtThisPrecision": 0.4236
   },
   "theirs": {
@@ -33,8 +51,26 @@
     "f1": 0.2821,
     "generatorRecall": 0.4472,
     "generatorMatched": 195,
-    "ceilingAtPerfectPrecision": 0.6181,
-    "ceilingRescued": 0.6142,
+    "reachableGoldens": 195,
+    "reachablePairs": 164,
+    "bases": {
+      "golden": {
+        "kept": 110,
+        "matchedGoldens": 77,
+        "precision": 0.7,
+        "recall": 0.17660550458715596,
+        "f1": 0.28205128205128205
+      },
+      "finding": {
+        "kept": 110,
+        "matchedFindings": 61,
+        "precision": 0.5545454545454546,
+        "recall": 0.13990825688073394,
+        "f1": 0.22344322344322345
+      }
+    },
+    "ceilingAtPerfectPrecision": 0.5467,
+    "ceilingRescued": 0.5165,
     "asymptoteAtThisPrecision": 0.8235
   },
   "oursPublished": {
@@ -56,8 +92,26 @@
       "f1": 0.2408,
       "generatorRecall": 0.2683,
       "generatorMatched": 117,
-      "ceilingAtPerfectPrecision": 0.4231,
-      "ceilingRescued": 0.3966,
+      "reachableGoldens": 117,
+      "reachablePairs": 97,
+      "bases": {
+        "golden": {
+          "kept": 378,
+          "matchedGoldens": 98,
+          "precision": 0.25925925925925924,
+          "recall": 0.22477064220183487,
+          "f1": 0.24078624078624078
+        },
+        "finding": {
+          "kept": 378,
+          "matchedFindings": 118,
+          "precision": 0.31216931216931215,
+          "recall": 0.2706422018348624,
+          "f1": 0.28992628992628994
+        }
+      },
+      "ceilingAtPerfectPrecision": 0.364,
+      "ceilingRescued": 0.3288,
       "asymptoteAtThisPrecision": 0.4118
     },
     "theirs": {
@@ -69,8 +123,26 @@
       "f1": 0.2821,
       "generatorRecall": 0.4472,
       "generatorMatched": 195,
-      "ceilingAtPerfectPrecision": 0.6181,
-      "ceilingRescued": 0.6142,
+      "reachableGoldens": 195,
+      "reachablePairs": 164,
+      "bases": {
+        "golden": {
+          "kept": 110,
+          "matchedGoldens": 77,
+          "precision": 0.7,
+          "recall": 0.17660550458715596,
+          "f1": 0.28205128205128205
+        },
+        "finding": {
+          "kept": 110,
+          "matchedFindings": 61,
+          "precision": 0.5545454545454546,
+          "recall": 0.13990825688073394,
+          "f1": 0.22344322344322345
+        }
+      },
+      "ceilingAtPerfectPrecision": 0.5467,
+      "ceilingRescued": 0.5165,
       "asymptoteAtThisPrecision": 0.8235
     },
     "crossed": {
@@ -147,8 +219,8 @@
   "verdict": {
     "targetInsideOurCeiling": false,
     "targetInsideTheirCeiling": true,
-    "ourCeiling": 0.4278,
-    "theirCeiling": 0.6181,
+    "ourCeiling": 0.3712,
+    "theirCeiling": 0.5467,
     "ourGeneratorRecall": 0.2721,
     "theirGeneratorRecall": 0.4472,
     "whatTheirPrecisionWouldBuyOnOurFindings": 0.3919

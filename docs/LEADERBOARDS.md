@@ -65,21 +65,30 @@ one place a competitor's _findings_ were recorded on pull requests this reposito
 judge, with the goldens each finding matched. **Restricting both reviewers to the 47 pull requests they share - 436
 goldens - is the only comparison on this page that is one measurement rather than two** (§96.3):
 
-| on 47 shared pull requests, 436 goldens | this repository | open-code-review (recorded rows) |
-| --------------------------------------- | --------------- | -------------------------------- |
-| findings kept                           | 378             | 110                              |
-| goldens matched                         | 98              | 77                               |
-| precision                               | 0.2593          | **0.7000**                       |
-| recall                                  | **0.2248**      | 0.1766                           |
-| F1                                      | 0.2408          | **0.2821**                       |
-| goldens matched by all their findings   | 117             | **195**                          |
-| ceiling at perfect precision            | 0.4231          | **0.6181**                       |
+| on 47 shared pull requests, 436 goldens    | this repository | open-code-review (recorded rows) |
+| ------------------------------------------ | --------------- | -------------------------------- |
+| findings kept                              | 378             | 110                              |
+| **protocol true positives** (a matching)   | 79              | 58                               |
+| **protocol precision**                     | 0.2090          | **0.5273**                       |
+| **protocol recall**                        | **0.1812**      | 0.1330                           |
+| **protocol F1**                            | 0.1941          | **0.2125**                       |
+| goldens matched, golden basis              | 98              | 77                               |
+| precision, golden basis                    | 0.2593          | 0.7000                           |
+| recall, golden basis                       | **0.2248**      | 0.1766                           |
+| F1, golden basis                           | 0.2408          | 0.2821                           |
+| goldens named by all their findings        | 117             | **195**                          |
+| pairs a matching can claim across the pool | 97              | **164**                          |
+| ceiling at perfect precision               | **0.3640**      | **0.5467**                       |
+
+**The four rows in bold are the only ones on this page computed the way the protocol defines** - one finding to at most
+one golden, `F1 = 2·TP/(C+G)` - and they put the gap at **+0.0184** for the competitor. The golden-basis rows below them
+put it at **+0.0413**. **Both are true and they are not the same measurement**; §116.1-116.2 is why the artifact printed
+the second for a year and why both are printed now.
 
 **Their generator finds 1.67× the goldens ours finds; their selection keeps a third of what ours keeps.** That is the
-sentence this table exists for, and it is the reason the plan below is one arm about sentences and not a fifth arm about
-ranking: **at our precision the ceiling is 0.4231, the registered target of 0.4500 is outside it, and the target is
-inside theirs** (§96.1, §96.2). **The cost column is missing on both sides** - their artifact records findings, not their
-token bill - and a comparison of quality at unknown cost is a comparison of quality.
+sentence this table exists for: **at our precision the ceiling is 0.3640, the registered target of 0.4500 is outside it,
+and the target is inside theirs** (§96.1 as amended, §116.4). **The cost column is missing on both sides** - their
+artifact records findings, not their token bill - and a comparison of quality at unknown cost is a comparison of quality.
 
 ## 2c. The same comparison as a figure, and the axis the field does not publish
 

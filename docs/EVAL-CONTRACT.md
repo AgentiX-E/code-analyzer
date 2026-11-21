@@ -10200,6 +10200,12 @@ is the output, checked against its sources by a test rather than by a reader.
 
 ### 96.1 What a filter could reach on the findings this run produced
 
+> **Amended by §116.4.** The ceiling below is computed from the 123 goldens the pool names, which is the generator's
+> reach and **not a quantity a filter can keep**: the protocol credits a finding with at most one golden, and the maximum
+> matching over this pool is **103 pairs**, so the ceiling is **0.3712** rather than 0.4278. The verdict this section
+> draws - that the target is outside it - is unchanged and gets firmer. **The paragraph is left as it was written**
+> because the defect is in the arithmetic and not in the reading, and §116.4 names it.
+
 **A filter chooses among sentences that were generated; it cannot conjure a true one.** So the best it can do is keep the
 findings that matched something and delete the rest, and that is a number: **123 goldens were matched somewhere in this
 run, out of 452.** Keeping exactly those findings gives precision 1 by construction, recall 0.2721, and **F1 0.4278** -
@@ -12677,3 +12683,179 @@ had measured the field.
   `axios` are where that mechanism would answer.
 
 **Price: 0 CNY** - two tarballs, twelve local index runs, no model call and no network call in the measurement itself.
+
+## §116 The gap to the competitor is a selection, and the score this repository ships is not one
+
+**§113.6 read R-52 back and found the cheap arm's accuracy clause unanswerable.** That left the larger question untouched:
+**on the pulls both tools read, by how much is this engine actually behind?** This section answers it on the protocol's
+own arithmetic, and the answer changes twice on the way - once because the published comparison was never on that
+arithmetic, and once because the ceiling it printed was computed from the wrong quantity.
+
+### 116.1 The comparison printed two bases for one side and one for the other
+
+`benchmarks/filter-ceiling.json` carries a table whose two columns are not the same measurement. Its own comment says
+so - _"distinct goldens, so precision is goldens per kept finding"_ - and it applies that basis to both reviewers, which
+is consistent. **What it never printed is the other basis, and the reason it gave for not printing it is contradicted by
+its own source:**
+
+> "the competitor's rows carry the goldens each finding matched and **no finding-level verdict**"
+
+**`keep` is a finding-level verdict.** Of the competitor's 110 kept rows, **61 carry a match**, so the finding basis was
+computable on their side all along. On the two bases:
+
+| basis    | ours precision | theirs precision | ours F1 | theirs F1 | who leads |
+| -------- | -------------: | ---------------: | ------: | --------: | --------- |
+| goldens  |         0.2687 |           0.7000 |  0.2479 |    0.2821 | theirs    |
+| findings |         0.3204 |           0.5545 |  0.2956 |    0.2234 | **ours**  |
+
+**Two true numbers and opposite conclusions**, and the artifact printed the one on which this engine loses. `bases` now
+carries both for both reviewers, and `formatCeiling` prints both, because **a document that quotes the more flattering
+of two true numbers is the defect whether or not the number was correct.**
+
+### 116.2 On the protocol's own arithmetic the gap is 0.0184, not 0.0342
+
+Neither of the two bases above is what `scripts/lib/operating-point.mjs` computes. The protocol's true positives are a
+**maximum bipartite matching** - one finding to at most one golden, one golden to at most one finding - and its F1 is
+`2·TP/(C+G)`. Recomputed that way, on the **47 pull requests both artifacts hold** and the 436 goldens they share:
+
+| reviewer | comments |  TP | precision | recall |         F1 |
+| -------- | -------: | --: | --------: | -----: | ---------: |
+| ours     |      378 |  79 |    0.2090 | 0.1812 | **0.1941** |
+| theirs   |      110 |  58 |    0.5273 | 0.1330 | **0.2125** |
+
+**The gap is +0.0184 for the competitor.** The figure the document has been quoting - 0.2821 against 0.2479 - is
+**+0.0342 on a basis neither tool's protocol defines**, and the correction runs in the direction that matters: **46 % of
+the published gap was an arithmetic difference.**
+
+**What survives the correction is the shape of it, and the shape is a selection.** They match **fewer** goldens (58
+against 79) and lead anyway, because they spend **110 comments where we spend 378**. Their precision is 2.5× ours at
+2.34 comments per pull request against our 8.04. **Our recall is higher than theirs and our F1 is lower**, which is the
+definition of a reviewer that says more and chooses worse.
+
+### 116.3 The shipped score cannot choose, and the budget curve said so without naming it
+
+`node scripts/ranker-replay.mjs <artifact> 110 200 300` now prints a second table beside the budget sweep: **the same
+pool under four orderings, cut to a count rather than to a score threshold.** From R-52's shipped arm - 50 pull
+requests, 452 goldens, 594 findings:
+
+| ordered by                            | 110 comments | 200 comments | 300 comments | no budget |
+| ------------------------------------- | -----------: | -----------: | -----------: | --------: |
+| the shipped score                     |       0.1317 |       0.1810 |       0.2074 |    0.2180 |
+| category prior, leave-one-out         |       0.0605 |       0.1718 |   **0.2314** |    0.2180 |
+| prior × structural penalty            |       0.0712 |       0.1840 |       0.2207 |    0.2180 |
+| **oracle** (sorts by goldens carried) |   **0.2491** |   **0.3497** |       0.3032 |    0.2180 |
+
+**Two readings and the second is the one to keep.**
+
+**The first: cutting by score is monotonically harmful.** Every row is higher than the row to its left. That is not a
+tuning failure, it is arithmetic: a comment earns its place exactly when its own precision exceeds `TP/(C+G)`, which at
+this operating point is `0.124`, and **the pool's average matched rate is 0.279**. **Every comment in the pool is above
+the break-even line**, so a cut that removes the lowest-scored findings removes matched pairs at more than the marginal
+rate and F1 falls. **The shipped budget is not a trade-off that was mis-set; it is a device whose cost exceeds its
+benefit on this pool**, which is §113.2's "budget is a slider" in its final form.
+
+**The second: at the competitor's budget the headroom is 0.1174.** A perfect ranker cut to 110 comments reaches
+**0.2491 at precision 0.6364** - above the competitor's 0.2125 on the same ordering of the same corpus - where the shipped
+score reaches 0.1317. **The ranking is worth more than every other device this campaign has priced**, and it is the only
+one whose value can be measured without a dispatch.
+
+**The prior is a ranker in the middle of the range and not at the edge**, which is worth stating because the first
+reading of the table was that it is not a ranker at all. At 110 it is worse than the score it replaces (0.0605 against
+0.1317), at 200–300 it is better (0.2314 against 0.2074 at 300), and at the pool's own length all four orderings meet by
+construction. **A category prior has one number per category, so it cannot separate two findings of the same category**
+
+- and at a budget of 2.2 comments per pull request that is most of what has to be decided.
+
+### 116.4 The ceiling was computed from a quantity that cannot be kept
+
+`ceilingAtPerfectPrecision` was `f1(1, matchedGoldens/goldens)` - **a filter that keeps exactly the findings that matched
+and is credited with every golden they named.** That is not a filter that can exist: the protocol pairs a finding with
+**one** golden, so 160 matched findings that name 123 distinct goldens cannot be converted into 123 true positives unless
+123 of them can each hold a different one. **A maximum matching says 103.**
+
+|                            |       ours |     theirs |
+| -------------------------- | ---------: | ---------: |
+| goldens the pool names     |        123 |        195 |
+| pairs a matching can claim |        103 |        164 |
+| ceiling, from the goldens  |     0.4278 |     0.6181 |
+| ceiling, from the matching | **0.3712** | **0.5467** |
+
+**The error ran in the optimistic direction on both sides**, so no verdict flips: theirs stays above the 0.45 target and
+ours was already below it. **Every distance changes**, and the distances are what the plan is made of: this engine's
+ceiling is not 0.43 away from a perfect filter, it is **0.3712 with a perfect filter and perfect selection** - and the
+target needs `TP = 0.45·(C+G)/2`, which at 110 comments is **127 pairs against a ceiling of 103**.
+
+**And the target is not reachable at any comment count this pool can pay, which is a stronger statement than the one
+about the competitor's budget.** `F1 = 2·TP/(C+G)` with `G = 452` means the pairs a target needs **grow with the comment
+count**: 127 at 110 comments, 147 at 200, 170 at 300. **This pool's matching ceiling is 103**, so the inequality
+`TP ≥ 0.45·(C+452)/2` holds only below `C ≈ 6` - **a reviewer that emits six comments across fifty pull requests**.
+**Every comment above six makes the target harder, not easier, and the matching ceiling is what makes it impossible.**
+Raising the comment count and raising the matching are two separate investments, and **only the second one is on the
+critical path.**
+
+### 116.5 The generator's reach is the other half, and it is not a selection problem
+
+|                                  |    theirs |      ours |
+| -------------------------------- | --------: | --------: |
+| pull requests                    |        47 |        50 |
+| candidates                       |       434 |       594 |
+| candidates per pull request      |      9.23 |     11.88 |
+| candidates that matched a golden |       199 |       166 |
+| **generator precision**          | **0.459** | **0.279** |
+| kept                             |       110 |       404 |
+| kept per pull request            |      2.34 |      8.08 |
+| kept / candidates                |     0.253 |     0.680 |
+
+**They generate fewer candidates and match more goldens.** 199 against 166 on fewer pull requests is **+20 % reach with
+32 % fewer attempts**, and the two facts point at the same thing: **a tool that comments less is a tool whose comments
+are about more.** The partitions on our own pool say the same thing from the inside, on the 569-candidate artifact:
+
+| partition                       | candidates | matched |       rate |
+| ------------------------------- | ---------: | ------: | ---------: |
+| category `test`                 |         95 |      11 | **11.6 %** |
+| category `architecture`         |        179 |      36 | **20.1 %** |
+| category `bug`                  |        211 |      86 | **40.8 %** |
+| `grounded: false`               |         52 |       3 |  **5.8 %** |
+| `namesSymbol: false`            |         45 |       4 |  **8.9 %** |
+| a path under a `test` directory |         19 |       0 |    **0 %** |
+
+**These replicate across R-52's two arms** - the same three rules move F1 in the same direction on both, which is the only
+defence against a partition chosen by reading the table it is scored on: `grounded ∧ namesSymbol ∧ ¬test` scores
+**+0.0163** on `shipped` and **+0.0096** on `lean`. **They are worth having and they are worth a tenth of what the ranker
+is worth**, and printing them beside it is the point.
+
+### 116.6 R-54 is registered, and its falsifier is a number this section already has
+
+_Claim._ On the next pair of arms, a ranker that keeps **110 comments over 47 pull requests** reaches **F1 ≥ 0.2125** on
+the protocol's arithmetic - the competitor's figure at its own budget - and **beats the shipped score at the same count**
+by at least `0.0800` (0.2125 against the 0.1317 this section measured).
+
+_Falsifier._ An F1 below 0.2125, or a margin over the shipped ordering below 0.0800, at 110 comments on the same rows.
+
+**Why the bar is their number and not the oracle's.** 0.2491 is what a ranker that can see the answer key reaches, and
+**a registration whose bar is the ceiling is a registration that cannot be confirmed by anything that runs**. 0.2125 is
+what a real tool reached on the same corpus, which makes it the smallest number that is evidence of anything.
+
+**And R-54 is not a device that needs a dispatch to price.** The ordering can be built, fitted and scored on artifacts
+that already exist; what a dispatch buys is the confirmation on rows no fit saw. **A ranker confirmed on the rows it was
+built on would be §113.1's defect again**, one device later.
+
+### 116.7 What this section does not claim
+
+- **That the competitor's number is wrong.** 0.2125 is their 110 comments under our judge on 47 pull requests, and it is
+  the number this section uses. What was wrong was **which arithmetic the comparison used**, not either tool's figure.
+- **That the ranker is a generator.** It cannot invent a finding, so it cannot raise the matching ceiling of 103 pairs;
+  0.2491 is what it reaches **inside** that ceiling and 0.45 is outside it.
+- **That the category prior is the ranker.** It is the cheapest one that could be built without a fit and it wins only
+  in the middle of the budget range. **`oracle` is not a device and is in the table as a ceiling.**
+- **That the structural partitions are free.** They were read off the same 569 candidates they are scored on; the
+  two-arm replication is what makes them worth the sentence, and it is a replication over emissions rather than over
+  rows, so it is not a second corpus.
+- **That any of this moved a published review figure.** No run is dispatched here. `filter-ceiling.json` is
+  regenerated from two artifacts already in the tree and `ranker-replay` reads one of them; the two falsifiers above are
+  what would move a figure, and neither has been run.
+- **That `benchmarks/aacr-bench.json` and R-52's arms are one corpus.** They are two runs over overlapping rows and the
+  section labels which table came from which, because the only thing the correction in 116.2 rests on is that both
+  reviewers were scored on **the same 47 pull requests**.
+
+**Price: 0 CNY** - two artifacts already in the tree, one CLI, and no model call.

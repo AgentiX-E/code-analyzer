@@ -86,3 +86,43 @@ export declare function curveOf(
 ): ReplayCurvePoint[];
 
 export declare function loadArtifact(path: string): RankerArtifact;
+
+/** One point of a rank curve: a prefix of an ordering, scored the way the protocol scores any cut. */
+export interface RankCurvePoint extends AuditPoint {
+  /** How many comments the budget allowed, as a count rather than as a score threshold. */
+  readonly k: number;
+}
+
+/**
+ * **Four orderings of one pool**, so a ranker is read beside the row that needs no ranker.
+ *
+ * `oracle` is a ceiling rather than a device: it sorts by how many goldens a finding carried, which nothing at review
+ * time can know. A curve near it has no ranking left to win; one far below it is a curve about the ranker.
+ */
+export interface RankCurves {
+  readonly goldens: number;
+  readonly pool: number;
+  readonly curves: {
+    readonly score: readonly RankCurvePoint[];
+    readonly prior: readonly RankCurvePoint[];
+    readonly priorTimesPenalty: readonly RankCurvePoint[];
+    readonly oracle: readonly RankCurvePoint[];
+  };
+}
+
+export declare function penaltyOf(finding: RankerRow): number;
+
+export declare function leaveOnePullRequestOutPrior(
+  findings: readonly RankerRow[],
+  options?: { readonly keys?: readonly string[] },
+): number[];
+
+export declare function matchedPairs(findings: readonly RankerRow[]): number;
+
+export declare function curveAtBudget(
+  order: readonly RankerRow[],
+  goldens: number,
+  ks: readonly number[],
+): RankCurvePoint[];
+
+export declare function rankCurves(artifact: RankerArtifact, ks: readonly number[]): RankCurves;

@@ -29,6 +29,8 @@ import { readFileSync, writeFileSync } from 'node:fs';
 import { dirname, join, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
+import { f1FromCounts, maximumMatchingByPullRequest } from './lib/operating-point.mjs';
+
 const HERE = dirname(fileURLToPath(import.meta.url));
 const REPO = resolve(HERE, '..');
 const OURS = join(REPO, 'benchmarks', 'aacr-bench.json');
@@ -45,12 +47,16 @@ function registeredTarget(bench) {
 /**
  * **One reviewer's rows reduced to the counts the two-halves comparison needs, on one basis for both reviewers.**
  *
- * **`tp` is a count of distinct goldens, not of findings**, because that is the only basis both artifacts support: the
- * competitor's rows carry the goldens each finding matched and no finding-level verdict, so a comparison that counted
- * findings would be a comparison of two different quantities. **The difference is not small** - our run publishes
- * `truePositives: 85` (findings that matched something) beside `missedGoldens.counts.hit: 123` (goldens matched), and
- * the two are 0.1881 and 0.2721 of the corpus. Both are reported below; the ceiling and the competitor row use the
- * golden basis, and the figures the run published are carried verbatim so a reader can see where they differ.
+ * **`tp` is a count of distinct goldens, not of findings.** The reason this file gave for that was wrong and the
+ * correction matters more than the wording: it said *"the competitor's rows carry the goldens each finding matched and
+ * no finding-level verdict"*, and **`keep` is a finding-level verdict**. Of the competitor's 110 kept rows, 61 carry a
+ * match, so the finding basis is computable on their side too - it simply was not computed, and the two bases disagree
+ * by more than a rounding: 61 findings carrying 77 goldens are `precision 0.5545` on one basis and `0.7000` on the
+ * other. **So both are computed for both sides and both are printed**, and the golden basis stays the one the ceiling
+ * uses because a ceiling is a statement about goldens.
+ *
+ * `matched` is the finding basis's numerator and `tp` the golden basis's, and a reader who forgets which is which gets
+ * a precision above one - which is why neither is called `truePositives` any more.
  */
 function counts(rows) {
   const matched = new Set();
@@ -59,9 +65,26 @@ function counts(rows) {
   const rescuedMatched = new Set();
   for (const row of rescued)
     for (const golden of row.goldens) rescuedMatched.add(`${row.pr}\u0000${golden}`);
+  /**
+   * **What a filter can actually keep, which is a matching and not a count of goldens.**
+   *
+   * `matched.size` is how many distinct goldens the pool touches, and that is a legitimate quantity - it is the
+   * generator's reach. **It is not a ceiling**: the protocol credits a finding with at most one golden, so a pool of 160
+   * matched findings that names 123 distinct goldens cannot be filtered into 123 true positives unless 123 findings can
+   * each hold a different one. On the artifact §116 reads the maximum matching is **103 against 123 named goldens** -
+   * one finding carrying three goldens is one true positive and two unclaimed - so the ceiling computed from 123 was
+   * **0.4278 for a quantity that cannot exceed 0.3712**.
+   *
+   * The error was in the optimistic direction on both sides, and it changes no verdict here: theirs falls from 0.6181 to
+   * 0.5467 and stays above the target, ours falls from 0.4278 to 0.3712 and was already below it. **It does change every
+   * distance**, which is what a plan is made of.
+   */
+  const matching = maximumMatchingByPullRequest(rows, (row) => row.goldens);
   return {
     kept: rows.length,
     tp: matched.size,
+    matched: rescued.length,
+    matching,
     rescuedKept: rescued.length,
     rescuedTp: rescuedMatched.size,
   };
@@ -149,10 +172,56 @@ function score({ goldens, all, gated }) {
     f1: f1(precision, recall),
     generatorRecall: all.tp / goldens,
     generatorMatched: all.tp,
-    /** Keep only the findings that matched something: precision is 1 by construction and recall is unchanged. */
-    ceilingAtPerfectPrecision: f1(1, all.tp / goldens),
-    /** The same set without the gift of perfect precision: the findings that matched, and the goldens they carried. */
-    ceilingRescued: f1(all.rescuedTp / all.rescuedKept, all.rescuedTp / goldens),
+    /**
+     * **The reach and the ceiling, which are two numbers and were printed as one.**
+     *
+     * `reachableGoldens` is how many distinct goldens the pool names anywhere, kept or not: a statement about the
+     * generator. `reachablePairs` is the maximum matching over the same rows: a statement about what any filter can
+     * convert into true positives. **The ceiling is computed from the second**, because the protocol pairs a finding
+     * with at most one golden.
+     */
+    reachableGoldens: all.tp,
+    reachablePairs: all.matching,
+    /**
+     * **The kept set on both bases, because one of them was only ever printed for one reviewer.**
+     *
+     * `golden` counts a distinct golden once however many findings carried it, and it is the basis a ceiling needs: a
+     * ceiling is a statement about how many of the corpus's goldens are reachable. `finding` counts a finding once
+     * however many goldens it carried, and it is the basis the run's own protocol publishes - `precision` is
+     * findings-that-matched over kept, and `recall` is that same numerator over the corpus, which is the run's
+     * convention rather than a rate over goldens.
+     *
+     * **Two bases and not a preferred one**, because they answer two questions and the gap between them is the
+     * measurement: 61 findings carrying 77 goldens read as `0.5545` and `0.7000`, and a document that printed only the
+     * second would be quoting the more flattering of two true numbers.
+     */
+    bases: {
+      golden: {
+        kept: gated.kept,
+        matchedGoldens: gated.tp,
+        precision,
+        recall,
+        f1: f1(precision, recall),
+      },
+      finding: {
+        kept: gated.kept,
+        matchedFindings: gated.matched,
+        precision: gated.kept === 0 ? 0 : gated.matched / gated.kept,
+        recall: goldens === 0 ? 0 : gated.matched / goldens,
+        f1: f1(
+          gated.kept === 0 ? 0 : gated.matched / gated.kept,
+          goldens === 0 ? 0 : gated.matched / goldens,
+        ),
+      },
+    },
+    /**
+     * **Keep only the findings a matching can pair**: precision is 1 by construction, and the count kept is the matching
+     * rather than the number of goldens named, because a filter that keeps 123 findings cannot score 123 pairs out of a
+     * pool whose matching is 103.
+     */
+    ceilingAtPerfectPrecision: f1FromCounts(all.matching, all.matching, goldens),
+    /** The same set without the gift of perfect precision: every matched finding, and the pairs they can be credited. */
+    ceilingRescued: f1(all.matching / all.rescuedKept, all.matching / goldens),
     /** No filter can exceed this at the precision the run achieved, however many true claims it later generates. */
     asymptoteAtThisPrecision: (2 * precision) / (precision + 1),
   };
@@ -269,6 +338,10 @@ export function formatCeiling(artifact) {
     ['recall', ours.recall.toFixed(4), theirs.recall.toFixed(4)],
     ['F1', ours.f1.toFixed(4), theirs.f1.toFixed(4)],
     ['generator recall', ours.generatorRecall.toFixed(4), theirs.generatorRecall.toFixed(4)],
+    // **Two numbers where the table used to print one.** A pool names goldens; a filter can only be credited with
+    // pairs, and the ceiling is the pair count. Printing only the reach is what overstated both ceilings by 13 %.
+    ['goldens the pool names', ours.reachableGoldens, theirs.reachableGoldens],
+    ['pairs a matching can claim', ours.reachablePairs, theirs.reachablePairs],
     [
       'ceiling at perfect precision',
       ours.ceilingAtPerfectPrecision.toFixed(4),
@@ -281,6 +354,33 @@ export function formatCeiling(artifact) {
     ],
   ];
   const lines = table.map((row) => row.map((cell) => String(cell).padStart(28)).join(''));
+  lines.push('');
+  lines.push(
+    'the same kept sets on both bases, because only one of them was ever printed for both reviewers:',
+  );
+  lines.push(['', 'ours', 'the competitor'].map((cell) => String(cell).padStart(28)).join(''));
+  for (const [label, key] of [
+    ['golden basis: matched goldens', 'matchedGoldens'],
+    ['finding basis: matched findings', 'matchedFindings'],
+    ['golden basis precision', 'goldenPrecision'],
+    ['finding basis precision', 'findingPrecision'],
+    ['golden basis F1', 'goldenF1'],
+    ['finding basis F1', 'findingF1'],
+  ]) {
+    const pick = (side) => {
+      const basis = side.bases;
+      const value = {
+        matchedGoldens: basis.golden.matchedGoldens,
+        matchedFindings: basis.finding.matchedFindings,
+        goldenPrecision: basis.golden.precision.toFixed(4),
+        findingPrecision: basis.finding.precision.toFixed(4),
+        goldenF1: basis.golden.f1.toFixed(4),
+        findingF1: basis.finding.f1.toFixed(4),
+      }[key];
+      return value;
+    };
+    lines.push([label, pick(ours), pick(theirs)].map((cell) => String(cell).padStart(28)).join(''));
+  }
   lines.push('');
   lines.push(
     `target ${target.toFixed(4)} sits inside our ceiling: ${String(artifact.verdict.targetInsideOurCeiling)}`,

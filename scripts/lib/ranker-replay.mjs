@@ -235,3 +235,130 @@ export function loadArtifact(path) {
     throw new Error(`${path} carries no rankedFindings`);
   return artifact;
 }
+
+/**
+ * **The penalty a finding earns for failing a structural test, as a hand-set number and not a fitted one.**
+ *
+ * `grounded` and `namesSymbol` are propositions about the finding's own text: whether it quotes code that exists, and
+ * whether it names a symbol. **A finding that names no symbol cannot be about a symbol-level golden**, which is a
+ * statement about the protocol rather than a weight learned from it - and that is why this is a multiplier written here
+ * rather than a coefficient fitted against the corpus.
+ *
+ * **The numbers themselves are arbitrary, and the curve they produce is printed beside the curve without them** so the
+ * arbitrariness is visible. 0.3 and 0.4 are not defensible as measurements; they are defensible as the claim *"a
+ * finding that fails this test is worth less than one that passes"*, which is the only thing being asserted.
+ */
+export function penaltyOf(finding) {
+  let penalty = 1;
+  if (finding?.features?.grounded === false) penalty *= 0.3;
+  if (finding?.features?.namesSymbol === false) penalty *= 0.4;
+  return penalty;
+}
+
+/**
+ * **One categorical prior per feature, predicted for a pull request by the rows of the others.**
+ *
+ * `category` is the one field a finding carries that says what it is about, and its match rate varies by a factor of six
+ * across the corpus (`documentation` 0.667, `test` 0.116 on the run §116 reads). **A prior learned on other pull
+ * requests is the cheapest ranker there is**, and the leave-one-out fold is what keeps it from being a lookup table: the
+ * rows of the pull request being ranked contribute nothing to the cell that ranks them.
+ *
+ * Laplace-smoothed, because a category with no rows is a category whose rate is not zero and not known - and a run whose
+ * held-out pull request introduced a category nobody else wrote would otherwise rank those findings last by accident.
+ */
+export function leaveOnePullRequestOutPrior(findings, { keys = ['category'] } = {}) {
+  const keysOf = (finding) =>
+    keys.map((key) => {
+      const value = finding?.[key];
+      return value === null || value === undefined ? '(none)' : String(value);
+    });
+  const cellOf = (finding) => keysOf(finding).join('\u0000');
+  const prOf = (finding) => String(finding?.pr ?? '');
+  const scores = new Array(findings.length).fill(0);
+  for (const held of new Set(findings.map(prOf))) {
+    const counts = new Map();
+    let total = 0;
+    let hits = 0;
+    for (let i = 0; i < findings.length; i += 1) {
+      if (prOf(findings[i]) === held) continue;
+      const cell = cellOf(findings[i]);
+      const row = counts.get(cell) ?? [0, 0];
+      row[0] += 1;
+      row[1] += labelOf(findings[i]);
+      counts.set(cell, row);
+      total += 1;
+      hits += labelOf(findings[i]);
+    }
+    const global = (hits + 1) / (total + 2);
+    for (let i = 0; i < findings.length; i += 1) {
+      if (prOf(findings[i]) !== held) continue;
+      const row = counts.get(cellOf(findings[i]));
+      scores[i] = row === undefined ? global : (row[1] + 1) / (row[0] + 2);
+    }
+  }
+  return scores;
+}
+
+/** The protocol's true positives on one set of findings: a maximum matching, so a golden is credited once. */
+export function matchedPairs(findings) {
+  return maximumMatchingByPullRequest(findings, (finding) => finding.matchedGoldens ?? []);
+}
+
+/**
+ * **What a budget buys from one ordering, on the protocol's own arithmetic.**
+ *
+ * The cut is a prefix of `order` and nothing else, so the only difference between two curves is which findings a ranker
+ * puts first. **`k` is a count of comments, not a score threshold**, because the competitor this is compared with
+ * publishes a comment budget of its own (110 over 47 pull requests) and a curve that could not be read at that count
+ * could not be compared with it.
+ */
+export function curveAtBudget(order, goldens, ks) {
+  return ks.map((k) => {
+    const cut = order.slice(0, Math.min(k, order.length));
+    const truePositives = matchedPairs(cut);
+    return {
+      k,
+      emitted: cut.length,
+      truePositives,
+      precision: cut.length === 0 ? 0 : truePositives / cut.length,
+      recall: goldens === 0 ? 0 : truePositives / goldens,
+      f1: f1FromCounts(truePositives, cut.length, goldens),
+    };
+  });
+}
+
+/**
+ * **The four orderings one artifact can support, so a ranker's value is read beside the two that need no ranker.**
+ *
+ * `score` is what shipped. `prior` is learned on the other pull requests. `priorTimesPenalty` is the same order
+ * multiplied by a hand-set structural penalty. **`oracle` is not a device and is the most important row**: it is what a
+ * perfect ranker would reach at the same budget, so a curve that sits near it has no ranking left to win and one that
+ * sits far below it is a curve about a ranker rather than about a generator.
+ */
+export function rankCurves(artifact, ks) {
+  const findings = artifact?.rankedFindings ?? [];
+  const goldens = Number(artifact?.missedGoldens?.total ?? 0);
+  const byScore = [...findings].sort((left, right) => scoreOf(right) - scoreOf(left));
+  const prior = leaveOnePullRequestOutPrior(findings);
+  const byPrior = findings
+    .map((finding, at) => ({ finding, weight: prior[at] }))
+    .sort((left, right) => right.weight - left.weight)
+    .map((entry) => entry.finding);
+  const byPriorPenalised = findings
+    .map((finding, at) => ({ finding, weight: prior[at] * penaltyOf(finding) }))
+    .sort((left, right) => right.weight - left.weight)
+    .map((entry) => entry.finding);
+  const byOracle = [...findings].sort(
+    (left, right) => (right.matchedGoldens ?? []).length - (left.matchedGoldens ?? []).length,
+  );
+  return {
+    goldens,
+    pool: findings.length,
+    curves: {
+      score: curveAtBudget(byScore, goldens, ks),
+      prior: curveAtBudget(byPrior, goldens, ks),
+      priorTimesPenalty: curveAtBudget(byPriorPenalised, goldens, ks),
+      oracle: curveAtBudget(byOracle, goldens, ks),
+    },
+  };
+}
