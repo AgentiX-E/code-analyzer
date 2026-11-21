@@ -176,6 +176,22 @@ export interface CostTotals {
   readonly completionTokens: number;
   /** USD. Sums only the priced calls. */
   readonly costUsd: number;
+  /**
+   * USD, with **every prompt token priced at the miss rate** - the same call, on an account whose cache was cold.
+   *
+   * **Why a second price and not a second total.** The vendor's prefix cache is **state that outlives a process**, so
+   * the same work costs a different number of dollars depending on whether some earlier job happened to warm the
+   * prefix. On 2026-11-21 two arms of one job, differing by one lane, were billed 1.2391 and 1.3692 USD: **the arm with
+   * the extra lane was the cheaper one**, because it ran second and 82.9 % of its prompt tokens hit the cache while the
+   * first arm's 51.0 % did. The cache hit price is one fiftieth of the miss price, so **5.3 million more hit tokens buy
+   * a tenth off a bill without one token of work being removed** - and a comparison of `costUsd` across two jobs is
+   * therefore a measurement of job order, not of work.
+   *
+   * **So the figure that can be compared across arms is this one**, where the cache is priced out of existence. It is
+   * *not* a projection of what the account will be charged: no account has a cold cache forever, and the discount is
+   * real money. **It is the only figure of the two that a second run cannot move by having run after the first.**
+   */
+  readonly cacheNeutralUsd: number;
   /** The share of prompt tokens the vendor served from its cache, or `null` when no call reported a split. */
   readonly cacheHitRatio: number | null;
 }
@@ -199,6 +215,23 @@ export interface CostEntry {
   readonly error?: string;
 }
 
+/** The price a call would have carried had its prompt tokens all been read fresh. */
+export function cacheNeutralUsdOf(entry: CostEntry): number | null {
+  return costUsdOf(
+    {
+      promptTokens: entry.usage.promptTokens,
+      completionTokens: entry.usage.completionTokens,
+      totalTokens: entry.usage.promptTokens + entry.usage.completionTokens,
+      // **The whole point of the figure**: the split the vendor reported is discarded and every prompt token is charged
+      // at the miss rate. A call priced this way is priced as if no job had ever run before it.
+      cacheHitTokens: 0,
+      cacheMissTokens: entry.usage.promptTokens,
+    },
+    entry.model,
+    new Date(entry.at),
+  );
+}
+
 const EMPTY_TOTALS: CostTotals = {
   calls: 0,
   failures: 0,
@@ -209,6 +242,7 @@ const EMPTY_TOTALS: CostTotals = {
   cacheMissTokens: 0,
   completionTokens: 0,
   costUsd: 0,
+  cacheNeutralUsd: 0,
   cacheHitRatio: null,
 };
 
@@ -233,6 +267,9 @@ function addInto(totals: CostTotals, entry: CostEntry): CostTotals {
     cacheMissTokens,
     completionTokens: totals.completionTokens + (ok ? entry.usage.completionTokens : 0),
     costUsd: totals.costUsd + (cost ?? 0),
+    // **A failed attempt billed nothing, so it is priced at nothing here too** - the same rule `costUsd` follows, and
+    // the reason the two figures can be subtracted from one another.
+    cacheNeutralUsd: totals.cacheNeutralUsd + (ok ? (cacheNeutralUsdOf(entry) ?? 0) : 0),
     cacheHitRatio:
       reportedSplit && denominator > 0 ? cacheHitTokens / denominator : totals.cacheHitRatio,
   };

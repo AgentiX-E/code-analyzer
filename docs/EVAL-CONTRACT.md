@@ -12340,6 +12340,12 @@ for findings its own cut deletes, and every device priced against that bill was 
 the waste. A run that omits the lane is the same measurement for 16.6 % less money (0.848 USD → 0.707 USD on
 `44836602031`, engine and judge together).
 
+> **Amended by §117.2.** 16.6 % is the **as-billed** difference between two arms of one dispatch, and the vendor's prefix
+> cache makes that unit a measurement of which arm ran second. On the hundred-row pair read in §117 the same comparison
+> came out **10.5 % more expensive** as billed and **79.8 %** on a cold cache. The direction in this sentence (a lane is
+> removable for less money) survives, and **the figure in it does not** - it is an as-billed number and this section's
+> successor is where the unit it should have been written in is defined.
+
 ### 113.4 R-52, registered before its run
 
 - **Claim.** On fifty pull requests with `lane_set: pair-lean`, the arm without `testing` **costs at most 85 % of the
@@ -12893,3 +12899,198 @@ retired a quarter of work before the quarter was spent. **A bar chosen after the
   reviewers were scored on **the same 47 pull requests**.
 
 **Price: 0 CNY** - two artifacts already in the tree, one CLI, and no model call.
+
+## §117 R-53 came back met on accuracy, and met on cost only in a unit the clause was not written in
+
+**R-53's claim had two clauses**, and they came back in opposite states. The accuracy clause was met with room to spare.
+The cost clause was **read on a number that measured which arm ran second**, and the run itself contains the evidence for
+that: the arm with **one fewer lane out of five** was billed **more** than the arm with five.
+
+**The run.** `44867457528`, workflow `aacr-bench.yml`, dispatched on `e8e419d5`, 04:43–06:38 UTC. Slice `skip 50,
+requested 100` - the hundred rows from 150 to 249 of a 196-row read set that R-52 had not touched, **so the two readings
+share no row**. Goldens 724, resolution **0.019** at a hundred rows, which is the number §113.6 predicted and the unit
+the clause was rewritten to.
+
+### 117.1 The accuracy clause was met: −0.0013 against a 0.019 unit
+
+| arm            | lanes | findings |  TP |  FP |  FN | precision |  recall | **F1**      |
+| -------------- | ----- | -------: | --: | --: | --: | --------: | ------: | ----------- |
+| `shipped`      | 5     |    1 080 | 149 | 427 | 575 |    0.2587 |  0.2058 | **0.2292**  |
+| `lean`         | 4     |      942 | 148 | 427 | 576 |    0.2574 |  0.2044 | **0.2279**  |
+| **difference** | −1    |     −138 |  −1 |   0 |  +1 |   −0.0013 | −0.0014 | **−0.0013** |
+
+**One resolution unit is 0.019 and the difference is 0.0013**, which is a fifteenth of it. The drop of a whole lane cost
+**one true positive and 138 findings** - and the removal pool says the same thing from the other side: 138 removed, **1 of
+them a true positive, a share of 0.72 %** against a registered target of 4 %. **The `testing` lane's findings were
+findings nobody's answer key names**, at a rate of one in 138.
+
+Two further readings agree that this is a null rather than a small win:
+
+- **paired on `(pull request, golden)`,** `both 101 · lean only 47 · shipped only 48 · p = 1`. A split of 47 against 48
+  is what a coin produces.
+- **resampled over the hundred pull requests,** mean −0.0014, sd 0.0147, interval **[−0.0312, +0.0257]**, `p = 0.9296`.
+
+**And the pull-request arm does not agree**: `0.1683` against `0.1827`, a delta of **−0.0144**. The file arm loses
+nothing and the assignment arm loses a point and a half, which is the ordinary shape of a null measured twice - **it is
+also the reason the registration named the file arm**, and the arm it named is the one that passed.
+
+**So the lane is removable on accuracy terms.** What follows is the half of the clause that did not pass.
+
+### 117.2 The cost clause failed at 105.4 %, and the falsifier is the cache
+
+**The clause.** _At most 85 % of the shipped arm's total USD._ **The reading: 105.4 %** - the four-lane arm was
+**more expensive** than the five-lane one.
+
+| part      | arm       |  calls | prompt tokens | cache hits | hit ratio | billed USD | cold-cache USD |
+| --------- | --------- | -----: | ------------: | ---------: | --------: | ---------: | -------------: |
+| reviewer  | `shipped` |  5 785 |    12 072 828 | 10 011 118 |    82.9 % |     1.2391 |         2.7107 |
+| reviewer  | `lean`    |  4 628 |     9 675 386 |  4 932 736 |    51.0 % |     1.3692 |         2.0943 |
+| judge     | `shipped` | 15 578 |     4 227 472 |    572 414 |    13.5 % |     0.5967 |         0.6809 |
+| judge     | `lean`    | 13 883 |     3 795 138 |    307 836 |     8.1 % |     0.5657 |         0.6109 |
+| **total** | `shipped` | 21 363 |    16 300 300 | 10 583 532 |    64.9 % | **1.8358** |     **3.3916** |
+| **total** | `lean`    | 18 511 |    13 470 524 |  5 240 572 |    38.9 % | **1.9349** |     **2.7053** |
+
+**The mechanism is three numbers, and all three are in the table.** The hit class costs `0.006` USD per million against
+the miss class's `0.3` - **one fiftieth** - so a token served from the cache is very nearly free and a token read fresh
+is not. The five-lane arm ran **second** (06:37 against 06:27) and hit the vendor's prefix on **82.9 %** of its prompt
+tokens; the four-lane arm, which had to write those prefixes, hit on **51.0 %**. Ten million cached tokens against five
+is the whole of the difference: **the extra 5.3 million hits buy a tenth off the bill without one call being removed.**
+
+**And the two arms did the same work per lane, which is what makes the cache the only explanation:**
+
+| arm       | lanes | reviewer prompt tokens |  per lane |
+| --------- | ----: | ---------------------: | --------: |
+| `shipped` |     5 |             12 072 828 | 2 414 566 |
+| `lean`    |     4 |              9 675 386 | 2 418 846 |
+
+**0.18 % apart.** A lane in this engine is a fifth of the prompt to within a fifth of a percent, so the arm with four
+lanes spent **80.1 %** of the prompt tokens - and was billed 10.5 % more.
+
+### 117.3 The unit that can be compared, and the tool that reports both
+
+**So the clause was written in a unit the apparatus cannot isolate**, which is the third time in this line of work - after
+a ±0.005 tolerance the corpus could not resolve (§113.6) and a ceiling measured in the wrong count (§116.4). **The
+difference here is that the confound is not a shortage of data; it is a property of the vendor's cache**, which is state
+that outlives a process, is shared between jobs on one key, and is priced at a fiftieth of a fresh token.
+
+**Two things follow, and both are now in the tree.**
+
+**First, the ledger prices every call twice.** `CostTotals.cacheNeutralUsd` charges **every prompt token at the miss
+rate** and keeps the call's own peak/off-peak clock, so the figure is what the run would have cost on an account whose
+cache was cold. It sits beside `costUsd` rather than replacing it: **the as-billed figure is what the account pays**, and
+withdrawing it would trade a comparison that cannot be made for a bill nobody can check. The artifact publishes the same
+pair - `spend.totalCacheNeutralUsd`, `spend.judge.cacheNeutralUsd` - so **a run after this commit cannot be read in the
+confounded unit by accident.**
+
+**Second, `scripts/compare-spend.mjs` reads both off any pair of artifacts, including the ones that predate the field.**
+It **recovers the multiplier from each arm's own bill** instead of assuming one: `billed = factor · (hit·hitPrice +
+miss·missPrice + out·outPrice)`, so `factor` falls out of four numbers the artifact already carries. Both arms of this
+pair come back at **0.50** - the vendor's stated off-peak half - which is the check that the recovery is right rather
+than the assumption. A tool that hardcoded either rate would price an artifact measured at the other hour wrong by a
+factor of two while looking entirely plausible.
+
+```
+ratio lean/shipped   billed    cold-cache   prompt tokens   calls
+reviewer             110.5 %      77.3 %          80.1 %    80.0 %
+judge                 94.8 %      89.7 %          89.8 %    89.1 %
+total                105.4 %      79.8 %          82.6 %    86.6 %
+
+units disagree · the billed figure and the cold-cache figure point opposite ways, so the
+                 difference is the cache state the arms ran in and not the work they did
+```
+
+**On a cold cache the clause passes: 79.8 % of the total, 77.3 % of the reviewer, 80.1 % of the reviewer's prompt
+tokens.** The bar was 85 %, so **the lane is removable on cost terms too, and the run that said otherwise said it in
+dollars that were discounted by the arm it was compared against.**
+
+### 117.4 Where the bill actually is, and it is not in the lanes
+
+**Removing one lane out of five removes a fifth of the reviewer's prompt tokens.** That is the entire lever a lane
+decision has, and it is measured here: 80.1 %.
+
+**The reviewer is 79.9 % of the cold-cache bill and the judge is the rest** - 0.6809 of 3.3916 on the five-lane arm. But
+the two halves degrade at different rates when a lane goes:
+
+| part     | cold-cache USD, 5 lanes | 4 lanes |  ratio |
+| -------- | ----------------------: | ------: | -----: |
+| reviewer |                  2.7107 |  2.0943 | 77.3 % |
+| judge    |                  0.6809 |  0.6109 | 89.7 % |
+| total    |                  3.3916 |  2.7053 | 79.8 % |
+
+**The judge shrinks by 10 % when the reviewer shrinks by 23 %**, and the reason is that the judge's work is a **product
+rather than a sum**: `judgeMatrix` builds every `(finding, golden)` pair of each pull request - the self-test asserts the
+call count is `matches.length × goldens.length` - so its size is `findings × goldens` per pull request, not
+`findings`. Removing a lane removes a tenth of the findings and therefore a tenth of the pairs.
+
+**The measured shape of that product, on this corpus:**
+
+| reading                            | `shipped` |    `lean` |
+| ---------------------------------- | --------: | --------: |
+| judge calls                        |    15 578 |    13 883 |
+| findings                           |     1 080 |       942 |
+| **judge calls per finding**        | **14.42** | **14.74** |
+| judge prompt tokens per call       |       271 |       273 |
+| judge share of the as-billed bill  |    32.5 % |    29.2 % |
+| judge share of the cold-cache bill |    20.1 % |    22.6 % |
+
+**Fourteen and a half judge calls per finding, at 271 prompt tokens a call.** That is the largest single count in the
+bill and **no lane decision touches it.**
+
+### 117.5 Two registrations, and the second one is the one that matters
+
+**R-55 - the same clause, in the unit that can be compared.** _Claim._ On the **46 rows neither reading has touched**
+(`skip 150, requested 46` of the 196-row read set), the arm without `testing` **costs at most 85 % of the shipped arm's
+`totalCacheNeutralUsd`** and its reviewer prompt tokens are **at most 85 %** of the shipped arm's, with the file-arm F1
+**inside one resolution unit**.
+_Falsifier._ A cold-cache ratio above 0.85, or a reviewer prompt-token ratio above 0.85, or an F1 below the shipped arm
+by more than one resolution unit at the rows read.
+
+**Why re-register a clause that already read 79.8 %.** Because it read 79.8 % **on rows that were used to write the
+clause's own unit.** §113.6 rewrote the tolerance after seeing the resolution, and this section rewrites the unit after
+seeing the cache split; **the next reading has to be on rows neither decision saw**, or the pass is a fit. The 46 rows
+are also the last of the corpus, which is worth saying plainly: **after R-55 there is no unread row in this corpus**, and
+every further reading needs a new one.
+
+**R-56 - the judge, judged in batches, which is a device already in the tree and has never run on the corpus.**
+_Claim._ On the same 46 rows with the five shipped lanes, **judging four pairs per request** costs **at most 60 % of the
+per-pair arm's judge prompt tokens** and its file-arm F1 is **inside one resolution unit** of the per-pair arm's.
+_Falsifier._ A judge prompt-token ratio above 0.60, or an F1 below the per-pair arm by more than one resolution unit.
+
+**Why this is the registration and not a lane.** `judgeMatrixBatched` exists, is selected by `AACR_JUDGE_BATCH`, and the
+self-test **asserts its matrix equals the per-pair matrix pair for pair** on a fixture - so the device is built and its
+equivalence is held by a test. Its default is `1` for a reason this section agrees with: **a device that changes the
+measuring instrument is not a default.** `configuration.judgeBatch` in this artifact is `1` and `spend.judge.batchCalls`
+is `0`, so **every figure in this document is priced in per-pair calls and the batched arm has never produced one.**
+
+**And the batch is worth more than its request count.** The prompt is `instructions + golden + comment`; a batch of four
+carries the first two blocks **once for four findings**, so the prompt falls by three copies of a fixed prefix per group -
+and §111's finding is that the prefix is what makes the request long enough for the cache to hold it at all. **A batched
+arm should therefore move both numbers the same way**, which is the shape a cost device needs: the request count and the
+prompt tokens fall together.
+
+**Reading R-56 needs one arm and no control**, because the per-pair arm on the same rows is already in the tree.
+
+### 117.6 What this section does not claim
+
+- **That the lane is free.** It is free **of accuracy** to the resolution this corpus has, and free **of 20 % of the
+  reviewer's cold-cache cost**. It is not free of the risk the `testing` lane was built for: one true positive in 138
+  removed findings is a rate, not a proof, and 942 findings is not a corpus for a rate.
+- **That the as-billed figure is wrong.** 1.9349 and 1.8358 are what the account was charged, and the cache really is
+  cheap. **What was wrong is reading a comparison off them.**
+- **That the run's own pair is a controlled experiment.** The two arms ran concurrently on one key, so each warmed the
+  other. **The cold-cache figure removes the discount but cannot remove the possibility that the two arms shared a prefix
+  in a way that changes what the model read** - a shared prefix changes the price of a token and not its content, which
+  is why the accuracy clause is unaffected, but it is a statement about this apparatus rather than about caches.
+- **That 14.7 calls per finding is waste.** It is the price of a maximum matching over every pair. **Whether a pair on a
+  different path can match is a question the artifact cannot answer** - it publishes verdicts and not paths - and a
+  filter that skips them has to be registered and read like any other device, not assumed free.
+- **That R-55 and R-56 are both affordable.** They are two runs over 46 rows; the estimate is in §117.7 and it is an
+  estimate.
+- **That anything here moved a published review figure.** No run is dispatched in this section. The figures are read off
+  an artifact that was paid for before the section existed, and the two clauses above are what would move a figure.
+
+### 117.7 Price
+
+**0 CNY** - one artifact pair from a run already paid for, one CLI, one ledger field, and no model call. The two
+registrations cost an estimated **13 CNY each** at this corpus size (one arm of 46 rows, both arms on one key at
+off-peak), and they are the only two readings the corpus has left.

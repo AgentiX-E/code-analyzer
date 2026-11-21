@@ -14,6 +14,7 @@ import {
   LLM_PRICE_TABLE,
   OFF_PEAK_FACTOR,
   costUsdOf,
+  cacheNeutralUsdOf,
   isPeakHour,
   priceFor,
 } from '../cost.js';
@@ -315,5 +316,122 @@ describe('the ceiling refuses the next call and names it', () => {
       expect(refused.message).toContain('2.0000');
       expect(refused.message).toContain('review:testing');
     }
+  });
+});
+
+// ---------------------------------------------------------------------------
+// The price a call would have carried on a cold cache
+// ---------------------------------------------------------------------------
+
+describe('the price with the cache priced out', () => {
+  /**
+   * **The figure exists because the vendor's cache outlives the process.** Two jobs that do identical work are billed
+   * differently when one of them runs second, and on 2026-11-21 that difference inverted a cost comparison: the arm
+   * with one *fewer* lane cost 1.3692 USD against the arm with five lanes' 1.2391, because the five-lane arm hit the
+   * prefix cache on 82.9 % of its prompt tokens and the four-lane one on 51.0 %. The assertions below are the property
+   * that makes the second figure usable - **same work, two cache states, one comparable number** - and they are
+   * arithmetic identities rather than observed values, so a price change moves them only if the price change is wrong.
+   */
+  it('charges a fully cached prompt at the miss price, which is what the cache hides', () => {
+    const warm = entry({
+      usage: {
+        promptTokens: 1_000_000,
+        completionTokens: 0,
+        totalTokens: 1_000_000,
+        cacheHitTokens: 1_000_000,
+        cacheMissTokens: 0,
+      },
+      costUsd: 0.006,
+    });
+
+    // What the account paid: one million tokens at the hit price.
+    expect(costUsdOf(warm.usage, warm.model, new Date(warm.at))).toBeCloseTo(0.006, 10);
+    // What the same call would have cost with nothing warm: one million at the miss price, fifty times as much.
+    expect(cacheNeutralUsdOf(warm)).toBeCloseTo(0.3, 10);
+  });
+
+  it('reports one number for the same tokens in either cache state', () => {
+    const usage = { promptTokens: 1_000_000, completionTokens: 100_000, totalTokens: 1_100_000 };
+    const cold = entry({ usage: { ...usage, cacheHitTokens: 0, cacheMissTokens: 1_000_000 } });
+    const warm = entry({ usage: { ...usage, cacheHitTokens: 1_000_000, cacheMissTokens: 0 } });
+    // Priced by the same function the provider prices a live call with, at the entry's own clock, so the two ledgers
+    // below hold what the vendor would actually have billed rather than two numbers written here to make the point.
+    const coldBilled = costUsdOf(cold.usage, cold.model, new Date(cold.at));
+    const warmBilled = costUsdOf(warm.usage, warm.model, new Date(warm.at));
+
+    const oneLedger = new CostLedger();
+    oneLedger.record({ ...cold, costUsd: coldBilled });
+    const otherLedger = new CostLedger();
+    otherLedger.record({ ...warm, costUsd: warmBilled });
+
+    // The billed figures differ by the whole cache discount...
+    expect(coldBilled).toBeCloseTo(0.42, 10);
+    expect(warmBilled).toBeCloseTo(0.126, 10);
+    expect(oneLedger.totals().costUsd).toBeCloseTo(0.42, 10);
+    expect(otherLedger.totals().costUsd).toBeCloseTo(0.126, 10);
+    // ...and the cold-cache figures are the same number, because the work was the same number.
+    expect(oneLedger.totals().cacheNeutralUsd).toBeCloseTo(0.42, 10);
+    expect(otherLedger.totals().cacheNeutralUsd).toBeCloseTo(0.42, 10);
+  });
+
+  it('prices each call at its own clock, so a run across the peak boundary is not priced twice at one rate', () => {
+    const ledger = new CostLedger();
+    ledger.record(entry({ at: PEAK.toISOString() }));
+    ledger.record(entry({ at: OFF_PEAK.toISOString() }));
+
+    // One million at 0.3 twice, the second at the off-peak factor.
+    expect(ledger.totals().cacheNeutralUsd).toBeCloseTo(0.3 + 0.3 * OFF_PEAK_FACTOR, 10);
+    // And the factor is still the vendor's stated half rather than a number that drifted into the new field.
+    expect(OFF_PEAK_FACTOR).toBe(0.5);
+  });
+
+  it('adds nothing for a failed attempt, the same rule the billed total follows', () => {
+    const ledger = new CostLedger();
+    ledger.record(entry({ outcome: 'error', costUsd: null, error: 'status 500' }));
+
+    expect(ledger.totals().cacheNeutralUsd).toBe(0);
+    expect(ledger.totals().costUsd).toBe(0);
+  });
+
+  it('leaves an unpriced model out of the figure rather than charging it at zero as if it were free work', () => {
+    const ledger = new CostLedger();
+    ledger.record(entry({ model: 'unknown-model', costUsd: null }));
+
+    // The count is the only thing that can say the figure is a lower bound, which is why it travels beside both totals.
+    expect(ledger.totals().unpricedCalls).toBe(1);
+    expect(ledger.totals().cacheNeutralUsd).toBe(0);
+  });
+
+  it('is published per tag, because the arm that pays the cache is not always the arm that does the work', () => {
+    const ledger = new CostLedger();
+    ledger.record(
+      entry({
+        tag: 'review:testing',
+        usage: {
+          promptTokens: 1_000_000,
+          completionTokens: 0,
+          totalTokens: 1_000_000,
+          cacheHitTokens: 1_000_000,
+          cacheMissTokens: 0,
+        },
+        costUsd: 0.006,
+      }),
+    );
+
+    const [row] = ledger.byTag();
+    expect(row?.tag).toBe('review:testing');
+    // Sorted by the billed figure, which is what the account pays; the cold-cache figure travels beside it.
+    expect(row?.totals.costUsd).toBeCloseTo(0.006, 10);
+    expect(row?.totals.cacheNeutralUsd).toBeCloseTo(0.3, 10);
+  });
+
+  it('is in the artifact the ledger writes, not only in the object it returns', () => {
+    const ledger = new CostLedger();
+    ledger.record(entry());
+
+    const written = ledger.toJSON();
+    expect(written.totals.cacheNeutralUsd).toBeCloseTo(0.3, 10);
+    // The entries are kept, because a sum is not auditable and this field's whole justification is a subtraction.
+    expect(written.entries).toHaveLength(1);
   });
 });

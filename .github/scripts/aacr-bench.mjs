@@ -4610,6 +4610,23 @@ async function main() {
     new Date(),
   );
 
+  // **And the same bill with the cache priced out of it**, because **the judge's cache share is a fact about the order
+  // the arms ran in** - on 2026-11-21 one arm's judge hit 8.1 % and the other's 13.5 % of a prefix the first arm had
+  // already written - and **a cost clause compared across two jobs in `costUsd` is a measurement of job order.** The
+  // reviewer's half of that figure comes from the ledger, which prices each call at its own clock; this line prices the
+  // judge's aggregate the same way, at the run's clock, with every prompt token charged as a miss.
+  const judgeCacheNeutralUsd = costUsdOf(
+    {
+      promptTokens: judgeSpend.promptTokens,
+      completionTokens: judgeSpend.completionTokens,
+      totalTokens: judgeSpend.promptTokens + judgeSpend.completionTokens,
+      cacheHitTokens: 0,
+      cacheMissTokens: judgeSpend.promptTokens,
+    },
+    MODEL,
+    new Date(),
+  );
+
   /** The attribution table, computed once and read by both the artifact and the log. */
   const merged = mergeAttributions(attributed);
   const missedGoldens = {
@@ -5387,6 +5404,9 @@ async function main() {
       judge: {
         ...judgeSpend,
         costUsd: judgeCostUsd,
+        // **The judge's price on a cold cache**, beside the one it was billed at, for the reason the reviewer's ledger
+        // carries both: **an arm that ran second is cheaper in `costUsd` for a reason that is not in the arm.**
+        cacheNeutralUsd: judgeCacheNeutralUsd,
         cacheHitRatio:
           judgeSpend.promptTokens === 0
             ? null
@@ -5395,6 +5415,13 @@ async function main() {
       // **What the job cost as far as this file can see**, so that the balance delta taken below can be compared with
       // it: **a total that is smaller than the balance by a wide margin says there is a third client.**
       totalUsd: judgeCostUsd === null ? null : ledger.toJSON().totals.costUsd + judgeCostUsd,
+      // **And the same total with the cache priced out**, which is the only pair of arms a cost clause may be read on.
+      // Carried separately rather than replacing `totalUsd`: the as-billed figure is what the account pays, and
+      // **withdrawing it would trade a comparison that cannot be made for a bill nobody can check.**
+      totalCacheNeutralUsd:
+        judgeCacheNeutralUsd === null
+          ? null
+          : ledger.toJSON().totals.cacheNeutralUsd + judgeCacheNeutralUsd,
     },
     // **The engine's own account of what it did**, because **a figure that says "one finding" without saying "199
     // files and 199 lanes" is a figure whose cause is not in the file.**
@@ -5422,7 +5449,7 @@ async function main() {
   // prompt tokens the provider served from its prefix cache - **the number a prompt reordering has to move, and the one
   // nothing in this repository could report before the ledger existed.**
   console.log(
-    `AACR-BENCH spend · calls ${ledger.totals().calls} · failures ${ledger.totals().failures} · unpriced ${ledger.totals().unpricedCalls} · prompt ${ledger.totals().promptTokens} · cache ${ledger.totals().cacheHitTokens} · usd ${ledger.totals().costUsd.toFixed(4)} · ceiling ${MAX_USD}`,
+    `AACR-BENCH spend · calls ${ledger.totals().calls} · failures ${ledger.totals().failures} · unpriced ${ledger.totals().unpricedCalls} · prompt ${ledger.totals().promptTokens} · cache ${ledger.totals().cacheHitTokens} · usd ${ledger.totals().costUsd.toFixed(4)} · cold-cache usd ${ledger.totals().cacheNeutralUsd.toFixed(4)} · ceiling ${MAX_USD}`,
   );
   console.log(
     `AACR-BENCH judge · calls ${judgeSpend.calls} · unanswered ${judgeSpend.failures} (${judgeSpend.rateLimited} rate limited) · prompt ${judgeSpend.promptTokens} · cache ${judgeSpend.cacheHitTokens} · usd ${judgeCostUsd === null ? 'unpriced' : judgeCostUsd.toFixed(4)} · order ${PROMPT_ORDER}`,
