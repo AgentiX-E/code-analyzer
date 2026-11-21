@@ -12182,7 +12182,9 @@ behaviour is the only control that can price the new one.**
   makes the _rest_ of the file usable - which is a smaller claim than parsing the language.
 - **Nothing about the other ten languages.** The per-language capability figures this campaign quotes come from
   `benchmarks/polyglot-index.json`, measured on ten repositories at named commits, and they carry the same gap this
-  section found: **fifteen JavaScript files and one TypeScript file in that corpus, and no Groovy**.
+  section found: **fifteen JavaScript files and one TypeScript file in that corpus, and no Groovy**. **§115 replaces that
+  corpus** - twelve checkouts, 277 JavaScript files and 551 TypeScript files - and the sentence is left here as the
+  state §112 was written in.
 
 ### 111.6 R-50 read back: the batch was falsified, and so was the block
 
@@ -12365,7 +12367,8 @@ the waste. A run that omits the lane is the same measurement for 16.6 % less mon
 **The per-language table §102.8 prints has an empty row and it is the row this campaign is written in.**
 `benchmarks/polyglot-index.json` measures ten checkouts and carries **15 JavaScript files and 1 TypeScript file** - the two
 languages the review engine itself is written in - and no Groovy at all. **A capability figure for a language with one
-file in the corpus is a figure about the file.**
+file in the corpus is a figure about the file.** **This section measures the two checkouts that row needed; §115
+regenerates the artifact with them in it, and the sentence above is the state this section started from.**
 
 ### 114.1 Two checkouts this repository did not write
 
@@ -12414,10 +12417,157 @@ is a statement about symbols rather than about paths - a different measurement, 
 
 - **That TypeScript's `paths` aliases are read.** They are not; a `tsconfig` alias is a fourth mechanism and an
   unresolved line in §102.8's table.
-- **That `benchmarks/polyglot-index.json` has been regenerated.** It has not: its denominators are the same ten
-  checkouts, and **adding two repositories to it would move every per-language figure in this document** - a change that
-  deserves its own section rather than a footnote in this one.
+- **That `benchmarks/polyglot-index.json` has been regenerated here.** It is regenerated in §115, which is the section
+  this one refused to write as a footnote: **adding two checkouts moves every per-language figure in this document**, and
+  the two tables above are subtrees of the two checkouts that section measures whole.
 - **That the review's F1 moves.** It cannot: `reach` was already on for every published run, and the two new checkouts
   are index corpora rather than review corpora. **A device that raises a capability figure without a run is a device
   whose review value is unmeasured, and this section says so.**
 - **That Groovy is measured.** It is still zero files, and it is still the row with no denominator.
+
+## §115 The two languages this engine is written in stop being the rows without a denominator
+
+**§114.4 refused to regenerate this artifact and gave its reason: adding two repositories would move every per-language
+figure in the document, which is a section and not a footnote.** This is that section. **And the first thing the
+regeneration established is that the reason was half wrong** - the figures moved in two rows, and the ten rows that were
+already published came back identical.
+
+### 115.1 Ten rows returned identical, which is what "additive" means
+
+Every cell of every one of the ten rows - `files`, `stats`, `byLanguage`, `reach`, `readerSkipped`, `goModule`,
+`swiftModules` - compared equal to the artifact that was committed before §114's rule existed:
+
+| checkout                                 | files | imports | resolved | edges | index  |
+| ---------------------------------------- | ----: | ------: | -------: | ----: | ------ |
+| `gin-gonic/gin`                          |   110 |     521 |       31 |    89 | 59 ms  |
+| `DaveGamble/cJSON`                       |   124 |     389 |      163 |    38 | 72 ms  |
+| `stedolan/jq`                            |   109 |     447 |      173 |   721 | 182 ms |
+| `apache/commons-lang`                    |   685 |   4 697 |      751 |   605 | 599 ms |
+| `psf/requests`                           |    49 |     324 |       89 |   120 | 45 ms  |
+| `Alamofire/Alamofire`                    |   140 |     185 |       43 |   265 | 203 ms |
+| `Kotlin/kotlinx.coroutines`              | 1 120 |   4 421 |    1 888 |   118 | 255 ms |
+| `json-schema-org/JSON-Schema-Test-Suite` |   106 |     193 |        3 |     0 | 101 ms |
+| `GNOME/libxml2`                          | 1 416 |   1 728 |      336 |    65 | 666 ms |
+| `OAI/OpenAPI-Specification`              |    43 |      55 |       12 |     0 | 17 ms  |
+
+**Only `indexMs` differs from the previous run, and it is a clock**: the column is here because an index that reads a
+repository in under a second is a device a review can afford, and it is not a claim that the same machine will report the
+same millisecond twice.
+
+**Why nothing moved is a fact about the ten checkouts rather than a fact about the rule**: a manifest changes an answer
+only where a repository imports a name its own `package.json` declares, and none of these ten does. **That is the point
+of regenerating instead of asserting** - the previous artifact was produced by code without the rule, this one by code
+with it, and the ten rows are the control group the rule had to leave alone.
+
+### 115.2 A subtree is not a checkout, so both new rows were measured whole
+
+§114 measured `axios/lib` - 73 files, 184 of 206 resolved - and `zod/packages/zod/src` - 334 files, 698 of 928. **Both
+figures remain true of those subtrees, and neither is a repository**: `files` in this artifact is a whole-checkout count,
+so a row carrying 73 would have said axios holds 73 files. Both were fetched as tarballs at the same commits §114 named:
+
+| checkout         | commit       | files | declarations | imports |         resolved | external | missing | edges | reach note                    | index  |
+| ---------------- | ------------ | ----: | -----------: | ------: | ---------------: | -------: | ------: | ----: | ----------------------------- | ------ |
+| `axios/axios`    | `9f0f4ddfe7` |   316 |       19 052 |     862 |     391 (45.4 %) |      467 |       4 |    90 | 219 of 219 files, 3 700 chars | 210 ms |
+| `colinhacks/zod` | `2a343ed2a4` |   580 |       17 222 |   1 403 | **910 (64.9 %)** |      493 |       0 |   301 | 426 of 426 files, 7 704 chars | 337 ms |
+
+**The zod rate is lower than §114's 75.2 %, and the difference is the tree rather than the reader**: the whole checkout
+writes **452 more statements and resolves 212 more of them**, because `packages/zod/src` holds the library and the
+repository also holds 137 test files that import `vitest`. **A subtree measurement answers "does the rule work" and a
+checkout measurement answers "what does a review meet"**, and the two numbers are published side by side so neither can
+be read as the other.
+
+**And the two checkouts are not "a JavaScript repository" and "a TypeScript repository"**, which is why they fill both
+rows: axios is 254 `.js` and 33 `.ts`, zod is 517 `.ts` and 8 `.js` - a library with type declarations, and a library
+whose build scripts are the JavaScript.
+
+### 115.3 The table, thirteen rows, two of them still empty
+
+`benchmarks/polyglot-index.json`, regenerated by `scripts/corpus-index-report.mjs` at twelve `--root`/`--sha` pairs.
+`resolved` is a statement placed in a file of this checkout; `package` is §104's answer for a wildcard naming a package
+the repository declares, which resolves and crosses nothing.
+
+| language   | repos | files | declarations | imports | resolved | package | external | missing | ambiguous | edges | resolved rate | with package |
+| ---------- | ----: | ----: | -----------: | ------: | -------: | ------: | -------: | ------: | --------: | ----: | ------------: | -----------: |
+| Java       |     2 |   669 |        1 122 |   4 732 |      768 |       1 |    3 963 |       0 |         0 |   622 |        16.2 % |       16.3 % |
+| Kotlin     |     1 | 1 082 |        3 250 |   4 354 |      121 |   1 749 |    2 484 |       0 |         0 |   101 |         2.8 % |       42.9 % |
+| Swift      |     1 |   101 |          612 |     183 |       43 |       0 |      140 |       0 |         0 |   251 |        23.5 % |       23.5 % |
+| Go         |     1 |    99 |        1 600 |     521 |       31 |       0 |      490 |       0 |         0 |    89 |         6.0 % |        6.0 % |
+| Python     |     6 |   108 |          966 |     588 |      139 |       0 |      449 |       0 |         0 |   120 |        23.6 % |       23.6 % |
+| JavaScript |     5 |   277 |          668 |     842 |      389 |       0 |      453 |       0 |         0 |    88 |    **46.2 %** |       46.2 % |
+| TypeScript |     3 |   551 |        4 365 |   1 432 |      912 |       0 |      516 |       4 |         0 |   303 |    **63.7 %** |       63.7 % |
+| Groovy     |     0 |     0 |            0 |       0 |        0 |       0 |        0 |       0 |         0 |     0 |             - |            - |
+| C / C++    |     3 |   335 |        7 013 |   2 001 |      564 |       0 |    1 361 |      68 |         8 |   824 |        28.2 % |       28.2 % |
+| XML        |     5 | 1 239 |       39 069 |     339 |       58 |       0 |      147 |     134 |         0 |     0 |        17.1 % |       17.1 % |
+| YAML       |    12 |   130 |       24 836 |       0 |        0 |       0 |        0 |       0 |         0 |     0 |             - |            - |
+| JSON       |     9 |   207 |       41 272 |     233 |       15 |       0 |      121 |      97 |         0 |     0 |         6.4 % |        6.4 % |
+| ArkTS      |     0 |     0 |            0 |       0 |        0 |       0 |        0 |       0 |         0 |     0 |             - |            - |
+| **twelve** |    12 | 4 798 |      124 773 |  15 225 |    3 040 |   1 750 |   10 124 |     303 |         8 | 2 398 |    **20.0 %** |   **31.5 %** |
+
+**Three columns have to be read before the rates are.** `package` is the one that keeps Kotlin's 2.8 % from being read as
+"Kotlin is not read": **1 749 of its 4 354 statements are wildcard imports of packages the repository declares**, so
+42.9 % of its statements are placed and 121 are placed in a file. `missing` is a statement the index could not place
+anywhere. And **`edges` is not proportional to `imports`**: XML writes 339 statements and crosses no name (a schema
+reference crosses a file and names no declaration, §103.2), while Swift writes 183 and crosses 251 (a module import
+brings every unqualified name it uses, §103.1).
+
+**Two of the thirteen rows are empty and they are not the same kind of empty.** Groovy has **no checkout** - the reader
+exists and no corpus does - and ArkTS has no public checkout this project can fetch, which is why §112's ArkTS corpus is
+fixtures. **YAML is the third and different again**: 130 files that write **no statement at all**, because a YAML document
+has no import and the `$ref` reader §103.2 added found none in these 130 - they are CI workflows and configuration, not
+OpenAPI documents. **"Unmeasured" and "measured as nothing" are two answers**, and this table is the only place they sit
+in one column.
+
+### 115.4 What moved, and what the new denominator is made of
+
+| figure                          | before §115 | after §115 |   delta |
+| ------------------------------- | ----------: | ---------: | ------: |
+| checkouts                       |          10 |         12 |      +2 |
+| files read                      |       3 902 |      4 798 |    +896 |
+| declarations                    |      88 499 |    124 773 | +36 274 |
+| import statements               |      12 960 |     15 225 |  +2 265 |
+| statements placed in a file     |       1 739 |      3 040 |  +1 301 |
+| statements placed in a package  |       1 750 |      1 750 |       0 |
+| edges                           |       2 007 |      2 398 |    +391 |
+| resolved rate, files only       |      13.4 % |     20.0 % | +6.6 pp |
+| resolved rate, files + packages |      26.9 % |     31.5 % | +4.6 pp |
+
+**By language, only two rows moved**: JavaScript 15 → 277 files and 7 → 842 statements, 0 → 389 placed in a file, 0 → 88
+edges; TypeScript 1 → 551 files and 2 → 1 432 statements, 0 → 912 placed, 0 → 303 edges. **Every other row is the
+same row**, including YAML's 109 → 130 files with zero statements.
+
+**And the denominator is two repositories' opinion, printed here rather than discovered later**: **262 of the 277
+JavaScript files and 550 of the 551 TypeScript files are axios and zod**. The corpus now has a JavaScript and a TypeScript
+denominator - which it did not have, and which is why the row said 15 and 1 - and it still does not have a JavaScript or
+a TypeScript _sample_. **A rate over two checkouts is a measurement of the reader against two checkouts.**
+
+### 115.5 The artifact is now read by a test rather than by an eye
+
+`tests/unit/scripts/a-language-with-a-denominator-is-a-repository.test.ts` reads `benchmarks/polyglot-index.json` and
+fails on four shapes: **a row whose name is not `<owner>_<repository>`** (a subtree checkout has no owner, and 73 files
+published as a repository is the error §115.2 corrects), **a row with no commit** (a figure about a branch is a figure
+about today), **a row whose language counts do not add up to its own totals** (including `resolved + package =
+resolvedImports`, the split §104 drew), and **a JavaScript or TypeScript denominator below the floor this section
+established**.
+
+**It cannot say the corpus is a sample**, and §115.4 says so instead: the test guards the shape of a claim and the
+prose guards its scope, because a test that could tell you whether two checkouts represent a field would be a test that
+had measured the field.
+
+### 115.6 What this section does not claim
+
+- **That the review's F1 moves.** It cannot: no run is dispatched here, the two checkouts are index corpora rather than
+  review corpora, and `reach` was already on for every published run.
+- **That a fuller table is a better index.** A denominator is not a device. **What changed is that two rows which could
+  not be read as capability can be read as a rate**, and §115.4 prints the two repositories that rate is made of.
+- **That the 303 `missing` statements are a defect.** They are 97 JSON `$ref`s pointing at an HTTP fixture
+  (`http://localhost:1234/…`), 134 XML `schemaLocation`s naming remote namespaces, 68 C headers the checkouts do not
+  hold, and 4 TypeScript paths a `vitest` configuration would resolve - **four mechanisms, none of them this one**.
+- **That the artifact regenerates in CI.** It does not: the register keeps `corpus-index-report.mjs` a local tool
+  because its input is any repository on disk, and the twelve checkouts live outside the tree. The test above is the
+  guard, and the command is twelve `--root`/`--sha` pairs run by hand.
+- **That Groovy or ArkTS is measured.** §115.3 says which of the two is unmeasured for lack of a corpus and which for
+  lack of a checkout, and neither word is zero.
+- **That TypeScript's `paths` aliases are read.** §114.4's refusal stands; the 4 missing TypeScript statements in
+  `axios` are where that mechanism would answer.
+
+**Price: 0 CNY** - two tarballs, twelve local index runs, no model call and no network call in the measurement itself.

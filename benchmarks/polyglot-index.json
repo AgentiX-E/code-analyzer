@@ -5,7 +5,7 @@
     "what a reach note for the whole repository would cost a prompt."
   ],
   "generatedBy": "scripts/corpus-index-report.mjs",
-  "measuredAt": "2026-11-20",
+  "measuredAt": "2026-11-21",
   "repos": [
     {
       "repo": "gin-gonic_gin",
@@ -18,7 +18,7 @@
         "overCap": 0,
         "overBytes": 0
       },
-      "indexMs": 56,
+      "indexMs": 61,
       "stats": {
         "files": 110,
         "symbols": 1937,
@@ -74,7 +74,7 @@
         "overCap": 0,
         "overBytes": 0
       },
-      "indexMs": 68,
+      "indexMs": 72,
       "stats": {
         "files": 124,
         "symbols": 2038,
@@ -152,7 +152,7 @@
         "overCap": 0,
         "overBytes": 0
       },
-      "indexMs": 166,
+      "indexMs": 185,
       "stats": {
         "files": 109,
         "symbols": 9087,
@@ -241,7 +241,7 @@
         "overCap": 0,
         "overBytes": 0
       },
-      "indexMs": 551,
+      "indexMs": 613,
       "stats": {
         "files": 685,
         "symbols": 5526,
@@ -319,7 +319,7 @@
         "overCap": 0,
         "overBytes": 0
       },
-      "indexMs": 41,
+      "indexMs": 44,
       "stats": {
         "files": 49,
         "symbols": 723,
@@ -378,7 +378,7 @@
         "overCap": 0,
         "overBytes": 0
       },
-      "indexMs": 171,
+      "indexMs": 201,
       "stats": {
         "files": 140,
         "symbols": 4360,
@@ -467,7 +467,7 @@
         "overCap": 0,
         "overBytes": 0
       },
-      "indexMs": 229,
+      "indexMs": 253,
       "stats": {
         "files": 1120,
         "symbols": 3538,
@@ -567,7 +567,7 @@
         "overCap": 0,
         "overBytes": 0
       },
-      "indexMs": 87,
+      "indexMs": 102,
       "stats": {
         "files": 106,
         "symbols": 18394,
@@ -645,7 +645,7 @@
         "overCap": 0,
         "overBytes": 0
       },
-      "indexMs": 572,
+      "indexMs": 704,
       "stats": {
         "files": 1416,
         "symbols": 39259,
@@ -777,6 +777,173 @@
         "chars": 0,
         "medianChars": 0,
         "charsPerNonEmptyNote": 0
+      }
+    },
+    {
+      "repo": "axios_axios",
+      "commit": "9f0f4ddfe72b4c06afafe1a658e6ee53d35b5760",
+      "goModule": null,
+      "swiftModules": [],
+      "files": 316,
+      "readerSkipped": {
+        "bySize": 0,
+        "overCap": 0,
+        "overBytes": 0
+      },
+      "indexMs": 210,
+      "stats": {
+        "files": 316,
+        "symbols": 19052,
+        "imports": 862,
+        "resolvedImports": 391,
+        "externalImports": 467,
+        "missingImports": 4,
+        "ambiguousImports": 0,
+        "namespaceImports": 3,
+        "edges": 90
+      },
+      "byLanguage": {
+        "json": {
+          "files": 19,
+          "symbols": 17357,
+          "imports": 0,
+          "resolved": 0,
+          "packages": 0,
+          "external": 0,
+          "missing": 0,
+          "ambiguous": 0,
+          "edges": 0
+        },
+        "yaml": {
+          "files": 10,
+          "symbols": 733,
+          "imports": 0,
+          "resolved": 0,
+          "packages": 0,
+          "external": 0,
+          "missing": 0,
+          "ambiguous": 0,
+          "edges": 0
+        },
+        "typescript": {
+          "files": 33,
+          "symbols": 325,
+          "imports": 50,
+          "resolved": 2,
+          "packages": 0,
+          "external": 44,
+          "missing": 4,
+          "ambiguous": 0,
+          "edges": 2
+        },
+        "javascript": {
+          "files": 254,
+          "symbols": 637,
+          "imports": 812,
+          "resolved": 389,
+          "packages": 0,
+          "external": 423,
+          "missing": 0,
+          "ambiguous": 0,
+          "edges": 88
+        }
+      },
+      "reach": {
+        "filesWithSymbols": 219,
+        "filesWithReach": 219,
+        "emptyNotes": 196,
+        "chars": 3700,
+        "medianChars": 106,
+        "charsPerNonEmptyNote": 160.8696
+      }
+    },
+    {
+      "repo": "colinhacks_zod",
+      "commit": "2a343ed2a4ffbea73fb83862ee1e317662292481",
+      "goModule": null,
+      "swiftModules": [],
+      "files": 580,
+      "readerSkipped": {
+        "bySize": 0,
+        "overCap": 0,
+        "overBytes": 0
+      },
+      "indexMs": 337,
+      "stats": {
+        "files": 580,
+        "symbols": 17222,
+        "imports": 1403,
+        "resolvedImports": 910,
+        "externalImports": 493,
+        "missingImports": 0,
+        "ambiguousImports": 0,
+        "namespaceImports": 384,
+        "edges": 301
+      },
+      "byLanguage": {
+        "javascript": {
+          "files": 8,
+          "symbols": 22,
+          "imports": 23,
+          "resolved": 0,
+          "packages": 0,
+          "external": 23,
+          "missing": 0,
+          "ambiguous": 0,
+          "edges": 0
+        },
+        "json": {
+          "files": 43,
+          "symbols": 857,
+          "imports": 0,
+          "resolved": 0,
+          "packages": 0,
+          "external": 0,
+          "missing": 0,
+          "ambiguous": 0,
+          "edges": 0
+        },
+        "yaml": {
+          "files": 11,
+          "symbols": 12300,
+          "imports": 0,
+          "resolved": 0,
+          "packages": 0,
+          "external": 0,
+          "missing": 0,
+          "ambiguous": 0,
+          "edges": 0
+        },
+        "typescript": {
+          "files": 517,
+          "symbols": 4038,
+          "imports": 1380,
+          "resolved": 910,
+          "packages": 0,
+          "external": 470,
+          "missing": 0,
+          "ambiguous": 0,
+          "edges": 301
+        },
+        "xml": {
+          "files": 1,
+          "symbols": 5,
+          "imports": 0,
+          "resolved": 0,
+          "packages": 0,
+          "external": 0,
+          "missing": 0,
+          "ambiguous": 0,
+          "edges": 0
+        }
+      },
+      "reach": {
+        "filesWithSymbols": 426,
+        "filesWithReach": 426,
+        "emptyNotes": 394,
+        "chars": 7704,
+        "medianChars": 150,
+        "charsPerNonEmptyNote": 240.75
       }
     }
   ]
