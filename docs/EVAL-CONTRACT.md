@@ -13473,7 +13473,20 @@ AACR-Bench**, and the next registered claim has to be paid for in corpus rather 
 - **That R-56 will pass.** Its arithmetic says 49.2 % of the prompt tokens; the equivalence of its matrix to the
   per-pair one is asserted by a self-test on a fixture and not on this corpus.
 
-### 120.6 Price
+### 120.6 The figure, and a caption that had been describing the wrong run
+
+`docs/aacr-cost-two-units-r55.svg` is this pair in the same two units as §117.7's figure: three groups, four bars each,
+the ratio in both units under every group, the cache hit shares under the axis.
+
+**It is a second file rather than a replacement, and the reason is a defect the second file exposed.** The generator's
+caption was **typed into the script** - `run 44867457528, 100 pull requests (skip 50), 724 goldens` - and it went on
+saying that after being pointed at the 46-row pair of `44891741390`. **The bars were the new pair and the caption was
+the old one**, which is the same defect class as the hand-drawn chart in `docs/figures/` that this generator exists to
+replace, one level down. The caption now reads the run id, the row count, the slice and the golden count **off the
+artifact**, and `--check` on §117.7's figure confirms its caption was already the true one - **the hardcoded line was
+right for the run it was written against and wrong for every other**, which is what a hardcoded provenance always is.
+
+### 120.7 Price
 
 **13 CNY** for R-55, as estimated. **R-56 is dispatched at an estimated 7 CNY** (one arm, forty-six rows, judge batched
 at four, competitor off) and its section is the next iteration's first act.

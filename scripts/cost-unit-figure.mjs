@@ -86,6 +86,13 @@ const percent = (value) => `${(value * 100).toFixed(1)} %`;
 const ratio = (one, other) =>
   typeof one === 'number' && typeof other === 'number' ? one / other : null;
 
+/** **The corpus denominator the artifact was scored against**, which is the two cells the point publishes. */
+function goldensOf(artifact) {
+  const full = artifact?.fullEmission ?? {};
+  const total = Number(full.truePositives ?? 0) + Number(full.falseNegatives ?? 0);
+  return total > 0 ? total : '?';
+}
+
 const out_lines = [];
 out_lines.push(
   `<svg xmlns="http://www.w3.org/2000/svg" width="${W}" height="${H}" viewBox="0 0 ${W} ${H}" role="img" ` +
@@ -98,8 +105,14 @@ out_lines.push(
 out_lines.push(
   `<text x="24" y="54" font-size="11" fill="#57606a">USD per arm. The vendor's prefix cache is state that outlives the process, so the arm that runs second is billed less for the same tokens.</text>`,
 );
+// **The provenance is read off the artifacts, not typed into this file.** The first version of this line named a run, a
+// row count and a golden count by hand - and it went on saying `44867457528, 100 pull requests, 724 goldens` after being
+// pointed at the 46-row pair of `44891741390`, which is a figure whose caption describes a different run from the bars
+// under it. The numbers a caption needs are in the artifact; a caption that cannot find them says so.
 out_lines.push(
-  `<text x="24" y="72" font-size="9" fill="#8c959f">source: run 44867457528, 100 pull requests (skip 50), 724 goldens, ${esc(model)} at the repository's own price table · multiplier recovered per arm: ` +
+  `<text x="24" y="72" font-size="9" fill="#8c959f">source: run ${esc(
+    String(a?.provenance?.runId ?? 'unknown'),
+  )}, ${String(a?.prsReviewed ?? '?')} pull requests (skip ${String(a?.corpusSlice?.skip ?? '?')}), ${String(goldensOf(a))} goldens, ${esc(model)} at the repository's own price table · multiplier recovered per arm: ` +
     `${armA.engine.factor === null ? '-' : armA.engine.factor.toFixed(2)} and ${armB.engine.factor === null ? '-' : armB.engine.factor.toFixed(2)}</text>`,
 );
 
