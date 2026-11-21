@@ -183,6 +183,28 @@ describe('the two columns price two different claims', () => {
   });
 });
 
+describe('a judge count the pairs do not explain', () => {
+  it('reports the difference as a gap rather than naming a client for it', () => {
+    const { bench, corpus } = fixture();
+    // The fixture's artifact records nine judge calls and its five findings against two goldens account for ten pairs -
+    // so the arithmetic here is the other way round from the real case, and the point is that the field reports a
+    // **non-negative** difference rather than a signed one a reader would have to interpret.
+    const anatomy = pairAnatomy(bench, corpus);
+    expect(anatomy.judgeCalls).toBe(9);
+    expect(anatomy.allPairs).toBe(10);
+    expect(anatomy.judgeGap).toBe(0);
+  });
+
+  it('counts the calls the ranked findings do not reach, which is what a run of 44891741390 shows', () => {
+    const { bench, corpus } = fixture({ spend: { judge: { calls: 25 } } });
+    const anatomy = pairAnatomy(bench, corpus);
+
+    // 25 calls against ten pairs. **Not "the competitor arm"**: that run was dispatched with `competitor: off`, and a
+    // tool that named a client for the 15 would be asserting a decomposition nobody checked.
+    expect(anatomy.judgeGap).toBe(15);
+  });
+});
+
 describe('the rule list is the one a reader is told it is', () => {
   it('is ordered from the control to the strictest, and every rule is a narrowing of the one before it', () => {
     // A path is matched by every rule, a path in the same directory by every rule but `same path`, and so on - asserted
