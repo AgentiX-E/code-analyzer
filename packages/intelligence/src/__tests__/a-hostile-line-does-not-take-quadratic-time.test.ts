@@ -238,10 +238,15 @@ function expectLinear(label: string, size: number, run: (chars: number) => void)
   // **Four times for a doubling is the quadratic allowance.** A linear call reads four, a quadratic reads sixteen.
   // **And twenty milliseconds is the floor below which the ratio is not a statement about the algorithm**: at that
   // scale the difference between two readings is a pause, not a shape.
+  //
+  // **The 1.2 is the measurement's own error, and it is smaller than the effect it has to survive.** A half-size reading
+  // of 9 ms buys a 36 ms allowance, and **2.3 ms of scheduler on a 38.3 ms reading is not the algorithm changing** - CI
+  // failed here at `38.3169 < 37.5331` on a branch that touched the benchmark workflow and not this lens. The margin
+  // cannot hide what the test is for: a quadratic reads sixteen times against an allowance of 4.8.
   expect(
     full,
     `${label}: ${String(Math.round(full))} ms against ${String(Math.round(half))} ms at half the size`,
-  ).toBeLessThan(Math.max(4 * half, 20));
+  ).toBeLessThan(Math.max(4 * half, 20) * 1.2);
 }
 
 /**
