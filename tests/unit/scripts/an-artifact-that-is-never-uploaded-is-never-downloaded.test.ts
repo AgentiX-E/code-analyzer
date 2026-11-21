@@ -320,6 +320,13 @@ describe('the artifact names of the benchmark workflow', () => {
         uploaded[0]!,
         pair('lane_set', 'wide').find((arm) => arm['lane_set'] === 'wide')!,
       ),
+      // **And the arm whose lane set is the five minus the lane the cut deletes**, which is the only pair here whose
+      // claim is about the bill rather than about the score: `testing` filed 169 findings across two artifacts and the
+      // shipped cut emitted none of them, so the arm that omits it is expected to cost a fifth less and score the same.
+      expand(
+        uploaded[0]!,
+        pair('lane_set', 'lean').find((arm) => arm['lane_set'] === 'lean')!,
+      ),
       // **And the arm whose gate is told what the change wrote** (§79). `pair: change-shape` buys the second contract
       // twice - once as it ships, once with the classifier switched on - so the comparison can say whether the findings
       // it drops were findings at all. **It varies neither a reader nor a gate but a fact about the diff**, and it is
@@ -439,7 +446,11 @@ describe('the matrix is one experiment', () => {
       // were 24.9 % true positives against a pool rate of 21.3 %, and every sampled removal quoted the claim it attacked.
       // **And one single and one pair for the union**, which is R-37's device: `lane_set: wide` is the diagnostic dispatch
       // that prices the union without a comparison, and `pair-wide` is the comparison itself.
-    ).toEqual([1, 1, 1, 1, 1, 1, 1, 1, 1, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2]);
+      // **And one single and one pair for the set the corpus does not score**: `lean` is the five lanes minus `testing`,
+      // whose 169 `test`-category findings reached a judge zero times on two artifacts because `drop test` is the first
+      // step of the cut. It is a cost device rather than an accuracy one, so it is dispatched as a pair - the claim is
+      // that F1 does not move and the bill does, and a single arm cannot say both.
+    ).toEqual([1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2]);
   });
 
   it('varies exactly one key, so that a difference between the arms is the device', () => {

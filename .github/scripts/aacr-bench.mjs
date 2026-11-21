@@ -172,7 +172,7 @@ const PROFILE = (() => {
  * right failure, on an input the workflow had just declared valid**, which is the pair a reader cannot tell apart without
  * opening both files. `tests/unit/scripts/a-lane-set-the-bench-refuses-is-a-set-that-exists.test.ts` keeps them equal.
  */
-const LANE_SET_NAMES = ['shipped', 'behaviour', 'wide'];
+const LANE_SET_NAMES = ['shipped', 'behaviour', 'wide', 'lean'];
 
 function parseLaneSet(raw) {
   const value = String(raw ?? 'shipped');
@@ -1410,10 +1410,15 @@ async function dryRun() {
     const { LANE_SETS: sets, LANE_PROMPTS: prompts } =
       await import('../../packages/intelligence/dist/review/llm/prompts.js');
     const lanes = sets[LANE_SET];
+    // **The count is the set's own, and the two sets a pair prices equipollently are the ones asserted to be five.**
+    // A run is bought against another run only when the two ask the same number of questions of the same diff, so
+    // `shipped` and `behaviour` are pinned at five; `wide` asks six and `lean` asks four, and **a `lean` that somehow
+    // carried five lanes would be a run whose 19.9 % saving had been silently re-bought**.
+    const expected = { shipped: 5, behaviour: 5, wide: 6, lean: 4 }[LANE_SET];
     assert.equal(
       lanes.length,
-      5,
-      'both lane sets are five calls per file, so a pair prices a question',
+      expected,
+      `the ${LANE_SET} set declares ${lanes.length} lanes and this run expects ${expected}`,
     );
     for (const lane of lanes)
       assert.equal(

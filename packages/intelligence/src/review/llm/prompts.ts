@@ -840,6 +840,24 @@ export const LANE_SETS = {
    * touching the judge, the deduplicator or the gate.
    */
   wide: ['security', 'architecture', 'performance', 'maintainability', 'testing', 'behaviour'],
+  /**
+   * **The four questions this corpus scores, and the one it pays for and deletes.**
+   *
+   * On two artifacts of fifty pull requests `testing` filed **169 findings whose category is `test`** and the shipped
+   * cut emitted **none of them**: `drop test` is the first step of the cut, so the lane's entire product - in both runs,
+   * without exception - reached no judge. Its bill is not zero, because five lanes see the same diff five times:
+   * `testing` is **19.9 % of a run's prompt tokens** (§107.1's ledger, 1 362 399 of 6 859 281).
+   *
+   * **The lane is not a defect and this set is not a removal.** A product reviewer that never asks for the missing test
+   * is a worse reviewer, and `drop test` is a rule about *AACR-Bench*, whose goldens are written about `src/`. What is
+   * true is narrower: **the benchmark pays a fifth of its bill for findings its own cut deletes**, and every device
+   * priced against that run was priced against a figure that includes the waste.
+   *
+   * **A set rather than a change of default**, for the reason every switch in this file has: `shipped` is what every
+   * published figure was measured under, and `pair-lean` dispatches both it and this one over the same rows so the
+   * difference between the two artifacts is this line.
+   */
+  lean: ['security', 'architecture', 'performance', 'maintainability'],
 } as const satisfies Record<string, readonly ReviewLane[]>;
 
 /** Review lanes sorted by priority (most critical first). */
