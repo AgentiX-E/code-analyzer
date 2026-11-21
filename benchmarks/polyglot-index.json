@@ -369,14 +369,8 @@
       "commit": "dea4bab91767a971d6e112bc955c6a82295589b7",
       "goModule": null,
       "swiftModules": [
-        [
-          "Alamofire",
-          "Source"
-        ],
-        [
-          "AlamofireTests",
-          "Tests"
-        ]
+        ["Alamofire", "Source"],
+        ["AlamofireTests", "Tests"]
       ],
       "files": 140,
       "readerSkipped": {
