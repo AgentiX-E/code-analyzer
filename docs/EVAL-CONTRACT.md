@@ -14000,6 +14000,18 @@ not findings that were ranked badly or judged harshly, they are findings no lane
 rather than a better merge: **a merge can only keep what a lane produced**, and the literature's ceiling for one lane set
 is about 61 %.
 
+**And one shipped product has built its whole pitch on that blind spot.** Octopus Review's argument
+([octopus-review.ai](https://octopus-review.ai/blog/ai-code-that-works-is-the-most-dangerous-kind)) is that _"a diff-only
+reviewer sees clean code replacing messy code and calls it an improvement"_, and its device is the one this repository
+already owns half of: **index the whole repository with retrieval, then ask, of a removed line, whether something
+elsewhere - a test, a caller, a sibling guard - depended on it.** Their example is a deleted `provider.response.body`
+null check that existed because the provider returns HTTP 200 with an error body.
+
+**What this repository has and has not.** `reach` (§100) gives a lane one line per changed file saying what that file
+reaches, which is a **forward** fact about the file; the removed line's question is a **backward** one - _who relied on
+this_ - and nothing in the tree answers it. **That is R-66**, registered below at the price of not knowing its own cost,
+because the retrieval step needs an embedding channel and §103.6's is the one that hit the vendor's quota.
+
 ### 125.5 What the competitor field actually looks like in 2026
 
 | reading                                                 | best                                 | the field                                 | ours                                             |
@@ -14035,6 +14047,17 @@ call that is not DeepSeek**. `ZHIPU_API_KEY` is already an organization secret a
 channel (§103.6), and `DeepSeekProvider` takes a base URL and a model name, so the wiring is a second provider instance
 rather than a second client. **The registration is written before that wiring exists on purpose**: the device this
 campaign needs most is the one whose bar has to be set while it is still inconvenient.
+
+**R-66 - the removed line, asked who relied on it.** _Claim._ On the same 46 rows, adding to a lane's prompt **the
+callers, tests and sibling guards that the index says reach a removed line**, for every removed line in the diff, raises
+the pool's true positives from **91 to at least 105 of 330**, with precision not falling by more than a golden is worth.
+_Falsifier._ A pool TP count below 105, or a precision loss larger than §59's arithmetic allows.
+
+**Why 105 and not 110.** The device is **narrower than R-65's**: it can only help goldens whose defect is an _absence_,
+and §124.1's 226 is an upper bound on that population rather than a measurement of it. **And why it is registered before
+its cost is known**: the retrieval needs an embedding channel, `ZHIPU_API_KEY`'s quota is the binding constraint
+(§103.6), and **a device whose price cannot be stated is one that gets re-scoped quietly rather than priced** - writing
+the bar first is what stops that.
 
 ### 125.7 What this section does not claim
 

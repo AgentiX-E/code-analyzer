@@ -516,6 +516,31 @@ export const REGISTRATIONS = Object.freeze({
     confirmation: [{ skip: 150, max: 46 }],
   },
   /**
+   * **§125.4's registration (R-66): the removed line, asked who relied on it.**
+   *
+   * A blind mutation test puts **5 of its 7 misses on a single deleted defensive step**, and Octopus Review's product
+   * pitch is the same observation from the vendor side: *a diff-only reviewer sees clean code replacing messy code and
+   * calls it an improvement*. `reach` answers the **forward** question - what does this file reach - and the removed
+   * line wants the **backward** one: who reached this.
+   *
+   * **105 rather than 110**, because the device is narrower than R-65's: it can only help goldens whose defect is an
+   * absence, and §124.1's 226 is an upper bound on that population rather than a measurement of it. **Registered before
+   * its cost is known**, because the retrieval step needs an embedding channel and the organization's quota is the
+   * binding constraint (§103.6) - a device whose price cannot be stated is one that gets re-scoped quietly rather than
+   * priced.
+   */
+  removedLineReach: {
+    section: '§125.4 (R-66)',
+    claim:
+      'giving a lane the callers, tests and sibling guards the index says reach a removed line raises the pool true positives from 91 to at least 105 of 330 on rows 150-195, without lowering precision by more than a golden is worth',
+    arm: 'file',
+    registeredGain: 0.01,
+    registeredBelowResolution: true,
+    mechanism: 'recall rises and precision does not fall by more than a golden is worth',
+    mechanismRule: 'recall-rises',
+    confirmation: [{ skip: 150, max: 46 }],
+  },
+  /**
    * **§68's registration: the same device over both halves of one corpus.**
    *
    * §67 turns two dispatches into one corpus of two hundred pull requests, which halves the standard deviation a bar has
