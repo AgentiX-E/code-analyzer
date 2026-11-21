@@ -13728,3 +13728,40 @@ is judge tokens over 286 findings, which at this corpus's per-pair price is **�
 **R-61 is an estimated 7 CNY** (one arm, forty-six rows). **R-62 is an estimated 2.5 CNY** (judge tokens only, one
 artifact on disk). **Neither is dispatched in this iteration**: the arm that would read them must not share a vendor
 cache state with the arm it is compared to, and §117.6 is why.
+
+---
+
+## §123 Kotlin reads 2.7 % because 1 749 of its imports are in a bucket the column does not count
+
+**The rate column in §115.3's table answers one question: how many imports name a file this index can point at.** A
+second bucket sits beside it - `packages`, the imports whose head resolves inside the module but whose tail names a
+package rather than a declaration - and **it is large enough in one language to invert the row's meaning**.
+
+| language   |    imports | resolved to a file | in `packages` | rate   | rate including `packages` |
+| ---------- | ---------: | -----------------: | ------------: | ------ | ------------------------: |
+| Java       |      9 890 |              2 117 |           207 | 21.4 % |                    23.5 % |
+| Kotlin     |      4 410 |            **121** |     **1 749** | 2.7 %  |                **42.4 %** |
+| Groovy     |      2 723 |              1 346 |           187 | 49.4 % |                    56.3 % |
+| TypeScript |      1 432 |                912 |             0 | 63.7 % |                    63.7 % |
+| C          |      2 001 |                564 |             0 | 28.2 % |                    28.2 % |
+| JavaScript |        842 |                389 |             0 | 46.2 % |                    46.2 % |
+| Python     |        588 |                139 |             0 | 23.6 % |                    23.6 % |
+| Go         |        521 |                 31 |             0 | 6.0 %  |                     6.0 % |
+| XML        |        347 |                 58 |             0 | 16.7 % |                    16.7 % |
+| JSON       |        233 |                 15 |             0 | 6.4 %  |                     6.4 % |
+| Swift      |        183 |                 43 |             0 | 23.5 % |                    23.5 % |
+| YAML       |          0 |                  0 |             0 | -      |                         - |
+| **total**  | **23 170** |          **5 735** |     **2 143** | 24.8 % |                **34.0 %** |
+
+**The Kotlin row is the third-highest in the table and it prints as the lowest.** 1 749 of its 4 410 imports are
+`kotlinx.coroutines`'s own package references; a star import names no file, so it draws no edge and the resolved column
+is right to exclude it - **and a reader comparing 2.7 % with Java's 21.4 % is comparing a file-resolution rate with a
+file-resolution rate, which is why the row is not a defect.** What was missing is the second column: **one column cannot
+carry two facts without the smaller one looking like a failure.**
+
+**Three things this does not claim.** That the `packages` bucket should count as resolution - **it should not, because a
+package import has no file to point at**, and §103's 1 888 of 4 421 for this same checkout is the number that counted
+them. That the aggregate 24.8 % is wrong - it is the file-resolution rate and it is the one the reach device depends on.
+That the other languages are unaffected - **Java and Groovy carry the bucket too**, at 2.1 and 6.9 points.
+
+**Price: 0 CNY.** One table read off `benchmarks/polyglot-index.json` and no new measurement.
