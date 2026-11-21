@@ -13062,6 +13062,12 @@ are also the last of the corpus, which is worth saying plainly: **after R-55 the
 every further reading needs a new one.
 
 **R-56 - the judge, judged in batches, which is a device already in the tree and has never run on the corpus.**
+
+> **Falsified by §122.2.** The judge prompt tokens came in at **77.9 % of the per-pair arm's**, against a bar of 60 %,
+> because the arithmetic in §118.3 charged nothing per request and the warm pass holds the batch at 2.41 pairs. The
+> accuracy half did not falsify - the batched F1 was **above** the per-pair arm - and §122.3 shows why that is not the
+> pass it looks like.
+
 _Claim._ On the same 46 rows with the five shipped lanes, **judging four pairs per request** costs **at most 60 % of the
 per-pair arm's judge prompt tokens** and its file-arm F1 is **inside one resolution unit** of the per-pair arm's.
 _Falsifier._ A judge prompt-token ratio above 0.60, or an F1 below the per-pair arm by more than one resolution unit.
@@ -13199,6 +13205,11 @@ the judge would receive is computable with no model involved**. `scripts/judge-b
 |              2 |    5 642 |       51.8% |         8 060 480 |               1 429 |       66.3% |
 |          **4** |    2 995 |   **27.5%** |         5 988 512 |               2 000 |   **49.2%** |
 |              8 |    1 729 |       15.9% |         4 996 474 |               2 890 |       41.1% |
+
+> **Amended by §122.2.** Every figure in this table treats the per-request cost as zero and the batch as exactly four
+> pairs. The run measured **2.41 pairs per request** (the warm call is one pair, not one batch) and a **108.8-token fixed
+> cost per request**, and with those two numbers this table's 49.2 % becomes **77.8 %** - which is the ratio the arm
+> actually produced, to a tenth of a point.
 
 **R-56's bar is 60 % of the per-pair prompt tokens and the arithmetic gives 49.2 %** - ten points of room - with the
 request count falling to 27.5 %, which is the half that also removes 7 897 round trips. At eight pairs per call the
@@ -13594,3 +13605,126 @@ figures that need no reason do not grow.
 **0 CNY** - one predicate pair, one gate with three refusals, one declaration file, one figure regenerated, and eleven
 tests. No model was called, no corpus was re-read, and **the three numbers in §121.1 are the ones §103.9 and §116.2
 already paid for**.
+
+---
+
+## §122 R-56 missed, and the arithmetic that predicted it had priced the request at zero
+
+**The batched judge ran on the same forty-six rows as R-55 and came back at 77.9 % of the per-pair arm's judge prompt
+tokens, against a bar of 60 %.** Its F1 was **higher** than the per-pair arm's, which is not the pass it looks like: the
+same reviewer prompt produced ten fewer findings in one of the two dispatches, so **the pool moved before the instrument
+did**, and a difference of 0.0394 on pools that differ by 3.4 % cannot be attributed to the device that was supposed to
+be priced. **This section reads both halves and refuses the comfortable one.**
+
+### 122.1 Two arms, one slice, and a reviewer prompt token count that did not move at all
+
+Both dispatches read rows 150-195 of the same corpus, 196 goldens, five shipped lanes, `competitor: off`:
+`44891741390` (per-pair, R-55's shipped arm) and `44896689663` (batched at four, run `b0e0`'s matrix entry
+`shipped`).
+
+|                                 | per-pair                 | batched at four              | ratio       |
+| ------------------------------- | ------------------------ | ---------------------------- | ----------- |
+| judge requests (`calls`)        | 7 434                    | **3 081**                    | **41.4 %**  |
+| pairs per request               | 1.00                     | **2.41**                     |             |
+| **judge prompt tokens**         | **2 152 529**            | **1 677 165**                | **77.9 %**  |
+| judge prompt tokens per request | 289.6                    | 544.4                        | 188 %       |
+| judge prompt tokens per pair    | 289.6                    | **225.6**                    | **77.9 %**  |
+| judge cache hit ratio           | 18.97 %                  | 8.30 %                       |             |
+| judge `cacheNeutralUsd`         | 0.3452                   | 0.2671                       | 77.4 %      |
+| **total `cacheNeutralUsd`**     | **1.7551**               | **1.6680**                   | **95.0 %**  |
+| total billed USD                | 0.9221                   | **0.7489**                   | **81.2 %**  |
+| **reviewer prompt tokens**      | **6 498 606**            | **6 498 606**                | **100.0 %** |
+| findings emitted                | 296                      | **286**                      | 96.6 %      |
+| TP / FP / FN                    | 71 / 225 / 259           | **82 / 204 / 248**           |             |
+| precision / recall / F1         | 0.2399 / 0.2152 / 0.2268 | **0.2867 / 0.2485 / 0.2662** |             |
+
+**Six and a half million reviewer prompt tokens, identical to the token.** That is the control that makes the rest
+readable: the two dispatches fed the same lanes the same input, so **the device under test is only the judge**, and any
+movement in the findings column is noise rather than an effect.
+
+### 122.2 The clause is falsified, and the number it missed by is the number the arithmetic set to zero
+
+The registration's bar was **60 % of the per-pair arm's judge prompt tokens**; the arm produced **77.9 %**. **The bar is
+missed by 17.9 points, and §118.3's arithmetic said 49.2 %** - a table built on two assumptions that the run measured
+both of:
+
+1. **That a request costs nothing to open.** Two arms give a two-point fit of `tokens = a + b·pairs`: **a = 108.8**,
+   **b = 180.7**. The instruction block and the answer envelope are charged **per request**, and the arithmetic charged
+   them once per golden - which is only right if every request per golden is free.
+2. **That a batch holds four pairs.** It holds **2.41**, because the warm pass is **one pair submitted alone per
+   golden** and the pair count per golden is small. Of 3 081 requests, 2 078 are batched and the rest are warm calls and
+   fallbacks; 7 434 pairs over 3 081 requests is 2.41.
+
+**Put those two measured numbers into §118.3's own table and it prints 77.8 %** - the arm's 77.9 %, to a tenth of a
+point. **So the arithmetic was not wrong about the mechanism; it was incomplete about the cost**, and the missing term
+is the one that dominates at this grouping: **109 tokens per request against 181 per pair, at a batch that averages 2.41
+instead of 4.**
+
+### 122.3 The accuracy half did not falsify, and that is the more serious result
+
+The registration's second half could only fail **downwards**: _"an F1 below the per-pair arm by more than one resolution
+unit"_. The batched arm is **0.0394 above** the per-pair arm - outside the 0.0281 unit, in the direction nobody
+registered. **Read on its own that would be a pass; read beside the findings column it is not a measurement at all.**
+
+- **The pool moved without the prompt moving.** 296 findings against 286 on **identical reviewer prompt tokens**, i.e.
+  **3.4 % of the emitted pool is dispatch noise** - the two arms differ in `failures` (2 against 0) and in whatever the
+  retried lane calls returned. **Any A/B in this harness carries that floor before a device is added**, and §104.3's
+  rule that a device is judged against its own control is the reason it is printed here rather than subtracted.
+- **The instrument moved too.** A batched judge sees four findings against one golden in one context, where the per-pair
+  judge sees one. §12.5 refused batching as a default for exactly this reason - _"the answers become evidence about each
+  other"_ - and the arm that was supposed to price it instead **found eleven more true positives at 41 % of the
+  requests**. **A more lenient judge and a better reviewer produce the same table.**
+
+**So the honest sentence is: batching at this grouping is not a token device.** It costs **77.9 %** of the tokens,
+**95.0 %** of the cold-cache dollars (because the judge's own cache hit ratio fell from 19.0 % to 8.3 % - a batch is a
+different prefix every time), and **81.2 % of the bill**, and it changes the instrument by an amount that this pair of
+arms cannot separate from 3.4 % of pool noise. **The bill is the only number that moved in the direction claimed, and
+§117.4 already said the bill is the vendor's, not the work's.**
+
+### 122.4 What the campaign should do with it
+
+- **The lever is the warm pass, not the batch size.** The warm call exists to write a prefix, and it is submitted as
+  **one pair**. Making it **the first batch** costs the same prefix and three more pairs of work per request, which is
+  the direction pairs-per-request has to move. **R-61 registers that**, at zero code risk to the per-pair path because
+  `AACR_JUDGE_BATCH=1` still selects the old one.
+- **The instrument has to be settled before any batched arm is priced again.** R-62 registers the cheap version: take
+  one arm's own findings and judge **the same pool twice**, once per-pair and once batched, so that the difference is
+  the instrument and nothing else. It costs judge tokens and no corpus, which is what makes it affordable after a
+  falsification.
+- **R-60 stays open and got worse.** Its claim was a judge cache hit ratio of at least 40 % from a warm pass that
+  serialises the waves; the readings are now **18.97 %** (per-pair, R-55) and **8.30 %** (batched, here). **Batching
+  makes the prefix less likely to be reused, not more**, so the two devices cannot be read as one.
+
+### 122.5 Two registrations
+
+**R-61 - the warm pass is a batch, not a pair.** _Claim._ On the same forty-six rows with the five shipped lanes and
+`judgeBatch: 4`, submitting **the first batch of each golden** as the warm call instead of one pair raises **pairs per
+request from 2.41 to at least 3.2** and lowers the judge prompt tokens to **at most 68 % of the per-pair arm's**.
+_Falsifier._ Pairs per request below 3.2, or a ratio above 0.68. **No accuracy clause**, because §122.3 says a batched
+arm's F1 is not attributable to the device; the run reports it and the section does not read it.
+
+**R-62 - the same findings, judged by both instruments.** _Claim._ Re-judging one arm's own 286 findings over the same
+196 goldens, per-pair, reproduces the batched judge's true-positive count **within one resolution unit**, which would say
+the 0.0394 came from the pool and not from the instrument. _Falsifier._ A difference larger than one resolution unit,
+which would say batching **is** a quality change and §12.5 was right to refuse it as a default.
+**Why this is the cheap one.** It reads one artifact already on disk, calls no reviewer, and copies no corpus: the bill
+is judge tokens over 286 findings, which at this corpus's per-pair price is **≈0.35 USD ≈ 2.5 CNY**.
+
+### 122.6 What this section does not claim
+
+- **That batching is worthless.** It removed 4 353 requests and 18.8 % of the bill. **It is a request-count device and
+  not a token device at this grouping**, and the two are different sentences.
+- **That the batched F1 is better review.** The judge and the pool moved in the same direction and this pair cannot
+  separate them.
+- **That 3.4 % is the harness's noise floor everywhere.** It is one pair of dispatches on one slice, and the same
+  control on a different slice could be larger or zero.
+- **That R-61 will pass.** Its arithmetic is the same arithmetic that was 28 points optimistic here; the claim is
+  written in **pairs per request**, which is the quantity the run measured directly, and the token ratio is its
+  consequence rather than its premise.
+
+### 122.7 Price
+
+**7 CNY** for R-56, as estimated - the arm cost **0.7489 USD ≈ 5.4 CNY** in billed tokens plus the matrix's overhead.
+**R-61 is an estimated 7 CNY** (one arm, forty-six rows). **R-62 is an estimated 2.5 CNY** (judge tokens only, one
+artifact on disk). **Neither is dispatched in this iteration**: the arm that would read them must not share a vendor
+cache state with the arm it is compared to, and §117.6 is why.
