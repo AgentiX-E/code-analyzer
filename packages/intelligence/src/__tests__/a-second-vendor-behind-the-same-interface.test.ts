@@ -12,12 +12,12 @@
 
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
-import { DeepSeekProvider, ZhipuProvider } from '../review/llm/provider.js';
 import {
   createLLMProvider,
   isLLMProviderName,
   knownLLMProviders,
 } from '../review/llm/provider-factory.js';
+import { DeepSeekProvider, ZhipuProvider } from '../review/llm/provider.js';
 
 const KEY = 'test-key-not-a-real-one';
 

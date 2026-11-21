@@ -1139,17 +1139,21 @@ export class LLMReviewEngine {
     // **a stable tie-break is what makes the output reproducible.**
     all.sort((x, y) => rank[y.finding.severity] - rank[x.finding.severity]);
 
-    const survivors: Array<Entry & { absorbed: number; secondKept?: boolean }> = [];
     /**
-     * **Which site each survivor belongs to, and how many findings that site has kept.**
+     * **A site is an object rather than an index into a side table.**
      *
      * A kept second concern is a survivor in its own right - later findings are compared against it - so the cap has to
      * be counted at the **site** rather than at the entry, or a third finding that overlaps only the second concern
-     * would read the second concern as a fresh site with an empty budget. `siteRoot` maps every survivor to the index of
-     * the first survivor at its site, and the map holds that index's count.
+     * would read the second concern as a fresh site with an empty budget.
+     *
+     * **This was an index array plus a `Map` from index to count**, and both reads needed a fallback: the array because
+     * `noUncheckedIndexedAccess` makes every read `number | undefined`, and the map because `Map.get` is total only
+     * after a `has`. The fallbacks could not fire, which is the worst kind of branch - **a per-file coverage gate read
+     * the file at 94.65 % branch coverage and the missing branch was a `??` nobody could reach.** Carrying the site as
+     * an object every survivor points at removes both lookups: there is nothing to be absent.
      */
-    const siteRoot: number[] = [];
-    const keptAtSite = new Map<number, number>();
+    type Site = { kept: number };
+    const survivors: Array<Entry & { absorbed: number; secondKept?: boolean; site: Site }> = [];
     const mergedBy = { rangeAndWords: 0, rangeOnly: 0, wordsNearby: 0 };
     let keptAsSecondConcern = 0;
     const droppedFindings: DroppedFinding[] = [];
@@ -1196,9 +1200,7 @@ export class LLMReviewEngine {
       const duplicateAt = sameLocation !== -1 ? sameLocation : nearLocation;
       const survivor = duplicateAt === -1 ? undefined : survivors[duplicateAt];
       if (survivor === undefined) {
-        siteRoot.push(survivors.length);
-        keptAtSite.set(survivors.length, 1);
-        survivors.push({ ...entry, absorbed: 1 });
+        survivors.push({ ...entry, absorbed: 1, site: { kept: 1 } });
         continue;
       }
       // **A finding in the same range whose sentence differs is a second concern at the site, up to the site's cap.**
@@ -1213,12 +1215,10 @@ export class LLMReviewEngine {
       // *different* category and so keeps one of those four; `sameSiteConcerns` asks for a *different sentence* and can
       // keep all four. A run that turns on §59 with the cap at its default still keeps one extra, because the wider of
       // the two instructions is the one applied.
-      // **`?? duplicateAt` rather than a non-null assertion**: every survivor is registered at the moment it is pushed,
-      // so the fallback cannot fire - and the one place it could is a merge that matched a survivor pushed before this
-      // code existed, where *this entry is its own site* is the correct answer rather than a crash. The package compiles
-      // with `noUncheckedIndexedAccess`, which is why the read has to say what it does when the entry is absent.
-      const root = siteRoot[duplicateAt] ?? duplicateAt;
-      const keptHere = keptAtSite.get(root) ?? 1;
+      // **The site, read off the survivor it was pushed with.** No index, no map, and no fallback branch: the object is
+      // created by the branch above and every survivor carries the one it belongs to.
+      const site = survivor.site;
+      const keptHere = site.kept;
       const capHere =
         this.options.secondConcern === true &&
         String(entry.finding.category) !== String(survivor.finding.category)
@@ -1231,9 +1231,8 @@ export class LLMReviewEngine {
       if (secondConcernHere) {
         // **The site is counted rather than the new finding**, because the count says *this site has kept three of its
         // four findings*, which is a fact about the site and not about the sentence that filled the last slot.
-        keptAtSite.set(root, keptHere + 1);
-        siteRoot.push(root);
-        survivors.push({ ...entry, absorbed: 1, secondKept: true });
+        site.kept = keptHere + 1;
+        survivors.push({ ...entry, absorbed: 1, secondKept: true, site });
         keptAsSecondConcern += 1;
         continue;
       }
