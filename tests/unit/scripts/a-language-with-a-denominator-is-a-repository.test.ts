@@ -167,14 +167,18 @@ describe('the per-language table the corpus report writes', () => {
 
   it('gives Groovy a denominator, because its row was empty for the whole of §115', () => {
     // **The row read `0 files` and the table said why**: the reader had a Groovy branch and the corpus had no Groovy
-    // checkout, so the capability was a code path nobody had measured. `spockframework/spock` is 609 Groovy files and
-    // 674 Java ones - a multi-module repository that is Groovy's own test framework, which is the corpus a Groovy claim
-    // should be made on rather than a fixture. A floor rather than the count, for the reason the JavaScript test gives:
-    // a regeneration that drops it cannot pass.
+    // checkout, so the capability was a code path nobody had measured. **Two** checkouts now: `spockframework/spock`,
+    // Groovy's own test framework across a dozen modules, and `jenkinsci/pipeline-model-definition-plugin`, an
+    // application written against a platform. **They read 56.1 % and 22.1 %**, which is why the floor is on the pair and
+    // not on one row - a single checkout's rate is that checkout's opinion, and the first one of these was published as
+    // if it were Groovy's.
     const groovy = totalsOf('groovy');
-    expect(groovy.files).toBeGreaterThanOrEqual(400);
-    expect(groovy.repos).toBeGreaterThanOrEqual(1);
-    // And it resolves its own statements, which is what makes the row printable at all: 56.1 % at this checkout.
+    expect(groovy.files).toBeGreaterThanOrEqual(900);
+    // **Two repositories rather than one**, because the two differ by 34 points and a register of one would publish
+    // whichever arrived first.
+    expect(groovy.repos).toBeGreaterThanOrEqual(2);
+    // And the pair places half its statements, which is what makes the row printable at all: 49.4 % between 56.1 % and
+    // 22.1 %. A floor, not the figure - the figure belongs in the document that reads the two halves.
     expect(groovy.resolved / groovy.imports).toBeGreaterThan(0.4);
   });
 

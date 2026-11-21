@@ -369,8 +369,14 @@
       "commit": "dea4bab91767a971d6e112bc955c6a82295589b7",
       "goModule": null,
       "swiftModules": [
-        ["Alamofire", "Source"],
-        ["AlamofireTests", "Tests"]
+        [
+          "Alamofire",
+          "Source"
+        ],
+        [
+          "AlamofireTests",
+          "Tests"
+        ]
       ],
       "files": 140,
       "readerSkipped": {
@@ -1044,6 +1050,106 @@
         "chars": 61677,
         "medianChars": 208,
         "charsPerNonEmptyNote": 199.6019
+      }
+    },
+    {
+      "repo": "jenkinsci_pipeline-model-definition-plugin",
+      "commit": "6e7193cec599b402ee79ee9afc5b8a417eb43967",
+      "goModule": null,
+      "swiftModules": [],
+      "files": 859,
+      "readerSkipped": {
+        "bySize": 0,
+        "overCap": 0,
+        "overBytes": 0
+      },
+      "indexMs": 234,
+      "stats": {
+        "files": 859,
+        "symbols": 5986,
+        "imports": 2947,
+        "resolvedImports": 513,
+        "externalImports": 2434,
+        "missingImports": 0,
+        "ambiguousImports": 0,
+        "namespaceImports": 21,
+        "edges": 421
+      },
+      "byLanguage": {
+        "yaml": {
+          "files": 5,
+          "symbols": 55,
+          "imports": 0,
+          "resolved": 0,
+          "packages": 0,
+          "external": 0,
+          "missing": 0,
+          "ambiguous": 0,
+          "edges": 0
+        },
+        "xml": {
+          "files": 8,
+          "symbols": 456,
+          "imports": 6,
+          "resolved": 0,
+          "packages": 0,
+          "external": 6,
+          "missing": 0,
+          "ambiguous": 0,
+          "edges": 0
+        },
+        "java": {
+          "files": 223,
+          "symbols": 323,
+          "imports": 2408,
+          "resolved": 374,
+          "packages": 10,
+          "external": 2024,
+          "missing": 0,
+          "ambiguous": 0,
+          "edges": 329
+        },
+        "json": {
+          "files": 133,
+          "symbols": 5062,
+          "imports": 0,
+          "resolved": 0,
+          "packages": 0,
+          "external": 0,
+          "missing": 0,
+          "ambiguous": 0,
+          "edges": 0
+        },
+        "groovy": {
+          "files": 489,
+          "symbols": 89,
+          "imports": 533,
+          "resolved": 118,
+          "packages": 11,
+          "external": 404,
+          "missing": 0,
+          "ambiguous": 0,
+          "edges": 92
+        },
+        "javascript": {
+          "files": 1,
+          "symbols": 1,
+          "imports": 0,
+          "resolved": 0,
+          "packages": 0,
+          "external": 0,
+          "missing": 0,
+          "ambiguous": 0,
+          "edges": 0
+        }
+      },
+      "reach": {
+        "filesWithSymbols": 449,
+        "filesWithReach": 449,
+        "emptyNotes": 349,
+        "chars": 28701,
+        "medianChars": 269,
+        "charsPerNonEmptyNote": 287.01
       }
     }
   ]
