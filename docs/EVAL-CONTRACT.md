@@ -12228,47 +12228,41 @@ changes what ships.
 ### 113.1 The ranker is at its ceiling, and a fitted model does not beat the hand-written weights
 
 §106.4 published an AUC of 0.642 for the eight engine-side features and said the fitted model was not shipped. **This
-asks the question that left open**: if the weights were fitted rather than chosen, would the cut score higher?
-
-The instrument is `scripts/lib/operating-point.mjs`'s own arithmetic - the same cut, the same maximum matching, the same
-`2·TP/(C+G)` - applied to the artifact's `rankedFindings`, with `score` replaced by a **leave-one-pull-request-out**
-prediction from the eight features. Fifty folds, each fitting on forty-nine pull requests and scoring the one held out,
-so no finding is ever ranked by a model that saw it.
+asks the question that left open**: if the weights were fitted rather than chosen, would the cut score higher? The
+instrument is `scripts/ranker-replay.mjs`, which applies `operating-point.mjs`'s own cut and matching to the artifact's
+`rankedFindings` with `score` replaced by a **leave-one-pull-request-out** prediction - fifty folds, each fitting on
+forty-nine pull requests, so no finding is ranked by a model that saw it.
 
 | ordering over run `44836602031`, shipped cut | emitted |     TP |  precision |         F1 |
 | -------------------------------------------- | ------: | -----: | ---------: | ---------: |
-| **the artifact's own score**                 |     299 | **84** | **0.2809** | **0.2237** |
-| fitted, eight features, leave-one-PR-out     |     299 |     82 |     0.2742 |     0.2184 |
+| **the artifact's own score**                 |     300 | **84** | **0.2800** | **0.2234** |
+| fitted, eight features, leave-one-PR-out     |     300 |     83 |     0.2767 |     0.2207 |
 
-**The fit is worse than the weights it replaced**, and by more than the fold noise: the hand-tuned weights are not a
-naive guess that a logistic regression improves on, they are the same eight facts arranged by somebody who had read a
-table of them.
+**The fit is worse than the weights it replaced.** The hand-tuned weights are not a naive guess that a logistic
+regression improves on; they are the same eight facts arranged by somebody who had read a table of them, and **a
+fourteenth of a point of F1 is that arrangement**.
 
-**The second attempt is the interesting one, because it is the one the corpus suggests.** §47.7 found that 57 % of
-unmatched goldens are a remark rather than a defect, and §106.2 that the misses sit on lines we commented on. So the
-sentence itself might carry what the flags do not: `boundary`, `negation`, `copy`, `constness`, `lifecycle` and `api` are
-six vocabulary families, and a fit over the eight features **plus forty words** was tried with the vocabulary selected
-**inside each fold** - from that fold's forty-nine training pull requests only - and filtered to words that appear in at
-least five different pull requests, so that a word which names a file cannot stand in for the file.
+**The second attempt is the one the corpus suggests, and the one that does not survive.** §47.7 found that 57 % of
+unmatched goldens are a remark rather than a defect, so the sentence itself might carry what the flags do not: six
+vocabulary families (`boundary`, `negation`, `copy`, `constness`, `lifecycle`, `api`) and forty words, selected **inside
+each fold** from that fold's forty-nine training pull requests and filtered to words that appear in at least five
+different pull requests - so that a token naming one file cannot stand in for the file.
 
-| ordering, shipped cut at budget 12          | run `44836602031` | run `44721942627` |
-| ------------------------------------------- | ----------------: | ----------------: |
-| the artifact's own score                    |            0.2237 |        **0.2231** |
-| eight features only                         |            0.2184 |                 - |
-| eight features + six families               |            0.2237 |                 - |
-| eight features + forty words chosen in-fold |        **0.2264** |        **0.2177** |
-| delta against the artifact's own score      |       **+0.0027** |       **−0.0054** |
+| ordering, shipped cut at budget 12                             | Δ F1 against the artifact's own score |
+| -------------------------------------------------------------- | ------------------------------------: |
+| eight features + six families                                  |                               ±0.0000 |
+| eight features + forty words chosen in-fold, run `44836602031` |                           **+0.0027** |
+| the same, run `44721942627`                                    |                           **−0.0054** |
 
-**The two runs disagree in sign, and the disagreement is the result.** A first reading that selected the vocabulary on
-the whole corpus reported +0.0239 and the top words were `modellibrarylocal`, `text_size` and `vertical` - three tokens
-that exist because one pull request's goldens live in one file. **Filtering them out and re-selecting inside the fold
-leaves +0.0027 on one run and −0.0054 on the other**, which is the same statement §106.7 made about the pool: an effect
-this size is inside the run-to-run band.
+**The two runs disagree in sign, and the disagreement is the result.** A first version that selected the vocabulary on
+the whole corpus reported **+0.0239**; its top words were `modellibrarylocal`, `text_size` and `vertical`, three tokens
+that exist because one pull request's goldens live in one file. **The 0.0239 was the selection and not the signal**, and
+removing the file-naming tokens and moving the selection inside the fold leaves two run-to-run-sized differences with
+opposite signs.
 
-**So the ordering direction is closed on evidence rather than on taste.** Two independent devices - a fitted model over
-the structured features and a fitted model over the sentence - each fail to beat the weights already in the tree, on
-corpora of the size this campaign can afford. **What remains is the pool**, which is where §106.3's ceiling of 0.45 has
-said it was since the day it was printed.
+**So the ordering direction is closed on evidence rather than on taste.** Two fitted orderings - one over the structured
+features, one over the sentence - each fail to beat the weights already in the tree, on corpora of the size this campaign
+can afford. **What remains is the pool**, which is where §106.3's ceiling of 0.45 has said it was since it was printed.
 
 ### 113.2 The budget is a slider, and its two ends are two products
 
@@ -12278,33 +12272,42 @@ marginal finding in this region is better than half the F1 it joins.
 
 | `drop test, drop path class test`, budget | emitted |     TP |  precision |         F1 |
 | ----------------------------------------- | ------: | -----: | ---------: | ---------: |
-| 4                                         |     166 |     51 |     0.3072 |     0.1650 |
-| 6                                         |     214 |     64 |     0.2991 |     0.1922 |
-| 8                                         |     249 |     71 |     0.2851 |     0.2026 |
-| 10                                        |     276 |     78 |     0.2826 |     0.2143 |
-| **12 (shipped)**                          | **299** | **84** | **0.2809** | **0.2237** |
-| 16                                        |     332 |     91 |     0.2741 |     0.2321 |
-| 20                                        |     356 |     94 |     0.2640 |     0.2327 |
-| 24                                        |     374 |     96 |     0.2567 |     0.2324 |
-| 32                                        |     406 |    101 |     0.2488 |     0.2354 |
-| 48                                        |     448 |    111 |     0.2478 | **0.2467** |
-| no budget                                 |     469 |    111 |     0.2367 |     0.2410 |
+| 4                                         |     167 |     51 |     0.3054 |     0.1648 |
+| 6                                         |     215 |     64 |     0.2977 |     0.1919 |
+| 8                                         |     250 |     71 |     0.2840 |     0.2023 |
+| 10                                        |     277 |     78 |     0.2816 |     0.2140 |
+| **12 (shipped)**                          | **300** | **84** | **0.2800** | **0.2234** |
+| 16                                        |     333 |     91 |     0.2733 |     0.2318 |
+| 20                                        |     357 |     94 |     0.2633 |     0.2324 |
+| 24                                        |     375 |     96 |     0.2560 |     0.2322 |
+| 32                                        |     407 |    101 |     0.2482 |     0.2352 |
+| 48                                        |     449 |    111 |     0.2472 | **0.2464** |
+| no budget                                 |     470 |    111 |     0.2362 |     0.2408 |
 
 **`f1FromCounts` says why the curve rises**: an added comment earns its place exactly when its own precision exceeds
-half the F1 it joins, and the findings this cut adds between 300 and 448 carry 27 true positives in 149 comments -
-**0.181 against a threshold of 0.112**. The curve turns over at 48 because past it the additions are the ones the
-path-class step did not remove and they are worse than the average.
+half the F1 it joins, and the findings this cut adds between 300 and 449 carry **27 true positives in 149 comments -
+0.181 against a threshold of 0.112**. The curve turns over at 48 because past it the additions are what the path-class
+step did not remove, and they are worse than the average.
 
-**The two ends are not two estimates of one optimum, they are two products.** Budget 12 emits 299 comments at precision
-0.281; budget 48 emits 448 at 0.248. **A reviewer a person reads is priced by precision and a corpus is scored by F1**,
-and the same artifact supports both numbers, so the table is what this section publishes rather than a new default.
+**The two ends are not two estimates of one optimum, they are two products.** Budget 12 emits 300 comments at precision
+0.280; budget 48 emits 449 at 0.247. **A reviewer a person reads is priced by precision and a corpus is scored by F1**,
+and one artifact supports both numbers, so the table is what this section publishes rather than a new default.
 
-**One step in the shipped cut is dominated and it is not this one.** `drop test` (the category) is applied before
-`drop path class test` (the path), and a tag `test` on a non-test path survives the second step but not the first. On
-`44836602031` removing the category step and keeping the path step raises F1 at **every** budget in the table above -
-+0.0049 at 12, +0.0154 at 16, +0.0052 at 48 - and raises precision at 12 as well (0.2816 against 0.2809). **On
-`44721942627` the same change is −0.0006 at 12.** One run says dominated, the other says indistinguishable, and neither
-says worse; the honest reading is that the category step earns nothing and the path step earns what §106.7 measured.
+**One step of the shipped cut may be dominated, and one run is not enough to say so.** `drop test` (the category) runs
+before `drop path class test` (the path), so a `test` tag on a non-test path dies in the first step.
+
+| budget    | `cat` + `path` (shipped) | `path` only, `44836602031` | `path` only, `44721942627` |
+| --------- | -----------------------: | -------------------------: | -------------------------: |
+| 12        |          0.2234 / 0.2800 |        **0.2283 / 0.2806** |            0.2222 / 0.2763 |
+| 16        |          0.2318 / 0.2733 |        **0.2472 / 0.2837** |            0.2307 / 0.2700 |
+| 48        |          0.2464 / 0.2472 |            0.2516 / 0.2428 |            0.2283 / 0.2244 |
+| no budget |          0.2408 / 0.2362 |            0.2459 / 0.2290 |            0.2197 / 0.2066 |
+
+**F1 / precision in each cell.** On `44836602031` the path-only cut is better on both counts at every budget; on
+`44721942627` it is **−0.0009 at 12** and **+0.0015 at 16**. One run says dominated, the other says indistinguishable,
+and neither says worse in F1 - which is the same shape §106.7 found for the path step, one run later, and it is why the
+category step stays: **a step that earns nothing on this corpus is not a step that costs nothing**, and the corpus's
+goldens are written about `src/`.
 
 ### 113.3 A lane whose every finding the cut deletes, and it is a fifth of the prompt
 
