@@ -221,6 +221,38 @@ rows support.
 
 ---
 
+## 2f. Two 2026 readings that put a number on the regime this repository is in
+
+**The survey first, because it is the only one with the field's aggregate.** _AI Code Review in 2026_ ([Atlas](https://laoujin.github.io/Atlas/research/2026-06-09-ai-assisted-code-review-in-2026-landscape-tools-evidence-and-limits/risks-limitations-and-adoption-barriers))
+reports **200 000 real pull requests, a best tool at 51.7 % F1, and the field near 25 % precision**, with **12 of 13
+agents below 60 % signal on 19 450 pull requests**. **Two of its secondary findings matter more than its ranking**:
+
+- **recall against defects per file collapses - 94.4 % at one defect, 46.4 % at nine** (Llama-3.3-70B), and one model's
+  file-level accuracy **64.2 % → 4.4 %**. This repository measured the same shape from the rejection side
+  (EVAL-CONTRACT §124.3: **37.3 % → 74.1 %** as a file carries one to five goldens).
+- **security recall stays below 0.5 even for SOTA models**, with per-CWE F1 collapsing on rarer classes: incorrect
+  comparison 0.40, improper exception checking 0.48, protection-mechanism failure 0.52.
+
+**Then the single-family ceiling, which is the one with an actionable effect size.** _A Single LLM Is an Incomplete Code
+Reviewer_ ([Zenodo 20519584](https://zenodo.org/records/20519584)) runs 33 artifacts and 294 confirmed issues across
+**fifteen model versions from eight providers**: **no model above ≈61 % recall**, **56.8 % of confirmed defects found by
+exactly one model**, median cross-family Jaccard **0.29**, and **a second reviewer from another family takes per-artifact
+coverage from 47 % to 72 %**.
+
+| reading                                                                                           | best                                                 | the field                                            | this repository (46 rows)             |
+| ------------------------------------------------------------------------------------------------- | ---------------------------------------------------- | ---------------------------------------------------- | ------------------------------------- |
+| 200 000 PRs, F1                                                                                   | **51.7 %**                                           | ≈25 % precision                                      | 0.2268 F1 / 0.2399 precision          |
+| closed-source precision band ([Kodus 2026](https://kodus.io/en/open-source-llms-for-code-review)) | **52.6 – 62.7 %**                                    | —                                                    | 0.2399                                |
+| open-source best (**Kimi K3.1 Pro**)                                                              | **68.6 % recall / 49.1 % precision / $1.244 per PR** | GLM-5.3 41.3 % recall at 43.5 % precision            | 0.2152 / 0.2399                       |
+| a blind mutation test ([guibai.dev](https://guibai.dev/a/7702064982633152546))                    | 13 of 20 mutants (65 %)                              | **5 of the 7 misses are one deleted defensive step** | 68.5 % of the corpus has no candidate |
+
+**What this repository takes from §2f, and what it refuses to take.** The **+25 points for a second family** is the
+largest published effect the campaign has found and is now registered as **R-65** (EVAL-CONTRACT §125.6) - with a bar of
+**110 pool true positives** rather than a transplanted 47 %→72 %, because that figure is per-artifact coverage over 33
+artifacts with a human key and this corpus is 46 pull requests with a vendor's key. **The 51.7 % F1 is not a target**: it
+is the best of 200 000 pull requests by a tool the survey measured, and the same survey puts the field near 25 %
+precision, which is where this arm already is.
+
 ## 3. What is planned, and the benchmark each plan is checked against
 
 | plan                                                           | borrowed from                                                       | checked against                                               | why it is the next one                                                                                                                                                                                         |

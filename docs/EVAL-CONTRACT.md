@@ -13944,3 +13944,111 @@ measured on.**
 
 **0 CNY** - one option, one gate, twenty-one tests, and four tables read off artifacts R-55 already paid for. **R-64 is
 an estimated 7 CNY** (one arm, 46 rows, `competitor: off`).
+
+---
+
+## §125 Four outside readings that §124's curve was already showing
+
+**§124 measured three things locally: the recall ceiling is 91 of 330, the rejection rate rises with golden density, and
+68.5 % of the corpus has no candidate in the pool. This section reads the literature against those three and finds the
+first two measured independently, at larger scale and by other people** - which is the only kind of evidence that makes
+a local curve a fact about reviewers rather than a fact about this harness.
+
+### 125.1 The four readings
+
+| source                                                                                                                                                                                                         | what it measured                                                   | the number                                                                                                                                                                | which of §124's claims it bears on            |
+| -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | --------------------------------------------- |
+| Atlas, _AI Code Review in 2026_ ([landscape](https://laoujin.github.io/Atlas/research/2026-06-09-ai-assisted-code-review-in-2026-landscape-tools-evidence-and-limits/risks-limitations-and-adoption-barriers)) | 200 000 real pull requests                                         | best tool **51.7 % F1**, the field near **25 % precision**; 12 of 13 agents below 60 % signal on 19 450 pull requests                                                     | §124.1's ceiling is not ours alone            |
+| the same survey, quoting the density studies                                                                                                                                                                   | recall against defects per file                                    | **94.4 % at one defect, 46.4 % at nine** (Llama-3.3-70B); one model's file accuracy **64.2 % → 4.4 %**                                                                    | **§124.3's density curve, independently**     |
+| _A Single LLM Is an Incomplete Code Reviewer_ ([Zenodo 20519584](https://zenodo.org/records/20519584))                                                                                                         | 33 artifacts, 294 confirmed issues, 15 model versions, 8 providers | **no model above ≈61 % recall**; **56.8 % of defects found by exactly one model**; median cross-family Jaccard **0.29**; a second reviewer takes coverage **47 % → 72 %** | §124.1's 21.5 % is the single-reviewer regime |
+| a blind mutation test ([guibai.dev](https://guibai.dev/a/7702064982633152546))                                                                                                                                 | 20 mutants in a 1 919-line Java project, one model, frozen prompt  | **13 of 20 caught (65 %)**; **5 of the 7 misses are a single deleted defensive step**; ≈1.65 M tokens over 20 runs                                                        | §124.1's 226: what a lane cannot see          |
+
+### 125.2 The density curve is not this harness's artefact
+
+§124.3 reports rejection rising **37.3 % → 59.5 % → 66.3 % → 74.1 %** as a file carries one, two, three-or-four and five
+or more goldens. **The survey reports the same shape from the other direction** - recall falling from 94.4 % to 46.4 %
+as a file carries one defect to nine - and a second model's _file-level accuracy_ falling from 64.2 % to 4.4 %. **The two
+curves were measured on different corpora, different models and different definitions of a defect, and they agree that
+the number of defects at one site is a variable that dominates the device being priced.**
+
+**That is the reason §124.5's cap is a device and not a tidy-up**: every arm in this repository has been priced against a
+corpus whose goldens cluster, and **a reviewer that says one thing per range has already conceded the regime the
+literature finds hardest**.
+
+### 125.3 The single-reviewer regime has a published name and a published ceiling
+
+The Zenodo study is the closest thing in the literature to §124.1's arithmetic, and it is worth quoting precisely because
+it is unflattering to everyone: **294 confirmed issues over 33 artifacts, fifteen model versions across eight providers,
+no model above about 61 % recall**, and **56.8 % of the confirmed defects found by exactly one model**. Two consequences
+this repository has not acted on:
+
+1. **A second reviewer from a different family takes per-artifact coverage from 47 % to 72 %.** That is **+25 points**,
+   which is an order of magnitude larger than every device this campaign has priced in twenty iterations - and it is the
+   same mechanism `ensemble` already exists for in this tree.
+2. **Family diversity is what the evidence supports, not more passes.** Median cross-family Jaccard is **0.29**, so two
+   families are not two draws from one distribution; and the study explicitly declines to rank providers or to claim
+   that re-runs vary. **A second pass with the same model is not the device; a second family is.**
+
+### 125.4 What a lane cannot see, and the one line the mutation test isolates
+
+**5 of the 7 misses in the blind mutation test are a single deleted defensive step** - an empty-query guard, a cleanup
+callback, a catch clause - and the author's sentence is the one that matters here: _"the AI caught structurally shaped
+anomalies but remained blind to absent code"_. **§124.1's 226 goldens are the same category at corpus scale**: they are
+not findings that were ranked badly or judged harshly, they are findings no lane wrote.
+
+**This is the reason §124.5's cap cannot be the last device**, and the reason the next registration is a second family
+rather than a better merge: **a merge can only keep what a lane produced**, and the literature's ceiling for one lane set
+is about 61 %.
+
+### 125.5 What the competitor field actually looks like in 2026
+
+| reading                                                 | best                                 | the field                                 | ours                                             |
+| ------------------------------------------------------- | ------------------------------------ | ----------------------------------------- | ------------------------------------------------ |
+| 200 000 pull requests, F1                               | **51.7 %**                           | ≈25 % precision                           | 0.2268 F1 / 0.2399 precision on 46 rows (§124.1) |
+| closed-source precision band (Kodus 2026)               | **52.6-62.7 %**                      | —                                         | 0.2399                                           |
+| open-source recall band, best model (**Kimi K3.1 Pro**) | **68.6 % recall / 49.1 % precision** | GLM-5.3 41.3 % recall at 43.5 % precision | 0.2152 recall / 0.2399 precision                 |
+| us, same corpus as a competitor's answer key            | —                                    | competitor 0.2821                         | **0.2479** (goldens basis, 47 rows, §116.1)      |
+
+**Two things this table says that the leaderboards do not.** First, **the field's precision is a plateau around a
+quarter to a half**, not a march towards 1: a reviewer that flags everything real still argues with its user about most
+of what it says, and **our 0.24 is inside the field rather than behind it**. Second, **the best open model's recall
+(68.6 %) is three times ours and its precision (49.1 %) is twice ours**, which means the gap to the leaders is not a
+matcher or a budget: **it is how much of the corpus a review pass can see at all**.
+
+### 125.6 R-65 - the second family, and why it is the only device with a published effect this size
+
+**R-65 - a second reviewer from a different model family.** _Claim._ On the same 46 rows with the five shipped lanes and
+everything else off, a second reviewer drawn from a **different model family** raises the pool's true positives from
+**91 to at least 110 of 330**, with precision not falling by more than a golden is worth. _Falsifier._ A pool TP count
+below 110, **or** a union whose added comments cost more precision than the §59 arithmetic allows
+(`F1 = 2TP/(C+G)`, so an added comment is worth keeping when its own precision exceeds `F1/2`).
+
+**Why 110 and not the literature's +25 points.** 110 is §124.5's bar for the _merge_ cap, and using it again would make
+two devices indistinguishable in the record. **The literature's 47 %→72 % is per-artifact coverage over 33 artifacts with
+a human-reconciled key; this corpus is 46 pull requests with a vendor's key**, and a bar transplanted from one to the
+other would be the §68 defect with a citation attached. **110 is the smallest number this slice can sign** (§124.2's
+resolution is 0.0281, and 110 is 6.1 resolution units of recall).
+
+**What it costs and what it needs.** One second reviewer pass over 46 rows at the shipped lane set, plus the judge on
+whatever the union adds: **≈9 CNY**, and one thing that does not exist yet - **a chat endpoint the harness is allowed to
+call that is not DeepSeek**. `ZHIPU_API_KEY` is already an organization secret and is already used by the embedding
+channel (§103.6), and `DeepSeekProvider` takes a base URL and a model name, so the wiring is a second provider instance
+rather than a second client. **The registration is written before that wiring exists on purpose**: the device this
+campaign needs most is the one whose bar has to be set while it is still inconvenient.
+
+### 125.7 What this section does not claim
+
+- **That the literature's numbers are this corpus's numbers.** Every row in §125.1 was measured on different artifacts
+  with different answer keys; **what transfers is the shape, and the shape is what §124.3 already had.**
+- **That a second family closes the gap to 68.6 % recall.** That figure is one model on 30 pull requests in another
+  vendor's harness; **+25 points is the study's per-artifact coverage gain, not a prediction about this corpus.**
+- **That §124.5's cap is now redundant.** A second family adds _new_ findings; the cap keeps findings the merge removed
+  **from the first family's own output**. They act on different parts of §124.1's table and neither substitutes.
+- **That the field's 51.7 % is reachable on 46 rows.** It is the best of 200 000 pull requests by whichever tool the
+  survey measured; **the same survey says the field sits near 25 % precision**, which is where this arm is.
+
+### 125.8 Price
+
+**0 CNY** - four documents read, one comparison table, and a registration. **R-65 is an estimated 9 CNY** and is not
+dispatched in this iteration: it needs the second provider wired, and §122.2's rule about a shared vendor cache applies
+to it twice over.

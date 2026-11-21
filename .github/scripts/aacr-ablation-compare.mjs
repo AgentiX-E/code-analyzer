@@ -488,6 +488,34 @@ export const REGISTRATIONS = Object.freeze({
     confirmation: [{ skip: 150, max: 46 }],
   },
   /**
+   * **§125's registration (R-65): a second reviewer from a different model family.**
+   *
+   * *A Single LLM Is an Incomplete Code Reviewer* (Zenodo 20519584, 2026) measured fifteen model versions across eight
+   * providers on 33 artifacts and 294 confirmed issues: **no model above about 61 % recall, 56.8 % of confirmed defects
+   * found by exactly one model, median cross-family Jaccard 0.29, and a second reviewer taking per-artifact coverage
+   * from 47 % to 72 %.** That is a larger effect than every device this campaign has priced in twenty iterations, and
+   * it is the mechanism `ensemble` already exists for.
+   *
+   * **110 rather than a transplanted +25 points.** 110 is §124.5's bar for the merge cap, and reusing it makes the two
+   * devices indistinguishable in the record - which is why the claim says *pool true positives*, the quantity both act
+   * on, and why it is 6.1 resolution units of recall rather than a citation.
+   *
+   * **Registered before the wiring exists**, because the device this campaign needs most is the one whose bar has to be
+   * written while it is still inconvenient. `ZHIPU_API_KEY` is already an organization secret used by the embedding
+   * channel, and the provider takes a base URL and a model name, so the second family is a second provider instance.
+   */
+  secondFamily: {
+    section: '§125 (R-65)',
+    claim:
+      'a second reviewer drawn from a different model family raises the pool true positives from 91 to at least 110 of 330 on rows 150-195 with the five shipped lanes, without lowering precision by more than a golden is worth',
+    arm: 'file',
+    registeredGain: 0.01,
+    registeredBelowResolution: true,
+    mechanism: 'recall rises and precision does not fall by more than a golden is worth',
+    mechanismRule: 'recall-rises',
+    confirmation: [{ skip: 150, max: 46 }],
+  },
+  /**
    * **§68's registration: the same device over both halves of one corpus.**
    *
    * §67 turns two dispatches into one corpus of two hundred pull requests, which halves the standard deviation a bar has
