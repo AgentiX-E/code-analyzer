@@ -25,7 +25,7 @@ import { join } from 'node:path';
 
 import { describe, expect, it } from 'vitest';
 
-import { planMatrix } from '../../../.github/scripts/aacr-plan-matrix.mjs';
+import { ALL_DISPATCHES, planMatrix } from '../../../.github/scripts/aacr-plan-matrix.mjs';
 
 const WORKFLOW = readFileSync(
   join(import.meta.dirname, '..', '..', '..', '.github', 'workflows', 'aacr-bench.yml'),
@@ -53,38 +53,11 @@ type ArmKey =
 // no longer exists.
 
 /**
- * **Every dispatch whose arms this file reasons about.** One entry per branch the `include:` expression held before
- * §129, in the order that chain evaluated in, plus `window: grid` - which the chain could not express at all.
+ * **Every dispatch whose arms this file reasons about**, taken from the planner rather than copied (§129).
+ *
+ * A second list here would drift in the one direction no test checks: a branch added to `planMatrix` and not to the copy.
  */
-const DISPATCHES: Array<Record<string, string>> = [
-  {},
-  { window: 'pair' },
-  { window: 'grid' },
-  { agent: 'pair' },
-  { agent: 'on' },
-  { idioms: 'pair' },
-  { idioms: 'on' },
-  { remarks: 'pair' },
-  { remarks: 'on' },
-  { pair: 'falsifier-v4' },
-  { pair: 'change-shape' },
-  { pair: 'falsifier-v3' },
-  { pair: 'falsifier-v2' },
-  { pair: 'falsifier' },
-  { pair: 'on' },
-  { ensemble: 'pair-reader' },
-  { ensemble: 'reader' },
-  { ensemble: 'pair' },
-  { ensemble: 'on' },
-  { second_concern: 'pair' },
-  { second_concern: 'on' },
-  { lane_set: 'pair-lean' },
-  { lane_set: 'lean' },
-  { lane_set: 'pair-wide' },
-  { lane_set: 'wide' },
-  { lane_set: 'pair' },
-  { lane_set: 'on' },
-];
+const DISPATCHES = ALL_DISPATCHES;
 
 /**
  * **Every matrix a dispatch can produce, computed by the planner rather than parsed out of YAML.**

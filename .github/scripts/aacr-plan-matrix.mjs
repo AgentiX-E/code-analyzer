@@ -107,6 +107,45 @@ export function gridRows() {
 }
 
 /**
+ * **Every dispatch this build offers, as inputs.** One entry per branch `planMatrix` handles, in the order the old `||`
+ * chain evaluated them, plus `window: grid`.
+ *
+ * **It is exported because three tests were enumerating it separately.** A copy in a test drifts from the planner in the
+ * one direction nobody checks - a branch added to `planMatrix` and not to the copy - and the assertion then describes an
+ * arm list the workflow cannot produce. One list, read by the planner's own tests and by the two guards that reason about
+ * every arm at once.
+ */
+export const ALL_DISPATCHES = Object.freeze([
+  {},
+  { window: 'pair' },
+  { window: 'grid' },
+  { agent: 'pair' },
+  { agent: 'on' },
+  { idioms: 'pair' },
+  { idioms: 'on' },
+  { remarks: 'pair' },
+  { remarks: 'on' },
+  { pair: 'falsifier-v4' },
+  { pair: 'change-shape' },
+  { pair: 'falsifier-v3' },
+  { pair: 'falsifier-v2' },
+  { pair: 'falsifier' },
+  { pair: 'on' },
+  { ensemble: 'pair-reader' },
+  { ensemble: 'reader' },
+  { ensemble: 'pair' },
+  { ensemble: 'on' },
+  { second_concern: 'pair' },
+  { second_concern: 'on' },
+  { lane_set: 'pair-lean' },
+  { lane_set: 'lean' },
+  { lane_set: 'pair-wide' },
+  { lane_set: 'wide' },
+  { lane_set: 'pair' },
+  { lane_set: 'on' },
+]);
+
+/**
  * The arms a dispatch buys.
  *
  * **`window` is consulted first and wins over everything**, which is the order the `||` chain evaluated in. Every

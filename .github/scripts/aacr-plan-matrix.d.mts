@@ -27,3 +27,6 @@ export function planMatrix(inputs?: Record<string, string | undefined>): PlanRow
  * and saying `'single'` for a shape that is neither is better than analysing it as one.
  */
 export function experimentKind(rows: readonly PlanRow[]): 'pair' | 'grid' | 'single';
+
+/** Every dispatch this build offers, one entry per branch `planMatrix` handles. */
+export const ALL_DISPATCHES: readonly Record<string, string>[];

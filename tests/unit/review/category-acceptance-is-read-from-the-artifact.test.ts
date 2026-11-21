@@ -14,6 +14,8 @@ import { join } from 'node:path';
 
 import { describe, expect, it } from 'vitest';
 
+import { ALL_DISPATCHES, planMatrix } from '../../../.github/scripts/aacr-plan-matrix.mjs';
+
 import {
   applyEmissionProfile,
   CATEGORY_ACCEPTANCE,
@@ -148,11 +150,13 @@ describe('the workflow and the code offer the same profiles', () => {
     // cannot read `matrix`, so collapsing the run to a single arm when the reading agent is on has to happen inside the
     // matrix rather than above it. **The property under test did not change**: every arm the workflow can produce names
     // a profile the code implements, and the retired one is not among them.
+    // **Read off the planner rather than out of the workflow** (§129). The rows moved into `aacr-plan-matrix.mjs` so a
+    // factorial could exist at all, and the regex this replaced now matches nothing in the workflow - so it would have
+    // asserted over an empty list and passed the `not.toContain('defect')` clause by having no arms at all, which is the
+    // shape of a guard whose subject left its field of view.
     const arms = [
       ...new Set(
-        [...workflow.matchAll(/profile\\?["']?\s*:\s*\\?["']?([a-z][a-z0-9_-]*)/g)].map(
-          (match) => match[1]!,
-        ),
+        ALL_DISPATCHES.flatMap((inputs) => planMatrix(inputs)).map((row) => row['profile']),
       ),
     ];
     expect(arms.length).toBeGreaterThan(0);
