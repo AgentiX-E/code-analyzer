@@ -60,6 +60,23 @@ import {
 import { operatingPointTable } from '../../scripts/lib/operating-point.mjs';
 import { locateLaneFindings } from '../../scripts/lib/lane-attribution.mjs';
 import { isTransientStatus, withRetry } from '../../scripts/lib/transient-fetch.mjs';
+import { readReviewDefaults } from './lib/review-defaults.mjs';
+
+/**
+ * **The reviewer the product ships, read from the one file a promotion writes.**
+ *
+ * Every switch below whose default used to be a literal (`'off'`, `'1'`, `12`) now falls back to this object, so **an
+ * unset environment variable measures the configuration the engine would run**, and an arm that turns a switch on names
+ * it explicitly. The point is not tidiness: `AACR_CHECKLIST` shipped an `off` default that disagreed with the engine's
+ * `on` for two releases, and **a harness whose default disagrees with the engine measures a configuration nobody
+ * ships.** One file, one promotion, one answer.
+ *
+ * `onOff` exists because the environment is a string and the file is not: a boolean default has to be spelled the way
+ * the switch is read, or `'false'` would be truthy at exactly the one place nobody looks.
+ */
+const SHIPPED = readReviewDefaults();
+const onOff = (value) => (value ? 'on' : 'off');
+
 
 const BENCH = process.env['AACR_DIR'] ?? '/tmp/aacr-bench';
 const MODEL = process.env['AACR_JUDGE_MODEL'] ?? process.env['MARTIAN_MODEL'] ?? 'deepseek-chat';
@@ -114,7 +131,8 @@ const COMPETITOR_CHOICE = parseCompetitorMode(process.env['AACR_COMPETITOR']);
  * matrix names `on` explicitly, so aligning the default costs the experiment nothing and stops a bare local run from
  * measuring the retired arrangement.
  */
-const CHECKLIST = String(process.env['AACR_CHECKLIST'] ?? 'off').toLowerCase() === 'on';
+const CHECKLIST =
+  String(process.env['AACR_CHECKLIST'] ?? onOff(SHIPPED.knobs.languageChecklist)).toLowerCase() === 'on';
 
 /**
  * **The second switch a run turns, and the one the bill is about: where the target-and-diff block sits.**
@@ -378,7 +396,7 @@ const previousRuleKeep = (entries, pullRequest, profileKept) =>
  * prompt, so **an on-arm spends money the off-arm does not: the artifact records both the calls and the characters.**
  */
 const CODE_CONTEXT =
-  AGENT || String(process.env['AACR_CODE_CONTEXT'] ?? 'off').toLowerCase() === 'on';
+  AGENT || String(process.env['AACR_CODE_CONTEXT'] ?? onOff(SHIPPED.knobs.codeContext)).toLowerCase() === 'on';
 
 /**
  * **`AACR_CHANGE_SHAPE=on` classifies every hunk before a lane is paid to read it.**
@@ -463,7 +481,7 @@ const REACH = String(process.env['AACR_REACH'] ?? 'off').toLowerCase() === 'on';
  * regex that has to survive the validation IIFE is a test asserting on punctuation. The engine's
  * `DEFAULT_PULL_REQUEST_BUDGET` and this constant are still the two numbers that must agree.
  */
-const DEFAULT_PR_BUDGET = 12;
+const DEFAULT_PR_BUDGET = SHIPPED.knobs.maxFindingsPerPullRequest;
 const PR_BUDGET = (() => {
   const raw = String(process.env['PR_BUDGET'] ?? DEFAULT_PR_BUDGET);
   const parsed = Number(raw);
@@ -2205,7 +2223,9 @@ async function main() {
    * **It is an input rather than an edit for the reason every device in this repository is**: `off` is the configuration
    * every published figure was measured under, so an arm that cannot be switched off cannot be measured against them.
    */
-  const ADJUDICATE_MODE = String(process.env['AACR_ADJUDICATE'] ?? 'off').toLowerCase();
+  const ADJUDICATE_MODE = String(
+    process.env['AACR_ADJUDICATE'] ?? onOff(SHIPPED.knobs.adjudicate),
+  ).toLowerCase();
   const ADJUDICATE = ADJUDICATE_MODE === 'on';
   /**
    * **Whether the independent gate runs, and it is the same switch with a third value rather than a second switch.**
@@ -2305,7 +2325,8 @@ async function main() {
    * **Off by default**, because every published figure here was measured with the five lanes and a switch that cannot be
    * turned off cannot be compared with them.
    */
-  const REMARKS = String(process.env['AACR_REMARKS'] ?? 'off').toLowerCase() === 'on';
+  const REMARKS =
+    String(process.env['AACR_REMARKS'] ?? onOff(SHIPPED.knobs.remarks)).toLowerCase() === 'on';
   /**
    * **Whether a finding of a different category is a second concern at a site rather than a duplicate of it (§59).**
    *
@@ -2317,7 +2338,8 @@ async function main() {
    * **Off by default**, because every published lane figure was measured with the range rule merging unconditionally -
    * and **a device that cannot be switched off cannot be compared with them.**
    */
-  const SECOND_CONCERN = String(process.env['AACR_SECOND_CONCERN'] ?? 'off').toLowerCase() === 'on';
+  const SECOND_CONCERN =
+    String(process.env['AACR_SECOND_CONCERN'] ?? onOff(SHIPPED.knobs.secondConcern)).toLowerCase() === 'on';
   /**
    * **How many findings one site may keep, and the device R-64 registers (§124.3).**
    *
@@ -2333,7 +2355,7 @@ async function main() {
    * `1` would be a comparison against the wrong arm.
    */
   const SAME_SITE_CONCERNS = (() => {
-    const raw = String(process.env['AACR_SAME_SITE_CONCERNS'] ?? '1');
+    const raw = String(process.env['AACR_SAME_SITE_CONCERNS'] ?? SHIPPED.knobs.sameSiteConcerns);
     const parsed = Number(raw);
     if (!Number.isInteger(parsed) || parsed < 1 || parsed > 8)
       throw new Error(`AACR_SAME_SITE_CONCERNS must be an integer in 1..8, not "${raw}"`);
@@ -5362,6 +5384,15 @@ async function main() {
         findings: pull.matches.length,
         goldens: pull.goldens,
         covered: maximumMatchingCount(pull.matches, pull.goldens),
+        /**
+         * **The goldens themselves, because a promotion compares two arms and a count cannot be paired.**
+         *
+         * Two arms that each matched ninety goldens may have matched ninety different ones. `covered` is a marginal
+         * total, and a comparison between two marginals is the statistic McNemar's exact test exists to replace - so
+         * **aacr-promote.mjs refuses an artifact that carries the count without the set** (`unpaired-coverage`), and
+         * this field is what makes the refusal unnecessary. Additive: every existing reader of `covered` is unchanged.
+         */
+        coveredGoldens: matchedGoldenIndices(pull.matches, pull.goldens),
       })),
       rankedFindings: prArmDetail,
     },

@@ -1,0 +1,47 @@
+{
+  "schema": 1,
+  "about": [
+    "The rule a challenger has to satisfy before it replaces the shipped reviewer configuration.",
+    "It is a file rather than a constant inside the promoter because the rule is a claim about what counts as",
+    "evidence, and a claim that lives in a script is a claim a script can quietly weaken. Changing this file is a",
+    "change to the acceptance criteria of every future experiment, so it is reviewed like code and its version is",
+    "quoted in every promotion record."
+  ],
+  "version": 1,
+  "metric": "pullRequestArm.f1",
+  "whyMetric": [
+    "The arm the product runs. `reviewPullRequest` is what the editor extension, the GitHub app and the MCP server",
+    "call; the per-file arm is a control this repository keeps for comparison. A promotion judged on the file arm's F1",
+    "would move the shipped reviewer on evidence about a reviewer nobody ships - which is the split this mechanism",
+    "exists to close. `pullRequestArm.f1` is the second arm's own figure, computed by the same job over the same",
+    "pull requests, the same goldens and the same judge."
+  ],
+  "primary": "f1",
+  "minimumDelta": 0.0281,
+  "whyMinimumDelta": [
+    "0.0281 is the instrument's own resolution, measured in docs/EVAL-CONTRACT.md §129: R-64 and R-67 differ from the",
+    "same-class configuration by 0.0108 and 0.0105, both below it. A challenger that wins by less than the resolution",
+    "has won a noise draw, and promoting one would be the noise trade this number exists to refuse."
+  ],
+  "guards": {
+    "precision": 0.2,
+    "recall": 0.15
+  },
+  "whyGuards": [
+    "A reviewer can raise F1 by moving along the precision/recall curve rather than by getting better, and the guard",
+    "is what keeps a promotion from being a trade dressed as an improvement: a challenger may not fall below these",
+    "floors even when its F1 clears the resolution."
+  ],
+  "minimumSample": {
+    "pullRequests": 30,
+    "goldens": 300
+  },
+  "requirePaired": true,
+  "requireApplied": true,
+  "tieBreak": ["f1", "precision", "cost"],
+  "whyTieBreak": [
+    "Two challengers that both clear the bar and sit within the resolution of each other are a tie, and the answer",
+    "to a tie is cheaper, then more precise, then nothing: a promotion that cannot be justified is refused rather",
+    "than guessed."
+  ]
+}

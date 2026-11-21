@@ -1,0 +1,59 @@
+{
+  "schema": 1,
+  "about": [
+    "The reviewer configuration the product ships, as one file.",
+    "Every knob below is read by the engine (packages/intelligence/src/review/llm/llm-review-engine.ts) and by the",
+    "benchmark harness (.github/scripts/aacr-bench.mjs), so an arm and the shipped default cannot be two numbers that",
+    "never meet. The engine reads a generated module (review-defaults.generated.ts) rendered from this file; a guard",
+    "test renders it again and fails when the two disagree.",
+    "This file is written by a promotion and by nothing else. `node .github/scripts/aacr-promote.mjs --write <arms...>`",
+    "decides whether a challenger beat the incumbent under the pre-registered rule in promotion-rule.json, and rewrites",
+    "this file only when it did. Editing it by hand is possible and the promotion record in `provenance` is then wrong,",
+    "which is what the guard test is for."
+  ],
+  "knobs": {
+    "maxFindingsPerPullRequest": 12,
+    "sameSiteConcerns": 1,
+    "secondConcern": false,
+    "codeContext": false,
+    "adjudicate": false,
+    "remarks": false,
+    "languageChecklist": false
+  },
+  "provenance": {
+    "decision": "held",
+    "resolvedBy": "aacr-promote.mjs",
+    "resolvedAt": "2026-11-22",
+    "incumbent": {
+      "experiment": "R-41b",
+      "artifact": "benchmarks/r41b-witness.json",
+      "summary": "the replay of the 452-golden corpus, whose F1 curve peaks at a budget of 12",
+      "emitted": 338,
+      "matched": 90,
+      "goldens": 446,
+      "metric": {
+        "f1": 0.2296,
+        "precision": 0.2663,
+        "recall": 0.2018
+      }
+    },
+    "challengers": [
+      {
+        "experiment": "R-67",
+        "knobs": {
+          "maxFindingsPerPullRequest": 20
+        },
+        "metric": {
+          "f1": 0.2271
+        },
+        "outcome": "withdrawn",
+        "cause": "unwired: maxFindingsPerPullRequest is read inside reviewPullRequest and nowhere else, so the 20 never reached the file arm and the headline is what the engine emits with nothing cut at all"
+      }
+    ],
+    "whyHeld": [
+      "R-67 is the only challenger and it is not a measurement of the knob it names, so the incumbent stands untested",
+      "rather than defended. A challenger that did not apply its own knob is refused by the `not-applied` reason in",
+      "aacr-promote.mjs, which is the reason that exists for this exact record."
+    ]
+  }
+}

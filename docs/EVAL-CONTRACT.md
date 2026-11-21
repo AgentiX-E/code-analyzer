@@ -14582,3 +14582,137 @@ therefore far less dependent on row count than a subtraction is.
 
 **0 CNY.** Every assertion stubs its inputs; no model was called to write this section. The grid is **registered and not
 dispatched**, and §129.5 is the number it will cost when it is.
+
+## §130 The promotion: the experiment and the product were two places, and now they are one
+
+**Three iterations produced figures and not one of them changed the product by itself.** R-64 measured a cap, R-66
+measured a retrieval, R-67 measured a budget, and each ended in a markdown table. A device that measured to help reached
+the engine only if a person made the edit; a device that measured to hurt stayed in the engine until a person made the
+opposite edit. **Both are the same defect**, and it is not an experiment defect or a product defect: **the experiment and
+the product were two places, and nothing joined them.**
+
+### 130.1 The two defects, named
+
+| #   | Defect                                     | How it showed                                                                                                                                          | Repair                                                                                                        |
+| --- | ------------------------------------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------ | ------------------------------------------------------------------------------------------------------------- |
+| 1   | **Two literals that must agree**           | `DEFAULT_PULL_REQUEST_BUDGET = 12` in the engine, `DEFAULT_PR_BUDGET = 12` in the harness, compared by a regex that would have accepted `= compute();` | one JSON file, a rendered module, and a guard test that re-renders it                                         |
+| 2   | **Six more literals nobody compared**      | `AACR_CHECKLIST` defaulted to `off` in the harness while the engine shipped `on` for two releases                                                      | every switch's harness default now reads the same file                                                        |
+| 3   | **A metric that is not the product's arm** | the headline F1 is the **per-file** arm; the editor, the GitHub app and the MCP server all call `reviewPullRequest`                                    | the rule names `pullRequestArm.f1`, and the harness now writes the per-golden coverage that arm was scored on |
+| 4   | **A promotion with no rule**               | every past default was argued in prose                                                                                                                 | `promotion-rule.json`, versioned, reviewed like code                                                          |
+
+**Defect 3 is the one this section would not have found by reading the harness's prose.** `codeContext` is read _inside
+`reviewPullRequest` and nowhere else_ (`llm-review-engine.ts:3970`), and `maxFindingsPerPullRequest` likewise
+(`:1376`); the per-file arm calls `reviewDiff(diff, fileContext)` and never consults either. **So a grid that chose
+`codeContext` from the headline F1 would have been choosing it from a number the knob cannot move** - the §128 shape, one
+layer up. The artifact already carried the answer (`pullRequestArm.f1`); nothing read it as _the_ answer.
+
+### 130.2 The chain, and what holds each link
+
+```
+packages/intelligence/config/review-defaults.json     ← the only place a shipped default lives
+        │  .github/scripts/aacr-review-defaults-codegen.mjs  (render)
+        ├──────────────► packages/intelligence/src/review/llm/review-defaults.generated.ts
+        │                        │ imported by
+        │                        └──► llm-review-engine.ts: DEFAULT_OPTIONS, DEFAULT_PULL_REQUEST_BUDGET
+        │  readReviewDefaults() at module scope
+        └──────────────► .github/scripts/aacr-bench.mjs: SHIPPED, and every switch's `??` fallback
+```
+
+| link            | asserted by                                                                                         |
+| --------------- | --------------------------------------------------------------------------------------------------- |
+| JSON → module   | `renderDefaultsModule` re-rendered and string-compared                                              |
+| JSON → engine   | the engine holds no literal; the constant is a property read                                        |
+| JSON → harness  | each `AACR_*` switch's fallback is asserted by name, and the old literal is asserted **absent**     |
+| module → build  | `aacr-review-defaults-codegen.mjs --check` in CI, before any promotion is allowed to run            |
+| JSON → validity | `validateDefaults` lists **every** error rather than the first; a knob no reader reads is a refusal |
+
+### 130.3 The rule, and the ten ways it refuses
+
+`packages/intelligence/config/promotion-rule.json` states the acceptance criteria **before** the numbers arrive:
+
+| field              | value                | why that value                                                    |
+| ------------------ | -------------------- | ----------------------------------------------------------------- |
+| `metric`           | `pullRequestArm.f1`  | the arm the product runs (§130.1, defect 3)                       |
+| `minimumDelta`     | **0.0281**           | the instrument's own resolution from §129.4, not a round number   |
+| `guards.precision` | 0.20                 | a challenger may not buy F1 by walking down the precision curve   |
+| `guards.recall`    | 0.15                 | or up it by flooding                                              |
+| `minimumSample`    | 30 PRs / 300 goldens | a proportion on thirty goldens is a coin                          |
+| `requirePaired`    | `true`               | exact McNemar over the goldens both arms were scored on           |
+| `tieBreak`         | f1, precision, cost  | two arms a corpus cannot separate are not promoted for being dear |
+
+**The baseline is an arm of the same dispatch**, not a stored number. `promote()` looks for the arm whose knobs _are_ the
+configuration that ships and compares against it, so a promotion never compares a figure with a remembered figure - and
+the drift a stored baseline accumulates (a corpus that moved, a judge that was replaced, a harness that added a field)
+cannot be mistaken for a device that helped.
+
+Ten named refusals, each with its own arm in
+`tests/unit/scripts/a-promotion-that-cannot-be-justified-is-refused.test.ts`:
+
+| reason              | condition                                                                                        |
+| ------------------- | ------------------------------------------------------------------------------------------------ |
+| `no-readable-arm`   | every arm failed to parse                                                                        |
+| `not-recorded`      | the artifact does not say which value the knob took                                              |
+| `not-applied`       | the value was recorded and the artifact carries no evidence the run read it - **the R-67 shape** |
+| `not-scored`        | the artifact carries no `pullRequestArm.f1`                                                      |
+| `no-baseline`       | no arm ran the shipped configuration                                                             |
+| `incomplete-sample` | below 30 PRs or 300 goldens                                                                      |
+| `unpaired-corpus`   | a different `corpusSlice` from the baseline                                                      |
+| `unpaired-coverage` | a count of matched goldens and not the goldens                                                   |
+| `below-resolution`  | a win inside 0.0281                                                                              |
+| `not-significant`   | exact McNemar p > 0.05                                                                           |
+| `guard-regressed`   | precision or recall under its floor                                                              |
+| `no-challenger`     | the best arm _is_ the baseline                                                                   |
+
+**There is no `not-better` reason, and its absence is a theorem.** The baseline is one of the arms, so a challenger behind
+it is never the best arm; the resolution band is centred on the best arm, so every arm inside the band scored above the
+baseline. A `delta <= 0` branch would be a branch no arm can reach - and this repository's dead-branch rule refuses a
+reason string that can be printed about a case that never happened.
+
+### 130.4 What a promotion writes, and how it travels
+
+```json
+{
+  "decision": "promoted",
+  "resolvedBy": "aacr-promote.mjs",
+  "resolvedAt": "2026-11-22",
+  "ruleVersion": 1,
+  "incumbent": { "experiment": "grid-code-context-off", "metric": { "pullRequestArm.f1": 0.2013 } },
+  "champion": {
+    "experiment": "grid-code-context-on",
+    "metric": { "pullRequestArm.f1": 0.2412 },
+    "delta": 0.0399,
+    "mcnemarP": 0.0311,
+    "gained": 14,
+    "lost": 3,
+    "runId": "…"
+  }
+}
+```
+
+The `promote` job in `.github/workflows/aacr-bench.yml` is the only thing that writes it:
+
+1. the codegen `--check`, so a promotion cannot start from a drifted pair;
+2. `aacr-promote.mjs --self-test`, so the arithmetic is proved on a fixture before it reads a real artifact;
+3. `--write`, which rewrites the JSON **and** re-renders the module in one step;
+4. a commit under `Lambertyan` whose message carries the metric, the delta, the p-value and the run URL, pushed to the
+   default branch;
+5. the decision record as a 365-day artifact, **whether or not** the rule promoted - a `hold` is a result too.
+
+**`contents: write` is scoped to that job.** A benchmark job that could rewrite the repository could rewrite the code it
+measures, which is the one thing a measurement must not be able to do.
+
+### 130.5 What this section does not claim
+
+- **That a promotion has happened.** None has. The record on disk says `decision: held`, and it says why: R-67 is the
+  only challenger and it was **withdrawn for `not-applied`** - the 20 never reached an arm, so the incumbent stands
+  _untested_ rather than defended.
+- **That the mechanism is adequate for a multi-knob win.** It is: a challenger is a whole knob object and is promoted
+  atomically, which is the reason the grid exists - a combination measured jointly and delivered halved is the design
+  undone at the last step. What is _not_ proved is that any such combination exists.
+- **That `pullRequestArm.f1` is the right metric for ever.** It is the right metric while `reviewPullRequest` is the
+  product's entry point. The rule names it in a file so that the day the product's arm changes, the rule changes in a
+  reviewed diff rather than in a script.
+
+### 130.6 Price
+
+**0 CNY.** Ten new tests, two new scripts, one generated module, one new job. No model was called.

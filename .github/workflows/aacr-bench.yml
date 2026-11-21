@@ -345,6 +345,24 @@ on:
         description: 'Findings one pull request may carry (default 12; 20 is the R-67 pair)'
         type: string
         default: '12'
+      promote:
+        # **The switch that decides whether this dispatch may change what the product ships.**
+        #
+        # Off, because most dispatches are measurements and a measurement should not move the product by accident. On,
+        # and the `promote` job applies `packages/intelligence/config/promotion-rule.json` to every artifact this
+        # dispatch produced and, if a challenger clears the bar, rewrites
+        # `packages/intelligence/config/review-defaults.json` - the file the engine's compiled defaults and the
+        # harness's own arms are both read from - regenerates the module beside it, and commits both.
+        #
+        # **The default is off and the mechanism is not optional.** A dispatch with this off still uploads every
+        # artifact, so the next dispatch can promote from them; what off prevents is a scheduled weekly run silently
+        # changing the shipped reviewer because a noise draw cleared a floor.
+        description: 'Promote the winning arm into the shipped configuration (off; on applies the pre-registered rule)'
+        type: choice
+        options:
+          - 'off'
+          - 'on'
+        default: 'off'
       # **`code_context` used to be an input here, and its deletion is the fix rather than a tidy-up.** As an input it
       # had one value per dispatch, so measuring the device meant two dispatches - and two dispatches of this job have
       # reported the *same* configuration at 0.1691 and 0.2405, which is a spread larger than every effect registered in
@@ -1115,3 +1133,131 @@ jobs:
             /tmp/aacr-grid.md
           if-no-files-found: warn
           retention-days: 90
+
+  # **The join between the experiment and the product, and the reason it is a job rather than a paragraph.**
+  #
+  # Three iterations produced figures and every one of them ended in a markdown table: a device that measured to help
+  # reached the engine only if a person made the edit, and a device that measured to hurt stayed in the engine until a
+  # person made the opposite edit. **Both are the same defect** - the experiment and the product were two places and
+  # nothing joined them - and this job is the join.
+  #
+  # **It cannot promote by accident, and it cannot promote nothing.** `packages/intelligence/config/promotion-rule.json`
+  # is read from the repository rather than from this file, so the acceptance criteria are reviewed like code; the
+  # promoter refuses on ten named conditions, each with its own arm in
+  # `tests/unit/scripts/a-promotion-that-cannot-be-justified-is-refused.test.ts`; and the baseline it compares against is
+  # an arm of *this dispatch*, so a promotion never compares a figure against a remembered figure.
+  promote:
+    name: Promote the winning arm into the shipped configuration
+    needs: aacr-bench
+    # **Only on a dispatch that asked, and only on a dispatch that produced artifacts.** `always()` would run this job
+    # after a cancelled benchmark and hand it the previous run's artifacts, which is the §58.1 incident - a cancelled run
+    # uploading a figure under another arm's name - one job later.
+    if: (inputs.promote || 'off') == 'on' && needs.aacr-bench.result == 'success'
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    permissions:
+      # **Write, because the product change *is* the output.** Nothing else in this workflow writes, and the scope is
+      # this job's rather than the file's: a benchmark job with `contents: write` could rewrite the code it measures,
+      # which is the one thing a measurement must not be able to do.
+      contents: write
+    steps:
+      - name: Checkout
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          # **The token the repository already has, not a second credential.** A PAT would be a secret that can push to
+          # every repository the account can see, held for a job whose entire output is two files in this one.
+          token: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Setup Node.js
+        uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7
+        with:
+          node-version-file: '.nvmrc'
+
+      # **Each arm in its own directory, for the reason `grid-compare` does the same.** Eight `aacr-bench.json` files in
+      # one folder leave whichever finished last, and the promoter would then be comparing one arm with itself.
+      - name: Download every arm this dispatch bought
+        uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8
+        with:
+          pattern: aacr-bench-*
+          path: /tmp/arms
+
+      # **The committed module has to be what the JSON renders before anything is allowed to rewrite either of them.**
+      # A promotion on top of a drifted pair would commit a configuration whose two copies disagree, and the guard test
+      # would then fail on the promoted commit rather than on the one that drifted.
+      - name: Prove the committed configuration is what its source renders
+        run: node .github/scripts/aacr-review-defaults-codegen.mjs --check
+
+      # **The arithmetic before the answer**, for the same reason every other script here has a self-test: a promoter's
+      # "no challenger" branch is the branch a promoter that does nothing would take.
+      - name: Prove the promoter's rule on a fixture whose answer is known
+        run: node .github/scripts/aacr-promote.mjs --self-test
+
+      - name: Apply the pre-registered rule
+        id: apply
+        run: |
+          set -e
+          node .github/scripts/aacr-promote.mjs \
+            --write \
+            --out /tmp/promotion.json \
+            --run-url "${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}" \
+            /tmp/arms > /dev/null
+          node -e '
+            const record = require("/tmp/promotion.json");
+            const lines = [
+              `outcome=${record.outcome}`,
+              `reason=${record.reason}`,
+              `metric=${record.metricPath}`,
+              `delta=${record.delta ?? ""}`,
+              `champion=${record.champion?.label ?? ""}`,
+              `p=${record.paired?.pValue?.toFixed(4) ?? ""}`,
+            ];
+            require("node:fs").appendFileSync(process.env.GITHUB_OUTPUT, `${lines.join("\n")}\n`);
+          '
+
+      - name: Upload the promotion record
+        if: always()
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7
+        with:
+          name: aacr-promotion-record
+          path: /tmp/promotion.json
+          if-no-files-found: warn
+          retention-days: 365
+
+      # **The shipped configuration and the module beside it, in one commit.** Two files because the engine cannot import
+      # JSON through `tsc` without pointing at a file the build never copies; one commit because a commit that carried
+      # one and not the other would be a build whose two copies disagree.
+      - name: Commit the promoted configuration
+        if: steps.apply.outputs.outcome == 'promote'
+        run: |
+          set -e
+          git config user.name 'Lambertyan'
+          git config user.email 'lambertyan@users.noreply.github.com'
+          git add packages/intelligence/config/review-defaults.json \
+                  packages/intelligence/src/review/llm/review-defaults.generated.ts
+          if git diff --cached --quiet; then
+            echo 'the rule promoted an arm whose configuration is already shipped: nothing to commit'
+            exit 0
+          fi
+          git commit -m "feat(review): the shipped configuration is ${{ steps.apply.outputs.champion }}, ${{ steps.apply.outputs.delta }} F1 on the pull-request arm
+
+          Promoted by the pre-registered rule in packages/intelligence/config/promotion-rule.json.
+
+          Metric: ${{ steps.apply.outputs.metric }}
+          Delta over the arm that shipped: ${{ steps.apply.outputs.delta }}
+          Exact McNemar over the goldens both arms were scored on: p = ${{ steps.apply.outputs.p }}
+          Run: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+
+          The configuration file carries the whole record in its provenance block: the incumbent, the challenger,
+          the discordance, the p-value and the artifact this figure came from."
+          git push origin "HEAD:${{ github.event.repository.default_branch }}"
+
+      - name: Say what happened
+        if: always()
+        run: |
+          echo "### Promotion: ${{ steps.apply.outputs.outcome || 'not reached' }}" >> "$GITHUB_STEP_SUMMARY"
+          echo "" >> "$GITHUB_STEP_SUMMARY"
+          echo "- reason: \`${{ steps.apply.outputs.reason || '—' }}\`" >> "$GITHUB_STEP_SUMMARY"
+          echo "- metric: \`${{ steps.apply.outputs.metric || '—' }}\`" >> "$GITHUB_STEP_SUMMARY"
+          echo "- delta: \`${{ steps.apply.outputs.delta || '—' }}\`" >> "$GITHUB_STEP_SUMMARY"
+          echo "- champion: \`${{ steps.apply.outputs.champion || '—' }}\`" >> "$GITHUB_STEP_SUMMARY"
+          echo "- p: \`${{ steps.apply.outputs.p || '—' }}\`" >> "$GITHUB_STEP_SUMMARY"

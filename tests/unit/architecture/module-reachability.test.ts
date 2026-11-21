@@ -469,7 +469,14 @@ describe('every module a package compiles is reachable from an entry its manifes
       // report script because **what a walk refuses to read is a decision the product and the measurement must share** -
       // a report that skips `node_modules` while the product does not is two corpora, and the difference would be exactly
       // the files one of them forgot.
-      intelligence: 194,
+      // **195 since §130**, which added `review/llm/review-defaults.generated.ts`: the module the engine compiles from
+      // `packages/intelligence/config/review-defaults.json`. It is a generated file and it is still a module because
+      // **the alternative was two literals** - `DEFAULT_PULL_REQUEST_BUDGET` in the engine and `DEFAULT_PR_BUDGET` in the
+      // harness, compared by a regular expression that would have accepted `= compute();` - and a rendered module is the
+      // only shape that `tsc` inlines without pointing at a JSON file the build never copies. The guard test in
+      // `tests/unit/scripts/the-configuration-the-product-ships-is-the-one-a-promotion-wrote.test.ts` re-renders it and
+      // fails when the two disagree, so the file is generated and asserted rather than generated and trusted.
+      intelligence: 195,
       mcp: 39,
       server: 24,
       // **11 since iteration 121**, which added `utils/type-text.ts`: the depth-counted removal of type arguments and

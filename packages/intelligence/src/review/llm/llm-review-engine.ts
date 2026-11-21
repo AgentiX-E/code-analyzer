@@ -14,6 +14,7 @@ import {
   type PromptOrder,
   type ReviewLane,
 } from './prompts.js';
+import { REVIEW_DEFAULTS } from './review-defaults.generated.js';
 import { collectDiffFacts, diffHeaderPaths, rankFindings } from '../actionability.js';
 import { detectIdioms } from '../idiom-rules.js';
 import { reachLine, type ReachNote } from '../index/cross-file.js';
@@ -407,8 +408,13 @@ export interface PullRequestReviewOptions {
  * cheaper again** (0.2247 against 0.2296 on 63 fewer comments); twelve is chosen because recall is the weaker half and a
  * better ranker can only spend a budget it was given. **This is an in-sample replay and the next paid run is what
  * confirms it** - if the run at twelve scores below the run at sixteen, this constant goes back.
+ *
+ * **And it is no longer a literal.** The number is read from `REVIEW_DEFAULTS`, which is rendered from
+ * `packages/intelligence/config/review-defaults.json` - the same file the benchmark harness reads its arm from and the
+ * only file a promotion writes. **Two literals that must agree and cannot see each other are how a figure stops
+ * describing the product**; there is now one literal, in a JSON file, with a promotion record beside it.
  */
-export const DEFAULT_PULL_REQUEST_BUDGET = 12;
+export const DEFAULT_PULL_REQUEST_BUDGET: number = REVIEW_DEFAULTS.knobs.maxFindingsPerPullRequest;
 
 /**
  * **How far apart two findings may sit and still be the same construct.**
@@ -442,14 +448,14 @@ const DEFAULT_OPTIONS: Required<LLMReviewOptions> = {
   // **The flag stays, because turning a device off is not the same experiment as replacing it**, and because what the
   // checklist is good at is real: 76 fewer false positives per 170 goldens. **A product that prefers precision to F1
   // should turn it back on**, and this line is where it does so.
-  languageChecklist: false,
-  adjudicate: false,
+  languageChecklist: REVIEW_DEFAULTS.knobs.languageChecklist,
+  adjudicate: REVIEW_DEFAULTS.knobs.adjudicate,
   adjudicateConcurrency: 4,
   falsify: false,
   promptOrder: 'boilerplate-first',
   laneWaves: 1,
   laneMode: 'separate',
-  codeContext: false,
+  codeContext: REVIEW_DEFAULTS.knobs.codeContext,
   // **Off, and off is the honest default rather than a conservatism.** The lane is a measurement: it is turned on by
   // `AACR_IDIOMS=on` for a run that reports it, and a default that was on would make every figure this repository has
   // already published describe a product that no longer exists.
@@ -457,14 +463,14 @@ const DEFAULT_OPTIONS: Required<LLMReviewOptions> = {
   // **Off, for the same reason and with the same switch.** The remark pass is the model-driven half of §47.1's bucket:
   // a run that turns it on says so in its artifact, and a default of `true` would silently re-price every published
   // lane figure by one call per file.
-  remarks: false,
+  remarks: REVIEW_DEFAULTS.knobs.remarks,
   // **Off, because the range rule has merged unconditionally since the first run and every published figure was measured
   // under it.** The switch is §59's device: a finding of a *different category* whose range overlaps a survivor's is a
   // second concern at the site rather than a duplicate of it, and the run that turns it on says so in its artifact.
-  secondConcern: false,
+  secondConcern: REVIEW_DEFAULTS.knobs.secondConcern,
   // **One, because the history is one.** R-55 removed 1 112 findings under the range rule and kept no second concern
   // anywhere; a default of two would silently re-price every figure in the tree by a cap nobody registered.
-  sameSiteConcerns: 1,
+  sameSiteConcerns: REVIEW_DEFAULTS.knobs.sameSiteConcerns,
   // **The default is a function that has nothing to give**, not a missing key: `v3` then degrades to `v2` rather than
   // reading an absent option as an empty file.
   surroundingOf: () => undefined,
