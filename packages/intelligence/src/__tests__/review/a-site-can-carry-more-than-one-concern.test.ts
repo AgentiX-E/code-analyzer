@@ -99,7 +99,8 @@ function fourConcernsAtOneSite(): Record<string, ReadonlyArray<Record<string, un
         endLine: 365,
         severity: 'medium',
         title: 'redundant size and hasProject call per event',
-        description: 'both queries walk the project map before the cheap identity comparison is tried',
+        description:
+          'both queries walk the project map before the cheap identity comparison is tried',
       }),
     ],
     'expert code quality reviewer': [
@@ -131,7 +132,10 @@ async function run(options: { sameSiteConcerns?: number; secondConcern?: boolean
     ...options,
   });
   const results = await engine.reviewDiff(diff());
-  return { findings: results.flatMap((result) => result.findings), report: engine.lastDeduplication };
+  return {
+    findings: results.flatMap((result) => result.findings),
+    report: engine.lastDeduplication,
+  };
 }
 
 describe('a site can carry more than one concern', () => {
@@ -176,7 +180,8 @@ describe('a site can carry more than one concern', () => {
             endLine: 366,
             severity: 'high',
             title: 'metadata is dereferenced without a null check',
-            description: 'previous metadata arrives from the cluster state and is used unguarded here',
+            description:
+              'previous metadata arrives from the cluster state and is used unguarded here',
           }),
         ],
         'identify architecture issues': [
@@ -185,7 +190,8 @@ describe('a site can carry more than one concern', () => {
             endLine: 365,
             severity: 'medium',
             title: 'metadata is dereferenced without a null check',
-            description: 'previous metadata arrives from the cluster state and is used unguarded here',
+            description:
+              'previous metadata arrives from the cluster state and is used unguarded here',
           }),
         ],
       }),
