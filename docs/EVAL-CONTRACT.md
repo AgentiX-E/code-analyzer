@@ -13350,6 +13350,11 @@ the difference - which is why it is a sentence here rather than a footnote in a 
 inside the sandbox with `curl 28` after 136 seconds while the API answered first time. **That is a transport fact and it
 is recorded** because the rows are numbers about commits, and the way they arrived is how they are reproduced.
 
+**And the same transport is why the ArkTS row is still empty.** `WinWang/HarmoneyOpenEye` is a 94 MB HarmonyOS
+application whose tarball arrived at **7.4 MB** and then at **17.6 MB** in two attempts nine minutes apart, both
+truncated before the archive ended. **A partial checkout is a subtree, and §115.3 does not publish subtrees as
+repositories** - so the row stays at zero and the reason is a download rather than a reader.
+
 ### 119.5 What this section does not claim
 
 - **That the index got better.** No reader changed. The corpus got wider, and the totals moved because of it.
@@ -13366,3 +13371,109 @@ is recorded** because the rows are numbers about commits, and the way they arriv
 
 **0 CNY.** Two tarballs fetched through the API, two runs of `scripts/corpus-index-report.mjs` (322 ms and 234 ms), two
 rows appended to `benchmarks/polyglot-index.json`, and one test that fails if a regeneration drops Groovy.
+
+## §120 R-55 met all three of its clauses, and the cache inverted the bill for the second time
+
+**R-55 was written as one clause with three parts**, on the last forty-six rows of a 196-row corpus that no reading had
+touched: _the arm without `testing` costs at most 85 % of the shipped arm's `totalCacheNeutralUsd`, its reviewer prompt
+tokens are at most 85 % of the shipped arm's, and its file-arm F1 is inside one resolution unit._ **All three held.**
+The run is `44891741390`, dispatched 09:53 UTC, read at 10:48 - 46 pull requests, 330 goldens, **resolution 0.0281**.
+
+### 120.1 The accuracy clause: −0.0125 against a 0.0281 unit
+
+| arm        | lanes | findings |  TP |  FP |  FN | precision |  recall | **F1**      |
+| ---------- | ----: | -------: | --: | --: | --: | --------: | ------: | ----------- |
+| `shipped`  |     5 |      530 |  71 | 225 | 259 |    0.2399 |  0.2152 | **0.2268**  |
+| `lean`     |     4 |      449 |  66 | 220 | 264 |    0.2308 |  0.2000 | **0.2143**  |
+| difference |    −1 |      −81 |  −5 |  −5 |  +5 |   −0.0091 | −0.0152 | **−0.0125** |
+
+**0.0125 is 0.44 of a resolution unit**, so the file arm passes the third part of the clause. Two independent readings
+agree that this is a null:
+
+- **paired on `(pull request, golden)`,** `both 46 · lean only 20 · shipped only 25 · p = 0.5515`.
+- **resampled over the forty-six pull requests,** mean −0.0126, sd 0.0216, interval **[−0.0549, +0.0308]**, `p = 0.5628`.
+
+**And the removal pool missed its target, which is the part that is not a pass.** 81 findings removed, **5 of them true
+positives - 6.17 % against a registered target of 4 %**. That target is what separates _the lane found nothing_ from
+_the lane found things the answer key does not name_, and at 6.17 % the distinction is not established on these rows.
+**So the lane is removable on F1 terms to this corpus's resolution and the removal is not shown to be pure noise.**
+
+**The pull-request arm moved the other way.** `0.2075` against `0.1636` - a delta of **+0.0439** for the arm with one
+fewer lane. R-53 read the same arm at **−0.0144**. **Two readings, opposite signs, 0.058 apart on an arm nobody
+registered**: the PR-level view is not a stable measuring instrument at these row counts, and neither sign should be
+quoted without the pair.
+
+### 120.2 The cost clauses: 79.7 % cold, 80.1 % of the reviewer's prompt
+
+| part      | arm       | calls | prompt tokens | cache hits |  hit ratio | billed USD | cold-cache USD |
+| --------- | --------- | ----: | ------------: | ---------: | ---------: | ---------: | -------------: |
+| reviewer  | `shipped` | 2 020 |     6 498 606 |  5 258 660 | **80.9 %** |     0.6369 |         1.4100 |
+| reviewer  | `lean`    | 1 616 |     5 204 864 |  1 715 963 | **33.0 %** |     0.8331 |         1.0853 |
+| judge     | `shipped` | 7 434 |     2 152 529 |    408 320 |     19.0 % |     0.2852 |         0.3452 |
+| judge     | `lean`    | 6 719 |     1 961 265 |    228 736 |     11.7 % |     0.2807 |         0.3143 |
+| **total** | `shipped` | 9 454 |     8 651 135 |  5 666 980 |     65.5 % | **0.9221** |     **1.7551** |
+| **total** | `lean`    | 8 335 |     7 166 129 |  1 944 699 |     27.1 % | **1.1138** |     **1.3996** |
+
+```
+ratio lean/shipped   billed    cold-cache   prompt tokens   calls
+reviewer             130.8 %      77.0 %          80.1 %    80.0 %
+judge                 98.4 %      91.1 %          91.1 %    90.4 %
+total                120.8 %      79.7 %          82.8 %    88.2 %
+
+units disagree · the billed and cold-cache figures point opposite ways
+```
+
+**Cold-cache 79.7 % against an 85 % bar, reviewer prompt tokens 80.1 % against an 85 % bar.** Both pass.
+
+**The tokens per lane are 0.12 % apart** - 1 299 721 against 1 300 216 - so a lane is a fifth of the prompt to within an
+eighth of a percent, and the 80.1 % is a fifth removed rather than a fifth re-budgeted.
+
+### 120.3 The cache has now inverted a bill twice, and that is the finding
+
+**This pair was run in one dispatch, both arms concurrently on one key**, which is the arrangement §117.6 warned could
+not be called a controlled experiment. It is the arrangement that produced the **same inversion a second time**:
+
+| pair | rows | billed lean/shipped | cold lean/shipped | reviewer hit, five lanes | reviewer hit, four lanes |
+| ---- | ---: | ------------------: | ----------------: | -----------------------: | -----------------------: |
+| R-53 |  100 |              105.4% |             79.8% |                   82.9 % |                   51.0 % |
+| R-55 |   46 |          **120.8%** |         **79.7%** |               **80.9 %** |               **33.0 %** |
+
+**Two runs, two row sets, the same direction and the same magnitude in the unit that can be compared.** The arm that ran
+second hit the vendor's prefix on four fifths of its prompt and the arm that ran first on a third. **The billed figure
+is therefore not a measurement of work at all when two arms share a key** - it is a measurement of which one was
+dispatched first - and `cacheNeutralUsd` is what makes the comparison possible. **The estimate that a run is 13 CNY is
+an estimate in the billed unit, which is the unit the account pays and the wrong unit for a comparison.**
+
+**And the judge's hit ratio is 19.0 % and 11.7 %, against the reviewer's 80.9 %.** That is §118.4's premise confirmed
+from a second artifact: the judge's prefix is 178 tokens and exists, and it is hit five times less often than the
+reviewer's. **R-56, dispatched at 10:56 UTC as `44896689663`, is the device that prices that difference** - and its bar
+is written in **prompt tokens**, which the cache does not move.
+
+### 120.4 The corpus is now exhausted
+
+**After R-55 there is no unread row in this corpus.** §115's read set is 196 rows: 0-49 (R-52), 50-149 (R-53), 150-195
+(R-55). **Every further reading of an accuracy or cost claim needs a new corpus**, and a new corpus is a different kind
+of expense from a dispatch: `benchmarks/aacr-bench.json` names 200 pull requests the corpus holds, of which 196 are
+readable, so **four rows remain and four rows are not a slice**.
+
+That is the honest position this section closes on: **the apparatus has measured everything it can measure on
+AACR-Bench**, and the next registered claim has to be paid for in corpus rather than in rows.
+
+### 120.5 What this section does not claim
+
+- **That the `testing` lane should be removed.** It is removable **to this corpus's resolution** and it fails the
+  removal-pool target at 6.17 % against 4 %. **A lane that files five true positives in eighty-one removed findings - one in
+  sixteen - is a lane whose question is not answered by this answer key** - and 81 findings is not a corpus for a rate.
+- **That 79.7 % will hold on another corpus.** It is 79.7 % here and 79.8 % at a hundred rows of the same corpus. **Two
+  slices of one corpus are not two corpora.**
+- **That the four-lane arm is cheaper to run.** It is cheaper **on a cold cache**. On an account where the five-lane arm
+  runs second it is 20.8 % more expensive, and a production deployment has no "second arm".
+- **That the PR arm is worse.** It read **+0.0439** here and −0.0144 at the previous slice. **The registered arm was the
+  file arm**, and the arm that was registered is the one that is read.
+- **That R-56 will pass.** Its arithmetic says 49.2 % of the prompt tokens; the equivalence of its matrix to the
+  per-pair one is asserted by a self-test on a fixture and not on this corpus.
+
+### 120.6 Price
+
+**13 CNY** for R-55, as estimated. **R-56 is dispatched at an estimated 7 CNY** (one arm, forty-six rows, judge batched
+at four, competitor off) and its section is the next iteration's first act.
