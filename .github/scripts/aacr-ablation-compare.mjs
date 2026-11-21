@@ -479,7 +479,7 @@ export const REGISTRATIONS = Object.freeze({
   sameSiteConcerns: {
     section: '§124 (R-64)',
     claim:
-      'keeping up to three findings at a range the reviewer already reported raises the pool recall ceiling from 91 to at least 110 true positives of the 330 goldens on rows 150-195, and raises recall, without lowering precision by more than a golden is worth',
+      'keeping up to three findings at a range the reviewer already reported raises the pool recall ceiling from 91 to at least 110 true positives of the 330 goldens on rows 150-195, for at least 0.01 of the file arm F1, without lowering precision by more than a golden is worth',
     arm: 'file',
     registeredGain: 0.01,
     registeredBelowResolution: true,
@@ -507,7 +507,7 @@ export const REGISTRATIONS = Object.freeze({
   secondFamily: {
     section: '§125 (R-65)',
     claim:
-      'a second reviewer drawn from a different model family raises the pool true positives from 91 to at least 110 of 330 on rows 150-195 with the five shipped lanes, without lowering precision by more than a golden is worth',
+      'a second reviewer drawn from a different model family raises the pool true positives from 91 to at least 110 of 330 on rows 150-195 with the five shipped lanes, for at least 0.01 of the file arm F1, without lowering precision by more than a golden is worth',
     arm: 'file',
     registeredGain: 0.01,
     registeredBelowResolution: true,
@@ -532,7 +532,7 @@ export const REGISTRATIONS = Object.freeze({
   removedLineReach: {
     section: '§125.4 (R-66)',
     claim:
-      'giving a lane the callers, tests and sibling guards the index says reach a removed line raises the pool true positives from 91 to at least 105 of 330 on rows 150-195, without lowering precision by more than a golden is worth',
+      'giving a lane the callers, tests and sibling guards the index says reach a removed line raises the pool true positives from 91 to at least 105 of 330 on rows 150-195, for at least 0.01 of the file arm F1, without lowering precision by more than a golden is worth',
     arm: 'file',
     registeredGain: 0.01,
     registeredBelowResolution: true,
