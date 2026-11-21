@@ -12840,7 +12840,41 @@ what a real tool reached on the same corpus, which makes it the smallest number 
 that already exist; what a dispatch buys is the confirmation on rows no fit saw. **A ranker confirmed on the rows it was
 built on would be §113.1's defect again**, one device later.
 
-### 116.7 What this section does not claim
+### 116.7 The strongest ranker the artifact supports already fails R-54's bar
+
+**`ranker-replay` now prints a fifth ordering: the twenty-five-feature logistic fit, leave-one-pull-request-out.** It is
+the strongest ranker that can be built without a new run, and putting it on the curve settles R-54 before the device that
+would have to clear it exists:
+
+| ordered by                           | 110 comments | 200 comments | 300 comments |
+| ------------------------------------ | -----------: | -----------: | -----------: |
+| the shipped score                    |       0.1317 |       0.1810 |       0.2074 |
+| category prior                       |       0.0605 |       0.1718 |       0.2314 |
+| prior × structural penalty           |       0.0712 |       0.1840 |       0.2207 |
+| **the twenty-five features, fitted** |   **0.1673** |   **0.2209** |   **0.2287** |
+| oracle                               |       0.2491 |       0.3497 |       0.3032 |
+
+**The fit beats the shipped score at every count and beats the competitor's 0.2125 at 200 comments — and misses it at
+110**, which is the count R-54 registered. **So R-54's falsifier fires on rows that already exist**, and no device can be
+built from these twenty-five features that clears its own bar:
+
+- **at 110 comments the fit reaches 0.1673, which is 0.0452 short of the bar** and 0.0818 short of the oracle;
+- **it is a ranker of the right shape** - it is second at 200 and 300 and first among the three that are not ceilings;
+- **and the information it is missing is not in the artifact.** Twenty-five features describe the finding's own text and
+  span; none of them describes the file it stands in, the callers it reaches, or whether the line it quotes is inside a
+  declaration the diff touched.
+
+**That is §100's device, and §100 could not run it because no arm had a repository.** `reach: on` clones the pull
+request's head commit and hands each changed file the line describing what it reaches; **no published ranker has ever had
+that column**, and the headroom the oracle leaves (0.2491 against 0.1673) is larger than everything the text features
+have bought. **So R-54 is not falsified as a claim about ranking; it is falsified as a claim about ranking with these
+features**, and the registration to write next is the same bar with `reach: on` on both arms.
+
+**This is what a registered bar is for.** The number was written before the device, it cost nothing to test, and it
+retired a quarter of work before the quarter was spent. **A bar chosen after the curve existed would have been chosen at
+0.1673.**
+
+### 116.8 What this section does not claim
 
 - **That the competitor's number is wrong.** 0.2125 is their 110 comments under our judge on 47 pull requests, and it is
   the number this section uses. What was wrong was **which arithmetic the comparison used**, not either tool's figure.

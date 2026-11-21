@@ -106,6 +106,8 @@ export interface RankCurves {
     readonly score: readonly RankCurvePoint[];
     readonly prior: readonly RankCurvePoint[];
     readonly priorTimesPenalty: readonly RankCurvePoint[];
+    /** The twenty-five-feature logistic fit, leave-one-pull-request out: the strongest ranker the artifact supports. */
+    readonly fitted: readonly RankCurvePoint[];
     readonly oracle: readonly RankCurvePoint[];
   };
 }

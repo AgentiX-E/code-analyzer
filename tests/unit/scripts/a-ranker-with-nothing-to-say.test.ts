@@ -153,7 +153,7 @@ describe('no ordering beats the oracle at the same count', () => {
     const curves = rankCurves(artifact(rows, 10), [1, 2, 3, 4]).curves;
     for (const k of [1, 2, 3, 4]) {
       const oracle = curves.oracle.find((point) => point.k === k);
-      for (const name of ['score', 'prior', 'priorTimesPenalty'] as const) {
+      for (const name of ['score', 'prior', 'priorTimesPenalty', 'fitted'] as const) {
         const point = curves[name].find((entry) => entry.k === k);
         expect(point, `${name} @ ${k}`).toBeDefined();
         expect(point!.f1, `${name} @ ${k}`).toBeLessThanOrEqual(oracle!.f1 + 1e-12);

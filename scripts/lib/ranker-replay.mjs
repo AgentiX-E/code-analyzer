@@ -331,9 +331,10 @@ export function curveAtBudget(order, goldens, ks) {
  * **The four orderings one artifact can support, so a ranker's value is read beside the two that need no ranker.**
  *
  * `score` is what shipped. `prior` is learned on the other pull requests. `priorTimesPenalty` is the same order
- * multiplied by a hand-set structural penalty. **`oracle` is not a device and is the most important row**: it is what a
- * perfect ranker would reach at the same budget, so a curve that sits near it has no ranking left to win and one that
- * sits far below it is a curve about a ranker rather than about a generator.
+ * multiplied by a hand-set structural penalty. `fitted` is the twenty-five-feature logistic fit, leave-one-pull-request
+ * out. **`oracle` is not a device and is the most important row**: it is what a perfect ranker would reach at the same
+ * budget, so a curve that sits near it has no ranking left to win and one that sits far below it is a curve about a
+ * ranker rather than about a generator.
  */
 export function rankCurves(artifact, ks) {
   const findings = artifact?.rankedFindings ?? [];
@@ -351,6 +352,19 @@ export function rankCurves(artifact, ks) {
   const byOracle = [...findings].sort(
     (left, right) => (right.matchedGoldens ?? []).length - (left.matchedGoldens ?? []).length,
   );
+  /**
+   * **The twenty-five-feature logistic fit, which is the strongest ranker the artifact can support.**
+   *
+   * It belongs in this table because it is the one ordering a reader would otherwise have to build to compare with, and
+   * because it is what falsifies a bar before the device that would have to clear it is built: **at 110 comments the fit
+   * reaches 0.1673 where `oracle` reaches 0.2491**, so a registration demanding 0.2125 at that count is already refuted
+   * on rows that exist.
+   */
+  const fittedScores = leaveOnePullRequestOut(findings);
+  const byFitted = findings
+    .map((finding, at) => ({ finding, weight: fittedScores[at] ?? 0 }))
+    .sort((left, right) => right.weight - left.weight)
+    .map((entry) => entry.finding);
   return {
     goldens,
     pool: findings.length,
@@ -358,6 +372,7 @@ export function rankCurves(artifact, ks) {
       score: curveAtBudget(byScore, goldens, ks),
       prior: curveAtBudget(byPrior, goldens, ks),
       priorTimesPenalty: curveAtBudget(byPriorPenalised, goldens, ks),
+      fitted: curveAtBudget(byFitted, goldens, ks),
       oracle: curveAtBudget(byOracle, goldens, ks),
     },
   };
