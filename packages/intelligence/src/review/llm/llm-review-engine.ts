@@ -89,6 +89,26 @@ export interface LLMReviewOptions {
    */
   secondConcern?: boolean;
   /**
+   * **How many findings one site may keep.** Defaults to **1**, which is the arm every published figure was measured
+   * under: the range rule has merged unconditionally since the first run.
+   *
+   * **Why a number rather than a category prefix.** §59's switch keeps one extra finding at a site and only when the
+   * category differs, and the corpus's own goldens say that is too narrow: **`ClusterChangedEvent.java:351-369` carries
+   * four goldens and `InstrumentationServiceImpl.java:67-135` carries four more**, most of them `bug`. R-55 entered
+   * deduplication with **1 646 findings and left it with 530**, of which **1 112 were removed under `rangeOnly`** - the
+   * rule with no textual evidence in it - and **`keptAsSecondConcern` was 0**. A reviewer that keeps one remark per
+   * range reports one of four related defects and is rejected on the other three.
+   *
+   * **The test of *one remark* does not move with the cap.** A second finding is kept only when its ranges overlap a
+   * survivor's **and** `shares(...) < dedupThreshold`, so two lanes that say the same sentence in one range are still
+   * one finding - the merge is counted under `rangeAndWords`, not under `rangeOnly`, and the report says so.
+   *
+   * **A cap of 2 or 3 is the device and not a licence**: the corpus's own records put one cross-category second concern
+   * at 602 sites across 404 files, with a median of one per file, which is why the registration that prices this
+   * (R-64) runs at 3 and reports F1 as a guard rail rather than as its claim.
+   */
+  sameSiteConcerns?: number;
+  /**
    * **Whether every lane prompt carries the per-language defect checklist.** Defaults to **false**, on measurement.
    *
    * The switch exists because the checklist is a **claim about precision**, and the only way to settle a claim about a
@@ -442,6 +462,9 @@ const DEFAULT_OPTIONS: Required<LLMReviewOptions> = {
   // under it.** The switch is §59's device: a finding of a *different category* whose range overlaps a survivor's is a
   // second concern at the site rather than a duplicate of it, and the run that turns it on says so in its artifact.
   secondConcern: false,
+  // **One, because the history is one.** R-55 removed 1 112 findings under the range rule and kept no second concern
+  // anywhere; a default of two would silently re-price every figure in the tree by a cap nobody registered.
+  sameSiteConcerns: 1,
   // **The default is a function that has nothing to give**, not a missing key: `v3` then degrades to `v2` rather than
   // reading an absent option as an empty file.
   surroundingOf: () => undefined,
@@ -534,6 +557,15 @@ export class LLMReviewEngine {
     options?: LLMReviewOptions,
   ) {
     this.options = { ...DEFAULT_OPTIONS, ...options };
+    // **`0` and `1` are the same instruction and `-1` is not one**, so a cap that is not a positive integer is refused
+    // here rather than read as one further down: an artifact that says `sameSiteConcerns: 0` describes a run nobody can
+    // reproduce, and the failure it causes - every finding merged - looks like a quiet corpus rather than like a bug.
+    const cap = this.options.sameSiteConcerns;
+    if (!Number.isInteger(cap) || cap < 1) {
+      throw new RangeError(
+        `sameSiteConcerns must be a positive integer, not ${String(cap)}: it is how many findings one site may keep, and 1 is the arm the published figures were measured under`,
+      );
+    }
   }
 
   // -------------------------------------------------------------------------
@@ -974,6 +1006,13 @@ export class LLMReviewEngine {
      */
     keptAsSecondConcern: number;
     /**
+     * **How many findings one site was allowed to keep.** `1` is the arm every figure before §124 was measured under.
+     *
+     * **Published beside the count rather than left in the workflow**, because `keptAsSecondConcern: 7` is a different
+     * fact at a cap of 8 than at a cap of 2: the first says the switch rarely fired and the second says it saturated.
+     */
+    sameSiteConcerns: number;
+    /**
      * **The findings the merge removed, one record each, because the total cannot be read.**
      *
      * `dropped: 2 301` is compatible with two opposite readings and §46.8 says so: a merge that removed restatements is
@@ -1101,6 +1140,16 @@ export class LLMReviewEngine {
     all.sort((x, y) => rank[y.finding.severity] - rank[x.finding.severity]);
 
     const survivors: Array<Entry & { absorbed: number; secondKept?: boolean }> = [];
+    /**
+     * **Which site each survivor belongs to, and how many findings that site has kept.**
+     *
+     * A kept second concern is a survivor in its own right - later findings are compared against it - so the cap has to
+     * be counted at the **site** rather than at the entry, or a third finding that overlaps only the second concern
+     * would read the second concern as a fresh site with an empty budget. `siteRoot` maps every survivor to the index of
+     * the first survivor at its site, and the map holds that index's count.
+     */
+    const siteRoot: number[] = [];
+    const keptAtSite = new Map<number, number>();
     const mergedBy = { rangeAndWords: 0, rangeOnly: 0, wordsNearby: 0 };
     let keptAsSecondConcern = 0;
     const droppedFindings: DroppedFinding[] = [];
@@ -1147,29 +1196,39 @@ export class LLMReviewEngine {
       const duplicateAt = sameLocation !== -1 ? sameLocation : nearLocation;
       const survivor = duplicateAt === -1 ? undefined : survivors[duplicateAt];
       if (survivor === undefined) {
+        siteRoot.push(survivors.length);
+        keptAtSite.set(survivors.length, 1);
         survivors.push({ ...entry, absorbed: 1 });
         continue;
       }
-      // **A different category in the same range is a second concern rather than a restatement**, when the switch is on.
+      // **A finding in the same range whose sentence differs is a second concern at the site, up to the site's cap.**
       //
       // **Why the range rule is the wrong evidence and the other two are not.** `rangeOnly` means the ranges overlap and
       // the sentences do not: **that is the definition of two findings that happened to be marked on the same lines**,
       // and it was the reason 2 273 of the run's 2 295 removals happened. The other two rules read the words. So the
-      // switch is scoped to the rule that never did.
+      // cap is scoped to the rule that never did.
       //
-      // **One per site, and the cap is the corpus's own shape.** A site with three findings of three categories is a
-      // lane marking a block, and the third is a third comment on one line; **the round's own records put one
-      // cross-category second concern at 602 sites across 404 files**, with a median of one per file.
-      const secondConcernHere =
+      // **The cap is a number and the category is not the test**, because the goldens are not distributing their defects
+      // by category: three of the four at `ClusterChangedEvent.java:351-369` are `bug`. §59's switch asks for a
+      // *different* category and so keeps one of those four; `sameSiteConcerns` asks for a *different sentence* and can
+      // keep all four. A run that turns on §59 with the cap at its default still keeps one extra, because the wider of
+      // the two instructions is the one applied.
+      const root = siteRoot[duplicateAt];
+      const keptHere = keptAtSite.get(root) ?? 1;
+      const capHere =
         this.options.secondConcern === true &&
+        String(entry.finding.category) !== String(survivor.finding.category)
+          ? Math.max(this.options.sameSiteConcerns, 2)
+          : this.options.sameSiteConcerns;
+      const secondConcernHere =
         sameLocation !== -1 &&
-        survivor.secondKept !== true &&
-        shares(survivor.words, entry.words) < this.options.dedupThreshold &&
-        String(entry.finding.category) !== String(survivor.finding.category);
+        keptHere < capHere &&
+        shares(survivor.words, entry.words) < this.options.dedupThreshold;
       if (secondConcernHere) {
-        // **The survivor is marked rather than the new finding**, because the mark says *this site has had its second
-        // concern*, which is a fact about the site and not about the sentence that filled it.
-        survivor.secondKept = true;
+        // **The site is counted rather than the new finding**, because the count says *this site has kept three of its
+        // four findings*, which is a fact about the site and not about the sentence that filled the last slot.
+        keptAtSite.set(root, keptHere + 1);
+        siteRoot.push(root);
         survivors.push({ ...entry, absorbed: 1, secondKept: true });
         keptAsSecondConcern += 1;
         continue;
@@ -1216,6 +1275,9 @@ export class LLMReviewEngine {
       dropped: all.length - survivors.length,
       mergedBy,
       keptAsSecondConcern,
+      // **The cap the run applied, in the report**, because `keptAsSecondConcern` without it is a count whose meaning
+      // depends on a line in a workflow file: 7 kept at a cap of 8 is a quiet run and 7 at a cap of 2 is a saturated one.
+      sameSiteConcerns: this.options.sameSiteConcerns,
       droppedFindings,
       droppedFindingsBeyondCeiling,
     };

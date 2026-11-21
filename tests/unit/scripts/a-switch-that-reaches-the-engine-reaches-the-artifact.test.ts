@@ -159,3 +159,35 @@ describe('the registration is the one the lane-set switch is measured against', 
     expect(registration!['confirmation']).toEqual([{ skip: 50, max: 146 }]);
   });
 });
+
+describe('the same-site cap is wired end to end', () => {
+  it('is read from the environment the workflow sets, and validated rather than coerced', () => {
+    expect(BENCH).toContain("process.env['AACR_SAME_SITE_CONCERNS']");
+    expect(WORKFLOW).toContain('AACR_SAME_SITE_CONCERNS: ${{ inputs.same_site_concerns');
+    // **`Number.isInteger`, because `parseInt('3 (three)')` is 3.** A cap that arrived as a string the engine silently
+    // rounded would be an arm labelled one number and bought another, which is §122.2's defect one device later.
+    const block = BENCH.slice(BENCH.indexOf("process.env['AACR_SAME_SITE_CONCERNS']"));
+    expect(block.slice(0, 400)).toContain('Number.isInteger(parsed)');
+  });
+
+  it('reaches the engine as an option and the artifact as a key', () => {
+    const start = BENCH.indexOf('new LLMReviewEngine(');
+    const options = BENCH.slice(start, BENCH.indexOf('\n  });', start));
+    expect(options).toContain('sameSiteConcerns: SAME_SITE_CONCERNS');
+    const configuration = BENCH.slice(BENCH.indexOf('configuration: {'));
+    expect(configuration.slice(0, 6000)).toContain('sameSiteConcerns: SAME_SITE_CONCERNS');
+  });
+
+  it('is registered with a bar its own slice can sign, or says it cannot', () => {
+    const registration = (REGISTRATIONS as unknown as Record<string, Record<string, unknown>>)[
+      'sameSiteConcerns'
+    ];
+    expect(registration, 'the cap has no registration, so its run is a diagnostic').toBeDefined();
+    expect(registration!['mechanismRule']).toBe('recall-rises');
+    // **46 rows sign 0.0281** (§122.1), so a 0.01 bar is below its own resolution and the entry has to say so: a run
+    // read as confirmed at half its instrument's resolution is the §68 defect.
+    expect(registration!['registeredGain']).toBe(0.01);
+    expect(registration!['registeredBelowResolution']).toBe(true);
+    expect(registration!['confirmation']).toEqual([{ skip: 150, max: 46 }]);
+  });
+});

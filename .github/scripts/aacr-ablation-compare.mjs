@@ -452,6 +452,42 @@ export const REGISTRATIONS = Object.freeze({
     confirmation: [{ skip: 50, max: 100 }],
   },
   /**
+   * **§124's registration (R-64): a site may keep three remarks, not one.**
+   *
+   * R-55 entered deduplication with **1 646 findings and left it with 530**. Of the 1 116 removed, **1 112 went under
+   * `rangeOnly`** - overlapping ranges with no textual agreement behind the merge - and **`keptAsSecondConcern` was 0**,
+   * because §59's switch keeps one extra finding at a site and only when the *category* differs. **The goldens do not
+   * distribute themselves by category**: `ClusterChangedEvent.java:351-369` carries four goldens and three are `bug`,
+   * `InstrumentationServiceImpl.java:67-135` carries four more. So the cap becomes a number.
+   *
+   * **The claim is written on the quantity the run measures directly**, which is the pool's true positives, because
+   * §124.2 measured the ceiling they impose: **91 of 330 goldens at `k = 530`, and 75 at the shipped `k = 296`**. No
+   * emission rule can raise 91 - raising the per-pull-request budget from 12 to 32 moves recall 0.2280 to 0.2766 and F1
+   * *down* from 0.2149 to 0.2139 - **so the only lever left on recall is what enters the pool**, and a merge that keeps
+   * one remark per range is the largest thing removing candidates before the ranking sees them.
+   *
+   * **F1 is the guard rail and not the claim.** A kept second finding is worth its own precision, and §59's arithmetic
+   * applies unchanged: `F1 = 2TP/(C+G)`, so an added comment raises F1 exactly when its precision exceeds `F1/2`
+   * (0.107 here). The 76 strong-overlap pairs found offline are an upper bound on what the cap can recover and **not a
+   * prediction of their precision**, which is why the registration asks for recall and tolerates a golden's worth of
+   * precision instead of promising a gain.
+   *
+   * **0.01 with `registeredBelowResolution`**, because 46 rows sign 0.0281 and anything smaller cannot be confirmed by
+   * them - the same honest shape as R-32's entry, and rewriting the bar after the number arrives is the one defect
+   * worse than registering it too low.
+   */
+  sameSiteConcerns: {
+    section: '§124 (R-64)',
+    claim:
+      'keeping up to three findings at a range the reviewer already reported raises the pool recall ceiling from 91 to at least 110 true positives of the 330 goldens on rows 150-195, and raises recall, without lowering precision by more than a golden is worth',
+    arm: 'file',
+    registeredGain: 0.01,
+    registeredBelowResolution: true,
+    mechanism: 'recall rises and precision does not fall by more than a golden is worth',
+    mechanismRule: 'recall-rises',
+    confirmation: [{ skip: 150, max: 46 }],
+  },
+  /**
    * **§68's registration: the same device over both halves of one corpus.**
    *
    * §67 turns two dispatches into one corpus of two hundred pull requests, which halves the standard deviation a bar has

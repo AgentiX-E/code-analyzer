@@ -299,6 +299,20 @@ on:
         description: 'Findings one file may carry (default 3, the lane contract; 6 is H2)'
         type: string
         default: '3'
+      same_site_concerns:
+        # **How many findings one *range* may keep, which is a different cap from the one above.** The per-file cap
+        # truncates a file's list; this one decides whether two findings marked on overlapping lines are one remark or
+        # two. R-55 removed **1 112 of its 1 646 findings under the range rule alone** - no textual agreement behind the
+        # merge - and `keptAsSecondConcern` was **0**, so the goldens that sit beside a kept finding on the same range
+        # were rejected with their neighbour reported.
+        #
+        # **`1` is the default because it is the history**, and because a cap of two would re-price every figure in the
+        # tree by a device nobody registered. R-64 is the run that prices it: **the claim is on the pool's true
+        # positives** (the recall ceiling rather than the emitted F1), with F1 as a guard rail - §124.2 measured that
+        # ceiling at **91 of 330 goldens**, which no emission rule can raise.
+        description: 'Findings one range may keep (default 1, the arm every figure was measured under; 3 is R-64)'
+        type: string
+        default: '1'
       # **`code_context` used to be an input here, and its deletion is the fix rather than a tidy-up.** As an input it
       # had one value per dispatch, so measuring the device meant two dispatches - and two dispatches of this job have
       # reported the *same* configuration at 0.1691 and 0.2405, which is a spread larger than every effect registered in
@@ -612,6 +626,9 @@ jobs:
           # file per lane *was* the emission contract; **an input rather than a constant, so a run at 6 and a run at 3 on
           # the same rows differ in this line and in nothing else**, and the artifact records which produced the figure.
           AACR_MAX_FINDINGS_PER_FILE: ${{ inputs.max_findings_per_file || '3' }}
+          # **The per-range cap, beside the per-file one and for the same reason**: the two are separate decisions and a
+          # run that recorded one and applied the other would be an artifact about a reviewer nobody dispatched.
+          AACR_SAME_SITE_CONCERNS: ${{ inputs.same_site_concerns || '1' }}
           # **Whether this run buys a competitor result, or reads the one already paid for.** The script's own default
           # is `replay`; it is passed explicitly here so the artifact cannot disagree with the workflow about which run
           # produced it, and so a manual `record` is a line in the log rather than an environment variable someone set.

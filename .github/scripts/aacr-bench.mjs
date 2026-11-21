@@ -2256,6 +2256,27 @@ async function main() {
    */
   const SECOND_CONCERN = String(process.env['AACR_SECOND_CONCERN'] ?? 'off').toLowerCase() === 'on';
   /**
+   * **How many findings one site may keep, and the device R-64 registers (§124.3).**
+   *
+   * The arm every figure in this repository was measured under keeps **one remark per range**. `dedup.mergedBy.rangeOnly`
+   * on R-55 was **1 112 of 1 646 findings removed**, and `keptAsSecondConcern` was **0** - so of the goldens this run
+   * missed, the 120 that sat on a line we had commented on were rejected while their neighbour on the same range was
+   * kept. **The corpus's goldens do not distribute themselves by category**: four of them sit on
+   * `ClusterChangedEvent.java:351-369` and three of those four are `bug`, which is why §59's switch (a *different
+   * category* in one range) cannot reach them and a numeric cap can.
+   *
+   * **`1` by default, because that is the history**, and a default of two would re-price every figure in the tree by a
+   * cap nobody registered. Validated rather than coerced for the reason §122.2 is about: a run labelled `3` that bought
+   * `1` would be a comparison against the wrong arm.
+   */
+  const SAME_SITE_CONCERNS = (() => {
+    const raw = String(process.env['AACR_SAME_SITE_CONCERNS'] ?? '1');
+    const parsed = Number(raw);
+    if (!Number.isInteger(parsed) || parsed < 1 || parsed > 8)
+      throw new Error(`AACR_SAME_SITE_CONCERNS must be an integer in 1..8, not "${raw}"`);
+    return parsed;
+  })();
+  /**
    * **Which question the lanes put to a diff, and the device R-35 registers (§69.5).**
    *
    * `shipped` is the five lanes every published figure was measured under. `behaviour` swaps one of them - `testing`,
@@ -2339,6 +2360,10 @@ async function main() {
     idioms: IDIOMS,
     remarks: REMARKS,
     secondConcern: SECOND_CONCERN,
+    // **The cap on findings per site**, and it is passed here as well as recorded in the artifact: a run whose
+    // configuration line said three while the engine merged at one would be the §58.1 shape - an artifact internally
+    // consistent and about a different reviewer.
+    sameSiteConcerns: SAME_SITE_CONCERNS,
     // **The lanes are named, not defaulted**, so the artifact's `laneSet` and the calls the run actually bought are the
     // same five questions. A run that recorded a set and dispatched the engine's default would be the §58.1 shape one
     // device later: an artifact internally consistent and about a different reviewer.
@@ -2353,7 +2378,7 @@ async function main() {
     judgeBatch: JUDGE_BATCH,
   });
   console.log(
-    `AACR-BENCH dedup threshold ${DEDUP_THRESHOLD} · prompt order ${PROMPT_ORDER} · adjudicate ${ADJUDICATE} · idioms ${IDIOMS} · remarks ${REMARKS} · second concern ${SECOND_CONCERN} · lanes ${LANE_SET} (${LANE_MODE}) · judge batch ${JUDGE_BATCH}`,
+    `AACR-BENCH dedup threshold ${DEDUP_THRESHOLD} · prompt order ${PROMPT_ORDER} · adjudicate ${ADJUDICATE} · idioms ${IDIOMS} · remarks ${REMARKS} · second concern ${SECOND_CONCERN} · same-site concerns ${SAME_SITE_CONCERNS} · lanes ${LANE_SET} (${LANE_MODE}) · judge batch ${JUDGE_BATCH}`,
   );
 
   /**
@@ -5034,6 +5059,9 @@ async function main() {
       // reviewers**: the second keeps a finding whose category differs from the survivor's at the same range, and the
       // arm that publishes reviews differs from the arm behind every earlier figure in exactly this key.
       secondConcern: SECOND_CONCERN,
+      // **The cap, beside the switch**, because `keptAsSecondConcern` without it cannot be read: 7 kept at a cap of 8 is
+      // a device that rarely fired and 7 at a cap of 2 is one that saturated.
+      sameSiteConcerns: SAME_SITE_CONCERNS,
       remarks: {
         enabled: REMARKS,
         families: REMARK_FAMILY_IDS,
