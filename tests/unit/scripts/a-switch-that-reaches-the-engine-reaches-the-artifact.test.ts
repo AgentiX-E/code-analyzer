@@ -255,3 +255,30 @@ describe('the model family is a dispatch input, and the artifact says which one 
     expect(WORKFLOW).toContain('ZHIPU_API_KEY: ${{ secrets.ZHIPU_API_KEY }}');
   });
 });
+
+describe('the emission budget reaches one arm and the artifact says which', () => {
+  it('passes the budget to the whole-pull-request arm and to nothing else', () => {
+    // **R-67 is why this is asserted.** The run was dispatched at `pullRequestBudget: 20`, its artifact recorded 20, and
+    // its headline was F1 0.2271 on 392 emissions - the number the engine produces when nothing is cut, because
+    // `maxFindingsPerPullRequest` is read inside `reviewPullRequest` and the file arm never consults it. **A field that
+    // reports a dispatch input as a measurement of the headline is the §58.1 shape**, and the file arm's budget is now
+    // recorded as `null` rather than as the input's value.
+    // **Counted as assignments, not as mentions**: the comment that records why this matters names the same option, and a
+    // guard that counts prose would fail on its own explanation.
+    const callSites = BENCH.split('maxFindingsPerPullRequest:').length - 1;
+    expect(
+      callSites,
+      'the budget is passed at more than one call site, so one of them is the file arm',
+    ).toBe(1);
+    const block = BENCH.slice(BENCH.indexOf('maxFindingsPerPullRequest'));
+    expect(block.slice(0, 200)).toContain('PR_BUDGET');
+    expect(BENCH).toContain('reviewPullRequest(prSections, {');
+  });
+
+  it('publishes the file arm budget as null, not as the input it did not use', () => {
+    const configuration = BENCH.slice(BENCH.indexOf('configuration: {'));
+    expect(configuration).toContain('fileArmBudget: null');
+    // **And the arm that does read it is published beside it**, so a reader can tell which figure the number belongs to.
+    expect(configuration).toContain('pullRequestArmBudget: PR_BUDGET');
+  });
+});

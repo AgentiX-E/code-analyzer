@@ -5146,6 +5146,19 @@ async function main() {
         shipped: { ...SHIPPED_AGENT_OPTIONS },
         divergence: [...AGENT_ARM_DIVERGENCE],
       },
+      /**
+       * **`null`, because the file arm has no per-pull-request budget and the artifact used to imply it had one.**
+       *
+       * R-67 was dispatched at `pullRequestBudget: 20` and this key read 20; the run's headline was **F1 0.2271 on 392
+       * emissions**, which is what the engine emits with nothing cut at all. **`maxFindingsPerPullRequest` is read inside
+       * `reviewPullRequest` and nowhere else** - the file arm's emission is the actionability gate plus the per-file cap,
+       * and `byBudgetPerPullRequest` is a *re-cut of the ranked pool*, not a budget any run applied. §128 is the
+       * readback. **A field that reports an input as a measurement is the §58.1 shape**, so the file arm's budget is
+       * recorded as what it is.
+       */
+      fileArmBudget: null,
+      // **What the whole-pull-request arm ran at**, which is the one arm that does read the input.
+      pullRequestArmBudget: PR_BUDGET,
       // **Which family reviewed the corpus**, because from §127 the artifact can describe two reviewers that differ in
       // nothing but the model - and **a recall figure that does not say which family produced it is a figure about an
       // unnamed reviewer.** The judge's model is a separate key above and deliberately so: this run judges with the

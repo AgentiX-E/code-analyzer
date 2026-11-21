@@ -14343,3 +14343,119 @@ registry - **a registry the spending path does not use is a registry that is doc
 **0 CNY.** Every assertion stubs `fetch`; no model was called to write this section. The GLM arm is **an estimated
 2 CNY** for the same 46 rows (the reviewer's cold cost, minus nothing - the judge is not re-run because the union is a
 join over `missedGoldens.records`), and **R-65 is not dispatched in this iteration**.
+
+## §128 R-67 missed, because the budget it dispatched never reached the arm it measured
+
+**R-67 - three concerns at a site and twenty findings per pull request.** _Claim._ On the same 46 rows with the five
+shipped lanes, `sameSiteConcerns: 3` and `pullRequestBudget: 20` reach a file-arm **F1 of at least 0.2549**, which is one
+resolution unit above R-55's 0.2268, with precision not below **0.19**. _Falsifier._ An F1 below 0.2549, or a precision
+below 0.19, **or** a total `cacheNeutralUsd` above **2.4**.
+
+| clause                  | bar      | measured   | verdict            |
+| ----------------------- | -------- | ---------- | ------------------ |
+| file-arm F1             | ≥ 0.2549 | **0.2271** | **missed**         |
+| precision               | ≥ 0.19   | 0.2092     | met                |
+| total `cacheNeutralUsd` | ≤ 2.4    | 2.1814     | met                |
+| k (emissions)           | -        | 392        | 8.5 / pull request |
+
+**Two of the three clauses passed and the one that did not is the one the device was for.** The run cost **11.43 CNY**
+on the account (50.50 → 39.07), 16 321 judge pairs, 0 unanswered, 0 failures, 0 retries.
+
+### 128.1 Why it missed is a wiring fact, and it is not the mechanism
+
+`maxFindingsPerPullRequest` is read in exactly one place in the engine - inside `reviewPullRequest` - and the benchmark
+passes it in exactly one place, the whole-pull-request arm:
+
+```js
+const prLanes = await engine.reviewPullRequest(prSections, {
+  maxFindingsPerPullRequest: PR_BUDGET,
+```
+
+**The file arm never consults a pull-request budget.** Its emission is the actionability gate plus the per-file cap, and
+`byBudgetPerPullRequest` is a **re-cut of the ranked pool**, not a budget any run applied. So R-67 was dispatched at
+`pullRequestBudget: 20`, its artifact recorded 20, and the arm whose F1 the claim is about ran at whatever the gate let
+through - **392 emissions, which is the uncut number**.
+
+The artifact's own arm table says the same thing from the other side: `pullRequestArm.budgetPerPullRequest: 20` beside a
+headline that describes the file arm. **R-67 therefore did not test its claim; it tested the claim's configuration
+against a reviewer that was not configured.** That is §58.1's defect - an artifact internally consistent and about a
+reviewer nobody dispatched - one iteration after §126.4 priced it.
+
+**The repair is in this commit and it is not a number**: `configuration.fileArmBudget` is now published as `null`, and
+`configuration.pullRequestArmBudget` carries the input, so the next artifact cannot report an input as a measurement of
+the headline. A guard asserts that the option is assigned once and only inside `reviewPullRequest`.
+
+**And the honest verdict is `not met, cause: unwired`, not `mechanism refuted`.** A claim whose device never ran is not a
+claim that failed; it is a claim that has not been run.
+
+### 128.2 The cut at 0.2551 has now been asked for twice and reproduced neither time
+
+| run                  | configuration            | k   | TP  | precision | F1         |
+| -------------------- | ------------------------ | --- | --- | --------- | ---------- |
+| R-64 (`44912204000`) | cap 3, budget 12 (cut)   | 394 | 86  | 0.2183    | **0.2376** |
+| R-67 (`44919046062`) | cap 3, "budget 20"       | 392 | 82  | 0.2092    | **0.2271** |
+| R-64's curve at 20   | the cut the claim priced | 548 | 112 | 0.2044    | 0.2551     |
+
+**Two dispatches of the same configuration differ by 0.0105 of F1 here**, against a resolution of 0.0281 - so the
+difference is inside the instrument, and **the 0.2551 was a cut of one artifact that no run has yet produced**. R-67's
+own curve does not reach it either: 16 → 0.2080, 24 → 0.2096, 32 → 0.2097. **The registration was right to demand a run
+instead of a cut, and the run says the cut was optimistic.**
+
+### 128.3 The funnel moved, and the constraint moved with it
+
+`missedGoldens.counts` on R-67's 330 goldens:
+
+| bucket                  | R-55 (cap 1) | R-67 (cap 3) |
+| ----------------------- | -----------: | -----------: |
+| `hit`                   |           71 |      **143** |
+| `findingOnPathRejected` |            - |      **168** |
+| `fileNotReviewed`       |           13 |            0 |
+| `pathNotInPull`         |            - |           15 |
+| `noFindingOnPath`       |      **226** |        **4** |
+
+**The two columns are not one partition read twice.** §124.1's left column is the funnel measured on R-55's pool - 71
+emitted, 20 blocked by the twelve-per-pull-request budget, 13 dropped by the category-and-test-path rule, and 226 with no
+candidate at all - while the right column is `missedGoldens.counts`, which attributes a golden to what happened to it
+rather than to which rule could have saved it. **They agree on the one number that matters**: a golden with nothing on
+its path fell from 226 to 4.
+
+**The 226 goldens no emission rule could reach are down to 4.** At three concerns per site the pool holds a finding on
+almost every golden's own path, which is what R-64 bought and what this run confirms independently. **And the loss
+changed shape**: 168 goldens now sit on a path we spoke about and were not accepted for.
+
+`missedGoldens.rejectionShape` says which kind of rejection they are:
+
+| shape      | goldens | reading                                                         |
+| ---------- | ------: | --------------------------------------------------------------- |
+| `sameLine` | **115** | **we commented on the golden's own line and were not accepted** |
+| `within10` |      19 | within ten lines                                                |
+| `beyond50` |      34 | a targeting failure, not a wording one                          |
+
+**115 of 168 is the number this iteration actually bought: the binding constraint is now the sentence, not the search.**
+A product that wants more recall from here does not need a wider net - it needs the judge to accept what is already on
+the line, which is a claim about wording, quoting and specificity, and it is the first time this document has been able
+to say so with a count instead of a hypothesis.
+
+### 128.4 What this section does not claim
+
+- **That R-67's mechanism is refuted.** The device did not run. `sameSiteConcerns: 3` was applied and raised the pool to
+  1 109 findings with 597 kept second concerns; the budget was not applied at all.
+- **That the file arm should have a pull-request budget.** It is a design question this run raised and did not answer:
+  a top-N over the merged, gated list would have to decide _which files lose their findings_, and the gate already
+  chooses by evidence rather than by rank.
+- **That 0.2271 is the cap-3 arm's value.** It is one dispatch, and R-64's dispatch of the same configuration read
+  0.2376. The disagreement is the instrument's, and §122.3's cross-dispatch table is the reason this document reports
+  both rather than an average.
+- **That 115 `sameLine` rejections are all wording.** A finding on the golden's own line can still be about a different
+  defect; §124.3's hand-read of ten such rows found ten that were different claims. **The shape narrows the search, it
+  does not settle the verdict** - and reading twenty of these 115 by hand is the next free step.
+
+### 128.5 Price
+
+**11.43 CNY** measured on the account (50.50 → 39.07 CNY), against a **7 CNY** estimate - **1.6× over**, because the
+pool at cap 3 is 1 109 findings and the judge is `findings × goldens`. Cold total 2.1814 USD, billed 1.2864 USD, judge
+cache 15.2 %, reviewer cache 82.5 %.
+
+**What R-68 must be, if there is one**: a device the harness can express. Either the file arm grows a real pull-request
+budget - top-N over the gated list, with the per-file cap it already has - or R-67's claim is withdrawn and the next
+claim is written about the `sameLine` population, which is where 115 of the 187 unreachable goldens now are.
