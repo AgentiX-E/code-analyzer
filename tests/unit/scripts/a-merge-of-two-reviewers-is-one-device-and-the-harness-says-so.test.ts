@@ -21,6 +21,8 @@ import { join } from 'node:path';
 
 import { describe, expect, it } from 'vitest';
 
+import { planMatrix } from '../../../.github/scripts/aacr-plan-matrix.mjs';
+
 const root = join(import.meta.dirname, '..', '..', '..');
 const BENCH = readFileSync(join(root, '.github', 'scripts', 'aacr-bench.mjs'), 'utf8');
 const COMPARE = readFileSync(join(root, '.github', 'scripts', 'aacr-ablation-compare.mjs'), 'utf8');
@@ -97,13 +99,30 @@ describe('the ensemble arm', () => {
   });
 
   it('carries the key on every matrix row and passes it through', () => {
-    const matrix = WORKFLOW.slice(WORKFLOW.indexOf('matrix:'), WORKFLOW.indexOf('steps:'));
-    const rows = matrix.match(/\{&quot;|\{"profile"/gu) ?? [];
-    const keys = matrix.match(/"ensemble":"(?:on|off|reader)"/gu) ?? [];
-    expect(rows.length, 'the matrix has rows').toBeGreaterThan(0);
-    // **One `ensemble` per row.** A row that omitted it would be dispatched with the script's default while the matrix
-    // recorded nothing, which is the arrangement where the artifact and the dispatch can disagree.
-    expect(keys.length).toBe(rows.length);
+    // **Every row is asked of the planner rather than parsed out of the workflow** (§129). The rows moved into
+    // `aacr-plan-matrix.mjs` so a factorial could exist at all, and a parser keyed on `{"profile"` inside the workflow
+    // would now find zero rows and pass vacuously - the §127.4 shape, one device over.
+    const dispatches = [
+      {},
+      { window: 'pair' },
+      { window: 'grid' },
+      { agent: 'pair' },
+      { agent: 'on' },
+      { ensemble: 'pair' },
+      { ensemble: 'on' },
+      { ensemble: 'pair-reader' },
+      { ensemble: 'reader' },
+    ];
+    let rows = 0;
+    for (const d of dispatches) {
+      for (const arm of planMatrix(d)) {
+        rows += 1;
+        // **One `ensemble` per row.** A row that omitted it would be dispatched with the script's default while the
+        // matrix recorded nothing, which is the arrangement where the artifact and the dispatch can disagree.
+        expect(arm, `a row of ${JSON.stringify(d)} has no ensemble key`).toHaveProperty('ensemble');
+      }
+    }
+    expect(rows, 'the planner produced no rows').toBeGreaterThan(0);
     expect(WORKFLOW).toContain('AACR_ENSEMBLE: ${{ matrix.ensemble }}');
     expect(WORKFLOW).toContain('ensemble:');
     expect(WORKFLOW).toContain("default: 'off'");

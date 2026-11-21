@@ -122,9 +122,16 @@ on:
         # the arm that was deleted when `code_context` stopped being an input. It is back as a control rather than as a
         # device: the number it produces is **subtracted** from R-22's, and **a decomposition that is not measured is a
         # confound wearing a verdict.**
-        description: 'Code-window control: one arm (off), or the five lanes with and without it in one dispatch (pair)'
+        #
+        # **`grid` is the arm this input could not express until §129.** A pair varies one key, because `variedField`
+        # refuses a pair of artifacts that differ in more than one - correct for a subtraction, and fatal for the only
+        # experiment that can find a *combination*. `grid` buys the full `2^3` over `code_context` x `adjudicate` x
+        # `remarks` (`.github/scripts/aacr-plan-matrix.mjs`), row 0 being the baseline every published figure was
+        # measured under. **Three devices priced in one dispatch instead of three iterations**, which is what three
+        # single-factor ablations against a 0.0281 resolution actually cost.
+        description: 'Code-window control: one arm (off), the five lanes with and without it (pair), or the 2^3 grid over code context x adjudicate x remarks'
         type: choice
-        options: ['off', 'pair']
+        options: ['off', 'pair', 'grid']
         default: 'off'
       reach:
         # **The repository graph, for the lanes** (§100's device, §101's supply).
@@ -391,7 +398,41 @@ permissions:
 # goldens and the same judge; `compare` still has no credentials, so the arithmetic still cannot have been done by a
 # model.
 jobs:
+  # **The arm list is computed by a function a test can call**, where a 9 223-character `include:` expression used to
+  # hold twenty-six `||` branches that could each vary at most one key. That shape was forced by `variedField` in
+  # `aacr-ablation-compare.mjs`, which refuses a pair of artifacts differing in more than one key - correct for a
+  # subtraction, and fatal for a factorial, because a factorial is not a subtraction: its analysis is a difference of
+  # means over disjoint row sets, and its rows differ in several keys by construction.
+  #
+  # **`window: grid` buys the `2^3` over `code_context` x `adjudicate` x `remarks`**, three devices that are
+  # implemented, independent of `agent`, and each aimed at a measured defect rather than a hypothesis. Row 0 is the
+  # baseline, so a grid never re-buys its own control.
+  plan:
+    name: Plan the arms this dispatch buys
+    runs-on: ubuntu-latest
+    outputs:
+      matrix: ${{ steps.plan.outputs.matrix }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7
+        with:
+          node-version: '22'
+      - id: plan
+        # **Every input is mapped explicitly**, because a planner that scanned `INPUT_*` by prefix would turn an
+        # unrelated variable into a factor the moment one was renamed.
+        env:
+          INPUT_WINDOW: ${{ inputs.window || 'off' }}
+          INPUT_AGENT: ${{ inputs.agent || 'off' }}
+          INPUT_IDIOMS: ${{ inputs.idioms || 'off' }}
+          INPUT_REMARKS: ${{ inputs.remarks || 'off' }}
+          INPUT_PAIR: ${{ inputs.pair || 'off' }}
+          INPUT_ENSEMBLE: ${{ inputs.ensemble || 'off' }}
+          INPUT_SECOND_CONCERN: ${{ inputs.second_concern || 'off' }}
+          INPUT_LANE_SET: ${{ inputs.lane_set || 'off' }}
+        run: node .github/scripts/aacr-plan-matrix-cli.mjs >> "$GITHUB_OUTPUT"
+
   aacr-bench:
+    needs: plan
     # **Both matrix keys are in the job's own name**, because a run page that shows two identical titles for two
     # different arms is a page a reader has to open artifacts to disambiguate - and the whole point of the pair is that
     # the difference is legible before anything is downloaded.
@@ -465,7 +506,7 @@ jobs:
       # reference and `idioms` is the arm R-21 registered, and a matrix that varied both would answer neither - which is
       # the refusal `aacr-ablation-compare.mjs` already encodes as `variedField`.
       matrix:
-        include: '${{ fromJSON((inputs.window || ''off'') == ''pair'' && ''[{"profile":"advisory","code_context":"off","adjudicate":"off","idioms":"off","agent":"off","remarks":"off","ensemble":"off","second_concern":"off","lane_set":"shipped","change_shape":"off"},{"profile":"advisory","code_context":"on","adjudicate":"off","idioms":"off","agent":"off","remarks":"off","ensemble":"off","second_concern":"off","lane_set":"shipped","change_shape":"off"}]'' || (inputs.agent || ''off'') == ''pair'' && ''[{"profile":"advisory","code_context":"off","adjudicate":"off","idioms":"off","agent":"off","remarks":"off","ensemble":"off","second_concern":"off","lane_set":"shipped","change_shape":"off"},{"profile":"advisory","code_context":"off","adjudicate":"off","idioms":"off","agent":"on","remarks":"off","ensemble":"off","second_concern":"off","lane_set":"shipped","change_shape":"off"}]'' || (inputs.agent || ''off'') == ''on'' && ''[{"profile":"advisory","code_context":"off","adjudicate":"off","idioms":"off","agent":"on","remarks":"off","ensemble":"off","second_concern":"off","lane_set":"shipped","change_shape":"off"}]'' || (inputs.idioms || ''off'') == ''pair'' && ''[{"profile":"advisory","code_context":"off","adjudicate":"off","idioms":"off","agent":"off","remarks":"off","ensemble":"off","second_concern":"off","lane_set":"shipped","change_shape":"off"},{"profile":"advisory","code_context":"off","adjudicate":"off","idioms":"on","agent":"off","remarks":"off","ensemble":"off","second_concern":"off","lane_set":"shipped","change_shape":"off"}]'' || (inputs.idioms || ''off'') == ''on'' && ''[{"profile":"advisory","code_context":"off","adjudicate":"off","idioms":"on","agent":"off","remarks":"off","ensemble":"off","second_concern":"off","lane_set":"shipped","change_shape":"off"}]'' || (inputs.remarks || ''off'') == ''pair'' && ''[{"profile":"advisory","code_context":"off","adjudicate":"off","idioms":"off","agent":"off","remarks":"off","ensemble":"off","second_concern":"off","lane_set":"shipped","change_shape":"off"},{"profile":"advisory","code_context":"off","adjudicate":"off","idioms":"off","agent":"off","remarks":"on","ensemble":"off","second_concern":"off","lane_set":"shipped","change_shape":"off"}]'' || (inputs.remarks || ''off'') == ''on'' && ''[{"profile":"advisory","code_context":"off","adjudicate":"off","idioms":"off","agent":"off","remarks":"on","ensemble":"off","second_concern":"off","lane_set":"shipped","change_shape":"off"}]'' || (inputs.pair || ''off'') == ''falsifier-v4'' && ''[{"profile":"advisory","code_context":"off","adjudicate":"falsifier-v4","idioms":"off","agent":"off","remarks":"off","ensemble":"off","second_concern":"off","lane_set":"shipped","change_shape":"off"},{"profile":"advisory","code_context":"off","adjudicate":"off","idioms":"off","agent":"off","remarks":"off","ensemble":"off","second_concern":"off","lane_set":"shipped","change_shape":"off"}]'' || (inputs.pair || ''off'') == ''change-shape'' && ''[{"profile":"advisory","code_context":"off","adjudicate":"falsifier-v2","idioms":"off","agent":"off","remarks":"off","ensemble":"off","second_concern":"off","lane_set":"shipped","change_shape":"off"},{"profile":"advisory","code_context":"off","adjudicate":"falsifier-v2","idioms":"off","agent":"off","remarks":"off","ensemble":"off","second_concern":"off","lane_set":"shipped","change_shape":"on"}]'' || (inputs.pair || ''off'') == ''falsifier-v3'' && ''[{"profile":"advisory","code_context":"off","adjudicate":"falsifier-v3","idioms":"off","agent":"off","remarks":"off","ensemble":"off","second_concern":"off","lane_set":"shipped","change_shape":"off"},{"profile":"advisory","code_context":"off","adjudicate":"off","idioms":"off","agent":"off","remarks":"off","ensemble":"off","second_concern":"off","lane_set":"shipped","change_shape":"off"}]'' || (inputs.pair || ''off'') == ''falsifier-v2'' && ''[{"profile":"advisory","code_context":"off","adjudicate":"falsifier-v2","idioms":"off","agent":"off","remarks":"off","ensemble":"off","second_concern":"off","lane_set":"shipped","change_shape":"off"},{"profile":"advisory","code_context":"off","adjudicate":"off","idioms":"off","agent":"off","remarks":"off","ensemble":"off","second_concern":"off","lane_set":"shipped","change_shape":"off"}]'' || (inputs.pair || ''off'') == ''falsifier'' && ''[{"profile":"advisory","code_context":"off","adjudicate":"falsifier","idioms":"off","agent":"off","remarks":"off","ensemble":"off","second_concern":"off","lane_set":"shipped","change_shape":"off"},{"profile":"advisory","code_context":"off","adjudicate":"off","idioms":"off","agent":"off","remarks":"off","ensemble":"off","second_concern":"off","lane_set":"shipped","change_shape":"off"}]'' || (inputs.pair || ''off'') == ''on'' && ''[{"profile":"advisory","code_context":"off","adjudicate":"on","idioms":"off","agent":"off","remarks":"off","ensemble":"off","second_concern":"off","lane_set":"shipped","change_shape":"off"},{"profile":"advisory","code_context":"off","adjudicate":"off","idioms":"off","agent":"off","remarks":"off","ensemble":"off","second_concern":"off","lane_set":"shipped","change_shape":"off"}]'' || (inputs.ensemble || ''off'') == ''pair-reader'' && ''[{"profile":"advisory","code_context":"off","adjudicate":"off","idioms":"off","agent":"off","remarks":"off","ensemble":"off","second_concern":"off","lane_set":"shipped","change_shape":"off"},{"profile":"advisory","code_context":"off","adjudicate":"off","idioms":"off","agent":"on","remarks":"off","ensemble":"reader","second_concern":"off","lane_set":"shipped","change_shape":"off"}]'' || (inputs.ensemble || ''off'') == ''reader'' && ''[{"profile":"advisory","code_context":"off","adjudicate":"off","idioms":"off","agent":"on","remarks":"off","ensemble":"reader","second_concern":"off","lane_set":"shipped","change_shape":"off"}]'' || (inputs.ensemble || ''off'') == ''pair'' && ''[{"profile":"advisory","code_context":"off","adjudicate":"off","idioms":"off","agent":"off","remarks":"off","ensemble":"off","second_concern":"off","lane_set":"shipped","change_shape":"off"},{"profile":"advisory","code_context":"off","adjudicate":"off","idioms":"off","agent":"on","remarks":"off","ensemble":"on","second_concern":"off","lane_set":"shipped","change_shape":"off"}]'' || (inputs.ensemble || ''off'') == ''on'' && ''[{"profile":"advisory","code_context":"off","adjudicate":"off","idioms":"off","agent":"on","remarks":"off","ensemble":"on","second_concern":"off","lane_set":"shipped","change_shape":"off"}]'' || (inputs.second_concern || ''off'') == ''pair'' && ''[{"profile":"advisory","code_context":"off","adjudicate":"off","idioms":"off","agent":"off","remarks":"off","ensemble":"off","second_concern":"off","lane_set":"shipped","change_shape":"off"},{"profile":"advisory","code_context":"off","adjudicate":"off","idioms":"off","agent":"off","remarks":"off","ensemble":"off","second_concern":"on","lane_set":"shipped","change_shape":"off"}]'' || (inputs.second_concern || ''off'') == ''on'' && ''[{"profile":"advisory","code_context":"off","adjudicate":"off","idioms":"off","agent":"off","remarks":"off","ensemble":"off","second_concern":"on","lane_set":"shipped","change_shape":"off"}]'' || (inputs.lane_set || ''off'') == ''pair-lean'' && ''[{"profile":"advisory","code_context":"off","adjudicate":"off","idioms":"off","agent":"off","remarks":"off","ensemble":"off","second_concern":"off","lane_set":"shipped","change_shape":"off"},{"profile":"advisory","code_context":"off","adjudicate":"off","idioms":"off","agent":"off","remarks":"off","ensemble":"off","second_concern":"off","lane_set":"lean","change_shape":"off"}]'' || (inputs.lane_set || ''off'') == ''lean'' && ''[{"profile":"advisory","code_context":"off","adjudicate":"off","idioms":"off","agent":"off","remarks":"off","ensemble":"off","second_concern":"off","lane_set":"lean","change_shape":"off"}]'' || (inputs.lane_set || ''off'') == ''pair-wide'' && ''[{"profile":"advisory","code_context":"off","adjudicate":"off","idioms":"off","agent":"off","remarks":"off","ensemble":"off","second_concern":"off","lane_set":"shipped","change_shape":"off"},{"profile":"advisory","code_context":"off","adjudicate":"off","idioms":"off","agent":"off","remarks":"off","ensemble":"off","second_concern":"off","lane_set":"wide","change_shape":"off"}]'' || (inputs.lane_set || ''off'') == ''wide'' && ''[{"profile":"advisory","code_context":"off","adjudicate":"off","idioms":"off","agent":"off","remarks":"off","ensemble":"off","second_concern":"off","lane_set":"wide","change_shape":"off"}]'' || (inputs.lane_set || ''off'') == ''pair'' && ''[{"profile":"advisory","code_context":"off","adjudicate":"off","idioms":"off","agent":"off","remarks":"off","ensemble":"off","second_concern":"off","lane_set":"shipped","change_shape":"off"},{"profile":"advisory","code_context":"off","adjudicate":"off","idioms":"off","agent":"off","remarks":"off","ensemble":"off","second_concern":"off","lane_set":"behaviour","change_shape":"off"}]'' || (inputs.lane_set || ''off'') == ''on'' && ''[{"profile":"advisory","code_context":"off","adjudicate":"off","idioms":"off","agent":"off","remarks":"off","ensemble":"off","second_concern":"off","lane_set":"behaviour","change_shape":"off"}]'' || ''[{"profile":"advisory","code_context":"off","adjudicate":"off","idioms":"off","agent":"off","remarks":"off","ensemble":"off","second_concern":"off","lane_set":"shipped","change_shape":"off"}]'') }}'
+        include: ${{ fromJSON(needs.plan.outputs.matrix) }}
 
     steps:
       - name: Checkout
@@ -1016,5 +1057,59 @@ jobs:
         with:
           name: aacr-ablation-paired
           path: benchmarks/aacr-ablation-paired.json
+          if-no-files-found: warn
+          retention-days: 90
+
+  # **The factorial, priced as a factorial** (§129). `compare` answers "did this device move the figure" by subtraction,
+  # and a `2^k` design has no pair to subtract: no two of its arms differ in one key, so every pair `variedField` would
+  # accept is a pair the design does not contain. The answer a grid gives is **a difference of two means over disjoint
+  # row sets**, which is what this job computes - three devices priced in one dispatch instead of three iterations, each
+  # of which cost more than the instrument could resolve.
+  #
+  # **It is a job of its own rather than a branch of `compare`**, because the two read different numbers of artifacts by
+  # different mechanisms: `compare` downloads two named arms, and this one takes every artifact the bench job uploaded.
+  grid-compare:
+    name: The grid, priced as a factorial
+    needs: aacr-bench
+    if: (inputs.window || 'off') == 'grid'
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - name: Checkout
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+
+      - name: Setup Node.js
+        uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7
+        with:
+          node-version-file: '.nvmrc'
+
+      # **Every arm, each in its own directory.** `merge-multiple` is left off on purpose: eight `aacr-bench.json` files
+      # written into one folder would leave whichever finished last, and **the report would then describe one arm eight
+      # times** - an artifact internally consistent and about a dispatch that never ran, which is the §58.1 shape this
+      # job exists to avoid.
+      - name: Download every arm the plan bought
+        uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8
+        with:
+          pattern: aacr-bench-*
+          path: /tmp/arms
+
+      # **The arithmetic before the answer**, for the same reason the bench job has `--dry-run`: this script's "no
+      # effect" branch is the branch a device that does nothing would take.
+      - name: Prove the readback's arithmetic on fixtures
+        run: node .github/scripts/aacr-grid-compare.mjs --self-test
+
+      - name: Read the factorial
+        run: |
+          set -e
+          node .github/scripts/aacr-grid-compare.mjs /tmp/arms/* --out /tmp/aacr-grid.json | tee /tmp/aacr-grid.md
+
+      - name: Upload the report
+        if: always()
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7
+        with:
+          name: aacr-grid-report
+          path: |
+            /tmp/aacr-grid.json
+            /tmp/aacr-grid.md
           if-no-files-found: warn
           retention-days: 90

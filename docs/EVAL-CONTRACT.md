@@ -14459,3 +14459,126 @@ cache 15.2 %, reviewer cache 82.5 %.
 **What R-68 must be, if there is one**: a device the harness can express. Either the file arm grows a real pull-request
 budget - top-N over the gated list, with the per-file cap it already has - or R-67's claim is withdrawn and the next
 claim is written about the `sameLine` population, which is where 115 of the 187 unreachable goldens now are.
+
+## §129 Three iterations of one device at a time, and the architecture that made that inevitable
+
+**This section is a correction, and it starts with a number that is not flattering.**
+
+Three iterations - R-64, R-67, and the pair registrations before them - each priced **one device** by subtracting two
+artifacts. Every registered gain came back inside the instrument's own resolution:
+
+| run  | device                | registered bar | measured | resolution | verdict                         |
+| ---- | --------------------- | -------------: | -------: | ---------: | ------------------------------- |
+| R-64 | `sameSiteConcerns: 3` |       +0.01 F1 |  +0.0108 | **0.0281** | met, and smaller than the noise |
+| R-67 | cap 3 + budget 20     |       ≥ 0.2549 |   0.2271 |     0.0281 | **not met, cause: unwired**     |
+
+**A gain of 0.0108 against a resolution of 0.0281 is not a small gain; it is not a gain.** The two dispatches of the same
+cap-3 configuration read 0.2376 and 0.2271 - a spread of 0.0105, the same size as the effect they were measuring. **I
+spent roughly 20 CNY buying three numbers that cannot be told apart from each other.**
+
+### 129.1 The ceiling was already known, and I kept searching under it
+
+`benchmarks/martian-bench.json` carries 943 ranked findings over 50 pull requests. Any re-cut of that set - a threshold, a
+top-N, a cap - reaches:
+
+| cut                       |   k |  TP | precision | recall |         F1 |
+| ------------------------- | --: | --: | --------: | -----: | ---------: |
+| top-1 / PR                |  50 |  22 | **0.440** |  0.127 |     0.1973 |
+| top-3 / PR                | 144 |  40 |     0.278 |  0.231 |     0.2524 |
+| top-12 / PR (shipped)     | 429 |  84 |     0.196 |  0.486 | **0.2791** |
+| no cut                    | 743 |  95 |     0.128 |  0.549 |     0.2074 |
+| **absolute score ≥ 0.75** | 388 |  78 |     0.201 |  0.451 | **0.2781** |
+
+**The ceiling over every possible re-cut is 0.278.** The three iterations' variables - budget, cap, concern count - are
+all re-cuts. **I was optimising inside a space whose maximum was fixed before I started**, and the fixed maximum was
+below every competitor's published figure. This is the first time this document can state that as arithmetic rather than
+as a suspicion.
+
+### 129.2 What the precision figure was actually measuring
+
+58 findings at score ≥ 0.85, read by hand, one at a time: **58 of 58 describe a real, verifiable defect.** A webhook
+authentication bypass when the secret environment variable is unset (`score 1.000`); a `trap` that references `OWNED_PID`
+before it is assigned; `enableSqlExpressions` returning `false` unconditionally; a template iterating `members` while the
+route supplies `model`; a test creating 40 003 annotations and asserting 40 000.
+
+**Of those 58, 44 sit on files none of the 173 goldens mentions.** So the headline `precision 0.1935` is not "62 % of our
+findings are wrong" - it is "62 % of the findings that reach a judge are not on the 3.5 lines per pull request the goldens
+happen to enumerate".
+
+| question                                         | answer on this corpus |
+| ------------------------------------------------ | --------------------- |
+| precision against the 173 goldens                | 0.1935                |
+| precision of the score ≥ 0.85 band, read by hand | **58 / 58**           |
+| share of that band the goldens do not cover      | **44 / 58**           |
+| outputs per pull request at that band            | **1.16**              |
+
+**That last row is the competitive answer.** Greptile and CodeRabbit ship one to three findings per pull request. Their
+advantage is not a better reviewer; it is **restraint** - and the measurement above says the restraint is already
+available here, sitting inside a 943-finding pool that the benchmark dilutes to 8.6 per pull request in pursuit of a
+recall number that the goldens' coverage cannot reward.
+
+### 129.3 The architecture that made a combination impossible
+
+The arm list was a **9 394-character single-quoted `include:` expression**: twenty-six `||` branches, each varying at most
+one key. That was not carelessness. `variedField` in `aacr-ablation-compare.mjs` refuses a pair of artifacts that differ
+in more than one key - a correct rule, because a pair that differs in two answers neither question - and the expression
+was written to satisfy it.
+
+**The rule is right about pairs and fatal about factorials.** In a `2^k` design no two arms differ in one key. So the only
+experiment that could have found a _combination_ was structurally unrepresentable, and **every dispatch I could send was a
+single-device subtraction.** That is the mechanism behind the three iterations, and it was in the YAML.
+
+The rows now live in `.github/scripts/aacr-plan-matrix.mjs`, a function a test can call; a `plan` job prints them; the
+workflow holds `include: ${{ fromJSON(needs.plan.outputs.matrix) }}`. **9 394 characters became thirteen, and a
+transcription that had to be exact was checked as one** (`a-plan-is-the-plan-the-expression-built`: 27 branches, row counts
+and key completeness, plus the rule that a pair differs in exactly one key - with `ensemble` recorded as the one genuine
+two-key device, because a merge of one reviewer is not a merge).
+
+### 129.4 The grid, and why these three factors
+
+`window: grid` buys the full `2^3` over three devices that are implemented, independent of `agent`, and each aimed at a
+measured defect rather than a hypothesis:
+
+| factor         | levels               | why it is here                                                                                                                             |
+| -------------- | -------------------- | ------------------------------------------------------------------------------------------------------------------------------------------ |
+| `code_context` | off / on             | §128 read 44 of 58 high-score findings on files the goldens never mention; confirming those needs the surrounding file                     |
+| `adjudicate`   | off / `falsifier-v2` | §74 found v1 admitted a tautology and v2 removed the claim's own range from its evidence                                                   |
+| `remarks`      | off / on             | the device written for R-67's population: **386 of 724 goldens had a finding on their own path and were still judged not to address them** |
+
+**Row 0 is the baseline**, so a grid never re-buys its own control: the first arm of every grid is the configuration R-55
+and the Martian run were measured under.
+
+`aacr-grid-compare.mjs` reads the result. **It does not list the factors** - every configuration key that differs between
+the arms is one, which is the definition rather than a second declaration that could drift. It reports **balance** (an
+unbalanced set turns an effect into a confound), **completeness** (`2^k` minus three arms is not a `2^k`, and two arms over
+two keys prints one effect twice), and **three different questions**: best F1, best precision, best F1 per cold dollar. An
+arm that wins all three is the only one that needs no trade-off argument.
+
+### 129.5 Cost, stated before the dispatch rather than after
+
+| stage        | arms |   rows |             estimate |
+| ------------ | ---: | -----: | -------------------: |
+| screening    |    8 | 15 PRs | ≈ 5 USD / **35 CNY** |
+| confirmation |    2 | 50 PRs | ≈ 3 USD / **21 CNY** |
+| **total**    |      |        |         **≈ 56 CNY** |
+
+**Against roughly 30 CNY already spent on three figures that could not be separated from noise.** The screening slice is
+15 pull requests because a factor design's question is a _difference of means_, which pools four rows per level and is
+therefore far less dependent on row count than a subtraction is.
+
+### 129.6 What this section does not claim
+
+- **That any of the three devices helps.** No grid has been dispatched. The claim is about the design, and the design's
+  first job is to be able to say "no" three times at once.
+- **That 58 / 58 will hold across the whole pool.** It is the score ≥ 0.85 band, which is the band most likely to be
+  right. The 885 findings below it were not read, and the calibration table that would price them is the next free step.
+- **That the goldens are wrong.** They are partial: 3.5 defects per pull request is a description of a review, not a
+  census of a diff. **A partial gold set does not make our findings false, and it does not make them right either** - it
+  makes the precision figure a floor, which is a different thing from a measurement.
+- **That restraint is free.** At 1.16 findings per pull request the recall against these goldens falls to 0.127. That
+  trade is real, and which side of it a product should sit on is a decision §129 does not make.
+
+### 129.7 Price
+
+**0 CNY.** Every assertion stubs its inputs; no model was called to write this section. The grid is **registered and not
+dispatched**, and §129.5 is the number it will cost when it is.

@@ -25,6 +25,8 @@ import { join } from 'node:path';
 
 import { describe, expect, it } from 'vitest';
 
+import { planMatrix } from '../../../.github/scripts/aacr-plan-matrix.mjs';
+
 const WORKFLOW = readFileSync(
   join(import.meta.dirname, '..', '..', '..', '.github', 'workflows', 'aacr-bench.yml'),
   'utf8',
@@ -45,61 +47,63 @@ type ArmKey =
   | 'lane_set'
   | 'change_shape';
 
-/** One inline mapping's body - `profile: advisory, code_context: off` - read as an arm. */
-function armOf(body: string, source: string): Arm {
-  const arm: Arm = {};
-  for (const pair of body.split(',')) {
-    const kv = /^\s*([A-Za-z_][\w-]*)\s*:\s*(.+?)\s*$/.exec(pair);
-    expect(kv, `a matrix arm has a field that is not key: value: (${source}) ${pair}`).toBeTruthy();
-    arm[kv![1]!] = kv![2]!.replace(/^['"]|['"]$/g, '');
-  }
-  return arm;
-}
+// **`armOf` was deleted with the parser it served.** It read one inline mapping out of the workflow's literal `include:`
+// block; §129 moved the rows into `aacr-plan-matrix.mjs`, where they are already objects, so the function had no caller
+// and the type-check ratchet refused it as an unused declaration - which is the right outcome for a reader whose subject
+// no longer exists.
 
 /**
- * **Every matrix the workflow can produce, as the `include` entries it declares - not as a cross product.**
+ * **Every dispatch whose arms this file reasons about.** One entry per branch the `include:` expression held before
+ * §129, in the order that chain evaluated in, plus `window: grid` - which the chain could not express at all.
+ */
+const DISPATCHES: Array<Record<string, string>> = [
+  {},
+  { window: 'pair' },
+  { window: 'grid' },
+  { agent: 'pair' },
+  { agent: 'on' },
+  { idioms: 'pair' },
+  { idioms: 'on' },
+  { remarks: 'pair' },
+  { remarks: 'on' },
+  { pair: 'falsifier-v4' },
+  { pair: 'change-shape' },
+  { pair: 'falsifier-v3' },
+  { pair: 'falsifier-v2' },
+  { pair: 'falsifier' },
+  { pair: 'on' },
+  { ensemble: 'pair-reader' },
+  { ensemble: 'reader' },
+  { ensemble: 'pair' },
+  { ensemble: 'on' },
+  { second_concern: 'pair' },
+  { second_concern: 'on' },
+  { lane_set: 'pair-lean' },
+  { lane_set: 'lean' },
+  { lane_set: 'pair-wide' },
+  { lane_set: 'wide' },
+  { lane_set: 'pair' },
+  { lane_set: 'on' },
+];
+
+/**
+ * **Every matrix a dispatch can produce, computed by the planner rather than parsed out of YAML.**
  *
- * The workflow writes the rows it intends explicitly, so that a difference between two of them is a variable somebody
- * chose; reading the matrix as a cross product would be reading the shape it deliberately does not have, and would
- * silently accept a matrix that acquired a second key and quadrupled the bill.
+ * The rows used to live in a 9 394-character `include:` expression, and this function parsed the JSON literals out of it.
+ * §129 moved them into `.github/scripts/aacr-plan-matrix.mjs` so that a combination could exist at all - and **parsing
+ * the new one-liner would have found no literals and quietly certified every assertion below against an empty list**,
+ * which is the failure mode of a guard whose subject walks out of its field of view (§127.4 named the same shape one
+ * device over).
  *
- * **It can write them two ways, and both are read here.** A literal list of `- {profile: …}` entries is the plain form.
- * The computed form is a `fromJSON(...)` expression holding the same rows as JSON string literals, and **it exists
- * because a *job-level* `if` cannot see `matrix`**: the dispatch that tried it was refused with *"Unrecognized
- * named-value: 'matrix'"* and the workflow did not load, so collapsing the run to a single row when the arm under test
- * reads the code for itself had to happen inside the matrix. **A computed matrix is a list of alternatives rather than
- * one list**, which is why this returns a list of them - the assertions below are about a matrix, and there is now more
- * than one a dispatch can run.
+ * So the arms are asked of the planner, and the workflow is asserted to *reference* it - the two halves that can drift
+ * apart are both checked, and neither is inferred from the other.
  */
 function alternatives(): Arm[][] {
-  const includeLine = /matrix:[^\n]*\n\s*include:\s*([^\n]+)/.exec(WORKFLOW);
-  expect(includeLine, 'the workflow no longer declares a matrix `include`').not.toBeNull();
-  const declared = includeLine![1]!;
-
-  // The computed form: the rows are JSON literals inside the expression, escaped for YAML's single-quoted scalar, so
-  // each one arrives as `''[{…}]''`. **Parsed rather than pattern-matched**, because the property under test is what the
-  // runner will actually expand, and only a parser knows that.
-  const jsonLiterals = [...declared.matchAll(/''(\[[^']*\])''/g)].map((match) => match[1]!);
-  if (jsonLiterals.length > 0) {
-    return jsonLiterals.map((text) => JSON.parse(text) as Arm[]);
-  }
-
-  // The literal form: one `- {…}` line per row, under `include:`.
-  const block = /matrix:\s*\n\s*include:\s*\n((?:\s*-[^\n]*\n)+)/.exec(WORKFLOW);
   expect(
-    block,
-    'the matrix declares neither JSON alternatives nor an inline mapping list',
-  ).not.toBeNull();
-  const rows = block![1]!
-    .split('\n')
-    .map((line) => line.trim())
-    .filter((line) => line.startsWith('- {'))
-    .map((line) => {
-      const body = /^-\s*\{(.*)\}$/.exec(line)?.[1];
-      expect(body, `a matrix arm is not an inline mapping: ${line}`).toBeTruthy();
-      return armOf(body!, line);
-    });
-  return [rows];
+    WORKFLOW,
+    'the workflow no longer buys the planner its matrix, so these assertions describe an arm list nothing runs',
+  ).toContain('include: ${{ fromJSON(needs.plan.outputs.matrix) }}');
+  return DISPATCHES.map((inputs) => planMatrix(inputs) as Arm[]);
 }
 
 /** Every arm of every alternative, for the assertions that hold of the workflow as a whole. */
@@ -381,7 +385,15 @@ describe('the comparison runs only when there is a pair to compare', () => {
     expect(gate![1]).toContain("(inputs.idioms || 'off') == 'pair'");
     // **And the pairing is checked against the same input the matrix reads**, so an input renamed in one place and not
     // the other fails here rather than leaving a dispatch that pays for two arms and compares none.
-    expect(WORKFLOW).toContain("(inputs.pair || ''off'') == ''on''");
+    //
+    // **The matrix half moved to the planner in §129**, so the assertion names the variable the planner reads rather than
+    // a branch inside a 9 KB expression: `INPUT_PAIR` is what `aacr-plan-matrix-cli.mjs` maps from `inputs.pair`, and a
+    // gate reading `inputs.pair` beside a planner reading something else is the drift this line exists for.
+    expect(WORKFLOW).toContain('INPUT_PAIR: ${{ inputs.pair');
+    expect(
+      planMatrix({ pair: 'on' }),
+      'the gate buys an arm the planner does not produce',
+    ).toHaveLength(2);
   });
 });
 
@@ -450,7 +462,16 @@ describe('the matrix is one experiment', () => {
       // whose 152 `test`-category findings reached a judge zero times on two artifacts because `drop test` is the first
       // step of the cut. It is a cost device rather than an accuracy one, so it is dispatched as a pair - the claim is
       // that F1 does not move and the bill does, and a single arm cannot say both.
-    ).toEqual([1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2]);
+      // **And one eight-row alternative, which is the only entry here that is not a pair or a single.** `window: grid`
+      // buys the full `2^3` over `code_context` x `adjudicate` x `remarks` (§129): three devices priced in one dispatch
+      // instead of three iterations, which is what three single-factor ablations against a 0.0258-and-a-bit resolution
+      // actually cost. It is eight rows and not nine because row 0 *is* the baseline every published figure was measured
+      // under - a grid never re-buys its own control.
+      //
+      // **The count is still a budget and not a style**, which is why this array is enumerated rather than bounded: an
+      // alternative that appeared by accident would be a dispatch nobody chose, and at eight rows it would be eight
+      // dispatches nobody chose.
+    ).toEqual([1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 8]);
   });
 
   it('varies exactly one key, so that a difference between the arms is the device', () => {
@@ -605,7 +626,13 @@ describe('a download guard that the next device forgets to extend', () => {
    * the only way to know that is to read the expression it was given.
    */
   function downloadSteps(): { title: string; guard: string | null; artifact: string }[] {
-    const job = WORKFLOW.slice(WORKFLOW.indexOf('\n  compare:'));
+    // **The slice stops at the next job**, because §129 added one that downloads every arm by pattern rather than two by
+    // name. A scan that ran to the end of the file would read that job's steps as this job's, and its pattern download
+    // has no artifact name to assert - which is correct for it and would fail here for the wrong reason.
+    const start = WORKFLOW.indexOf('\n  compare:');
+    const rest = WORKFLOW.slice(start);
+    const nextJob = rest.slice(1).search(/\n {2}[a-z][\w-]*:\n/u);
+    const job = nextJob === -1 ? rest : rest.slice(0, nextJob + 1);
     return job
       .split(/\n {6}- name: /)
       .slice(1)

@@ -18,6 +18,8 @@
 import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
 
+import { planMatrix } from '../../../.github/scripts/aacr-plan-matrix.mjs';
+
 import { describe, expect, it } from 'vitest';
 
 const ROOT = join(import.meta.dirname, '..', '..', '..');
@@ -65,17 +67,26 @@ describe('the lane set the corpus does not score', () => {
 
   it('has a matrix arm, because an option with no arm downloads nothing', () => {
     // **R-35 lost its comparison to exactly this omission.** A dispatch value the matrix never produces uploads an
-    // artifact with the default arm's name, and the step that pairs the two arms then reads one artifact twice. Both
-    // names are asserted in the expression that builds the matrix, not in the option list.
-    const matrix = /include: '([\s\S]*?)'\n/u.exec(WORKFLOW);
-    expect(matrix, 'the matrix include is no longer a single quoted expression').not.toBeNull();
-    expect(matrix![1]).toContain("== ''lean''");
-    expect(matrix![1]).toContain('"lane_set":"lean"');
-    expect(matrix![1]).toContain("== ''pair-lean''");
+    // artifact with the default arm's name, and the step that pairs the two arms then reads one artifact twice.
+    //
+    // **The arm is now read from the planner rather than from the expression that used to hold it.** §129 moved the
+    // rows into `aacr-plan-matrix.mjs` so that a combination could exist at all; asserting a string inside a 9 KB
+    // expression would have kept passing on a planner nobody had wired, which is the shape of a guard that certifies a
+    // stale subject. This asserts the produced row instead - what the job would actually buy.
+    expect(WORKFLOW).toContain('include: ${{ fromJSON(needs.plan.outputs.matrix) }}');
+
+    const lean = planMatrix({ lane_set: 'lean' });
+    expect(lean, 'the planner produced no arm for lane_set=lean').toHaveLength(1);
+    expect(lean[0]!['lane_set']).toBe('lean');
+
     // **And the pair is two arms, one of them the shipped set**, because the comparison's sign is `with` minus
     // `without` and `with` has to be the arm that dropped a lane.
-    expect(matrix![1]).toContain(
-      '"lane_set":"shipped","change_shape":"off"},{"profile":"advisory","code_context":"off","adjudicate":"off","idioms":"off","agent":"off","remarks":"off","ensemble":"off","second_concern":"off","lane_set":"lean"',
-    );
+    const pair = planMatrix({ lane_set: 'pair-lean' });
+    expect(pair).toHaveLength(2);
+    expect(pair[0]!['lane_set']).toBe('shipped');
+    expect(pair[1]!['lane_set']).toBe('lean');
+    // **Every other key identical between the two**, which is what makes the difference a subtraction over one variable.
+    const differing = Object.keys(pair[0]!).filter((k) => pair[0]![k] !== pair[1]![k]);
+    expect(differing).toEqual(['lane_set']);
   });
 });

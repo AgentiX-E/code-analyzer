@@ -2,6 +2,8 @@ import { readFileSync } from 'node:fs';
 import { resolve } from 'node:path';
 import { describe, expect, it } from 'vitest';
 
+import { planMatrix } from '../../../.github/scripts/aacr-plan-matrix.mjs';
+
 /**
  * **The merge flag has three states, and the third one exists because a device was measured by accident.**
  *
@@ -55,7 +57,12 @@ describe('the merge flag', () => {
   it('downloads the reader-only arm under the name its own matrix row produces', () => {
     // The name is expanded from the matrix in `an-artifact-that-is-never-uploaded-is-never-downloaded.test.ts`; this
     // asserts the reader row exists with the two keys that name it, so the literal below cannot drift alone.
-    expect(WORKFLOW).toContain('"agent":"on","remarks":"off","ensemble":"reader"');
+    // **The row is asked of the planner rather than read out of the workflow** (§129): the literal used to live inside
+    // the 9 KB `include:` expression, and asserting a string that no longer exists would have failed for the wrong
+    // reason - while a planner that stopped producing this row would have gone unnoticed if the string were still there.
+    const readerRow = planMatrix({ ensemble: 'reader' })[0]!;
+    expect(readerRow).toMatchObject({ agent: 'on', remarks: 'off', ensemble: 'reader' });
+    expect(readerRow['code_context']).toBe('off');
     expect(WORKFLOW).toContain('name: aacr-bench-advisory-off-off-off-on-reader-off');
   });
 
