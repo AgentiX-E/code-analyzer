@@ -458,9 +458,14 @@ const REACH = String(process.env['AACR_REACH'] ?? 'off').toLowerCase() === 'on';
  * twenty**, by 0.0175 of F1, so the budget is now a device to be dispatched rather than a constant: R-67 prices the
  * pair. **Validated rather than coerced**, because a run labelled 20 that bought 12 would be a comparison against the
  * wrong arm - the defect §122.2 exists for.
+ *
+ * **The default is named rather than inlined in the `??`**, because `a-budget-that-drifts` reads it by name and a
+ * regex that has to survive the validation IIFE is a test asserting on punctuation. The engine's
+ * `DEFAULT_PULL_REQUEST_BUDGET` and this constant are still the two numbers that must agree.
  */
+const DEFAULT_PR_BUDGET = 12;
 const PR_BUDGET = (() => {
-  const raw = String(process.env['PR_BUDGET'] ?? '12');
+  const raw = String(process.env['PR_BUDGET'] ?? DEFAULT_PR_BUDGET);
   const parsed = Number(raw);
   if (!Number.isInteger(parsed) || parsed < 1 || parsed > 64)
     throw new Error(`PR_BUDGET must be an integer in 1..64, not "${raw}"`);

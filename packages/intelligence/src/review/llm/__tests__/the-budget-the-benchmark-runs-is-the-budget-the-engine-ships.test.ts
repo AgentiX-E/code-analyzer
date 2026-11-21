@@ -9,6 +9,12 @@
 // **The test reads both files and compares the defaults**, which is the only assertion that can hold without a build:
 // the constant is 12 in the engine, the script's fallback is 12, and `PR_BUDGET` may still override either at run time
 // because an override is a decision a runner makes on purpose.
+//
+// **The default was inlined in the `??` until §126.4 made the budget a dispatch input**, at which point the fallback
+// also gained a 1..64 check and the one-line shape this test matched stopped existing. The script now names the default
+// (`DEFAULT_PR_BUDGET`) and reads it in its own `??`, so this test compares two numbers by name instead of matching
+// punctuation - and asserts the `??` actually consumes the named constant, since a second literal in the IIFE would
+// restore exactly the drift the test exists to catch.
 
 import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
@@ -22,15 +28,17 @@ const read = (path: string) => readFileSync(join(process.cwd(), path), 'utf8');
 describe('the pull-request budget', () => {
   it('is the number the benchmark arm runs at', () => {
     const script = read('.github/scripts/aacr-bench.mjs');
-    const declared = /const PR_BUDGET = Number\(process\.env\['PR_BUDGET'\] \?\? '(\d+)'\);/u.exec(
-      script,
-    );
+    const declared = /const DEFAULT_PR_BUDGET = (\d+);/u.exec(script);
 
     expect(
       declared,
-      'the benchmark script no longer declares PR_BUDGET in the shape this test reads',
+      'the benchmark script no longer names its default budget as DEFAULT_PR_BUDGET',
     ).not.toBeNull();
     expect(Number(declared![1])).toBe(DEFAULT_PULL_REQUEST_BUDGET);
+    expect(
+      script,
+      'the PR_BUDGET fallback no longer reads DEFAULT_PR_BUDGET, so a second literal can drift from the first',
+    ).toContain("process.env['PR_BUDGET'] ?? DEFAULT_PR_BUDGET");
   });
 
   it('is twelve, and the artifact that measured it is on disk', () => {
