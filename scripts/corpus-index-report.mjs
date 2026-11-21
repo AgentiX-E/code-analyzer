@@ -62,6 +62,10 @@ for (const [at, root] of roots.entries()) {
   const index = buildRepoIndex(tree.files, {
     goModule: tree.goModule,
     swiftModules: tree.swiftModules ?? new Map(),
+    // **And the names the checkout gives its own packages**, which is what turns a monorepo's `import { z } from 'zod'`
+    // into a file. Without it every such import is `external`, and a rate built on that answer describes the resolver
+    // rather than the repository.
+    packages: tree.workspacePackages ?? new Map(),
   });
   const indexMs = Date.now() - started;
 

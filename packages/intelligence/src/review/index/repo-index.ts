@@ -85,6 +85,13 @@ export interface RepoIndexOptions {
    * Absent, every Swift import is `external`, which is the answer §102 published and still the honest one.
    */
   readonly swiftModules?: ReadonlyMap<string, string> | null;
+  /**
+   * **The workspace packages the checkout declares, and the directory each one's `package.json` sits in.**
+   *
+   * A monorepo's own packages are named the way a dependency is: zod's sources write `import { z } from 'zod'` 192 times
+   * and nothing in the path says where `zod` lives. Read by the walk, because a manifest is not a source file.
+   */
+  readonly packages?: ReadonlyMap<string, string> | null;
 }
 
 /** The counts a reader needs to know what the rates below are rates *of*. */
@@ -221,6 +228,50 @@ function resolveSpecifier(
     for (const suffix of CANDIDATE_SUFFIXES) candidates.push(`${base}/index${suffix}`);
   }
   for (const candidate of candidates) if (files.has(candidate)) return candidate;
+  return null;
+}
+
+/**
+ * **The files a workspace package's name can name**, given the directory its manifest is in.
+ *
+ * **Two bases rather than one**, and the second is not a guess: `packages/zod` names the package and
+ * `packages/zod/src` names its sources, and on the checkout this rule was measured on the manifest sits one level above
+ * the code - which is the layout `src/` exists to describe. A resolver that tried only the first would answer `zod` as
+ * unresolved there, and one that tried only the second would miss a package that keeps its entry point at its root.
+ */
+function workspaceCandidates(directory: string, rest: string): string[] {
+  const out: string[] = [];
+  for (const root of [directory, `${directory}/src`]) {
+    // **`src` sits between the package and the subpath, not after it**: `zod/v4` is `packages/zod/src/v4/index.ts` on
+    // the checkout this rule was measured on, and a candidate list that appended `src` to the whole specifier would
+    // answer the root entry point and miss every subpath.
+    const base = normalisePath(rest === '' ? root : `${root}/${rest}`);
+    if (base === '') continue;
+    out.push(base);
+    for (const suffix of CANDIDATE_SUFFIXES) out.push(`${base}${suffix}`);
+    for (const suffix of CANDIDATE_SUFFIXES) out.push(`${base}/index${suffix}`);
+  }
+  return out;
+}
+
+/**
+ * **A bare specifier that names a package of this repository is a path, not a dependency.**
+ *
+ * `import { z } from 'zod'` inside `packages/zod/src/v4/classic/schemas.ts` is the same repository's own code, and
+ * calling it `external` says the repository imports somebody else's - the one thing an index that read the manifests can
+ * refute. **The scoped form is read as two segments**, because `@scope/name` is one package and `@scope` is not.
+ */
+function resolveWorkspaceSpecifier(
+  specifier: string,
+  packages: ReadonlyMap<string, string>,
+  files: ReadonlyMap<string, RepoFile>,
+): string | null {
+  const segments = specifier.split('/');
+  const name = specifier.startsWith('@') ? segments.slice(0, 2).join('/') : segments[0]!;
+  const directory = packages.get(name);
+  if (directory === undefined) return null;
+  const rest = specifier.slice(name.length).replace(/^\//u, '');
+  for (const candidate of workspaceCandidates(directory, rest)) if (files.has(candidate)) return candidate;
   return null;
 }
 
@@ -413,6 +464,8 @@ export function buildRepoIndex(
   const goModule = options.goModule ?? null;
   /** **Where each Swift module's sources are**, which is the one thing `Package.swift` says that an import cannot. */
   const swiftModules = options.swiftModules ?? null;
+  /** **The names a checkout gives its own packages**, which is what turns a bare specifier into a path. */
+  const workspacePackages = options.packages ?? null;
   /** The document languages, whose only edge is a reference to another document. */
   const DOCUMENT = new Set(['xml', 'json', 'yaml']);
 
@@ -829,8 +882,17 @@ export function buildRepoIndex(
         // first as `missing` would attribute a defect to a repository over its own dependencies. The first run did
         // exactly that, and a test asserting `externalImports` found it.
         const relative = isRelative(statement.specifier);
-        const target = relative ? resolveSpecifier(statement.specifier, path, byPath) : null;
-        record(path, statement, single(target), relative ? 'missing' : 'external');
+        const target = relative
+          ? resolveSpecifier(statement.specifier, path, byPath)
+          : workspacePackages === null
+            ? null
+            : resolveWorkspaceSpecifier(statement.specifier, workspacePackages, byPath);
+        record(
+          path,
+          statement,
+          single(target),
+          relative ? 'missing' : target === null ? 'external' : 'missing',
+        );
       }
     }
 
@@ -839,7 +901,12 @@ export function buildRepoIndex(
       if (statement === null) continue;
       at = statement.endLine - 1;
       if (!isRelative(statement.specifier)) {
-        record(path, statement, null, 'external');
+        // **A bare specifier is a dependency or this repository's own package, and the manifest says which.**
+        const workspace =
+          workspacePackages === null
+            ? null
+            : resolveWorkspaceSpecifier(statement.specifier, workspacePackages, byPath);
+        record(path, statement, single(workspace), workspace === null ? 'external' : 'missing');
         continue;
       }
       record(

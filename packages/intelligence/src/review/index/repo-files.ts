@@ -93,6 +93,36 @@ export interface RepoTree {
    * only a directory the checkout actually holds is believed**, which is the difference between a default and a guess.
    */
   readonly swiftModules: ReadonlyMap<string, string>;
+  /**
+   * **The workspace packages a checkout declares, and the directory each one's `package.json` sits in.**
+   *
+   * Read from every `package.json` the walk passes, because **a package name does not say where the package is**: zod's
+   * 333 sources import `zod` 192 times and the name resolves to `packages/zod/src/index.ts` only because a
+   * `package.json` in `packages/zod/` says `"name": "zod"`. Measured on that checkout before this field existed: **513 of
+   * 928 imports resolved (55.3 %), and 415 were answered `external`** — 192 of which name the repository itself.
+   *
+   * **The same field `goModule` and `swiftModules` are**, for the same reason: the walk is the only place that can read a
+   * file the index is not given, so the answer is carried from here rather than guessed there.
+   */
+  readonly workspacePackages: ReadonlyMap<string, string>;
+}
+
+/**
+ * The `name` a `package.json` declares, or `null`.
+ *
+ * **Tolerant in the same direction as the walk**: a manifest that is absent, unreadable, larger than a source file or not
+ * JSON answers `null`, and a package nobody can name is a package whose imports stay `external` rather than a package
+ * resolved to a guess.
+ */
+export function packageNameOf(text: string): string | null {
+  if (text.length > 262_144) return null;
+  try {
+    const parsed = JSON.parse(text);
+    const name = parsed?.name;
+    return typeof name === 'string' && name.length > 0 && name.length <= 214 ? name : null;
+  } catch {
+    return null;
+  }
 }
 
 /** `module a/b` from a `go.mod` body, which is the one line that turns an import path into a directory. */
@@ -242,6 +272,7 @@ export function readRepoFiles(root: string, limits: RepoFileLimits = {}): RepoTr
     files: [],
     goModule: null,
     swiftModules: new Map(),
+    workspacePackages: new Map(),
     stats: {
       readable,
       considered: 0,
@@ -262,6 +293,7 @@ export function readRepoFiles(root: string, limits: RepoFileLimits = {}): RepoTr
   }
 
   const out: RepoFile[] = [];
+  const workspacePackages = new Map<string, string>();
   let considered = 0;
   let bytes = 0;
   let skippedBySize = 0;
@@ -291,6 +323,20 @@ export function readRepoFiles(root: string, limits: RepoFileLimits = {}): RepoTr
         continue;
       }
       if (!entry.isFile()) continue;
+      // **A manifest is read for the name it declares, whether or not the caller asked for JSON.** A workspace package
+      // is a directory whose `package.json` names it, and the name is the only thing that turns `import { z } from
+      // 'zod'` into a file rather than into an external dependency.
+      if (entry.name === 'package.json') {
+        try {
+          const declared = packageNameOf(readFileSync(join(root, path), 'utf8'));
+          if (declared !== null && !workspacePackages.has(declared)) {
+            workspacePackages.set(declared, relative);
+          }
+        } catch {
+          // A manifest nobody can read is a package nobody can name, and the walk has already counted what it could not
+          // read: this is not a second refusal, it is the same one seen by a different reader.
+        }
+      }
       if (!extensions.has(extensionOf(path))) continue;
       if (!accept(path)) continue;
       considered += 1;
@@ -326,6 +372,7 @@ export function readRepoFiles(root: string, limits: RepoFileLimits = {}): RepoTr
     files: out,
     goModule: readGoModule(root),
     swiftModules: readSwiftModules(root),
+    workspacePackages,
     stats: {
       readable: true,
       considered,

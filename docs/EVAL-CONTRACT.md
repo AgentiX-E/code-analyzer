@@ -12359,3 +12359,65 @@ the waste. A run that omits the lane is the same measurement for 16.6 % less mon
   test.
 - **That the 152 findings were bad findings.** They were never judged. **A finding the cut deletes has no verdict**, and
   this section says so rather than calling them false positives.
+
+## §114 A monorepo's own package is not a dependency, and the resolution is not an edge
+
+**The per-language table §102.8 prints has an empty row and it is the row this campaign is written in.**
+`benchmarks/polyglot-index.json` measures ten checkouts and carries **15 JavaScript files and 1 TypeScript file** - the two
+languages the review engine itself is written in - and no Groovy at all. **A capability figure for a language with one
+file in the corpus is a figure about the file.**
+
+### 114.1 Two checkouts this repository did not write
+
+Two real sources were added to the measurement, each pinned by commit and each MIT: **`axios/axios` at `9f0f4ddfe7`,
+`lib/` - 73 `.js` files, 288 895 bytes** - and **`colinhacks/zod` at `2a343ed2a4`, `packages/zod/src/` - 333 `.ts` files
+and the package's own manifest.**
+
+**And zod is the interesting one, because it is a monorepo whose packages import each other by name.** Its sources write
+`import { z } from 'zod'` **192 times** - the repository importing itself - and the index answered every one of them
+`external`, which says the repository imports somebody else's code. **That is the one claim an index that read the
+manifests could refute**, and it read none.
+
+### 114.2 The rule: a manifest is the only evidence, and it sits one level above the code
+
+`readRepoFiles` now carries a third repository-level fact beside `goModule` and `swiftModules`: **the name every
+`package.json` the walk passes declares, and the directory it sits in.** `buildRepoIndex` takes it as an option, and a
+bare specifier is looked up in it before it is answered `external`.
+
+| checkout          | files | imports |         resolved | external | edges | reach note       |
+| ----------------- | ----: | ------: | ---------------: | -------: | ----: | ---------------- |
+| `axios/lib`       |    73 |     206 |     184 (89.3 %) |       22 |    20 | 61 of 61 files   |
+| `zod/src`, before |   333 |     928 | 513 (**55.3 %**) |      415 |   186 | 195 of 195 files |
+| `zod/src`, after  |   334 |     928 | **698 (75.2 %)** |  **230** |   186 | 196 of 196 files |
+
+**The 230 that remain are dependencies by every reading**: 197 `vitest`, the `node:` builtins, and a handful of
+publishing tools. **192 imports moved from "somebody else's code" to "this file", and the rate moved 19.9 points.**
+
+**Two details of the rule are load-bearing, and both were found by the checkout rather than by reasoning.** The scoped
+form is read as **two** segments, because `@scope/name` is one package and `@scope` is not. And `src` sits **between** the
+package directory and the subpath - `zod/v4` is `packages/zod/src/v4/index.ts` - so a candidate list that appended `src`
+to the whole specifier would resolve the root entry point and miss every subpath; the first version of this rule did
+exactly that and the subpath case caught it.
+
+### 114.3 The resolution moved and the edge did not
+
+**186 edges before and 186 after**, and the reason is §102.6's distinction rather than a defect: **a resolution says where
+a package is, and an edge needs a name that crosses.** zod's entry point is `export * from './v4'`, so the name `z` is
+re-exported rather than declared, and the index's symbol reader does not follow a re-export through a wildcard. **The
+imports that were resolved are the ones whose names the entry point does not spell.**
+
+**So what this rule buys is the answer to "is this dependency ours"**, which is what the reach note and the `external`
+count are built on, and not a wider impact set. **The next device that would widen it is re-export following**, and that
+is a statement about symbols rather than about paths - a different measurement, and not one this section has.
+
+### 114.4 What this section does not claim
+
+- **That TypeScript's `paths` aliases are read.** They are not; a `tsconfig` alias is a fourth mechanism and an
+  unresolved line in §102.8's table.
+- **That `benchmarks/polyglot-index.json` has been regenerated.** It has not: its denominators are the same ten
+  checkouts, and **adding two repositories to it would move every per-language figure in this document** - a change that
+  deserves its own section rather than a footnote in this one.
+- **That the review's F1 moves.** It cannot: `reach` was already on for every published run, and the two new checkouts
+  are index corpora rather than review corpora. **A device that raises a capability figure without a run is a device
+  whose review value is unmeasured, and this section says so.**
+- **That Groovy is measured.** It is still zero files, and it is still the row with no denominator.
