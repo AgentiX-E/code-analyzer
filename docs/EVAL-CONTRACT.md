@@ -13817,6 +13817,21 @@ the full pool emits 530 and finds 91. **The rule buys 0.0806 of precision for 20
 why F1 is higher at 296 than at 530 - **and it means a perfect ranking inside the shipped rule can add at most 20 true
 positives**, because §124.1's first table is a statement about the corpus and not about the order it is read in.
 
+**And the shape holds across two independent dispatches, which is what makes it a fact about the corpus rather than about
+one run.** R-56 (§122) is the same forty-six rows with a batched judge:
+
+| stage                          | R-55 (per-pair judge) | R-56 (batched judge) |
+| ------------------------------ | --------------------- | -------------------- |
+| matched by an emitted finding  | 71                    | 82                   |
+| in the pool, blocked by budget | 20                    | 13                   |
+| in the pool, dropped by a rule | 13                    | 13                   |
+| **no finding in the pool**     | **226 (68.5 %)**      | **222 (67.3 %)**     |
+| goldens                        | 330                   | 330                  |
+
+**The unreachable share moves 1.2 points between two dispatches whose F1 differs by 0.0394.** That is the sentence this
+section exists for: **the thing F1 moves on is not the thing the corpus is short of**, and the two runs agree that about
+two thirds of the answer key has nothing to match against.
+
 **The four rows are one picture**, `docs/aacr-recall-ceiling.svg`, drawn by `scripts/recall-ceiling-figure.mjs` from
 `benchmarks/recall-ceiling.json` rather than by hand - the figure that names what the campaign cannot reach, in the
 colour this document uses for a refuted claim:
