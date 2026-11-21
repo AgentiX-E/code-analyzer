@@ -37,8 +37,17 @@ if (asJson) {
     `AACR-PAIRS ${String(anatomy.findings)} findings × ${String(anatomy.goldens)} goldens → ${String(anatomy.allPairs)} pairs`,
   );
   console.log(
-    `  the artifact also paid the competitor arm: ${String(anatomy.judgeCalls)} judge calls, ${String(anatomy.allPairs)} of them ours`,
+    `  the artifact recorded ${String(anatomy.judgeCalls)} judge calls; the ranked findings account for ${String(anatomy.allPairs)}`,
   );
+  if (anatomy.judgeGap > 0) {
+    // **The gap is printed rather than explained.** A tool that divided the artifact's count by its own and called the
+    // difference "the competitor arm" would be asserting a decomposition nobody has checked - and on the five-lane arm of
+    // `44891741390`, where `competitor: off` means no competitor arm existed, that sentence would have been false.
+    console.log(
+      `  ${String(anatomy.judgeGap)} calls are not accounted for by these pairs: the judge is called on a list this`,
+    );
+    console.log('  artifact does not publish, and this section does not say which.');
+  }
   console.log('');
   console.log(
     `  shipped point: TP ${String(anatomy.shipped.truePositives)} P ${anatomy.shipped.precision.toFixed(4)} ` +

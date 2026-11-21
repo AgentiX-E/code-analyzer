@@ -41,6 +41,8 @@ export interface PairAnatomy {
   readonly goldens: number;
   readonly allPairs: number;
   readonly judgeCalls: number;
+  /** Calls the ranked findings do not explain, **printed rather than attributed**. */
+  readonly judgeGap: number;
   readonly full: Point;
   readonly shipped: Point;
   readonly rows: readonly PairRow[];

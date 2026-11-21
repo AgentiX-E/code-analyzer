@@ -161,8 +161,15 @@ export function pairAnatomy(bench, corpus, rules = PAIR_RULES) {
     findings: findings.length,
     goldens: published,
     allPairs: rows[0]?.allPairs ?? 0,
-    /** **Both arms' pairs, and this module prices one of them.** The artifact's count is not a check on this one. */
     judgeCalls: Number(bench?.spend?.judge?.calls ?? 0),
+    /**
+     * **The calls these pairs do not explain.** On the five-lane arm of `44891741390` the artifact records 7 434 judge
+     * calls and the ranked findings account for 5 170, with `rateLimited`, `failures` and `batchCalls` all zero - so the
+     * difference is not a retry and not a batch. **The judge is called on a list this artifact does not publish**, and
+     * reporting the difference as a number is the honest form of not knowing: the first draft of this module called it
+     * "the competitor arm", which was wrong on a run dispatched with `competitor: off`.
+     */
+    judgeGap: Math.max(0, Number(bench?.spend?.judge?.calls ?? 0) - (rows[0]?.allPairs ?? 0)),
     full,
     shipped,
     rows,

@@ -13145,6 +13145,12 @@ score if the judge were asked fewer questions, and what a review would score if 
 F1 - **2.3 resolution units at a hundred rows** - while the loosest filter, which removes one sixth of them, costs 0.0092.
 The ordering is the opposite of what a cost argument wants: **the rule that saves the most costs the most.**
 
+**Re-run on R-55's forty-six rows, the filter column keeps its sign and loses half its size.** `same path` there keeps
+**14.22 %** of the pairs and costs **−0.0288** - **1.0 resolution unit at that slice's 0.0281**, against 2.3 units at the
+hundred-row slice. **The product column flipped sign**: −0.0001 at a hundred rows, **+0.0256** at forty-six. So the
+filter is **a loss on both slices and its size is not stable**, and the column that is not a plan is not a stable
+diagnosis either - a stronger reason to leave it out of the plan than the first reading gave.
+
 **And the last column is not a plan.** At `same path` the product column reads −0.0001, which is the figure that makes
 the filter _look_ free: a review that only speaks where a golden sits on the same file would hold its F1 exactly. **It
 cannot be built**, because the rule reads the **golden's** path and the product has no golden. The column is printed to
@@ -13381,11 +13387,16 @@ The run is `44891741390`, dispatched 09:53 UTC, read at 10:48 - 46 pull requests
 
 ### 120.1 The accuracy clause: −0.0125 against a 0.0281 unit
 
-| arm        | lanes | findings |  TP |  FP |  FN | precision |  recall | **F1**      |
-| ---------- | ----: | -------: | --: | --: | --: | --------: | ------: | ----------- |
-| `shipped`  |     5 |      530 |  71 | 225 | 259 |    0.2399 |  0.2152 | **0.2268**  |
-| `lean`     |     4 |      449 |  66 | 220 | 264 |    0.2308 |  0.2000 | **0.2143**  |
-| difference |    −1 |      −81 |  −5 |  −5 |  +5 |   −0.0091 | −0.0152 | **−0.0125** |
+| arm        | lanes | emitted | full pool |  TP |  FP |  FN | precision |  recall | **F1**      |
+| ---------- | ----: | ------: | --------: | --: | --: | --: | --------: | ------: | ----------- |
+| `shipped`  |     5 | **296** |       530 |  71 | 225 | 259 |    0.2399 |  0.2152 | **0.2268**  |
+| `lean`     |     4 | **286** |       449 |  66 | 220 | 264 |    0.2308 |  0.2000 | **0.2143**  |
+| difference |    −1 |     −10 |       −81 |  −5 |  −5 |  +5 |   −0.0091 | −0.0152 | **−0.0125** |
+
+**Two counts and not one, because `aacr-ablation-paired.json` publishes both under one name.** `findings` there is the
+**full pool** - 530 and 449 - while `precision` is computed against the **emitted** 296 and 286. Both are true and they
+are not the same number: a row that printed 530 beside 0.2399 would have a denominator 43 % larger than the one the rate
+was computed on. **The first revision of this table read that row exactly that way.**
 
 **0.0125 is 0.44 of a resolution unit**, so the file arm passes the third part of the clause. Two independent readings
 agree that this is a null:
