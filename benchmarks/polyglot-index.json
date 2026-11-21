@@ -945,6 +945,106 @@
         "medianChars": 150,
         "charsPerNonEmptyNote": 240.75
       }
+    },
+    {
+      "repo": "spockframework_spock",
+      "commit": "3ff35eb838823f87510ad61b8095c75d1566a305",
+      "goModule": null,
+      "swiftModules": [],
+      "files": 1315,
+      "readerSkipped": {
+        "bySize": 0,
+        "overCap": 0,
+        "overBytes": 0
+      },
+      "indexMs": 322,
+      "stats": {
+        "files": 1315,
+        "symbols": 2578,
+        "imports": 4998,
+        "resolvedImports": 2575,
+        "externalImports": 2422,
+        "missingImports": 1,
+        "ambiguousImports": 0,
+        "namespaceImports": 375,
+        "edges": 2085
+      },
+      "byLanguage": {
+        "yaml": {
+          "files": 11,
+          "symbols": 565,
+          "imports": 0,
+          "resolved": 0,
+          "packages": 0,
+          "external": 0,
+          "missing": 0,
+          "ambiguous": 0,
+          "edges": 0
+        },
+        "kotlin": {
+          "files": 5,
+          "symbols": 18,
+          "imports": 56,
+          "resolved": 0,
+          "packages": 0,
+          "external": 56,
+          "missing": 0,
+          "ambiguous": 0,
+          "edges": 0
+        },
+        "xml": {
+          "files": 15,
+          "symbols": 182,
+          "imports": 2,
+          "resolved": 0,
+          "packages": 0,
+          "external": 1,
+          "missing": 1,
+          "ambiguous": 0,
+          "edges": 0
+        },
+        "java": {
+          "files": 674,
+          "symbols": 764,
+          "imports": 2750,
+          "resolved": 975,
+          "packages": 196,
+          "external": 1579,
+          "missing": 0,
+          "ambiguous": 0,
+          "edges": 896
+        },
+        "groovy": {
+          "files": 609,
+          "symbols": 1047,
+          "imports": 2190,
+          "resolved": 1228,
+          "packages": 176,
+          "external": 786,
+          "missing": 0,
+          "ambiguous": 0,
+          "edges": 1189
+        },
+        "json": {
+          "files": 1,
+          "symbols": 2,
+          "imports": 0,
+          "resolved": 0,
+          "packages": 0,
+          "external": 0,
+          "missing": 0,
+          "ambiguous": 0,
+          "edges": 0
+        }
+      },
+      "reach": {
+        "filesWithSymbols": 1293,
+        "filesWithReach": 1293,
+        "emptyNotes": 984,
+        "chars": 61677,
+        "medianChars": 208,
+        "charsPerNonEmptyNote": 199.6019
+      }
     }
   ]
 }
