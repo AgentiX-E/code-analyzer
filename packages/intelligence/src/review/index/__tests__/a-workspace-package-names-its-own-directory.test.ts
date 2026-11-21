@@ -28,7 +28,11 @@ function write(path: string, text: string): void {
 }
 
 /** The statement a file wrote about a specifier, or `undefined` when it wrote none. */
-function statementOf(index: ReturnType<typeof buildRepoIndex>, fromPath: string, specifier: string) {
+function statementOf(
+  index: ReturnType<typeof buildRepoIndex>,
+  fromPath: string,
+  specifier: string,
+) {
   return index.imports.find(
     (statement) => statement.fromPath === fromPath && statement.specifier === specifier,
   );
@@ -53,6 +57,16 @@ describe('the name a manifest declares', () => {
     expect(packageNameOf('{"name":""}')).toBeNull();
     expect(packageNameOf('not json at all')).toBeNull();
     expect(packageNameOf('{"name":"' + 'x'.repeat(300) + '"}')).toBeNull();
+  });
+
+  it('refuses JSON that is not an object, which a manifest must be', () => {
+    // **`null`, a string and an array are legal JSON and none of them is a manifest**, and the branch that says so is the
+    // one a reader of `parsed?.name` never sees: `null` would throw on the property read, `"x"` would answer `undefined`
+    // and an array would answer `undefined` too - so all three are refused explicitly rather than by accident.
+    expect(packageNameOf('null')).toBeNull();
+    expect(packageNameOf('"zod"')).toBeNull();
+    expect(packageNameOf('[]')).toBeNull();
+    expect(packageNameOf('42')).toBeNull();
   });
 });
 
@@ -110,7 +124,10 @@ describe('a checkout that declares its own packages', () => {
     // **The rule's whole safety is that a manifest is the only evidence.** `vitest` is a dependency in this fixture's
     // world as surely as it is in zod's, and a resolver that fell back to a directory named after the specifier would
     // report a package the checkout does not hold as one it does.
-    write('packages/app/src/test.ts', "import { expect } from 'vitest';\nexport const t = expect;\n");
+    write(
+      'packages/app/src/test.ts',
+      "import { expect } from 'vitest';\nexport const t = expect;\n",
+    );
     const tree = readRepoFiles(root, { extensions: ['.ts'] });
     const index = buildRepoIndex(tree.files, { packages: tree.workspacePackages });
     expect(statementOf(index, 'packages/app/src/test.ts', 'vitest')).toMatchObject({

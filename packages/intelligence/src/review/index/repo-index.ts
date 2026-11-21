@@ -271,7 +271,8 @@ function resolveWorkspaceSpecifier(
   const directory = packages.get(name);
   if (directory === undefined) return null;
   const rest = specifier.slice(name.length).replace(/^\//u, '');
-  for (const candidate of workspaceCandidates(directory, rest)) if (files.has(candidate)) return candidate;
+  for (const candidate of workspaceCandidates(directory, rest))
+    if (files.has(candidate)) return candidate;
   return null;
 }
 
