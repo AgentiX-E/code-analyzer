@@ -13906,6 +13906,20 @@ sharing at least three content words with the golden's note**. Three of those pa
 **76 is an upper bound and not a forecast**, because the judge that rejected them would have to accept them, and a
 golden's note sharing three words with a removed title is a candidate rather than a match.
 
+**The stricter join is the one that matters and it is smaller.** Requiring the removed finding's range to **overlap** the
+range of the finding the judge rejected, as well as three shared content words, leaves **64 candidates (28.3 % of the 226)** - and the pairs that survive it are the ones the sampled table above shows:
+
+| file                              | shared words | removed finding's category | range of the rejected finding |
+| --------------------------------- | -----------: | -------------------------- | ----------------------------- |
+| `PolicyManager.java`              |            6 | bug                        | 328-331 against 325-330       |
+| `InstrumentationServiceImpl.java` |            6 | bug                        | 67-135 against 67-135         |
+| `ClusterChangedEvent.java`        |            4 | bug                        | 351-369 against 351-375       |
+| `FileAccessTree.java`             |            3 | performance                | 206-206 against 206-206       |
+
+**64 is the number R-64 is priced against**, and it is why its bar is 110 rather than 129: **if six in ten of the 64 turn
+out to be the same defect said twice, the pool gains 38 true positives and the bar passes at 129; if three in ten do, it
+gains 19 and passes at 110.** The registration takes the second and the artifact will say which happened.
+
 ### 124.5 The device: `sameSiteConcerns`, and the one thing it does not change
 
 `sameSiteConcerns` is **how many findings one range may keep**, and the test of _one remark_ does not move with it: a
@@ -13923,7 +13937,7 @@ than registering it too low.
 
 **What the device can and cannot do, said before the artifact exists.** It adds findings the merge removed; it cannot
 add a finding no lane produced, so **the 239 goldens with nothing in the pool stay missed whatever this does**. Its
-ceiling is the 76 pairs of §124.4, its floor is zero if the judge treats the recovered findings as restatements, and
+ceiling is the 64 strict pairs of §124.4, its floor is zero if the judge treats the recovered findings as restatements, and
 **the arm that reads it is one dispatch on rows 150-195, because that is the slice every number in this section was
 measured on.**
 
