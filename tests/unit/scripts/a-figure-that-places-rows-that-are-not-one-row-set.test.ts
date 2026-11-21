@@ -143,10 +143,7 @@ describe('a figure whose rows are not one row set', () => {
     // scope of the rows beside it.
     const figure: Figure = {
       id: 'fixture-half',
-      rows: [
-        { tool: 'a', scope: { pullRequests: 14, goldens: 196 } },
-        { tool: 'b' },
-      ],
+      rows: [{ tool: 'a', scope: { pullRequests: 14, goldens: 196 } }, { tool: 'b' }],
       mixedScope: 'half',
     };
     expect(() => mixedScopeOf(figure)).toThrow(/scopes 1 of its 2 rows and not the rest/u);
@@ -158,7 +155,9 @@ describe('a figure whose rows are one row set', () => {
     // The other direction: a gate that fired on every figure would be a gate that got removed. `martian-offline` is one
     // row set only in the sense that no row declares a scope, which is the *undeclared* case and stays permitted.
     expect(mixedScopeOf(oneRowSet())).toBeNull();
-    expect(mixedScopeOf(DATA.figures.find((figure) => figure.id === 'martian-offline') as Figure)).toBeNull();
+    expect(
+      mixedScopeOf(DATA.figures.find((figure) => figure.id === 'martian-offline') as Figure),
+    ).toBeNull();
     expect(svg('martian-offline')).toContain('of headroom');
   });
 

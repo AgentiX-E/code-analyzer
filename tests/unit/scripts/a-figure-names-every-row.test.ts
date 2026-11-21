@@ -135,7 +135,9 @@ describe('a row with no price is drawn as a row with no price', () => {
     for (const figure of DATA.figures) {
       const svg = read(first, figure.id);
       const priced = figure.rows.filter((row) => row.tokensPerReview !== null).length;
-      expect((svg.match(/ tokens(?: · \d+ pr \/ \d+ goldens)?<\/text>/gu) ?? []).length).toBe(priced);
+      expect((svg.match(/ tokens(?: · \d+ pr \/ \d+ goldens)?<\/text>/gu) ?? []).length).toBe(
+        priced,
+      );
     }
   });
 
