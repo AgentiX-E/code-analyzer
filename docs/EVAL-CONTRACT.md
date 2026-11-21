@@ -13089,7 +13089,18 @@ prompt tokens fall together.
 - **That anything here moved a published review figure.** No run is dispatched in this section. The figures are read off
   an artifact that was paid for before the section existed, and the two clauses above are what would move a figure.
 
-### 117.7 Price
+### 117.7 The figure, and why it is generated
+
+`docs/figures/aacr-cost-two-units.svg` is drawn by `scripts/cost-unit-figure.mjs` from the two artifacts, not by hand:
+three groups (reviewer, judge, total), four bars each (both arms, both units), the two ratios printed under every group
+and the cache hit shares under the axis. **The point of the picture is the pair of numbers under each group** - billed
+110.5 % against cold 77.3 % on the reviewer - and a hand-drawn version of it would be a picture that outlives its run,
+which this repository already has one of in the same directory.
+
+`--check` compares the file it would write with the file in the tree, so a figure that has drifted from the artifacts it
+names is a command that exits non-zero rather than a paragraph someone has to notice.
+
+### 117.8 Price
 
 **0 CNY** - one artifact pair from a run already paid for, one CLI, one ledger field, and no model call. The two
 registrations cost an estimated **13 CNY each** at this corpus size (one arm of 46 rows, both arms on one key at
