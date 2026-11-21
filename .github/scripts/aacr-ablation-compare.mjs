@@ -106,15 +106,27 @@ function readSlicesOf(artifact) {
  * A candidate matches when every slice it names is among the rows the artifact read; ties go to the candidate naming
  * more slices. **The field's own entry is the fallback**, so a field with one sentence and an artifact whose rows it does
  * not name still gets an answer rather than a silence.
+ *
+ * **A field can also carry two devices that vary it in opposite directions, and the arm's name is what tells them
+ * apart.** `laneSet` is that field: §69.5's `behaviour` swaps a lane and §113.4's `lean` removes one, so a lookup that
+ * answered both with the same sentence wrote R-35's claim, R-35's bar and R-35's slice into the artifact of a run that
+ * registered none of them - and `verdict.outcome` then read *"not a confirmation: the registration names skip 50 max
+ * 146, and this run read skip 0 max 50"* about a pair those numbers have nothing to do with. **An entry that names its
+ * arms is answered only for those arms**, and a pair no entry names resolves to `null`, which the report writes as a
+ * refusal rather than as a verdict about somebody else's device.
  */
-export function registrationFor(field, readSlices) {
+export function registrationFor(field, readSlices, armName = null) {
   const keys = Object.keys(REGISTRATIONS).filter(
     (key) => key === field || REGISTRATIONS[key].field === field,
   );
   if (keys.length === 0) return null;
+  /** **An entry with no `arms` answers any arm on its field** - every registration written before this one. */
+  const namesArm = (entry) =>
+    entry.arms === undefined || (armName !== null && entry.arms.includes(armName));
   const matches = keys
     .map((key) => ({ key, entry: REGISTRATIONS[key] }))
     .filter(({ entry }) => {
+      if (!namesArm(entry)) return false;
       const declared = entry.confirmation ?? [];
       return (
         declared.length > 0 &&
@@ -129,8 +141,24 @@ export function registrationFor(field, readSlices) {
         (right.entry.confirmation?.length ?? 0) - (left.entry.confirmation?.length ?? 0),
     );
   if (matches.length > 0) return matches[0].entry;
-  return REGISTRATIONS[field] ?? null;
+  const fallback = REGISTRATIONS[field] ?? null;
+  return fallback !== null && namesArm(fallback) ? fallback : null;
 }
+
+/**
+ * **The registrations this job cannot read, and the reason each one is a reading instead of a verdict.**
+ *
+ * R-52 is a **cost band**: at most 85 % of the shipped arm's total USD with F1 inside ±0.005 of it. This job computes
+ * one gain, compares it to one bar and asks whether the corpus can resolve it - and a claim whose second clause is *"do
+ * not lose more than a golden is worth"* and whose first clause is a **bill** has no shape here: a bar at 0.005 would be
+ * under the corpus resolution and refused by `registrationResolvable`, and a bar at the point estimate would be a bar
+ * chosen after the run. **So the pair resolves to no verdict and the artifact says where the reading is**, which is what
+ * keeps `registration: null` from being read as "nobody registered this".
+ */
+export const UNREAD_REGISTRATIONS = Object.freeze({
+  'laneSet:lean':
+    "§113.4 (R-52) is a cost band - at most 85 % of the shipped arm's total USD with F1 within 0.005 of it - and this job compares one gain against one bar, so the pair is read in docs/EVAL-CONTRACT.md §113.6 rather than written as a verdict here",
+});
 
 /**
  * **The registrations this job knows how to read a verdict against, keyed by the configuration field they vary.**
@@ -507,6 +535,13 @@ export const REGISTRATIONS = Object.freeze({
     section: '§69.5 (R-35)',
     claim:
       'a lane asked for the value that breaks a changed line, in place of the testing lane, raises the file arm F1 by at least 0.026 on the 146 pull requests R-32 and R-33 read, and raises recall',
+    /**
+     * **The arm this sentence is about, because this field now carries two devices.** `behaviour` substitutes a lane;
+     * §113.4's `lean` removes one and claims a bill rather than a gain. Without this line a `pair-lean` run was answered
+     * with R-35's claim, bar and slice and produced a verdict about an experiment nobody registered - see
+     * `registrationFor` and `UNREAD_REGISTRATIONS`.
+     */
+    arms: ['behaviour'],
     arm: 'file',
     registeredGain: 0.026,
     mechanism: 'recall rises and precision does not fall by more than a golden is worth',
@@ -1369,6 +1404,10 @@ export function confoundsBetween(on, off) {
       expected: `a registration naming "${String(varied.field)}"`,
       known: Object.keys(REGISTRATIONS),
     });
+  // **A field whose registration exists but names other arms is not a confound, and writing it as one would be the
+  // §115 defect in the other direction**: `confounds.length > 0` refuses the pair and publishes no artifact, so a
+  // `pair-lean` run would stop being measurable rather than stop being mislabelled. The refusal goes in the artifact's
+  // own `registration` field and in `verdict.outcome`; see `UNREAD_REGISTRATIONS` and `summarise`.
   return confounds;
 }
 
@@ -1405,8 +1444,18 @@ export function summarise(on, off) {
       : String(varied.withValue);
   const registration =
     REGISTRATIONS[`${varied.field ?? ''}:${withValueName}`] ??
-    registrationFor(varied.field ?? '', readSlices) ??
+    registrationFor(varied.field ?? '', readSlices, withValueName) ??
     null;
+  /**
+   * **A pair this job has a sentence for but cannot read a verdict against**, which is not the same as an unregistered
+   * pair and must not be published as one. §113.4's R-52 is a bill and a band; this job computes one gain against one
+   * bar. **The artifact carries the pointer so that `registration: null` reads as "read §113.6" rather than as "nobody
+   * wrote an expectation"** - the second sentence would be false, and it is the one `outcome` printed until now.
+   */
+  const readIn =
+    registration === null
+      ? (UNREAD_REGISTRATIONS[`${varied.field ?? ''}:${withValueName}`] ?? null)
+      : null;
   const paired = pairedComparison(coverageSet(on), coverageSet(off));
   /**
    * **The arm the registration is a claim about, read from the registration and not chosen by this file.**
@@ -1650,7 +1699,7 @@ export function summarise(on, off) {
 
   const outcome =
     magnitudeMet === null
-      ? 'unregistered: no expectation was written before this run'
+      ? (readIn ?? 'unregistered: no expectation was written before this run')
       : sliceMatches === false
         ? `not a confirmation: the registration names ${declared.map((s) => `skip ${String(s.skip)} max ${String(s.max)}`).join(' and ')}, and this run read ${readSlices === null ? 'a corpus the artifact does not describe' : readSlices.map((s) => `skip ${String(s.skip)} max ${String(s.max)}`).join(' and ')}`
         : inputsFormed === false
@@ -1683,6 +1732,13 @@ export function summarise(on, off) {
     variedField: varied.field,
     arms: { with: varied.withValue, without: varied.withoutValue },
     registration,
+    /**
+     * **Where the reading is, when this job has no verdict to write.** `null` for a pair it can judge - and for a pair
+     * nobody registered, which needs no pointer. **A field carrying two devices needs this field**: `registration: null`
+     * plus a section number is a sentence a reader can act on; `registration: null` alone is a sentence that invites the
+     * question this file exists to answer.
+     */
+    registrationReadIn: readIn,
     /**
      * **Which arm the figures below are**, so that a reader who quotes `withDevice.f1` is quoting the arm the
      * registration is about rather than whichever arm the script happened to read.

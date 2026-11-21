@@ -32,6 +32,14 @@ export interface Registration {
   confirmation: { skip: number; max: number }[];
   /** The second clause of a sentence, as a gate rather than as a remark. */
   guard?: { arm: string; notLoweredBy: number };
+  /**
+   * **The arm this sentence is about, when the field carries more than one device.**
+   *
+   * `laneSet` is varied twice - §69.5's `behaviour` substitutes a lane and §113.4's `lean` removes one - so an entry that
+   * names its arms answers only those, and a pair naming another arm resolves to no registration at all. **Absent means
+   * any arm**, which is every registration written before this field existed.
+   */
+  arms?: readonly string[];
   /** Set when the sentence was written after the dispatch, so a reader can tell a prediction from a description. */
   registeredAfterDispatch?: boolean;
   /** The inputs the sentence was written against, where it names them. */
@@ -96,7 +104,17 @@ export declare const REGISTRATIONS: Readonly<
 export declare function registrationFor(
   field: string,
   readSlices: readonly { skip: number; max: number }[],
+  armName?: string | null,
 ): Registration | null;
+
+/**
+ * **The registrations this job cannot read, keyed `${field}:${arm}`, and why each is a reading rather than a verdict.**
+ *
+ * R-52 is a bill and a band: at most 85 % of the shipped arm's total USD with F1 inside 0.005 of it. This job computes
+ * one gain against one bar, so the artifact carries `registration: null` and this sentence points a reader at the
+ * section that holds the reading - **which keeps "no verdict here" from being read as "nobody registered this"**.
+ */
+export declare const UNREAD_REGISTRATIONS: Readonly<Record<string, string>>;
 
 /**
  * **Whether a registration can be answered at the corpus it will be judged on**, returned rather than thrown so that a

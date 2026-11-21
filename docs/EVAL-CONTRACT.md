@@ -12362,6 +12362,112 @@ the waste. A run that omits the lane is the same measurement for 16.6 % less mon
 - **That the 152 findings were bad findings.** They were never judged. **A finding the cut deletes has no verdict**, and
   this section says so rather than calling them false positives.
 
+### 113.6 R-52 read back: the money clause held by 1.6 points, the accuracy clause did not hold, and the arm scored higher
+
+Run `44853661785`, two arms of the same fifty pull requests, the same 452 goldens, the same judge and the same cut,
+differing in one option: `lane_set: pair-lean` dispatches `shipped`'s five lanes and `lean`'s four.
+
+| the bill            |    shipped |       lean | lean / shipped |
+| ------------------- | ---------: | ---------: | -------------: |
+| engine, USD         |     0.5530 |     0.4093 |     **74.0 %** |
+| judge, USD          |     0.4480 |     0.4260 |         95.1 % |
+| **total, USD**      | **1.0011** | **0.8354** |     **83.4 %** |
+| review calls        |      3 195 |      2 556 |         80.0 % |
+| prompt tokens       |  6 694 741 |  5 365 250 |         80.1 % |
+| completion tokens   |    737 649 |    534 636 |         72.5 % |
+| findings emitted    |        594 |        540 |                |
+| judge prompt tokens |  3 142 173 |  2 888 796 |         91.9 % |
+
+**The registered claim was "at most 85 % of the shipped arm's total USD, and F1 within 0.005 of it".** The first half
+held at **83.4 %**, a margin of 1.6 points. **The second half did not hold, and the direction it failed in is the reason
+to read the rest rather than to declare a win.**
+
+| arm          | ordering |   precision |      recall |          F1 |  TP |  FP | emitted |
+| ------------ | -------- | ----------: | ----------: | ----------: | --: | --: | ------: |
+| file         | shipped  |      0.3064 |      0.2013 |  **0.2430** |  91 | 206 |     594 |
+| file         | lean     |      0.3235 |      0.2190 |  **0.2612** |  99 | 207 |     540 |
+| file         | delta    | **+0.0171** | **+0.0177** | **+0.0182** |  +8 |  +1 |     −54 |
+| pull request | shipped  |      0.2651 |      0.1748 |  **0.2107** |  79 | 219 |     298 |
+| pull request | lean     |      0.2649 |      0.1571 |  **0.1972** |  71 | 197 |     268 |
+| pull request | delta    |     −0.0002 |     −0.0177 | **−0.0135** |  −8 | −22 |     −30 |
+
+**The file arm gained 0.0182 on a corpus that resolves 0.024, and two paired readings refuse to call that a change.**
+Paired on `(pull request, golden index)`: 71 pairs matched in both arms, 28 only in `lean`, 20 only in `shipped`,
+**p = 0.3123**. Resampled over the fifty pull requests, keeping each row's goldens together: **mean +0.018, sd 0.0138,
+95 % [−0.0083, +0.0459], p = 0.1872**. **And the two arms disagree in sign** - the pull-request arm fell 0.0135 - which is
+the second independent reason not to read +0.0182 as an improvement.
+
+**So R-52 is answered half one way and half the other**: the cost clause is met (83.4 % ≤ 85 %, on the total and not on
+the engine alone), and the accuracy clause is **not met** - the band was ±0.005 and the movement was +0.0182 - while the
+falsifier as written (_"an F1 below `shipped − 0.005`"_) **did not fire**. **A claim whose guard was passed on the wrong
+side of the number is not a confirmation, and it is not a falsification either**: it is a run that says the cheap arm was
+not shown to be worse, on fifty rows, with a point estimate nobody should quote.
+
+**Where the eight true positives came from is worth one paragraph, because it is not the lane's own findings.** The
+removal pool is 54 findings and **0 of them is a true positive** - they were deleted by the cut before any judge saw them,
+which is §113.3's finding. Total emitted fell by exactly 54. **Yet TP rose by 8 and FP by 1**, which can only happen
+through the pass that runs before judging: a finding that is never emitted cannot be the survivor of a de-duplication
+between two lanes, and 54 fewer candidates is 54 chances for a _different_ lane's finding to survive instead. **The point
+estimate is therefore about which finding the matcher kept, not about a better reviewer** - and a device whose gain is
+made of survivors is a device whose gain moves when the de-duplication rule moves.
+
+**What the bill says about §110, which is the part that does not depend on the corpus.** The judge was **44.8 %** of the
+shipped arm and is **51.0 %** of the lean arm: **removing a lane moves the engine by 26 % and the bill by 16.6 %, because
+the half that is left is the half that scales with findings.** A lane is not expensive because it calls the model five
+times per file; it is expensive because it **adds findings**, and every finding is judged. The `testing` lane's whole cost
+here is **0.1668 USD** (0.1448 engine + 0.0220 judge) for 54 findings the cut deletes - **16.7 % of the bill for findings
+that reach no verdict at all**.
+
+**And the accuracy clause cannot be answered on this corpus at any price, which is the second finding of the
+readback.** A tolerance is a claim about an interval, and the row count a tolerance needs is `50·(1.96·sd/tolerance)²`
+with `sd = 0.0138` measured on this pair: **±0.005 needs 1 464 pull requests, and AACR-Bench holds 200.** At 1.84 USD per
+fifty-row pair that is **≈54 USD for a bar the corpus does not have the rows to reach** - and even the smallest tolerance
+the instrument can sign, one resolution unit, needs 64 rows at ±0.024 and 102 at ±0.019. **So R-52's second clause was
+written under the instrument's own error bar**, the exact defect `registrationResolvable` refuses for a _gain_ and this
+file had no rule for on a _tolerance_.
+
+**What that changes is the decision rather than the number.** The cost clause is met and the accuracy clause is
+**unanswerable**, so `lean` cannot be confirmed _or_ refuted as accuracy-neutral, and the honest options are two: read the
+money alone and adopt the arm, or keep the arm that every published figure was measured under. **This document keeps
+`shipped` as the default and makes `pair-lean` the arm the next campaign carries**, because a pair costs one extra arm's
+engine (0.41 USD) and not two runs, and **the second clause is then answered for free by rows that were going to be bought
+anyway**.
+
+**R-53 is registered, and it is the clause rewritten to the resolution this corpus has.** _Claim._ On the next fifty-row
+pair of `pair-lean`, the arm without `testing` **costs at most 85 % of the shipped arm's total USD** and its file-arm
+**F1 is not below the shipped arm's by more than one resolution unit at the rows read** (0.024 at fifty rows, 0.019 at a
+hundred). _Falsifier._ Spend above 85 %, or an F1 more than one resolution unit below `shipped`. **A tolerance equal to
+the instrument's resolution is the smallest tolerance that can be false**, which is what §68's rewrite did for a bar and
+what this one does for a band.
+
+### 113.7 The artifact for that run named a registration it had not run
+
+**The comparison job keys its registrations by the configuration field an arm varies**, and `laneSet` carried §69.5's
+R-35 - a lane _substituted_ for a different question. **R-52 varies the same field to _remove_ a lane and claims a bill
+rather than a gain**, so the artifact for run `44853661785` published R-35's claim, R-35's bar (0.026), R-35's arm, R-35's
+mechanism and R-35's slice, and its verdict read:
+
+> `not a confirmation: the registration names skip 50 max 146, and this run read skip 0 max 50`
+
+**Every word of that is true about R-35 and false about R-52.** A reader quoting the artifact would have reported that a
+fifty-row run failed a 146-row registration it never had - which is the defect §44 recorded one field over, and it was
+found by reading the artifact this section is about rather than by a test.
+
+**The repair has three parts.** An entry may declare the **arms** it names, and an entry that declares them answers
+nothing else; a pair no entry names resolves to **`registration: null`**; and `UNREAD_REGISTRATIONS` carries the pointer -
+for `laneSet:lean`, _"§113.4 (R-52) is a cost band ... the pair is read in §113.6 rather than written as a verdict
+here"_ - which the artifact now writes as `registrationReadIn` and as its `verdict.outcome`.
+
+**It is deliberately not a confound.** `confounds.length > 0` refuses the pair, exits 1 and **publishes no artifact**, so
+writing this as a confound would have made `pair-lean` unmeasurable in order to stop it being mislabelled - the repair
+would have cost the measurement to fix the sentence. **The refusal to judge and the refusal to compare are two different
+answers**, and §113.6 is only readable because the first one does not imply the second.
+
+**And the guard is a test rather than a comment**: `tests/unit/scripts/a-lane-set-that-varies-two-ways-is-two-registrations.test.ts`
+spawns the job on two `laneSet` fixtures, asserts that the `lean` pair writes `registration: null` with the §113.6
+pointer and that its outcome contains neither `skip 50 max 146` nor the word `unregistered`, that the `behaviour` pair
+still resolves to §69.5, and that **no two entries on one field claim the same arm** - the ambiguity that produced this.
+
 ## §114 A monorepo's own package is not a dependency, and the resolution is not an edge
 
 **The per-language table §102.8 prints has an empty row and it is the row this campaign is written in.**
