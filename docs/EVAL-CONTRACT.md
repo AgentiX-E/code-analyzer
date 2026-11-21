@@ -13110,3 +13110,158 @@ names is a command that exits non-zero rather than a paragraph someone has to no
 **0 CNY** - one artifact pair from a run already paid for, one CLI, one ledger field, and no model call. The two
 registrations cost an estimated **13 CNY each** at this corpus size (one arm of 46 rows, both arms on one key at
 off-peak), and they are the only two readings the corpus has left.
+
+## §118 The judge's pairs are 87 % cross-file, and they are worth 28 true positives
+
+**§117 ended with two registrations and a sentence about the judge**: _fourteen and a half judge calls per finding, at
+271 prompt tokens a call, is the largest single count in the bill and no lane decision touches it._ This section asks
+the question that sentence leaves open - **what are those pairs made of, and can any of them be dropped** - and answers
+it with arithmetic on an artifact that was already paid for. **0 CNY, no model call.**
+
+Two devices can move the judge's bill: **ask it fewer questions** (a filter over pairs) or **ask each question more
+cheaply** (a batch). The first one looks free until the pairs it drops are counted, and that is the whole of §118.1.
+
+### 118.1 A path filter is a loss at every strength, and the strictest one loses most
+
+`scripts/judge-pair-anatomy.mjs` applies five candidate rules to the `(finding path, golden path)` pairs of the
+five-lane arm of `44867457528`, re-scores each surviving pool, and prints **two columns**: what the evaluation would
+score if the judge were asked fewer questions, and what a review would score if the product could apply the rule itself.
+
+| rule over paths                 |  pairs | kept   |  TP | precision | recall | F1         | ΔF1, evaluation | ΔF1, product |
+| ------------------------------- | -----: | ------ | --: | --------: | -----: | ---------- | --------------: | -----------: |
+| **no filter** (the control)     | 10 892 | 100 %  | 149 |    0.2587 | 0.2058 | **0.2292** |         +0.0000 |      −0.0275 |
+| same top segment                |  9 144 | 83.95% | 143 |    0.2483 | 0.1975 | 0.2200     |         −0.0092 |      −0.0248 |
+| same top two segments           |  6 144 | 56.41% | 131 |    0.2274 | 0.1809 | 0.2015     |         −0.0277 |      −0.0339 |
+| same directory or one inside it |  3 944 | 36.21% | 129 |    0.2240 | 0.1782 | 0.1985     |         −0.0308 |      −0.0235 |
+| same directory                  |  3 406 | 31.27% | 128 |    0.2222 | 0.1768 | 0.1969     |         −0.0323 |      −0.0180 |
+| **same path**                   |  1 426 | 13.09% | 121 |    0.2101 | 0.1671 | 0.1862     |     **−0.0431** |  **−0.0001** |
+
+**Every row is negative, and the strictest one is the worst.** Removing 87 % of the judge's questions costs 0.0431 of
+F1 - **2.3 resolution units at a hundred rows** - while the loosest filter, which removes one sixth of them, costs 0.0092.
+The ordering is the opposite of what a cost argument wants: **the rule that saves the most costs the most.**
+
+**And the last column is not a plan.** At `same path` the product column reads −0.0001, which is the figure that makes
+the filter _look_ free: a review that only speaks where a golden sits on the same file would hold its F1 exactly. **It
+cannot be built**, because the rule reads the **golden's** path and the product has no golden. The column is printed to
+be quoted with that sentence, and the sentence is printed under the table by the tool itself.
+
+**What this settles.** R-56 was registered _after_ §117 read the cache, and the cheapest-looking alternative to it - a
+path filter - is now measured and rejected. **The judge keeps its 10 892 questions; the only remaining lever is their
+price.**
+
+### 118.2 Which is why fourteen and a half calls per finding is not waste
+
+The same table, read as an attribution rather than as a verdict:
+
+| pairs          | how many | true positives | pairs per TP | judge prompt tokens | tokens per TP |
+| -------------- | -------: | -------------: | -----------: | ------------------: | ------------: |
+| same path      |    1 426 |            121 |         11.8 |             553 000 |     **4 570** |
+| **cross-file** |    9 466 |             28 |      **338** |           3 674 000 |   **131 200** |
+| total          |   10 892 |            149 |         73.1 |           4 227 472 |        28 370 |
+
+**A cross-file true positive costs 28.7 times what a same-file one does.** And 28 of them is not nothing: it is **19 % of
+the 149 true positives the arm earned**. The filter is rejected because the trade is **0.0431 of F1 - 2.3 resolution
+units at a hundred rows - for 17.5 % of the total cold-cache bill**: the judge is 20.1 % of that bill (§117.4) and the
+filter removes 87 % of it. **A sixth of the money for a fifth of the accuracy is not a saving; it is the same trade the
+competitor makes, arriving from the other direction.**
+
+**This is also the answer to a question §117 left implicit.** The 9 466 cross-file pairs are not a matcher that wandered:
+they are the shape of these corpora. On `cline/cline#5524` a single golden in
+`src/shared/proto-conversions/state/settings-conversion.ts` is credited against findings in `proto/cline/models.proto`,
+`src/api/index.ts`, `src/api/providers/gemini.ts` and `src/core/task/index.ts` - **one defect, five files, and the
+golden names one of them.** A judge that only looks at the file it was told about cannot see that, and a reviewer whose
+ranking only trusts same-file evidence cannot either.
+
+### 118.3 The batch's arithmetic is exact before it is bought
+
+`buildJudgeMessages` is a pure function of one finding's text and one golden's note, so **the length of every request
+the judge would receive is computable with no model involved**. `scripts/judge-batch-arithmetic.mjs` builds them all:
+
+| pairs per call | requests | vs per-pair | prompt characters | characters per call | vs per-pair |
+| -------------: | -------: | ----------: | ----------------: | ------------------: | ----------: |
+|              1 |   10 892 |      100.0% |        12 165 236 |               1 117 |      100.0% |
+|              2 |    5 642 |       51.8% |         8 060 480 |               1 429 |       66.3% |
+|          **4** |    2 995 |   **27.5%** |         5 988 512 |               2 000 |   **49.2%** |
+|              8 |    1 729 |       15.9% |         4 996 474 |               2 890 |       41.1% |
+
+**R-56's bar is 60 % of the per-pair prompt tokens and the arithmetic gives 49.2 %** - ten points of room - with the
+request count falling to 27.5 %, which is the half that also removes 7 897 round trips. At eight pairs per call the
+answer is 41.1 %, which is what the `judge_batch` input's own comment predicted (_"eight comments behind one instruction
+block ... divide the per-pair instruction cost by eight"_).
+
+**Characters are not tokens.** The vendor counts with its own vocabulary; this table reuses one text domain and one
+constant block, so the ratio transfers even if the absolute count does not - and the run reports `promptTokens`, which
+is the count the clause is written in.
+
+### 118.4 And the argument the batch was registered on is wrong about the prefix
+
+`judge-batch.mjs` says, in a comment that has been in the tree since §110:
+
+> A judge prompt is about **250 tokens**: three instruction lines, one golden, one comment. The constant part is about
+> **57 tokens**, and a prefix cache works in blocks of **64** - so the block that is shared does not exist, and **every
+> call pays for its own instructions**.
+
+**The constant block is 712 characters, not 57 tokens.** That is the whole system message - instructions _and_ the
+golden, because §110's own design put the golden inside the cached prefix on purpose. At four characters to the token it
+is **about 178 tokens against a 64-token block**, so the block **exists**, and the premise of the sentence above is
+false.
+
+**The measurement that sentence was written to explain is still real**: the judge hit the vendor's prefix cache on
+**13.5 %** of its prompt tokens in the shipped arm while the reviewer hit on 82.9 %, on the same provider, the same day,
+the same key. A block that exists and does not get hit is a different failure from a block that does not exist, and the
+difference matters because **the two have different repairs**:
+
+- **A block too small** is repaired by batching, which is R-56.
+- **A block that exists and is not hit** is repaired by the **order and timing of the calls**: `judgeMatrix` has a
+  golden-major warm pass since 2026-11-10, so a golden's prefix _is_ written before its siblings are read - but the
+  write happens inside a call that has just started, and the tail is then dispatched **six in flight**. The reviewer's
+  82.9 % comes from `planLaneWaves`, which is serial between waves; the judge has no wave at all.
+
+**So the batched arm may move the hit ratio for a second reason, and by an amount this section cannot predict.** That is
+why R-56's clause is written in **prompt tokens** and not in dollars: the tokens are arithmetic, the cache is state.
+
+### 118.5 R-55 is in flight, and R-56's reading needs one more arm
+
+**R-55 dispatched at 09:53 UTC on `c91c053`** - workflow run `44891741390`, `skip 150, requested 46`, `pair-lean`, judge
+batched at 1. It is the same clause §117.5 wrote, on the last forty-six rows of a 196-row corpus that no reading has
+touched: _the arm without `testing` costs at most 85 % of the shipped arm's `totalCacheNeutralUsd`, its reviewer prompt
+tokens are at most 85 % of the shipped arm's, and its file-arm F1 is inside one resolution unit._ **After this run there
+is no unread row in this corpus**, and that is a fact about the apparatus rather than about the arms.
+
+**R-56 as registered needs the per-pair arm on the same forty-six rows**, which R-55's shipped arm produces. **What it
+cannot have is both arms in one dispatch**: `AACR_JUDGE_BATCH` is read from a dispatch input and the matrix builds one
+arm per input value, so a `judge_batch: pair` value would cost a rewrite of the fourteen-arm `include:` expression - and
+**the two runs would then differ in the vendor cache's state**, which §117 spent a section learning to price out. The
+reading therefore uses `totalCacheNeutralUsd` and `judge.promptTokens` on both sides, both of which the cold-cache
+ledger and the artifact now carry.
+
+**R-60 - the prefix exists, so make it hit.** _Claim._ On the same forty-six rows, with the five shipped lanes and
+`judgeBatch: 1`, a warm pass that **waits for the first wave to finish before the tail is dispatched** raises the judge's
+`cacheHitRatio` from 13.5 % to **at least 40 %** and lowers `totalCacheNeutralUsd` by **nothing** - it is a billed-unit
+device and the cold-cache figure is its control.
+_Falsifier._ A hit ratio below 40 %, or a cold-cache figure that moves by more than 2 %.
+**Why the cold-cache figure is the control.** A device that only moves the cache is a device that changes what the vendor
+charges and not what the work costs; if `totalCacheNeutralUsd` moves, the warm pass changed the calls and the clause is
+about something else.
+
+### 118.6 What this section does not claim
+
+- **That a path filter is worthless as a product idea.** It is worthless **as this corpus scores it**: the cross-file
+  pairs that it removes are 28 true positives, and a reviewer that had the index could find those couplings itself
+  (§100's reach device) - which is a different mechanism with a different price, and is R-57.
+- **That 49.2 % of the characters is 49.2 % of the tokens.** It is a ratio over one vocabulary; the run reports the
+  count the clause is written in.
+- **That the cache will move.** 13.5 % is one reading of one arm on one day, and a batched arm's hit ratio depends on
+  whether the vendor counts the enlarged system block as a prefix at all.
+- **That R-56 will pass.** The arithmetic says the prompt tokens will be **49.2 %**, and the clause also requires the
+  file-arm F1 to stay inside one resolution unit - which is the `judgeMatrixBatched` equivalence the self-test asserts
+  only on a fixture.
+- **That the fourteen-arm matrix stays as it is.** A `judge_batch: pair` value is the right shape for the next device
+  that needs both arms in one dispatch, and it is deferred here because a fourteen-arm `include:` expression rewritten
+  in the same commit that reads a run is two changes and one verdict.
+
+### 118.7 Price
+
+**0 CNY** - two CLIs, one rule table, one arithmetic, and two test files. R-55 is already dispatched at an estimated
+**13 CNY**; R-56's second arm is an estimated **7 CNY** (one arm of forty-six rows, judge batched at four, competitor
+off); R-60 is **0 CNY above R-56**, because it is a change to the warm pass and is read off the same rows.
