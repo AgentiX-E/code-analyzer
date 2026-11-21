@@ -14190,6 +14190,14 @@ has cleared that bar on accuracy rather than on a pool count.
 **R-67 registers that pair** - cap 3 with budget 20 - because **a cap and a budget interact and pricing them separately
 would price neither**.
 
+> **Amended after the run: the budget became a dispatch input, and a test had been reading it as punctuation.**
+> `PR_BUDGET` gained a 1..64 validation IIFE in this iteration, which deleted the one-line shape
+> `the-budget-the-benchmark-runs-is-the-budget-the-engine-ships` matched; **CI and the coverage gate both failed on that
+> single assertion and nothing else** (commit `210b5aa`). The repair was not a looser regex: the script now names the
+> default (`const DEFAULT_PR_BUDGET = 12;`) and reads it in its own `??`, so the test compares two numbers by name **and**
+> asserts that the `??` consumes the named constant - because a second literal inside the IIFE would restore exactly the
+> drift the test exists to catch.
+
 ### 126.5 R-67 - the pair, registered on the emitted arm this time
 
 **R-67 - three concerns at a site and twenty findings per pull request.** _Claim._ On the same 46 rows with the five
@@ -14221,3 +14229,117 @@ estimate above.
 
 **≈7 CNY** for R-64's arm (`44912204000`, 1.0965 USD billed, 2.0860 USD cold). **R-67 is an estimated 7 CNY** and is not
 dispatched in this iteration.
+
+## §127 A registry of two, and the four facts a second vendor has to supply
+
+**`provider.ts` opened with the sentence "the LLMProvider interface and provides a DeepSeek-backed implementation", which
+is a description of an abstraction with one member.** Every LLM-dependent component in this repository takes an
+`LLMProvider`; the class that implemented it embedded a _wire format_ (OpenAI-compatible `POST /chat/completions`, a
+bearer key, `usage.prompt_tokens`, `prompt_cache_hit_tokens`) and a _vendor_ (a key variable, a base URL, a default
+model, a name) in the same 300 lines. **The wire format is the reusable part.** This section separates them and adds the
+second vendor, because §125 read three studies that make one family an insufficient measurement.
+
+### 127.1 What varies, and what does not
+
+| fact                    | DeepSeek                        | GLM                                         | where it lives now       |
+| ----------------------- | ------------------------------- | ------------------------------------------- | ------------------------ |
+| name a bill is filed as | `DeepSeek`                      | `GLM`                                       | subclass, one argument   |
+| key variable            | `DEEPSEEK_API_KEY`              | `ZHIPU_API_KEY`                             | subclass, one argument   |
+| base URL                | `https://api.deepseek.com/v1`   | `https://open.bigmodel.cn/api/paas/v4`      | subclass, one argument   |
+| default model           | `deepseek-chat`                 | `glm-4.6`                                   | subclass, one argument   |
+| cache-split field       | `usage.prompt_cache_hit_tokens` | `usage.prompt_tokens_details.cached_tokens` | `cacheSplit`, four lines |
+| request body, retries   | **identical**                   | **identical**                               | base class               |
+| 401 / 429 / ceiling     | **identical**                   | **identical**                               | base class               |
+| ledger row, pricing     | **identical**                   | **identical**                               | base class               |
+
+**`ZhipuProvider` is 40 lines including its comment, and 34 of them are the `cacheSplit` override.** That is the
+measurement of the refactor: before it, a second vendor was a second copy of the transport, and the copy would have been
+the place the retry schedule and the ceiling check drifted.
+
+**The base URL is the one the repository was already using.** `packages/analyzer/src/pipeline/phases/embed-api.ts` posts
+to `https://open.bigmodel.cn/api/paas/v4/embeddings`, so the chat route is the same host and the same version prefix.
+**It is duplicated rather than imported**, because `intelligence` does not depend on `analyzer` and a dependency added to
+avoid typing fifty characters is the wrong direction of coupling.
+
+### 127.2 Why a second family, and what makes its result readable
+
+Three readings from §125, restated because they are the whole argument:
+
+- **56.8 % of defects were caught by exactly one model** of the set evaluated (Zenodo 20519584).
+- **Cross-family Jaccard 0.29** on the same defects.
+- **A second reviewer lifts a single reviewer's recall from 47 % to 72 %** on the same corpus.
+
+If any of that transfers, then **every recall figure in this document is a figure about DeepSeek's blind spots wearing
+the corpus's name** - and the number that matters is not either family's recall but **the size of the union**.
+
+**The join was already on disk and nobody had looked for it.** `mergeAttributions` returns `records`, one row per golden
+with `pr`, `goldenIndex`, `bucket`, `path` and the note, and `missedGoldens` spreads it into the artifact - so **two runs
+of the same slice can be joined on `(pr, goldenIndex)` without re-judging anything.** R-64's 530-finding pool and R-55's
+shared **179 of 530** positions (33.8 %), which is why **a difference of true-positive counts is not an overlap**: two
+arms can hold 91 goldens each and 30 in common. The union has to be computed from the rows, not from the totals - and the
+rows are there.
+
+### 127.3 What is asserted, and the one assertion that is not about the code
+
+Twelve tests in `a-second-vendor-behind-the-same-interface.test.ts`, against a stubbed `fetch` and no model call:
+
+| #   | assertion                                                      | what it stops                                      |
+| --- | -------------------------------------------------------------- | -------------------------------------------------- |
+| 1   | the exact URL `.../v4/chat/completions`                        | a base with the route already on it                |
+| 2   | `ZHIPU_API_KEY` is read, and its absence throws naming `GLM`   | a provider that borrows DeepSeek's key             |
+| 3   | the default model is `glm-4.6`                                 | an alias retired under the artifact                |
+| 4   | the billed model is `data.model`, not the requested alias      | a bill filed under the wrong row                   |
+| 5   | the split is read from `prompt_tokens_details.cached_tokens`   | a cache ratio of zero reported as a measurement    |
+| 6   | the miss is derived as `prompt - cached`                       | 640 hits and no miss on a 1 000-token prompt       |
+| 7   | a missing split stays `undefined`, not `0`                     | "no cache" and "no hits" reading the same          |
+| 8   | the top-level pair wins when a proxy normalises the fields     | a split discarded in favour of a vanished field    |
+| 9   | a cached count above the prompt yields `miss: 0`               | a negative bill                                    |
+| 10  | both vendors build the **same body** for the same options      | a subclass that quietly changed the instrument     |
+| 11  | `knownLLMProviders()` is `['deepseek','zhipu']`, in that order | **an insertion that re-prices every figure**       |
+| 12  | `LLM_PROVIDER=deepseek` wins while both keys are present       | insertion order deciding what a named run measures |
+
+**Row 11 is the one that would never have failed on its own.** `createLLMProvider` falls back to the _first_ factory that
+can run, so **registering a vendor above DeepSeek would silently change what every unconfigured deployment reviews** -
+and every test that names a provider would still pass. The order is therefore a measurement decision, written down in
+`provider-factory.ts` beside the table, and asserted as a position.
+
+**What the second entry does change, stated rather than discovered**: a deployment holding only `ZHIPU_API_KEY`, which
+used to build no provider at all, now builds GLM. The alternative was a registry entry reachable only through a variable
+nobody sets, which is a registry of one with more lines.
+
+### 127.4 The guard that had to grow, and the shape of its blindness
+
+`every-paid-script-has-a-spend-ceiling` reads `.github/scripts/*.mjs` and filters on `new DeepSeekProvider(`. Routing
+`aacr-bench.mjs` through the registry made **the most expensive script in the repository leave the list that exists
+because of it** - and the file's own count assertion (`scriptFiles().length >= 3`) had one fewer file, so the guard still
+read as satisfied. **A guard whose subject can walk out of its field of view is worse than no guard.**
+
+The reader now accepts both doors - a direct construction and `createLLMProvider(` - and requires `ceilingUsd` behind
+either. The bench's construction passes it:
+
+```js
+const made = createLLMProvider(PROVIDER, undefined, { ledger, ceilingUsd: MAX_USD });
+```
+
+**And the option is why the registry got a third parameter.** A factory that could only build an unconfigured provider was
+enough for the MCP tools and not enough for the one caller that prices every call, so that caller would have bypassed the
+registry - **a registry the spending path does not use is a registry that is documented rather than exercised.**
+
+### 127.5 What this section does not claim
+
+- **That GLM is better, worse, or cheaper on this corpus.** No run has been dispatched. The claim R-65 makes is about the
+  **union** of two families' goldens, and it stays unmeasured until two artifacts exist.
+- **That the union will reach 110 true positives.** R-65's bar is 110 of 330, registered before the device existed; §125's
+  47 % → 72 % is a second reviewer's contribution on a different corpus and is an order of magnitude, not a figure.
+- **That GLM's cost is known.** `cost.ts` has no price row for `glm-4.6`, so its calls are recorded as **unpriced** and
+  counted in `unpricedCalls` - **`0` would be a claim that the calls were free**, which is the one thing an unpriced
+  ledger must not say.
+- **That one dispatch is enough for R-65.** A union needs **two** runs on the same 46 rows, one per family, and the
+  registration's `confirmation` slice does not yet say so - the next iteration's first task is to make the registration
+  describe the pair rather than one arm.
+
+### 127.6 Price
+
+**0 CNY.** Every assertion stubs `fetch`; no model was called to write this section. The GLM arm is **an estimated
+2 CNY** for the same 46 rows (the reviewer's cold cost, minus nothing - the judge is not re-run because the union is a
+join over `missedGoldens.records`), and **R-65 is not dispatched in this iteration**.

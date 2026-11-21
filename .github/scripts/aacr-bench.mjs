@@ -472,6 +472,28 @@ const PR_BUDGET = (() => {
   return parsed;
 })();
 
+/**
+ * **Which model family reviews the corpus, and why the arm exists.**
+ *
+ * §125 read three 2026 studies that agree on one shape: **the defects one model finds are not the defects another
+ * finds.** Zenodo 20519584 measured **56.8 % of defects caught by exactly one model**, a cross-family Jaccard of **0.29**,
+ * and a second reviewer that lifts a single reviewer's recall from **47 % to 72 %**. If that is true of this engine too,
+ * then every recall figure in `docs/EVAL-CONTRACT.md` is a figure about DeepSeek rather than about the reviewer - and
+ * **the only way to find out is to run the same lanes on a second family and compare the two sets of goldens they hit.**
+ *
+ * **The list is written here rather than read from `dist/`**, because this constant is validated at module scope and
+ * `dist/` only exists after a build - the same reason `LANE_SETS` is a literal. `a-second-vendor-behind-the-same-interface`
+ * asserts that this list and the registry's `knownLLMProviders()` are the same list, so the two cannot drift.
+ */
+const PROVIDERS = ['deepseek', 'zhipu'];
+const PROVIDER = (() => {
+  const raw = String(process.env['AACR_PROVIDER'] ?? 'deepseek');
+  if (!PROVIDERS.includes(raw)) {
+    throw new Error(`AACR_PROVIDER="${raw}" is not one of ${PROVIDERS.join(', ')}`);
+  }
+  return raw;
+})();
+
 function findSamples(name) {
   const hits = [];
   const walk = (dir, depth) => {
@@ -2100,8 +2122,30 @@ async function main() {
   // in `--dry-run` too and `dist/` is only guaranteed to exist after a build.
   const { applyEmissionProfile } =
     await import('../../packages/intelligence/dist/review/category-prior.js');
-  const { DeepSeekProvider } =
-    await import('../../packages/intelligence/dist/review/llm/provider.js');
+  // **The provider comes from the registry**, so which family reviews the corpus is a dispatch input rather than a line
+  // of source. §125 read three studies agreeing that *the defects one model finds are not the defects another finds* -
+  // 56.8 % caught by exactly one model, cross-family Jaccard 0.29 - and **a corpus reviewed by one family measures that
+  // family's blind spots as if they were the corpus's difficulty.** The options are the whole reason the registry takes
+  // them: this job prices every call, and a factory that could not be given a ledger would be a factory this job bypassed.
+  const { createLLMProvider } =
+    await import('../../packages/intelligence/dist/review/llm/provider-factory.js');
+  /**
+   * **One provider per use, built through the registry, refusing loudly when the family's key is absent.**
+   *
+   * Three places in this job spend money - the engine's lanes, the agent, and the merge reviewer - and **all three must
+   * run on the same family**, because a run that reviewed on one vendor and merged on another would be a figure about
+   * neither. A `null` from the registry is an absence the registry reports as an answer; here it is a refusal, because
+   * this is the one caller that cannot proceed without a model.
+   */
+  const providerFor = () => {
+    const made = createLLMProvider(PROVIDER, undefined, { ledger, ceilingUsd: MAX_USD });
+    if (made === null) {
+      throw new Error(
+        `AACR_PROVIDER=${PROVIDER} could not be built: the key it reads is not in this job's environment`,
+      );
+    }
+    return made;
+  };
   // **The rule names come from the module, not from a list repeated here.** A run that recorded a hand-written list of
   // rules would keep reporting a rule after it had been deleted, and **the artifact is the place a reader checks which
   // rules produced the figure.**
@@ -2340,7 +2384,7 @@ async function main() {
   const falsifierDropsSeen = [];
   /** How many of them the artifact keeps: enough to read the pattern, few enough to open. */
   const FALSIFIER_DROP_SAMPLES = 80;
-  const engine = new LLMReviewEngine(new DeepSeekProvider({ ledger, ceilingUsd: MAX_USD }), {
+  const engine = new LLMReviewEngine(providerFor(), {
     dedupThreshold: DEDUP_THRESHOLD,
     languageChecklist: CHECKLIST,
     promptOrder: PROMPT_ORDER,
@@ -4022,7 +4066,7 @@ async function main() {
           agentCounters.firstFailure =
             'no repository: the clone failed and no file was readable through the API';
         } else {
-          const agent = new ReviewAgent(new DeepSeekProvider({ ledger, ceilingUsd: MAX_USD }), {
+          const agent = new ReviewAgent(providerFor(), {
             // **The measured arm, imported rather than spelled out.** These four values were written here as literals
             // alongside another copy in `pr-review.ts`, and the copies had already diverged on `allowOffDiff` - so the
             // published figure described a configuration no product path offered. `BASELINE_AGENT_OPTIONS` is the one
@@ -4145,7 +4189,7 @@ async function main() {
         const lanesSide = candidates.filter((entry) => entry.source === 'lanes');
         const readerSide = candidates.filter((entry) => entry.source === 'reader');
         if (lanesSide.length > 0 && readerSide.length > 0) mergeCounters.unionPulls += 1;
-        const mergeProvider = new DeepSeekProvider({ ledger, ceilingUsd: MAX_USD });
+        const mergeProvider = providerFor();
         const merged = await mergeReviewers({
           lanes: lanesSide,
           reader: readerSide,
@@ -5102,6 +5146,11 @@ async function main() {
         shipped: { ...SHIPPED_AGENT_OPTIONS },
         divergence: [...AGENT_ARM_DIVERGENCE],
       },
+      // **Which family reviewed the corpus**, because from §127 the artifact can describe two reviewers that differ in
+      // nothing but the model - and **a recall figure that does not say which family produced it is a figure about an
+      // unnamed reviewer.** The judge's model is a separate key above and deliberately so: this run judges with the
+      // judge's family and reviews with this one, which is the separation every earlier figure was measured under.
+      provider: PROVIDER,
       // **The statement of intent the arm was run under, in the artifact rather than in a dispatch log**, so that a
       // later run can tell an arm that was asked to be cheap from one that hit its ceiling.
       competitorMode: COMPETITOR_CHOICE.mode,

@@ -23,6 +23,7 @@ import { join } from 'node:path';
 import { describe, expect, it } from 'vitest';
 
 import { MECHANISMS, REGISTRATIONS } from '../../../.github/scripts/aacr-ablation-compare.mjs';
+import { knownLLMProviders } from '../../../packages/intelligence/src/review/llm/provider-factory.js';
 
 const ROOT = join(import.meta.dirname, '..', '..', '..');
 const BENCH = readFileSync(join(ROOT, '.github', 'scripts', 'aacr-bench.mjs'), 'utf8');
@@ -205,5 +206,52 @@ describe('the emission budget is an input, because the cap moved its maximum', (
     // would be the §58.1 shape - an artifact internally consistent and about a reviewer nobody dispatched.
     const configuration = BENCH.slice(BENCH.indexOf('configuration: {'));
     expect(configuration.slice(0, 6000)).toContain('pullRequestBudget: PR_BUDGET');
+  });
+});
+
+describe('the model family is a dispatch input, and the artifact says which one ran', () => {
+  it('is read from the environment the workflow sets', () => {
+    expect(BENCH).toContain("process.env['AACR_PROVIDER']");
+    expect(WORKFLOW).toContain('AACR_PROVIDER: ${{ inputs.provider');
+  });
+
+  it('reaches the engine through the registry rather than a class name', () => {
+    // **`new DeepSeekProvider(` in the job is the lock-in the registry exists to remove**, and it was what the engine,
+    // the agent and the merge reviewer each did. The assertion is on the absence of that construction as much as on the
+    // presence of the registry call: a fourth call site added later with a hard-coded class would pass a presence test.
+    expect(BENCH).toContain(
+      'createLLMProvider(PROVIDER, undefined, { ledger, ceilingUsd: MAX_USD })',
+    );
+    expect(BENCH).not.toContain('new DeepSeekProvider(');
+    expect(BENCH).toContain('new LLMReviewEngine(providerFor(),');
+  });
+
+  it('is the key the artifact publishes, so two families cannot be compared as one', () => {
+    // **Position rather than a window.** The other assertions in this file read the first six thousand characters of
+    // `configuration`, and this key sits at the end of a block that has grown past that - so a window here would pass
+    // today and start lying the next time a key was added above it. The comparison is order, which no insertion moves.
+    const at = BENCH.indexOf('configuration: {');
+    const providerAt = BENCH.indexOf('provider: PROVIDER,');
+    expect(at).toBeGreaterThan(-1);
+    expect(
+      providerAt,
+      'no configuration key publishes which family reviewed the corpus',
+    ).toBeGreaterThan(at);
+  });
+
+  it('validates the name against a list the registry agrees with', () => {
+    // **A literal list at module scope and a registry in `dist/`**: the list is what makes a typo a refusal before the
+    // corpus is cloned, and this assertion is what keeps the two from becoming two different lists.
+    const declared = /const PROVIDERS = \[([^\]]*)\];/u.exec(BENCH);
+    expect(declared, 'the benchmark script no longer declares its provider list').not.toBeNull();
+    const names = declared![1]!.split(',').map((part) => part.trim().replace(/^'|'$/gu, ''));
+    expect(names).toEqual(knownLLMProviders());
+  });
+
+  it('passes the second family the key its provider reads, and not a variable it invents', () => {
+    // **The workflow is the only place a secret becomes an environment variable**, and a provider whose variable is
+    // absent throws at construction - so this is the difference between an arm that runs and an arm that fails for a
+    // reason the artifact never records.
+    expect(WORKFLOW).toContain('ZHIPU_API_KEY: ${{ secrets.ZHIPU_API_KEY }}');
   });
 });

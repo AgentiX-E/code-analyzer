@@ -313,6 +313,23 @@ on:
         description: 'Findings one range may keep (default 1, the arm every figure was measured under; 3 is R-64)'
         type: string
         default: '1'
+      provider:
+        # **Which model family reviews the corpus, and the arm this input exists for.**
+        #
+        # §125 read three 2026 studies that agree on one shape: the defects one model finds are not the defects another
+        # finds - **56.8 % of defects caught by exactly one model** (Zenodo 20519584), a cross-family Jaccard of **0.29**,
+        # and a second reviewer that lifts a single reviewer's recall from **47 % to 72 %**. If that holds here, every
+        # recall figure in `docs/EVAL-CONTRACT.md` is a figure about DeepSeek's blind spots rather than the reviewer's.
+        #
+        # **`deepseek` is the default because it is the arm those figures were measured on.** The second family reads its
+        # key from `ZHIPU_API_KEY`, which is the same secret the embedding backend reads - one account pays for both, so a
+        # Zhipu-only deployment does not need two credentials that must agree.
+        description: 'Which model family reviews the corpus (default deepseek)'
+        type: choice
+        options:
+          - deepseek
+          - zhipu
+        default: deepseek
       pull_request_budget:
         # **The emission budget, which stopped being a constant when the pool doubled.** §124.2 measured twelve as the
         # maximum of the F1 curve on the cap-1 arm; R-64 put the pool at 1 100 findings and moved that maximum to
@@ -636,6 +653,13 @@ jobs:
           AACR_MAX_FINDINGS_PER_FILE: ${{ inputs.max_findings_per_file || '3' }}
           # **The per-range cap, beside the per-file one and for the same reason**: the two are separate decisions and a
           # run that recorded one and applied the other would be an artifact about a reviewer nobody dispatched.
+          # **Which family the lanes run on**, recorded in the artifact as `configuration.provider` so two runs that
+          # differ only in this field can be read as the two reviewers they are.
+          AACR_PROVIDER: ${{ inputs.provider || 'deepseek' }}
+          # **The second family's key.** Passed unconditionally rather than behind an `if`, because a secret that is
+          # absent is an empty string and the provider refuses at construction with the name of the variable - which is a
+          # clearer failure than a lane that silently ran on the default family while the artifact said `zhipu`.
+          ZHIPU_API_KEY: ${{ secrets.ZHIPU_API_KEY }}
           AACR_SAME_SITE_CONCERNS: ${{ inputs.same_site_concerns || '1' }}
           # **The emission budget, beside the two caps it interacts with**: the per-site cap decides what enters the
           # ranking and this one decides how much of the ranking a reviewer sees, and §126.4 measured them moving
