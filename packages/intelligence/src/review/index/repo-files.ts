@@ -117,8 +117,14 @@ export interface RepoTree {
 export function packageNameOf(text: string): string | null {
   if (text.length > 262_144) return null;
   try {
-    const parsed = JSON.parse(text);
-    const name = parsed?.name;
+    /**
+     * **`unknown` rather than the `any` `JSON.parse` returns**, because a manifest is a document this repository did not
+     * write: the first version read `parsed?.name` off an `any` and the lint ratchet caught two unsafe assignments in a
+     * file that had been clean - the same shape of finding as a resolver that trusts its input.
+     */
+    const parsed: unknown = JSON.parse(text);
+    if (typeof parsed !== 'object' || parsed === null) return null;
+    const name = (parsed as { name?: unknown }).name;
     return typeof name === 'string' && name.length > 0 && name.length <= 214 ? name : null;
   } catch {
     return null;

@@ -85,11 +85,23 @@ function arm(options: {
   };
 }
 
+/**
+ * **The three fields this file reads, declared rather than indexed.** The artifact is a document the job writes, so it
+ * arrives as `unknown` - and `Record<string, unknown>` would make every read a bracket access the type-check ratchet
+ * refuses (`noPropertyAccessFromIndexSignature`), which is the ratchet saying that a shape nobody declared is a shape
+ * nobody checks.
+ */
+interface ComparedArtifact {
+  readonly registration?: { readonly section?: string } | null;
+  readonly registrationReadIn?: string | null;
+  readonly verdict?: { readonly outcome?: string };
+}
+
 /** Run the job over two artifacts in a directory of their own, and read the verdict it wrote. */
 function compare(
   withArm: Record<string, unknown>,
   withoutArm: Record<string, unknown>,
-): { readonly status: number; readonly artifact: Record<string, unknown> } {
+): { readonly status: number; readonly artifact: ComparedArtifact } {
   const dir = mkdtempSync(join(tmpdir(), 'aacr-lane-set-'));
   const onPath = join(dir, 'with.json');
   const offPath = join(dir, 'without.json');
@@ -103,7 +115,7 @@ function compare(
   }
   const artifact = JSON.parse(
     readFileSync(join(dir, 'benchmarks', 'aacr-ablation-paired.json'), 'utf8'),
-  ) as Record<string, unknown>;
+  ) as ComparedArtifact;
   return { status, artifact };
 }
 
@@ -128,8 +140,7 @@ describe('a field that carries two devices', () => {
     expect(status).toBe(0);
     expect(artifact.registration).toBeNull();
     expect(String(artifact.registrationReadIn)).toContain('§113.6');
-    const verdict = artifact.verdict as Record<string, unknown>;
-    const outcome = String(verdict.outcome);
+    const outcome = String(artifact.verdict?.outcome);
     // **The two sentences that must not appear.** `not a confirmation: the registration names skip 50 max 146` is R-35's
     // slice quoted about a fifty-row run, and `unregistered` says nobody wrote an expectation - which is false for R-52.
     expect(outcome).not.toContain('skip 50 max 146');
@@ -148,18 +159,15 @@ describe('a field that carries two devices', () => {
       arm({ name: 'shipped', lanes: FIVE_LANES, truePositives: 6, falsePositives: 10 }),
     );
     expect(status).toBe(0);
-    const registration = artifact.registration as Record<string, unknown> | null;
-    expect(registration?.section).toBe('§69.5 (R-35)');
+    expect(artifact.registration?.section).toBe('§69.5 (R-35)');
     expect(artifact.registrationReadIn).toBeNull();
-    expect(String((artifact.verdict as Record<string, unknown>).outcome)).not.toContain(
-      'cost band',
-    );
+    expect(String(artifact.verdict?.outcome)).not.toContain('cost band');
   });
 
   it('never lets two entries on one field claim the same arm', () => {
     // **The lookup is by name, so two entries claiming one arm is an ambiguity the file cannot resolve** - and the tie
     // would be broken by whichever key `Object.keys` happened to return first, which is not a rule.
-    const claimed = new Map<string, string[]>();
+    const claimed = new Map<string, string>();
     for (const [key, entry] of Object.entries(REGISTRATIONS) as [
       string,
       { field?: string; arms?: string[] },
@@ -178,8 +186,8 @@ describe('a field that carries two devices', () => {
     // answers to one question.
     for (const key of Object.keys(UNREAD_REGISTRATIONS)) {
       expect(claimed.get(key), `${key} is both read and unread`).toBe(undefined);
-      const [field] = key.split(':');
-      expect(field in REGISTRATIONS, `${String(field)} is not a registered field`).toBe(true);
+      const field = key.split(':')[0] ?? '';
+      expect(field in REGISTRATIONS, `${field} is not a registered field`).toBe(true);
     }
   });
 });
