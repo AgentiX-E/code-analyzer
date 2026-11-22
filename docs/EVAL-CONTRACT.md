@@ -15291,13 +15291,13 @@ opinion.
 
 #### 138.1 AACR: the bar is 25.10, and this repository is 4.84 below it
 
-| row                                       |        F1 | precision | recall | judge-model     | source                       |
-| ----------------------------------------- | --------: | --------: | -----: | --------------- | ---------------------------- |
-| Alibaba OCR, best published               | **25.10** |     33.90 |  20.00 | Claude-4.6-Opus | vendor self-report, 200 PR   |
-| Alibaba OCR, same model family as ours    |     17.90 |     30.60 |  12.70 | DeepSeek-V4-Pro | vendor self-report           |
-| **Alibaba OCR, our corpus, our judge, 47 PR** | **21.25** |  52.73 |  13.30 | DeepSeek-chat   | §116.2, `benchmarks/aacr/competitor-baseline.json` |
-| this repository, same 47 PR               |     19.41 |     20.90 |  18.12 | DeepSeek-chat   | §116.2                       |
-| this repository, pairwise protocol, 50 PR | **20.26** |     21.96 |  18.81 | DeepSeek        | `benchmarks/aacr-bench.json` |
+| row                                           |        F1 | precision | recall | judge-model     | source                                             |
+| --------------------------------------------- | --------: | --------: | -----: | --------------- | -------------------------------------------------- |
+| Alibaba OCR, best published                   | **25.10** |     33.90 |  20.00 | Claude-4.6-Opus | vendor self-report, 200 PR                         |
+| Alibaba OCR, same model family as ours        |     17.90 |     30.60 |  12.70 | DeepSeek-V4-Pro | vendor self-report                                 |
+| **Alibaba OCR, our corpus, our judge, 47 PR** | **21.25** |     52.73 |  13.30 | DeepSeek-chat   | §116.2, `benchmarks/aacr/competitor-baseline.json` |
+| this repository, same 47 PR                   |     19.41 |     20.90 |  18.12 | DeepSeek-chat   | §116.2                                             |
+| this repository, pairwise protocol, 50 PR     | **20.26** |     21.96 |  18.81 | DeepSeek        | `benchmarks/aacr-bench.json`                       |
 
 **The row that was missing, and it reverses the sign of the same-family comparison.** §116.2 recomputed both tools on the
 **47 pull requests both artifacts hold and the 436 goldens they share**, under the protocol's own bipartite matching:
