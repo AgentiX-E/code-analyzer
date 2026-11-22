@@ -15449,11 +15449,13 @@ published number and an artifact that answers questions.
 | corpus arithmetic, pairwise verdicts           |     0.2557 |     0.2058 |     0.2280 |       305 |      93 |
 | **corpus arithmetic, file-shaped verdicts**    | **0.3082** | **0.3208** | **0.3144** |       305 |     145 |
 
-**The file-shaped reading moved 4.90 points on the same reviewer, and only part of that is the fuller list.** §139
+**The file-shaped reading moved 5.13 points on the same reviewer, and only part of that is the fuller list.** §139
 measured 0.2631 on the same protocol with the same switch; the deprecated arithmetic moved 0.2530 → 0.2668 over the same
 pair of runs, so **+1.38 is run variance and +3.75 is the instrument reading the whole emission** — above the corpus's
 2.40-point resolution, and the first change in this campaign whose mechanism is the judge's _context_ rather than the
-reviewer's behaviour.
+reviewer's behaviour. (An earlier draft of this paragraph quoted 4.90, which is §139's own step-1-to-step-2 delta and
+not this run's move; the two numbers are 0.3144 − 0.2631 = 5.13 and 0.2631 − 0.2141 = 4.90 and neither substitutes for
+the other.)
 
 #### 140.1 Every registered cut, priced at zero
 
