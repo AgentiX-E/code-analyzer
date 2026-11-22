@@ -13,6 +13,8 @@ import { resolveChangeSet } from '../commands/change-set.js';
 import { projectStandard } from '../commands/init.js';
 import {
   EXIT_FINDINGS,
+  countDropReasons,
+  groundFindings,
   EXIT_OK,
   EXIT_USAGE,
   PR_REVIEW_SCHEMA,
@@ -49,6 +51,81 @@ function pullRequestFixture(): GitFixture {
   repo.checkout('feature');
   return repo;
 }
+
+describe('the grounding gate, before the report is written', () => {
+  /** One finding, spelled exactly as the command spells it. */
+  const found = (over: Record<string, unknown> = {}) => ({
+    id: 'f',
+    file: 'src/math.ts',
+    line: 2,
+    endLine: 2,
+    severity: 'high' as const,
+    category: 'logic',
+    lens: 'logic',
+    source: 'lens' as const,
+    title: '`add` returns the wrong sum',
+    description: 'The function adds but the caller subtracts.',
+    snippet: 'return a + b;',
+    confidence: 'rule',
+    autoFixable: false,
+    inDiff: true,
+    ...over,
+  });
+  const CONTENTS = new Map([
+    [
+      'src/math.ts',
+      ['export function add(a: number, b: number) {', '  return a + b;', '}'].join('\n'),
+    ],
+  ]);
+
+  it('drops a finding about code that is not in the file, and says which rule did it', () => {
+    const run = groundFindings(
+      [found(), found({ id: 'g', snippet: 'return a * b;' })],
+      CONTENTS,
+      new Map(),
+    );
+    expect(run.grounding.applied).toBe(true);
+    expect(run.grounding.withheld).toBeNull();
+    expect(run.grounding.readable).toBe(2);
+    expect(run.findings.map((entry) => entry.id)).toEqual(['f']);
+    expect(Object.keys(run.grounding.droppedByReason)).toEqual([
+      'the quoted code does not appear in the file or in the change at lines 2-2',
+    ]);
+    expect(run.grounding.keptRatio).toBe(0.5);
+  });
+
+  it('drops nothing when one finding is on a file the run could not read', () => {
+    const provided = [found(), found({ id: 'g', file: 'src/gone.ts' })];
+    const run = groundFindings(provided, CONTENTS, new Map());
+    expect(run.grounding.applied).toBe(false);
+    expect(run.grounding.withheld).toBe('no-readable-arm');
+    expect(run.findings.map((entry) => entry.id)).toEqual(['f', 'g']);
+    // **A copy, not the caller's array**, because this function's contract is "what to emit" and a caller that mutated
+    // the result must not reach into the list it passed.
+    expect(run.findings).not.toBe(provided);
+    expect(run.grounding.sentence).toContain('1 of 2 findings were on a file this run read');
+  });
+
+  it('tallies the reasons, and counts a verdict with no rule rather than losing it', () => {
+    // The total has to be the sum: a breakdown that silently drops the verdicts it cannot name is a breakdown whose
+    // rows do not add up to its header, which is the one defect a tally may not have.
+    expect(countDropReasons([{ reason: 'a' }, { reason: 'a' }, { reason: null }])).toEqual({
+      a: 2,
+      unnamed: 1,
+    });
+  });
+
+  it('keeps a paraphrased quotation and reports how much of the evidence it could not read', () => {
+    const run = groundFindings(
+      [found({ snippet: 'export function add(...)' })],
+      CONTENTS,
+      new Map(),
+    );
+    expect(run.findings).toHaveLength(1);
+    expect(run.grounding.unverifiableQuotes).toBe(1);
+    expect(run.grounding.sentence).toContain('1 paraphrased quotation(s) kept unchecked');
+  });
+});
 
 describe('runPrReview — the pull request user story', () => {
   let repo: GitFixture;

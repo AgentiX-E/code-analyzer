@@ -646,6 +646,74 @@ function projectIdOf(options: PrReviewOptions, change: ChangeSet): string {
 }
 
 /**
+ * **The grounding gate, as one function, so the decision is testable without a checkout.**
+ *
+ * The rules live in `review/grounding-gate.ts`; what this adds is the command's own vocabulary - `PrReviewFinding`
+ * names its fields `file`/`line`/`snippet`, the gate names them `path`/`startLine`/`existingCode` - and the shape the
+ * report carries. **A device whose only entry point is inside a 400-line function is a device tested by the function
+ * that happens to call it**, and §133's two over-drops were found precisely because the end-to-end fixture ran it: the
+ * cases below can now construct a partial-coverage list and a paraphrased quotation without a git repository.
+ *
+ * **It returns the findings unchanged when the gate withheld**, rather than a filtered copy that happens to be equal:
+ * a caller that got a new array could not tell the two states apart by identity, and the report says which one it was.
+ */
+export function groundFindings(
+  findings: readonly PrReviewFinding[],
+  contents: ReadonlyMap<string, string>,
+  diffs: ReadonlyMap<string, string>,
+): {
+  findings: PrReviewFinding[];
+  grounding: NonNullable<PrReviewReport['summary']['grounding']>;
+} {
+  const decision = decideGrounding(
+    findings.map((found) => ({
+      finding: found,
+      path: found.file,
+      startLine: found.line,
+      endLine: found.endLine,
+      existingCode: found.snippet,
+      content: found.title,
+      suggestionCode: found.suggestion,
+    })),
+    contents,
+    diffs,
+  );
+  return {
+    findings: decision.applied ? decision.kept.map((entry) => entry.finding) : [...findings],
+    grounding: {
+      rule: 'path read, range exists, quotation present, backticked names present',
+      sentence: describeGrounding(decision),
+      applied: decision.applied,
+      withheld: decision.withheld,
+      findings: decision.coverage.findings,
+      readable: decision.coverage.readable,
+      keptRatio: decision.report.keptRatio,
+      unverifiableQuotes: decision.report.unverifiableQuotes,
+      droppedByReason: countDropReasons(decision.report.ungrounded),
+    },
+  };
+}
+
+/**
+ * **The drop reasons as a tally**, which is the one shape a reader can argue with: *"four findings for a reason I do not
+ * accept"* is a review comment, and *"four dropped"* is not.
+ *
+ * **Exported and therefore tested on its own**, because `decideGrounding` never produces a verdict without a reason and
+ * the fallback would otherwise be a branch that no test can reach - which is how a fallback becomes a line nobody has
+ * ever executed. A caller assembling a decision from a stored artifact can hand it one.
+ */
+export function countDropReasons(
+  ungrounded: ReadonlyArray<{ reason: string | null }>,
+): Record<string, number> {
+  const tally: Record<string, number> = {};
+  for (const verdict of ungrounded) {
+    const reason = verdict.reason ?? 'unnamed';
+    tally[reason] = (tally[reason] ?? 0) + 1;
+  }
+  return tally;
+}
+
+/**
  * Review the change the request describes.
  *
  * Returns a discriminated result rather than throwing on a usage error: the caller prints the message and exits, and a
@@ -870,28 +938,11 @@ export async function runPrReview(options: PrReviewOptions): Promise<PrReviewRun
    * rule finding is produced by matching the file's own text, so its snippet is in the file by construction and the
    * gate would be measuring the rule engine's output with the rule engine's input.
    */
-  const groundingInput = lensFindings.map((found) => ({
-    finding: found,
-    path: found.file,
-    startLine: found.line,
-    endLine: found.endLine,
-    existingCode: found.snippet,
-    content: found.title,
-    suggestionCode: found.suggestion,
-  }));
-  const grounding = decideGrounding(
-    groundingInput,
-    change.contents,
-    splitPatchByPath(change.patch),
-  );
-  const groundedLensFindings = grounding.applied
-    ? grounding.kept.map((entry) => entry.finding)
-    : lensFindings;
+  const grounded = groundFindings(lensFindings, change.contents, splitPatchByPath(change.patch));
+  const grounding = grounded.grounding;
+  lensFindings = grounded.findings;
 
-  const merged = sortFindings([
-    ...groundedLensFindings,
-    ...standardsFindings(standardsResults, inDiff),
-  ]);
+  const merged = sortFindings([...lensFindings, ...standardsFindings(standardsResults, inDiff)]);
 
   // **The threshold filters, it does not discard the count.** `--severity` decides what is reported; the number that
   // did not reach the report is kept so a reader can lower the bar instead of wondering where the findings went.
@@ -976,24 +1027,7 @@ export async function runPrReview(options: PrReviewOptions): Promise<PrReviewRun
        * reaching this report is unchecked. `sentence` is the same text a job log prints, so the two renderings cannot
        * describe the decision differently.
        */
-      grounding: {
-        rule: 'path read, range exists, quotation present, backticked names present',
-        sentence: describeGrounding(grounding),
-        applied: grounding.applied,
-        withheld: grounding.withheld,
-        findings: grounding.coverage.findings,
-        readable: grounding.coverage.readable,
-        keptRatio: grounding.report.keptRatio,
-        unverifiableQuotes: grounding.report.unverifiableQuotes,
-        droppedByReason: grounding.report.ungrounded.reduce<Record<string, number>>(
-          (tally, verdict) => {
-            const reason = verdict.reason ?? 'unnamed';
-            tally[reason] = (tally[reason] ?? 0) + 1;
-            return tally;
-          },
-          {},
-        ),
-      },
+      grounding,
     },
     decision,
     actionPlan,
