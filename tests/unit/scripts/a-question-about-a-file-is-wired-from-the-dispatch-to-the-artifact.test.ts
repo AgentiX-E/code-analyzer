@@ -26,6 +26,8 @@ import { join } from 'node:path';
 
 import { describe, expect, it } from 'vitest';
 
+import { configurationBlock } from './configuration-block.js';
+
 const ROOT = join(import.meta.dirname, '..', '..', '..');
 const BENCH = readFileSync(join(ROOT, '.github', 'scripts', 'aacr-bench.mjs'), 'utf8');
 const WORKFLOW = readFileSync(join(ROOT, '.github', 'workflows', 'aacr-bench.yml'), 'utf8');
@@ -51,9 +53,8 @@ describe('the second question is wired from the dispatch to the artifact', () =>
   });
 
   it('is a configuration key, because two artifacts that differ here are two protocols', () => {
-    const configuration = BENCH.slice(BENCH.indexOf('configuration: {'));
     expect(
-      configuration.slice(0, 8000),
+      configurationBlock(BENCH),
       'the artifact does not carry the question its judge was asked',
     ).toContain('fileSemanticJudge: FILE_SEMANTIC_JUDGE');
   });
@@ -77,5 +78,36 @@ describe('the second question is wired from the dispatch to the artifact', () =>
     expect(fileLevel.slice(0, 900)).toContain(
       '(pull, index) => fileLevelMatches[index] ?? pull.matches',
     );
+  });
+});
+
+/**
+ * **The reader these assertions use is itself a thing that can be wrong**, and it replaced four `slice(0, 6000)`
+ * windows that were wrong: twenty-one lines of prose beside `judgeBatch` pushed `sameSiteConcerns` past the six
+ * thousandth character and turned two green suites red without a byte of behaviour changing. So the reader's properties
+ * are pinned here - it reaches a key however much prose sits above it, it stops at its own closing brace, and a source
+ * with no block is a failure rather than an empty string that makes every `toContain` on it pass.
+ */
+describe('the configuration block is read by depth, not by a character count', () => {
+  it('reaches a key however much prose sits above it', () => {
+    const prose = '    // a sentence\n'.repeat(400);
+    const source = `const artifact = {\n  configuration: {\n${prose}    judgeBatch: JUDGE_BATCH,\n  },\n};`;
+    expect(configurationBlock(source)).toContain('judgeBatch: JUDGE_BATCH');
+  });
+
+  it('does not swallow the rest of the file, so a key outside the block is not found in it', () => {
+    const source =
+      'const artifact = {\n  configuration: {\n    a: 1,\n  },\n  other: { b: 2 },\n};';
+    expect(configurationBlock(source)).not.toContain('other:');
+  });
+
+  it('fails with a sentence when there is no block at all', () => {
+    expect(() => configurationBlock('const artifact = {};')).toThrow(
+      /no `configuration: \{` block/,
+    );
+  });
+
+  it('fails when the block is never closed, rather than returning a truncated string', () => {
+    expect(() => configurationBlock('configuration: {\n  a: 1,')).toThrow(/never closed/);
   });
 });

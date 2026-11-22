@@ -25,6 +25,8 @@ import { describe, expect, it } from 'vitest';
 import { MECHANISMS, REGISTRATIONS } from '../../../.github/scripts/aacr-ablation-compare.mjs';
 import { knownLLMProviders } from '../../../packages/intelligence/src/review/llm/provider-factory.js';
 
+import { configurationBlock } from './configuration-block.js';
+
 const ROOT = join(import.meta.dirname, '..', '..', '..');
 const BENCH = readFileSync(join(ROOT, '.github', 'scripts', 'aacr-bench.mjs'), 'utf8');
 const WORKFLOW = readFileSync(join(ROOT, '.github', 'workflows', 'aacr-bench.yml'), 'utf8');
@@ -49,9 +51,8 @@ describe('the second-concern switch is wired end to end', () => {
   });
 
   it('is recorded in the artifact, because that is what the comparison sees', () => {
-    const configuration = BENCH.slice(BENCH.indexOf('configuration: {'));
     expect(
-      configuration.slice(0, 6000),
+      configurationBlock(BENCH),
       'the artifact does not carry the key the comparison prices',
     ).toContain('secondConcern: SECOND_CONCERN');
   });
@@ -122,8 +123,7 @@ describe('the lane-set switch is wired end to end', () => {
   });
 
   it('is recorded in the artifact with the lanes themselves, not only with the name', () => {
-    const configuration = BENCH.slice(BENCH.indexOf('configuration: {'));
-    expect(configuration.slice(0, 7000)).toContain(
+    expect(configurationBlock(BENCH)).toContain(
       'laneSet: { name: LANE_SET, lanes: [...LANE_SETS[LANE_SET]] }',
     );
   });
@@ -175,8 +175,7 @@ describe('the same-site cap is wired end to end', () => {
     const start = BENCH.indexOf('new LLMReviewEngine(');
     const options = BENCH.slice(start, BENCH.indexOf('\n  });', start));
     expect(options).toContain('sameSiteConcerns: SAME_SITE_CONCERNS');
-    const configuration = BENCH.slice(BENCH.indexOf('configuration: {'));
-    expect(configuration.slice(0, 6000)).toContain('sameSiteConcerns: SAME_SITE_CONCERNS');
+    expect(configurationBlock(BENCH)).toContain('sameSiteConcerns: SAME_SITE_CONCERNS');
   });
 
   it('is registered with a bar its own slice can sign, or says it cannot', () => {
@@ -204,8 +203,7 @@ describe('the emission budget is an input, because the cap moved its maximum', (
   it('is the same number the artifact publishes as the budget it ran', () => {
     // **`pullRequestBudget: PR_BUDGET` in `configuration`**: a run whose artifact said 12 while the ranker cut at 20
     // would be the §58.1 shape - an artifact internally consistent and about a reviewer nobody dispatched.
-    const configuration = BENCH.slice(BENCH.indexOf('configuration: {'));
-    expect(configuration.slice(0, 6000)).toContain('pullRequestBudget: PR_BUDGET');
+    expect(configurationBlock(BENCH)).toContain('pullRequestBudget: PR_BUDGET');
   });
 });
 

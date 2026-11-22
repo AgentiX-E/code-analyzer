@@ -19,6 +19,8 @@ import { join } from 'node:path';
 
 import { describe, expect, it } from 'vitest';
 
+import { configurationBlock } from './configuration-block.js';
+
 const ROOT = join(import.meta.dirname, '..', '..', '..');
 const BENCH = readFileSync(join(ROOT, '.github', 'scripts', 'aacr-bench.mjs'), 'utf8');
 const WORKFLOW = readFileSync(join(ROOT, '.github', 'workflows', 'aacr-bench.yml'), 'utf8');
@@ -45,8 +47,7 @@ describe('the judge batch size is wired from the dispatch to the artifact', () =
   });
 
   it('is recorded in the artifact, because two prices for one figure are two instruments', () => {
-    const configuration = BENCH.slice(BENCH.indexOf('configuration: {'));
-    expect(configuration.slice(0, 8000)).toContain('judgeBatch: JUDGE_BATCH');
+    expect(configurationBlock(BENCH)).toContain('judgeBatch: JUDGE_BATCH');
   });
 
   it('refuses a value that is not a positive integer, before a single call', () => {
