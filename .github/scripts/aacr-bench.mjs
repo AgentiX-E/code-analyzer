@@ -649,6 +649,16 @@ async function postJudge(messages, maxTokens, read) {
   return undefined;
 }
 
+// **The verdicts, in the form a later arithmetic can read.** `judgeMatrix` computes the whole matrix on every run and
+// used to return only its matches, which is why a question about a finished run - a semantic join, the corpus's own
+// file-level walk, the confidence of a rejection - always cost another full run to ask. See `aacr-verdict-ledger.mjs`.
+import {
+  VERDICT_LEDGER_VERSION,
+  decodeVerdictLedger,
+  encodeVerdictLedger,
+  matchesFromVerdictLedger,
+} from './aacr-verdict-ledger.mjs';
+
 async function judgeImpl(comment, golden) {
   // **A verdict is four tokens wide.** The prompt says "reply with JSON only" and the model complies, but an unbounded
   // field is an instruction rather than a bound, and **the difference between a bound and an instruction is the half of
@@ -843,7 +853,9 @@ async function judgeMatrix(texts, goldens, batch = JUDGE_BATCH) {
     if (verdict === null || verdict === undefined) unanswered += 1;
     else if (verdict) matches[finding].push(golden);
   });
-  return { matches, unanswered };
+  // **The matrix itself, in the order it was walked** - `pairs` is golden-major, so `verdicts` is already the flat
+  // matrix `encodeVerdictLedger` expects and returning it costs no pass.
+  return { matches, unanswered, verdicts };
 }
 
 /**
@@ -900,7 +912,17 @@ async function judgeMatrixBatched(texts, goldens, batch) {
       else if (verdict) matches[finding].push(job.golden);
     });
   });
-  return { matches, unanswered };
+  // **The same flat matrix the per-pair arm returns**, assembled from the batches: a job is one golden's chunk of
+  // findings, so the coordinate of a verdict is `golden * findings + finding` in both arms - which is what makes the two
+  // arms' ledgers readable by one decoder rather than two.
+  const flat = new Array(texts.length * goldens.length).fill(undefined);
+  jobs.forEach((job, at) => {
+    const answered = verdicts[at] ?? [];
+    job.chunk.forEach((finding, index) => {
+      flat[job.golden * texts.length + finding] = answered[index];
+    });
+  });
+  return { matches, unanswered, verdicts: flat };
 }
 
 /**
@@ -1043,6 +1065,27 @@ async function dryRun() {
   const matrix = await judgeMatrix(texts, goldens);
   assert.deepEqual(matrix.matches[0], [0], 'the first finding matches the first golden');
   assert.equal(matrix.unanswered, 0, 'a scripted judge never fails to answer');
+  // **And the matrix is kept, not only its consequence.** A ledger that decodes to something *like* these matches is a
+  // ledger that makes every recomputation disagree with the figure it recomputes, so the round trip is asserted here on
+  // a fixture whose answers are written by hand rather than in a report about a run nobody can re-read.
+  assert.deepEqual(
+    matchesFromVerdictLedger(
+      decodeVerdictLedger(
+        encodeVerdictLedger({
+          findings: texts.length,
+          goldens: goldens.length,
+          verdicts: matrix.verdicts,
+        }),
+      ),
+    ),
+    matrix.matches,
+    'the cells rebuild the matches this run computed, including the pairs that did not match',
+  );
+  assert.deepEqual(
+    matrix.verdicts.length,
+    texts.length * goldens.length,
+    'the matrix is every pair, not the matches: a ledger of matches cannot answer a question about a rejection',
+  );
 
   // **The order the judge was asked, which is the only part of the cost this file owns.**
   //
@@ -4305,6 +4348,15 @@ async function main() {
       goldens,
       matches: ourMatrix.matches,
       keep: shippedKeepFlags,
+      // **The verdicts this pull request's file arm bought, kept rather than consumed.** A semantic join, a re-cut of
+      // the emission rule, or the corpus's file-level walk over this run are all questions about these cells, and asking
+      // them later without the cells costs a full run: 14 892 pairs on 2026-11-10, discarded.
+      pr: competitorKey,
+      verdictLedger: encodeVerdictLedger({
+        findings: ranked.length,
+        goldens: issueTexts.length,
+        verdicts: ourMatrix.verdicts,
+      }),
     });
 
     // **And the goldens we were in the right file for and did not say the same thing about.** The nearest comment on the
@@ -4453,6 +4505,14 @@ async function main() {
     });
     prArmPerPr.push({
       key: pr.githubPrUrl ?? `pr-${prArmPerPr.length}`,
+      // **Its own cells, because it is its own matrix.** The two arms are judged separately - sharing one matrix would
+      // let them consume each other's goldens - so a ledger that stored one matrix for both would be a ledger of an arm
+      // nobody ran.
+      verdictLedger: encodeVerdictLedger({
+        findings: wholePrFindings.length,
+        goldens: issueTexts.length,
+        verdicts: wholeMatrix.verdicts,
+      }),
       // **Re-ordered the same way as the detail**, because a curve cut from a different order than the one reported is
       // a budget two readers cannot reproduce.
       matches: prRanked.map((entry) => {
@@ -4977,6 +5037,20 @@ async function main() {
     };
   }
 
+  /**
+   * **One row of the ledger**: the cells and the two coordinates that give them meaning, plus the pull request, because a
+   * row a reader cannot place is a row a reader has to match by length.
+   *
+   * `version` and `order` are stated once at the head of the block rather than on every row: they are properties of the
+   * file, and a file that repeats them fifty times is a file whose size is mostly its own labels.
+   */
+  const ledgerRow = (pr, ledger) => ({
+    pr: pr ?? null,
+    findings: ledger.findings,
+    goldens: ledger.goldens,
+    cells: ledger.cells,
+  });
+
   write({
     ...base,
     // **The threshold every row below was drawn under**, because **a curve whose points are not labelled is a set of
@@ -4990,6 +5064,28 @@ async function main() {
       defectSubset,
       protocol:
         'one judge verdict per (finding, golden) pair, then a maximum bipartite matching per pull request; the same protocol for both reviewers in the same job',
+      /**
+       * **The matrix every figure in this file was computed from, kept instead of spent.**
+       *
+       * A run buys 14 892 verdicts on the AACR corpus and the artifact used to keep only their consequence. That made
+       * every later arithmetic question a second run: the semantic join, the corpus's own file-level walk, the
+       * distribution of rejections - all of them are functions of these cells and none of them needs the model again.
+       * One character per pair: `1` match, `0` no match, `?` the judge did not answer, in `golden-major` order.
+       *
+       * **What this does not do.** It does not make a *different judge* free - a verdict belongs to the judge that gave
+       * it - and it does not widen the corpus: 50 pull requests re-scored is still 50 pull requests, at the resolution
+       * those 452 goldens carry. It removes the cost of asking a new question about the same answers.
+       */
+      verdictLedger: {
+        version: VERDICT_LEDGER_VERSION,
+        order: 'golden-major',
+        pairs: fileSemanticPulls.our.reduce(
+          (total, pull) => total + pull.verdictLedger.cells.length,
+          0,
+        ),
+        file: fileSemanticPulls.our.map((pull) => ledgerRow(pull.pr, pull.verdictLedger)),
+        pullRequest: prArmPerPr.map((entry) => ledgerRow(entry.key, entry.verdictLedger)),
+      },
       /**
        * **The corpus's own arithmetic, beside the one this job shipped, over the same verdicts.**
        *
