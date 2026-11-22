@@ -5477,6 +5477,12 @@ async function main() {
       // instrument; **a comparison between two artifacts that differ here is a comparison of two prices for one figure**,
       // and the judge's `calls` and `promptTokens` are what let a reader check that the batch size was honoured.
       judgeBatch: JUDGE_BATCH,
+      // **Which question the judge was asked**, beside the shape of its calls, because **the two artifacts that differ
+      // here are scored under different protocols while both say `fileSemantic.protocol`**. `false` is the pairwise
+      // instrument every figure in the contract was bought from; `true` adds the corpus's own question over the same
+      // findings in the same run. Without this key the only evidence is a non-null `fileSemantic.fileLevelJudge`, which
+      // is a fact about one block rather than a coordinate in the block every comparison reads.
+      fileSemanticJudge: FILE_SEMANTIC_JUDGE,
       // **Whether a model was asked for the rest of that bucket**, and the families it was asked for rather than "some
       // remarks": **a figure from a run with this on and one with it off are two reviewers**, and a family list that is
       // not in the artifact is a prompt nobody can reproduce.

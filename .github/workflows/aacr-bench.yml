@@ -298,6 +298,28 @@ on:
         type: string
         default: '1'
 
+      file_semantic_judge:
+        # **Which question the judge is asked, which is a second instrument rather than a second judge.**
+        #
+        # `Alibaba-Aone/aacr-bench/docs/metrics.md` defines `file-level-semantic-v1`: one call per file, every reference
+        # comment of that file in a numbered list, and a verdict that may cover more than one of them. Every figure in
+        # `docs/EVAL-CONTRACT.md` was bought from a judge shown **one pair** at a time, and §137 records what that cost:
+        # of 254 reference comments whose file the reviewer did comment on, **141 sat on the same line as a finding we
+        # had emitted and the pairwise judge called all 141 different defects.**
+        #
+        # **`off` is the default because changing the instrument is not a default.** `on` buys the second reading
+        # *beside* the first - same findings, same goldens, same run, same reviewer - so one artifact carries both
+        # figures and the difference between them is the protocol rather than the day. A dispatch that replaced the
+        # instrument instead would make its own figure incomparable to every earlier one.
+        #
+        # **The second reading is also the cheaper one**, which is why it is worth asking every time: a pair-shaped
+        # judge costs `findings x goldens` calls (14 892 on the corpus of 2026-11-10) and a file-shaped one costs one
+        # call per file that carries both a finding and a reference comment.
+        description: 'Also ask each file what a pair could not answer (off = the pairwise arm every figure used)'
+        type: choice
+        options: ['off', 'on']
+        default: 'off'
+
       max_findings_per_file:
         # **The cap that turned out to be a ceiling on the work rather than a rail on the noise.** §23.7 measured 25 of
         # one run's 225 drafts refused a slot, and 74 of that run's missed goldens sitting on files it had read - so the
@@ -702,6 +724,11 @@ jobs:
           # that is not a positive integer rather than falling back, because a run labelled `8` that bought singles would
           # be a comparison against the wrong history.
           AACR_JUDGE_BATCH: ${{ inputs.judge_batch || '1' }}
+          # **The second question, and the only difference between this run and a pairwise one.** Passed as `1`/`0`
+          # rather than as the choice's own words because the script refuses any value that is not one of those two -
+          # a run labelled `on` that silently bought the pairwise arm would be a figure under the wrong instrument, and
+          # a mapping here keeps that refusal about the variable rather than about the dispatch form.
+          AACR_FILE_SEMANTIC_JUDGE: ${{ inputs.file_semantic_judge == 'on' && '1' || '0' }}
           # **The merge of the two reviewers**, read from the matrix for the same reason as every other arm: the artifact
           # and the workflow cannot disagree about which reviewer produced the figure. Off means the arm reviewed with one
           # reviewer, which is what every figure before §56 was measured under.

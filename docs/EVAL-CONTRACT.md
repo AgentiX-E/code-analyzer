@@ -15226,6 +15226,18 @@ than half-banked when it does not parse. It is behind `AACR_FILE_SEMANTIC_JUDGE=
 reason `AACR_JUDGE_BATCH` is: every figure in this document was measured pairwise, and a run that silently changed the
 instrument would make its own figure incomparable to them.
 
+**A switch in a script is not a run anybody can repeat, so it is a dispatch input as well.** The variable is now reached
+from `aacr-bench.yml`'s `file_semantic_judge` input (`off` / `on`, mapped to `0` / `1`), the value is written into
+`configuration.fileSemanticJudge` so that two artifacts that differ here are readable as two protocols rather than as
+one instrument disagreeing with itself, and the run §137.1 registers is reproducible from the workflow alone:
+
+```bash
+gh workflow run aacr-bench.yml -f dataset=aacr -f competitor=replay -f pair=off \
+  -f max_pull_requests=50 -f file_semantic_judge=on
+```
+
+**The second reading is the only difference from a plain run**, which is item 4 of §137.1 stated as a command.
+
 **What step 2 can move is bounded by the 141.** Of the 254 reference comments whose path carried a finding of ours, **141
 sat on the same line** as one (`missedGoldens.dominantRejectionShape`), 51 within ten lines, 62 beyond fifty. A
 file-level judge is asked _which of these does this comment cover_ and a pairwise judge is asked _are these two
@@ -15259,9 +15271,9 @@ Written before the run, so that a reading cannot be chosen after it.
      which is a strictly better position than the one §136 described.
 4. **No other change ships in that run.** Splitting an instrument change and a prompt change into one job is how the
    two get confused; `AACR_FILE_SEMANTIC_JUDGE=1` is the only difference from a plain run.
-5. **A file the file-level judge could not answer keeps the pairwise verdict**, counted in `fileSemanticJudge.fallbacks`
-   and named in the artifact. **The fallback is the old instrument, not a new one** - the same rule the batch arm and
-   the warm pass follow.
+5. **A file the file-level judge could not answer keeps the pairwise verdict**, counted in
+   `fileSemantic.fileLevelJudge.fallbacks` and named in the artifact. **The fallback is the old instrument, not a new
+   one** - the same rule the batch arm and the warm pass follow.
 6. **The gated figure is the one that decides**, because it is the one the headline reports; the ungated interval above
    is the reason to expect the run to move at all, not the reason to adopt a change before it has.
 
