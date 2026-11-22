@@ -57,8 +57,10 @@ accepted at ASE 2026. **It does not rank a reviewer**, so it is not a board this
 is now a statement about what was searched for rather than about what exists.
 
 **Two rows are the whole strategy.** The offline Martian key is the only place a competitor's number and ours are the
-same measurement, and **the online board is out of reach for a structural reason rather than a technical one**: it
-scores comments posted by a bot account on public PRs, and this project has no bot to install.
+same **corpus and profile** - and, since §134.1, **not the same instrument**: the board's 65.8 and this project's 27.6
+come from different judge models, and the board's own documentation puts an individual tool's judge term at up to nine
+F1 points. **The online board is out of reach for a structural reason rather than a technical one**: it scores comments
+posted by a bot account on public PRs, and this project has no bot to install.
 
 ---
 

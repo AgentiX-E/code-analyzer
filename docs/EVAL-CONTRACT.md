@@ -14995,8 +14995,34 @@ plateau at 0.210-0.224 on a later pool of 593 findings. Two runs, two pools, sam
 The second is the one worth keeping visible: **a sentence carrying one right subtraction and one wrong one reads as
 checked**, and it survived six sections. It is amended in place with the original left standing, the way §96.1 is.
 
-### 134.1 Price
+### 134.1 The judge is a term in this table, and it is bigger than two of the gaps
 
-**0 CNY.** Every number above is read from `benchmarks/aacr-bench.json`, `benchmarks/martian-bench.json` and
-`emission-frontier.json`. No model was called, no page was fetched, and the one external figure in the table - the
-leader's 25.1 - was already in the artifact's `comparisonBasis`.
+The leader's 65.8 is quoted from `docs/LEADERBOARDS.md`, which quotes the board. **`offline/analysis/benchmark_dashboard.html`
+carries the per-pull-request counts behind that board**, and recomputing from them gives a different number for the same
+tool:
+
+| tool                  | board figure (quoted)  | recomputed from the dashboard's `gpt-5.2` counts (All) | difference |
+| --------------------- | ---------------------- | ------------------------------------------------------ | ---------- |
+| Qodo Extended         | 65.8 (67.1 P / 64.6 R) | **58.8** (61.1 P / 56.6 R)                             | −7.0       |
+| cubic                 | 63.6 (61.5 P / 65.8 R) | **59.2** (59.2 P / 59.2 R)                             | −4.4       |
+| Qodo Extended, Core   | -                      | 60.4 (60.5 P / 60.3 R)                                 | -          |
+| Qodo Extended, Strict | -                      | 59.9 (58.0 P / 61.9 R)                                 | -          |
+
+**So the two figures this document has been subtracting are from different judges.** The board's 65.8 is one judge's
+reading; the dashboard's 58.8 is another's; our 27.6 is a third (`deepseek-chat`), and the board's own documentation
+says an individual tool moves by **up to nine F1 points** between judges. `docs/LEADERBOARDS.md` called the Martian key
+"the only place a competitor's number and ours are the same measurement" - **same corpus, same profile, and not the same
+instrument.** The honest form of the gap is **38.2 points with a judge term of up to 9**, and the rank of this engine on
+that board is **not determinable from the artifacts on disk**.
+
+**What would make it determinable**, priced so the next iteration can choose: re-judge our 429 emitted findings with
+`gpt-5.2` against the same 173 goldens, which is about 1 500 candidate-golden pairs and **15-25 USD** at that model's
+rates - the only way to put our row and the dashboard's rows on one axis. **Not done here**, because this section's
+claim is arithmetic and the purchase is a decision rather than a measurement.
+
+### 134.2 Price
+
+**0 CNY.** Every number above is read from `benchmarks/aacr-bench.json`, `benchmarks/martian-bench.json`,
+`benchmarks/emission-frontier.json` and upstream's committed dashboard. No model was called and no review was run; the
+judge alignment in §134.1 is priced and **not** bought. The one external figure in the first table - the leader's 25.1 -
+was already in the artifact's `comparisonBasis`.
