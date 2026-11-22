@@ -15049,3 +15049,70 @@ claim is arithmetic and the purchase is a decision rather than a measurement.
 `benchmarks/emission-frontier.json` and upstream's committed dashboard. No model was called and no review was run; the
 judge alignment in §134.1 is priced and **not** bought. The one external figure in the first table - the leader's 25.1 -
 was already in the artifact's `comparisonBasis`.
+
+### 135. The ceiling is the matcher's, not the corpus's, and one ranking is withdrawn
+
+**Two corrections, both prompted by a question this document could not answer.**
+
+#### 135.1 37.12% is L1
+
+§134 prints AACR's matching-basis ceiling as 0.3712 and calls it _the_ ceiling. It is the ceiling **of one layer**.
+The three layers have to be named separately or the number blocks the work that would raise it:
+
+| layer  | what is held fixed                                                                      | value                     | what raises it                                                    |
+| ------ | --------------------------------------------------------------------------------------- | ------------------------- | ----------------------------------------------------------------- |
+| **L1** | today's matcher, today's emitted set, perfect ordering and perfect filtering            | **37.12%**                | nothing below 387 emissions - it needs precision 1 over 103 pairs |
+| **L2** | a semantic join (one defect, two phrasings, still one pair), same emitted set           | read from B1's paired run | the join repair                                                   |
+| **L3** | join perfect: every golden our findings already stand on is credited, precision perfect | **90.95%**                | unreachable; an upper bound only                                  |
+
+**The fact that decides the plan is the middle column of the next table**, and it was on disk unread:
+`missedGoldens.counts` splits 452 into `hit 123 + findingOnPathRejected 254 + fileNotReviewed 39 +
+noFindingOnPath 36`. So **377 of 452 goldens - 83.41% - already stand under a finding we emitted.** The published
+20.26% is not a measurement of what this engine found; it is a measurement of how many of the things it found the
+matcher agreed to call the same defect. **A ceiling derived from a matcher is a fact about the matcher.**
+
+Consequences, stated as arithmetic rather than as intent:
+
+| recover this share of the 254 | TP  | P     | R     | F1        |
+| ----------------------------- | --- | ----- | ----- | --------- |
+| 20%                           | 136 | 35.1% | 30.1% | 32.4%     |
+| **30% (the target)**          | 161 | 41.6% | 35.6% | **38.4%** |
+| 50%                           | 212 | 54.8% | 46.9% | 50.5%     |
+
+The 50% row is not written as a target because it assumes a semantic matcher at 50% agreement, and nothing on disk
+measures that. The 30% row assumes the same, at 30% - it is a target rather than a promise, and B1's paired run is
+what will replace the assumption with a reading.
+
+**And 37.12% must not be used as a target either.** It requires emitting 103 findings and being right about all of
+them. §132 named 38-45% against a bound of 37.12; the opposite error - naming a reachable number as the goal when it
+is the ceiling of a filter - is the same mistake with the sign flipped, and this section exists so the next plan
+cannot make it.
+
+#### 135.2 A ranking is withdrawn: the cost axis
+
+An earlier readout of this session said the token figure was "the only first we can claim now: 11,626 tokens per
+file, and we are the only one of 22 that publishes it". **That is the absence-is-first fallacy and it violates this
+repository's own rule.** `promotion-rule.json` refuses an arm whose figure is `not-recorded`; applied to a
+competitor, the same rule says a dimension on which no opponent has a reading has **no rank at all**, only a
+publisher. Publishing is auditable; it is not a placement.
+
+The defensible sentence is: _this engine reports tokens and cost per run; we have not seen a second tool on either
+board do so._ Turning that into a rank needs an opponent run under our endpoint with its tokens counted, which is
+`A2` below and priced rather than assumed.
+
+#### 135.3 What is still empty, and therefore not claimed
+
+**The competitors' figures under our LLM.** Nobody has run `alibaba/open-code-review` or `qodo-ai/pr-agent` against
+`deepseek-chat` on this corpus, so the P/R/F1 of "the competitor, on our model" is **an empty cell**, not a number to
+be estimated into a table. The structural prior is that the gap is mostly not the model term - Alibaba's own 4.8
+versus 4.6 comparison moves precision up and F1 **down seven points** - so a model swap is expected to narrow little.
+That prior is falsifiable for about 3-8 USD and three days of adapter work, and it is the first thing to buy.
+
+**Martian, above 58.8.** With the mechanisms listed in the plan, the conservative projection lands at 49.4 and the
+optimistic one at 56.5, both under the recomputed leader. The last term is the judge (up to 9 points, direction
+unknown). **No "we beat Qodo" claim is made for Martian until A1 re-judges our findings under the dashboard's judge.**
+
+#### 135.4 Price
+
+**0 CNY.** Three artifacts read, no model called. The two purchases this section names - the judge alignment at
+15-25 USD and the opponent run at 3-8 USD - are priced and **not** bought.
