@@ -14759,3 +14759,133 @@ against the §130 mechanism** and say what they mean for the next dispatch.
 ### 131.3 Price
 
 **0 CNY.** This section reads two committed JSON files and two committed scripts; no model was called.
+
+## §132 Why the leader scores 65.8 and this reviewer scores 27.57
+
+**The question is not a rhetorical one and it is not answered by saying the model is smaller.** `benchmarks/martian-bench.json`
+carries 943 ranked findings with the judge's verdict on each, and `benchmarks/martian-decomposition.mjs` decomposes the
+score from that file alone: **no model was called to write this section, and every figure below is re-derived by
+`node scripts/martian-decomposition.mjs --check`.**
+
+### 132.1 The number, and the four places it could come from
+
+| place            | what it would mean                                         | measured value                                                                            |
+| ---------------- | ---------------------------------------------------------- | ----------------------------------------------------------------------------------------- |
+| **the join**     | a golden exists but cannot be matched to any finding       | **75 of 173 goldens carry no path in the dataset**, and our matcher requires one to align |
+| **the pool**     | the goldens are not among the findings the engine produced | 98 unique goldens reachable, **ceiling R = 0.566**                                        |
+| **the ordering** | the goldens are there and buried                           | a perfect ordering of this pool scores **F1 0.7232**                                      |
+| **the cut**      | the gate and the budget throw them away                    | best reachable **F1 0.3613** (optimistic), shipped **0.2791**                             |
+
+**Three of those four are not the binding constraint, and knowing which is the whole point of the table.** The pool can
+carry 0.7232. The cut, at its optimistic best, reaches half of that. **So neither "the model is too small" nor "the cut
+is wrong" explains 27.57 - the precision is what is missing, and the next three sections price it.**
+
+### 132.2 The precision, stated as the ratio it is
+
+Qodo Extended on this board: **P 0.671, R 0.646, F1 0.658.** Ours: **P 0.196, R 0.486, F1 0.2757.** Both arms are on the
+same fifty pull requests and the same 173 goldens. **The recall gap is 16 points. The precision gap is 47.5.** At our
+own recall, matching their precision would score 0.559; at our own precision, matching their recall would score 0.328.
+**Neither gap alone is sufficient, and the precision one is three times larger.**
+
+The pool explains part of our precision directly, and the artifact says where:
+
+| attribute                          |   n | hit |      rate |
+| ---------------------------------- | --: | --: | --------: |
+| severity `low`                     | 185 |   3 | **0.016** |
+| severity `medium`                  | 431 |  44 |     0.102 |
+| severity `high`                    | 321 |  88 |     0.274 |
+| category `test`                    | 200 |   7 | **0.035** |
+| category `maintainability`         |  83 |   3 |     0.036 |
+| category `architecture`            | 190 |  14 |     0.074 |
+| category `style` + `documentation` |  25 |   0 | **0.000** |
+| category `bug` + `security`        | 428 | 110 | **0.257** |
+
+**Half the pool is emitted into a region whose hit rate is between one and four per cent.** That is not a ranking
+failure - no ordering rescues a finding that was never a defect - and it is why the gate is worth more than the sorter.
+
+### 132.3 The cut is exhausted, and the honest number is the smaller one
+
+The best point the cut can reach on this corpus is `bug-sec-perf / budget 7` on the shipped weights: **F1 0.3301, P 0.282,
+R 0.399.** Adding a re-fitted weighting reaches **0.3613** - **and that figure is an upper bound, not a candidate**, because
+the weights were selected by a grid search over this corpus before being validated on it. §113 already ran the strict
+version of this experiment (fit inside each of fifty leave-one-out folds) and got **0.2207 against the shipped weights'
+0.2234**, so **the ordering direction stays closed.**
+
+**The cut therefore tops out between 0.330 and 0.361, and both are far from 0.658.** That is a negative result and it is
+the one this section exists for: four iterations tuned the budget, and the budget table below shows it is worth 2.4 points.
+
+| budget on `drop-test`, shipped score |         F1 |
+| ------------------------------------ | ---------: |
+| 12 (shipped)                         |     0.2791 |
+| 8                                    |     0.2925 |
+| **7**                                | **0.3032** |
+| 4                                    |     0.2825 |
+| 3                                    |     0.2524 |
+
+**The curve is flat within two points across a factor of four in budget, which is the definition of a term that is not
+the constraint.**
+
+### 132.4 The arithmetic of what is missing, and the one number that decides the next step
+
+Solving `2PR/(P+R) = 0.658` for P gives the precision a cut would have to supply at each recall:
+
+| recall                     | required precision | reachable by any cut?           |
+| -------------------------- | -----------------: | ------------------------------- |
+| 0.457 (our shipped point)  |          **1.175** | no - above one                  |
+| 0.566 (the pool's ceiling) |          **0.786** | no - the best cut reaches 0.416 |
+| 0.650                      |              0.666 | no                              |
+| 0.800                      |              0.559 | no                              |
+| 1.000                      |              0.490 | no                              |
+
+**This is the sentence that closes the direction.** At the pool's own recall ceiling the required precision is 0.786, the
+best cut in this repository reaches 0.416, and **no arrangement of the same findings can cross the gap** because every
+arrangement is bounded by the 98 goldens the pool already holds.
+
+### 132.5 What does cross it: a verifier, priced
+
+A verifier decides each candidate on its own, so the per-pull-request budget stops binding and recall returns to the
+pool ceiling. **F1 then depends on one number - how often the verifier is right:**
+
+| verifier precision | emitted |    recall |         F1 | against 0.658 |
+| -----------------: | ------: | --------: | ---------: | ------------- |
+|              0.500 |     196 |     0.566 |     0.5312 | behind        |
+|              0.600 |     163 |     0.566 |     0.5828 | behind        |
+|              0.700 |     140 |     0.566 |     0.6262 | behind        |
+|          **0.786** | **125** | **0.566** | **0.6584** | **level**     |
+|              0.800 |     123 |     0.566 |     0.6633 | ahead         |
+|              0.900 |     109 |     0.566 |     0.6953 | ahead         |
+
+**0.786 is the threshold, and it is a threshold on a binary question rather than on a ranking.** That distinction is why
+this direction is open when the ordering one is closed: _"is this specific claim true of this specific diff"_ is a
+question a model answers better than _"which of these two hundred comments is better"_, and §113's failure was on the
+second kind.
+
+**Why the existing self-assessment does not already do this.** `weighFinding` already scores `grounded`, `quotesDiff`,
+`namesSymbol` and `proposesChange`, and on these 943 findings **all four are almost always true** - the artifact's own
+`scoreTerms` lists only `agreement` and `lane` as varying. **A model's opinion of its own output is not evidence about
+it**, which is the finding of _Refute-or-Promote_ (arXiv 2604.19049) that `grounding-judge.ts` already quotes: ten
+dedicated reviewers unanimously endorsed a bug that did not exist, and a single empirical test killed it. `judgeGrounding`
+implements the three checks that need no model and **is called from four test files and no product path** - the §130 shape
+again - so wiring it is free and is step 1 below.
+
+### 132.6 The plan, in the order the arithmetic demands
+
+| #   | step                                                                 | what it changes                                               |                   cost | closes                       |
+| --- | -------------------------------------------------------------------- | ------------------------------------------------------------- | ---------------------: | ---------------------------- |
+| 1   | Wire `judgeGrounding` into the emit path                             | drops findings whose quote, line or symbol is provably absent |                  **0** | free precision, unknown size |
+| 2   | Emit path verifier: one binary call per candidate, evidence required | precision 0.416 → target 0.786                                | **≈ 2 CNY** per 50 PRs | the gap itself               |
+| 3   | Relax the join: match on finding text, not on path alignment         | recall ceiling 0.566 → ≤ 0.682                                |                  **0** | the 75 unjoined goldens      |
+| 4   | Generate what the pool lacks                                         | recall beyond 0.566                                           |             a dispatch | the remaining 8 points       |
+
+**Step 2's price is arithmetic, not a guess**: 196 candidates at the fitted gate, each judged with its diff hunk and its
+own sentence in the prompt, is under half a million prompt tokens for fifty pull requests. **Step 1 comes first because
+it is free and because it shrinks step 2's bill and its sample.**
+
+**What this section does not claim.** It does not claim 0.786 is achievable - it claims 0.786 is the number to beat and
+that it is a verifier's number rather than a ranker's. It does not claim the 75 unjoined goldens are reachable: a lexical
+probe over the same pull requests puts their median similarity to our nearest finding at **0.124 against 0.316 for the
+goldens that do join**, so most of them were never produced and step 4 is the answer to them, not step 3.
+
+### 132.7 Price
+
+**0 CNY.** Two scripts read one committed artifact. No model was called.

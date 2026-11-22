@@ -348,6 +348,14 @@ jobs:
       - name: Enforce that stated counts match the code
         run: npm run docs:code-sync
 
+      # **A section that explains a score by quoting a corpus has to be re-derived from that corpus.** §132 attributes
+      # our 27.57 and the leader's 65.8 to five named places, and every figure in it comes from
+      # `benchmarks/martian-bench.json` by arithmetic - so the reading is reproducible for free, and it is checked here
+      # rather than trusted. It also refuses a stale section on its own terms: if the artifact is ever replaced with a
+      # run of a different size, the assertions fail instead of §132 quietly describing a corpus that no longer exists.
+      - name: Enforce that the score decomposition is what the artifact says
+        run: npm run docs:decomposition
+
       - name: Enforce that every path a baseline records still exists
         run: npm run baselines:anchors
 
