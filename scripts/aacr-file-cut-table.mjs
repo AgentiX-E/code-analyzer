@@ -25,7 +25,7 @@ import { scoreFileCut } from './lib/file-cut.mjs';
 import { applyCut, describeCut, parseCut, registeredCuts } from './lib/operating-point.mjs';
 
 function argv(tokens) {
-  const options = { bench: null, cut: null, json: false, gate: [], agreement: 0 };
+  const options = { bench: null, cut: null, json: false, diagnose: false, gate: [], agreement: 0 };
   for (let at = 0; at < tokens.length; at += 1) {
     const token = tokens[at];
     if (token === '--bench') options.bench = tokens[(at += 1)] ?? '';
@@ -33,6 +33,7 @@ function argv(tokens) {
     else if (token === '--gate') options.gate.push(...String(tokens[(at += 1)] ?? '').split(','));
     else if (token === '--min-agreement') options.agreement = Number(tokens[(at += 1)] ?? 0);
     else if (token === '--json') options.json = true;
+    else if (token === '--diagnose') options.diagnose = true;
     else if (token === '--help' || token === '-h') options.bench = null;
     else if (options.bench === null && !token.startsWith('-')) options.bench = token;
     else throw new Error(`unknown argument "${token}"`);
@@ -135,6 +136,55 @@ function formatRow(label, point, baseline, width = 38) {
   ].join(' ');
 }
 
+/**
+ * **What the ranker knows about truth, and what a structural dedup could still remove.**
+ *
+ * §140's conclusion is that precision cannot be bought by re-ranking, and a conclusion like that is worth exactly its
+ * measurement: **an AUC of 0.5 means the score orders a true comment and a false one no better than a coin**. The
+ * label is "this comment covered at least one reference comment", from whichever instrument the run bought, and the
+ * ordering is the score the budget already cuts by.
+ *
+ * The histogram is the second half: **the emission rule that collapses identical cells is already in the pipeline**
+ * (`dedupThreshold`), so a count of emissions per (pull request, path, first line, category) cell says whether anything
+ * cheap is left. If every cell holds one comment, the dedup has nothing left to remove and the remaining duplicates are
+ * semantic - the same defect said twice in different words, which is the judge's question and not a filter's.
+ */
+function diagnose(findings) {
+  const label = (finding) =>
+    (finding.fileLevelGoldens ?? finding.matchedGoldens ?? []).length > 0 ? 1 : 0;
+  const positives = findings.filter((finding) => label(finding) === 1);
+  const negatives = findings.filter((finding) => label(finding) === 0);
+  let wins = 0;
+  for (const positive of positives) {
+    for (const negative of negatives) {
+      const left = Number(positive.score ?? 0);
+      const right = Number(negative.score ?? 0);
+      wins += left > right ? 1 : left === right ? 0.5 : 0;
+    }
+  }
+  const auc =
+    positives.length === 0 || negatives.length === 0
+      ? null
+      : wins / (positives.length * negatives.length);
+
+  const cells = new Map();
+  for (const finding of findings) {
+    const key = [finding.pr, finding.path, finding.startLine, finding.category].join('|');
+    cells.set(key, (cells.get(key) ?? 0) + 1);
+  }
+  const histogram = new Map();
+  for (const count of cells.values()) histogram.set(count, (histogram.get(count) ?? 0) + 1);
+
+  return {
+    findings: findings.length,
+    coveringAtLeastOne: positives.length,
+    coveringNothing: negatives.length,
+    scoreAuc: auc,
+    cells: cells.size,
+    emissionsPerCell: [...histogram.entries()].sort((left, right) => left[0] - right[0]),
+  };
+}
+
 function main() {
   const options = argv(process.argv.slice(2));
   if (options.bench === null) {
@@ -153,6 +203,10 @@ function main() {
     keepByPredicates(finding, options.gate, options.agreement),
   );
   const gated = all.length - findings.length;
+  if (options.diagnose) {
+    console.log(JSON.stringify(diagnose(findings), null, 2));
+    return;
+  }
   const cuts =
     options.cut === null
       ? [
