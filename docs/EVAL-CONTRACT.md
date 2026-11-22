@@ -14995,7 +14995,30 @@ plateau at 0.210-0.224 on a later pool of 593 findings. Two runs, two pools, sam
 The second is the one worth keeping visible: **a sentence carrying one right subtraction and one wrong one reads as
 checked**, and it survived six sections. It is amended in place with the original left standing, the way §96.1 is.
 
-### 134.1 The judge is a term in this table, and it is bigger than two of the gaps
+### 134.2 The gate pays on one board and not the other, and the difference is the resolution
+
+The first item on the plan was to stop emitting every category on every pull request. **Measured on both boards from
+their artifacts, it is a change on one of them:**
+
+| gate                               | AACR, golden basis | Martian, shipped weights |
+| ---------------------------------- | ------------------ | ------------------------ |
+| what ships now                     | 24.79              | 27.91                    |
+| drop test, best budget             | 26.80              | 30.32                    |
+| bug + security + performance only  | 24.13              | **33.01**                |
+| drop test and maintainability      | 25.98              | 31.37                    |
+| **best change against what ships** | **+2.01**          | **+5.10**                |
+
+**The instrument resolves 2.81 points** (`promotion-rule.json`, §130). Martian's +5.10 clears it; AACR's +2.01 does not,
+and on AACR the strongest gate is the _mildest_ one - narrowing to bug/security/performance there **loses** 0.66 points
+because the architecture findings carry goldens that nothing else covers. **So "stop emitting every category" is a
+Martian change**, and shipping it as though it were a two-board improvement would have been the same class of error as
+the target above: one board's arithmetic read as both.
+
+**And the reason is §134's bucket table.** On AACR the goldens are not missing from the pool - they are standing under a
+finding the join refuses - so deleting categories deletes true positives. On Martian 43 % of the goldens were never
+produced, so the cheapest available gain is to stop paying for the categories that produce nothing.
+
+### 134.3 The judge is a term in this table, and it is bigger than two of the gaps
 
 The leader's 65.8 is quoted from `docs/LEADERBOARDS.md`, which quotes the board. **`offline/analysis/benchmark_dashboard.html`
 carries the per-pull-request counts behind that board**, and recomputing from them gives a different number for the same
@@ -15020,7 +15043,7 @@ that board is **not determinable from the artifacts on disk**.
 rates - the only way to put our row and the dashboard's rows on one axis. **Not done here**, because this section's
 claim is arithmetic and the purchase is a decision rather than a measurement.
 
-### 134.2 Price
+### 134.4 Price
 
 **0 CNY.** Every number above is read from `benchmarks/aacr-bench.json`, `benchmarks/martian-bench.json`,
 `benchmarks/emission-frontier.json` and upstream's committed dashboard. No model was called and no review was run; the
