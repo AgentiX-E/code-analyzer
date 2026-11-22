@@ -15014,6 +15014,13 @@ because the architecture findings carry goldens that nothing else covers. **So "
 Martian change**, and shipping it as though it were a two-board improvement would have been the same class of error as
 the target above: one board's arithmetic read as both.
 
+*The unit, per board.* `0.0281` is the registered promotion bar and it was measured on the 46-row / 330-golden slice
+(§120). The same instrument on the 50-row corpora this table is computed from is **0.0240 at 452 goldens** and
+**0.0388 at 173 goldens** by `resolutionFor()` (`CORPUS_SAMPLING = { goldens: 715, deltaSd: 0.0191 }`). Quoting the
+Martian bar against AACR rows was the loose end: at 0.0240 the AACR arm is still below its own resolution, so the
+reading above survives, but a plan that sized an experiment off 0.0281 on either board would have sized it 17 % too
+coarse on AACR and 28 % too fine on Martian.
+
 **And the reason is §134's bucket table.** On AACR the goldens are not missing from the pool - they are standing under a
 finding the join refuses - so deleting categories deletes true positives. On Martian 43 % of the goldens were never
 produced, so the cheapest available gain is to stop paying for the categories that produce nothing.
