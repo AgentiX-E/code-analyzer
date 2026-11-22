@@ -56,8 +56,22 @@ describe('the figure a run publishes', () => {
     // figure upload is the line that published a cancelled run's predecessor.
     const upload = WORKFLOW.slice(WORKFLOW.indexOf('- name: Upload the figure'));
     const head = upload.slice(0, upload.indexOf('uses:'));
-    expect(head).toContain('if: success()');
+    // **`always()` is still the line this case exists for**, and it is still absent.
     expect(head).not.toContain('always()');
+    // **And the condition names the two proofs rather than `success()`.** That is stronger, not weaker: both proofs sit
+    // on steps that can only have run after the review wrote a file, so a run that died mid-review fails the condition
+    // twice over. What it adds is the one case `success()` got wrong in the other direction - a *derived* analysis that
+    // failed after the figure was sound took fifty pull requests of review with it, because `success()` read the step
+    // immediately before the upload instead of the artifact. §140 is where that was paid for.
+    expect(head).toContain(
+      "if: steps.replay.outcome == 'success' && steps.audit.outcome == 'success'",
+    );
+    for (const proof of ['replay', 'audit']) {
+      const step = WORKFLOW.slice(WORKFLOW.indexOf(`id: ${proof}`));
+      expect(step.slice(0, step.indexOf('- name:', 10)), `${proof} runs no command`).toContain(
+        'run:',
+      );
+    }
   });
 
   it('still publishes the marker a skipped run writes, because that is what the old condition was for', () => {

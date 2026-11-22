@@ -785,6 +785,7 @@ jobs:
       # does not replay to its own figure is a run that must fail before the artifact is published, not after two arms
       # have been compared on it. **No `|| true`**: a refusal is the output.
       - name: Prove the artifact replays to its own figure
+        id: replay
         run: |
           set -e
           node scripts/aacr-paired-replay.mjs --check
@@ -799,25 +800,32 @@ jobs:
       # do not add up must fail where it produced them, before the artifact is published and before two arms are compared
       # on it. **No `|| true`**: a refusal is the output.
       - name: Prove the artifact's detail layers add up
+        id: audit
         run: |
           set -e
           node scripts/aacr-bench-audit.mjs --check
 
-      # **The corpus's arithmetic loads every comment, so a gate is worth its price here and zero under the pairwise
+      # **The corpus's arithmetic charges every comment, so a gate is worth its price here and zero under the pairwise
       # instrument** - and until this step existed the second instrument's per-comment verdicts were summed and thrown
       # away, which priced every remaining device at one more dispatch. The table is written beside the artifact rather
-      # than printed into the log: a figure in a log is a figure nobody replays, and this file is recomputable from
-      # `rankedFindings[].fileLevelGoldens` with no model and no network.
+      # than printed into the log, because a figure in a log is a figure nobody replays.
       #
-      # **Guarded on the switch** rather than on a `|| true`: an artifact bought without the second instrument has no
-      # verdicts to price, and the script's refusal is the correct output of asking it anyway. `if-no-files-found: warn`
-      # on the upload covers the arm that never asked.
+      # **The first version of this step cost a whole run, and both mistakes are worth naming.** It was spelled
+      # `pnpm aacr:file-cut`, and pnpm prints `> code-analyzer@0.1.0 ...` on stdout, so the JSON it redirected began with
+      # `>`; and the upload carried `if: success()`, so a derived table that failed to write took fifty pull requests of
+      # review with it - nothing was published and nothing could be read back. **A derived analysis must not be able to
+      # destroy the thing it is derived from**: the upload's condition is now the two proofs above rather than the step
+      # immediately before it, and this step calls `node` rather than a package script.
+      #
+      # **Guarded on the switch** rather than on a `|| true`: an arm bought without the second instrument has no verdicts
+      # to price, and the script's refusal is the right answer to being asked anyway.
       - name: Price every cut of this run under the corpus's arithmetic
+        id: cuts
         if: inputs.file_semantic_judge == 'on'
         run: |
           set -e
-          pnpm aacr:file-cut benchmarks/aacr-bench.json --json > benchmarks/aacr-file-cut-table.json
-          node -e "const t=require('./benchmarks/aacr-file-cut-table.json'); for (const r of t.rows) console.log(r.cut.padEnd(30), String(r.emitted).padStart(5), r.f1.toFixed(4))"
+          node scripts/aacr-file-cut-table.mjs benchmarks/aacr-bench.json --json > benchmarks/aacr-file-cut-table.json
+          node -e "const t=require('./benchmarks/aacr-file-cut-table.json'); for (const r of t.rows) console.log(r.cut.padEnd(38), String(r.emitted).padStart(5), r.f1.toFixed(4))"
 
       # **The ensemble dimension is in the name, and the first run of the merge is why.** That run published
       # `...-adjudicate-off-idioms-off-agent-on-ensemble-off-remarks-off`, the name an agent-only run uses - **two
@@ -826,17 +834,22 @@ jobs:
       # credential - would still upload its marker, and that part is still true: those runs exit zero. What it also did
       # was copy `benchmarks/aacr-bench.json` on a run that died mid-review, **and that path is a tracked file**, so the
       # artifact it published was the previous run's figure under this run's arm name (§58.1). The script now clears the
-      # path before the first request; this condition is the second half of the same guarantee.
+      # path before the first request; the condition below is the second half of the same guarantee.
+      #
+      # **The condition is the two proofs, not `success()`.** A run whose artifact replays to its own figure and whose
+      # detail layers add up has produced something worth keeping, and whether a *derived* table was written after that
+      # is a question about the table. Reading `success()` here made the table able to delete the run.
       - name: Upload the figure
-        if: success()
+        if: steps.replay.outcome == 'success' && steps.audit.outcome == 'success'
         uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7
         with:
           # **Every matrix key is in the name**, because a pair of artifacts whose names differ in one segment is a pair
           # a reader can match to the arms without opening either - and because `an-artifact-that-is-never-uploaded-is-
           # never-downloaded.test.ts` expands this name from the matrix and refuses a download nothing uploads.
           name: aacr-bench-${{ matrix.profile }}-${{ matrix.code_context }}-${{ matrix.adjudicate }}-${{ matrix.idioms }}-${{ matrix.agent }}-${{ matrix.ensemble }}-${{ matrix.remarks }}-${{ matrix.second_concern }}-${{ matrix.lane_set }}-${{ matrix.change_shape }}
-          # **The figure and the competitor's whole output**, because **that output's format is what the next
-          # iteration has to read** and **a field cannot hold a document**.
+          # **The figure, the competitor's whole output, and the cut table when the second instrument was bought.**
+          # That output's format is what the next iteration has to read and **a field cannot hold a document**; the
+          # table is a *file* for the same reason, and `if-no-files-found: warn` covers the arm that never asked.
           path: |
             benchmarks/aacr-bench.json
             benchmarks/aacr-file-cut-table.json
