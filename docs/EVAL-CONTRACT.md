@@ -15382,3 +15382,54 @@ either by that much.** Both statements are measurements of the artifacts on disk
 
 **0 CNY.** Every figure is read from `benchmarks/aacr-bench.json`, `benchmarks/martian-bench.json`, or the competitors'
 own published rows, and the two requirement tables are closed-form in the counts those files carry.
+
+### 139. The second question clears the bar, and the arithmetic beside it moves the other way
+
+Run `45036323391`, 2026-11-22, fifty pull requests read in full, `file_semantic_judge: on` — the pre-registration of
+§137.1 executed as a dispatch. **Both readings landed in one artifact, and they disagree about which half of the device
+did the work.**
+
+| reading                                          | precision | recall |         F1 | emissions | goldens covered |
+| ------------------------------------------------ | --------: | -----: | ---------: | --------: | --------------: |
+| deprecated arithmetic (the headline, pairwise)   |    0.3127 | 0.2124 | **0.2530** |       307 |              96 |
+| corpus arithmetic, pairwise verdicts (step 1)    |    0.2345 | 0.1969 | **0.2141** |       307 |              89 |
+| corpus arithmetic, file-shaped verdicts (step 2) |    0.2508 | 0.2765 | **0.2631** |       307 |             125 |
+
+**Step 2 clears the gate §137.1 wrote before the run.** The gate was _at least 30 of the 141 same-line rejections
+recovered_; the file-shaped judge recovered **125 − 89 = 36** goldens the pairwise instrument had covered, so the count is
+met, and the delta is **+4.90 F1 points** — **above the corpus's 2.40-point resolution**, which is the decision rule
+§137.1 named. 149 calls for 149 files, **0 fallbacks, 0 failures**, and the whole second reading added **$0.05** to a
+$1.04 run.
+
+**Step 1 is negative, and §137's premise was wrong in a way worth naming.** The prediction was +1.57 to +3.92 F1 from the
+corpus's _arithmetic_ alone; the artifact reports **−3.89**. The cause is a count, not a judgement: the corpus arithmetic
+covers **89** goldens where the deprecated one credits **96** on the same 307 findings, so it does not _add_ coverage here
+— it **loses seven**. The seven are the cross-file verdicts: `scoreCorpusFileSemantic` groups findings and reference
+comments **by normalised path**, while a pairwise judge is free to match a comment to a reference comment on another file.
+A per-file walk cannot hold that pair, so it drops it.
+
+**That is a property of transplanting one instrument's verdicts into another instrument's arithmetic, and it is the
+reason §137.1 reported the two increments separately.** Step 1 answers "what would our pairwise verdicts score under
+their walk" and the answer is _less_, because their walk is asked a question their judge is asked per file. **The figure
+that compares with the corpus is step 2**, and step 2 is the one that clears the bar.
+
+#### 139.1 What this does to the position against 25.10
+
+**Against the board's protocol, this repository is level with the bar and not ahead of it.** 0.2631 against 25.10 is
+**+1.21 points, below the 2.40 the corpus can resolve** — so the correct statement is "indistinguishable from 25.10",
+which is a different sentence from "ahead of it". Against the competitor's tool on the same rows under our own LLM
+(§138.1's 21.25) the margin is **+5.06**, and against its published best on its own corpus the margin is none.
+
+**And the 20.26 this document has been quoting was measured at an emission budget the product does not ship.** The
+artifact of 2026-11-10 records `pullRequestBudget: 16`; the default is 12, and today's fifty-pull-request run at 12
+scores **0.2530** on the same deprecated arithmetic with the same reviewer. **The gap to 25.10 was therefore 4.84 against
+a configuration nobody dispatches**, and the honest current figure on the arithmetic the contract has published since
+§116 is **25.30**. §138's requirement table is not restated here — it is superseded in the one cell that mattered.
+
+#### 139.2 Price
+
+**$1.036 modelled** (reviewer $0.559 over 1 020 calls, judge $0.477 over 12 247 calls), **¥7.4 at 7.1**, in 67 minutes on
+a hosted runner. **The account balance cannot be used as the invoice for this run**: it reads 85.26 CNY before and
+113.17 CNY after, **a top-up landed inside the window**, which is also the reason the smoke run's 3.64 CNY delta is
+quoted with a caveat rather than as a price. Reconciling the model with the account needs a run whose window contains no
+top-up, and that is a named item rather than a paragraph.
