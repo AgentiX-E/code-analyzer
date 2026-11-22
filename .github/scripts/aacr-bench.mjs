@@ -77,7 +77,6 @@ import { readReviewDefaults } from './lib/review-defaults.mjs';
 const SHIPPED = readReviewDefaults();
 const onOff = (value) => (value ? 'on' : 'off');
 
-
 const BENCH = process.env['AACR_DIR'] ?? '/tmp/aacr-bench';
 const MODEL = process.env['AACR_JUDGE_MODEL'] ?? process.env['MARTIAN_MODEL'] ?? 'deepseek-chat';
 const BASE =
@@ -132,7 +131,8 @@ const COMPETITOR_CHOICE = parseCompetitorMode(process.env['AACR_COMPETITOR']);
  * measuring the retired arrangement.
  */
 const CHECKLIST =
-  String(process.env['AACR_CHECKLIST'] ?? onOff(SHIPPED.knobs.languageChecklist)).toLowerCase() === 'on';
+  String(process.env['AACR_CHECKLIST'] ?? onOff(SHIPPED.knobs.languageChecklist)).toLowerCase() ===
+  'on';
 
 /**
  * **The second switch a run turns, and the one the bill is about: where the target-and-diff block sits.**
@@ -396,7 +396,9 @@ const previousRuleKeep = (entries, pullRequest, profileKept) =>
  * prompt, so **an on-arm spends money the off-arm does not: the artifact records both the calls and the characters.**
  */
 const CODE_CONTEXT =
-  AGENT || String(process.env['AACR_CODE_CONTEXT'] ?? onOff(SHIPPED.knobs.codeContext)).toLowerCase() === 'on';
+  AGENT ||
+  String(process.env['AACR_CODE_CONTEXT'] ?? onOff(SHIPPED.knobs.codeContext)).toLowerCase() ===
+    'on';
 
 /**
  * **`AACR_CHANGE_SHAPE=on` classifies every hunk before a lane is paid to read it.**
@@ -2339,7 +2341,9 @@ async function main() {
    * and **a device that cannot be switched off cannot be compared with them.**
    */
   const SECOND_CONCERN =
-    String(process.env['AACR_SECOND_CONCERN'] ?? onOff(SHIPPED.knobs.secondConcern)).toLowerCase() === 'on';
+    String(
+      process.env['AACR_SECOND_CONCERN'] ?? onOff(SHIPPED.knobs.secondConcern),
+    ).toLowerCase() === 'on';
   /**
    * **How many findings one site may keep, and the device R-64 registers (§124.3).**
    *
