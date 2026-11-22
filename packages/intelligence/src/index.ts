@@ -552,6 +552,15 @@ export type {
   ReviewPathClass,
 } from './review/emission-policy.js';
 
+// Grounding — the drops that need no model, and the coverage rule that decides whether they may drop (§132)
+export { decideGrounding, describeGrounding } from './review/grounding-gate.js';
+export type {
+  GroundableFinding,
+  GroundingCoverage,
+  GroundingDecision,
+  GroundingWithheldReason,
+} from './review/grounding-gate.js';
+
 // Merging two reviewers — the second field of view, at the comment budget one review may spend (§56)
 export {
   MERGE_BUDGET_PER_PULL_REQUEST,

@@ -31,7 +31,9 @@ import {
   SHIPPED_AGENT_OPTIONS,
   SHIPPED_EMISSION_STEPS,
   applyEmissionPolicy,
+  decideGrounding,
   describeEmissionSteps,
+  describeGrounding,
   mergeReviewers,
   splitPatchByPath,
   type ActionItem,
@@ -182,6 +184,33 @@ export interface PrReviewReport {
       /** Findings the path-class step removed, by class. Absent on a policy that has no such step. */
       droppedByPathClass?: readonly { readonly pathClass: string; readonly count: number }[];
       truncatedByBudget: number;
+    };
+    /**
+     * **What the grounding gate decided** (§132 step 1).
+     *
+     * The device asks four decidable questions about a finding - was its file read, does its range exist, is its
+     * quotation in the file, do the names it puts in backticks occur there - and **drops the ones that are provably about
+     * nothing**. It also refuses to drop anything when the run could not read every file the findings name, and
+     * `withheld` is how that refusal is visible: a report whose `readable` is below `findings` is a report in which the
+     * unchecked findings were emitted unchanged.
+     *
+     * **Present on every report this module builds, and optional in the type for one reason**: a renderer is also
+     * handed reports assembled elsewhere - the test suite's fixtures are exactly that - and a formatter that threw on a
+     * report from an older producer would be a renderer that refuses to render. Absent therefore means *not recorded*,
+     * which prints nothing; `applied: false` means *recorded and withheld*, which prints the refusal.
+     */
+    grounding?: {
+      rule: string;
+      /** The same sentence the job log prints, so a log and a report cannot describe one decision two ways. */
+      sentence: string;
+      applied: boolean;
+      withheld: 'no-readable-arm' | null;
+      findings: number;
+      readable: number;
+      keptRatio: number;
+      droppedByReason: Record<string, number>;
+      /** Findings whose quotation was a paraphrase with an ellipsis, so the check could not read it verbatim. */
+      unverifiableQuotes: number;
     };
   };
   decision: SwarmDecision;
@@ -823,7 +852,46 @@ export async function runPrReview(options: PrReviewOptions): Promise<PrReviewRun
   }
   const standardsResults = checkStandards(engine, standards, change);
 
-  const merged = sortFindings([...lensFindings, ...standardsFindings(standardsResults, inDiff)]);
+  /**
+   * **The grounding gate, applied where findings become a report** (§132 step 1).
+   *
+   * `judgeGrounding` answers four decidable questions - was this finding's file read, does its range exist, is its
+   * quotation in the file, do its backticked names occur there - and until now **it was called from four test files and
+   * no product path**, so the capability existed and nothing delivered it. The three checks need the file, and this
+   * command is the one place that has the whole change on disk: `change.contents`, already read for the lenses.
+   *
+   * **What it may not do is delete from a list it could only read half of.** A finding on a file this run did not fetch
+   * would be dropped for the reason *"the review never read it"*, which is a fact about the fetch and not about the
+   * finding - §23.7's regression, where a gate calibrated on one arm took the other from F1 0.2092 to 0.0523. So
+   * `decideGrounding` applies the drop only at full coverage and reports `withheld: 'no-readable-arm'` otherwise, and
+   * **the report carries the counts either way**, because a run that could not check is still a run that can say so.
+   *
+   * **Findings from the standards engine are not passed through it**, and that is a scope rather than an oversight: a
+   * rule finding is produced by matching the file's own text, so its snippet is in the file by construction and the
+   * gate would be measuring the rule engine's output with the rule engine's input.
+   */
+  const groundingInput = lensFindings.map((found) => ({
+    finding: found,
+    path: found.file,
+    startLine: found.line,
+    endLine: found.endLine,
+    existingCode: found.snippet,
+    content: found.title,
+    suggestionCode: found.suggestion,
+  }));
+  const grounding = decideGrounding(
+    groundingInput,
+    change.contents,
+    splitPatchByPath(change.patch),
+  );
+  const groundedLensFindings = grounding.applied
+    ? grounding.kept.map((entry) => entry.finding)
+    : lensFindings;
+
+  const merged = sortFindings([
+    ...groundedLensFindings,
+    ...standardsFindings(standardsResults, inDiff),
+  ]);
 
   // **The threshold filters, it does not discard the count.** `--severity` decides what is reported; the number that
   // did not reach the report is kept so a reader can lower the bar instead of wondering where the findings went.
@@ -900,6 +968,32 @@ export async function runPrReview(options: PrReviewOptions): Promise<PrReviewRun
       // **What the merge did, when it ran.** Absent without `--ensemble`, because a report that carried a merge it never
       // made would describe a reviewer two of whose passes did not happen.
       ...(ensemble === undefined ? {} : { ensemble }),
+      /**
+       * **What the grounding gate decided, printed whether or not it could act.**
+       *
+       * A report that showed this only when it dropped something would make *"the gate ran and found nothing"* and
+       * *"the gate could not read the change"* the same absence - and the second is the state in which every finding
+       * reaching this report is unchecked. `sentence` is the same text a job log prints, so the two renderings cannot
+       * describe the decision differently.
+       */
+      grounding: {
+        rule: 'path read, range exists, quotation present, backticked names present',
+        sentence: describeGrounding(grounding),
+        applied: grounding.applied,
+        withheld: grounding.withheld,
+        findings: grounding.coverage.findings,
+        readable: grounding.coverage.readable,
+        keptRatio: grounding.report.keptRatio,
+        unverifiableQuotes: grounding.report.unverifiableQuotes,
+        droppedByReason: grounding.report.ungrounded.reduce<Record<string, number>>(
+          (tally, verdict) => {
+            const reason = verdict.reason ?? 'unnamed';
+            tally[reason] = (tally[reason] ?? 0) + 1;
+            return tally;
+          },
+          {},
+        ),
+      },
     },
     decision,
     actionPlan,
@@ -960,6 +1054,21 @@ function fileNotes(summary: PrReviewReport['summary']): string[] {
 }
 
 /**
+ * The gate's sentence, or `null` when there is nothing a reader needs told.
+ *
+ * **Two states are worth a line and one is not.** A report whose gate could not read part of the change says so; a
+ * report whose gate ran and drops nothing stays quiet, because *"grounding applied: 0 of 3 dropped"* on every comment
+ * is the noise that teaches a reader to skip the line that matters. Absent is not a third state to call out here: it
+ * means the producer did not record the decision, and inventing a sentence for it would describe a gate nobody ran.
+ */
+function groundingNote(summary: PrReviewReport['summary']): string | null {
+  const grounding = summary.grounding;
+  if (grounding === undefined) return null;
+  if (!grounding.applied || grounding.findings !== grounding.readable) return grounding.sentence;
+  return Object.keys(grounding.droppedByReason).length > 0 ? grounding.sentence : null;
+}
+
+/**
  * The report as Markdown, which is what a pull-request comment renders.
  *
  * **Every number a reader could be misled by is printed**: files truncated by `--max-files`, findings truncated by
@@ -977,6 +1086,10 @@ export function formatPrReviewMarkdown(report: PrReviewReport): string {
       (notes.length === 0 ? '' : ` (${notes.join(' · ')})`),
   );
   lines.push(`**Decision:** ${decisionLine(report)}`);
+  // **Above the findings, not in a footnote.** A reader who is told three findings and not told that the gate could not
+  // read four of the nine files has no way to tell a clean review from a partial one.
+  const groundingMarkdown = groundingNote(report.summary);
+  if (groundingMarkdown !== null) lines.push(`**Grounding:** ${groundingMarkdown}`);
   if (report.standardsApplied.length > 0) {
     lines.push(`**Standards applied:** ${report.standardsApplied.join(', ')}`);
   }
@@ -1061,6 +1174,10 @@ export function formatPrReviewText(report: PrReviewReport): string {
       (textNotes.length === 0 ? '' : ` (${textNotes.join(', ')})`),
   );
   lines.push(`Decision: ${decisionLine(report)}`);
+  // **A gate that could not read the change is printed even when it dropped nothing**, because "checked and clean" and
+  // "never checked" are the same sentence to a reader who is only shown the second one's silence.
+  const groundingText = groundingNote(report.summary);
+  if (groundingText !== null) lines.push(`Grounding: ${groundingText}`);
   if (report.agent !== undefined) {
     // **One line, because the four numbers are one fact**: a model read the repository, this is how much it read, and
     // this is how many drafts it wrote before the code it quoted had to exist.

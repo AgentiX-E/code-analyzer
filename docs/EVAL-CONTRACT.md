@@ -14889,3 +14889,49 @@ goldens that do join**, so most of them were never produced and step 4 is the an
 ### 132.7 Price
 
 **0 CNY.** Two scripts read one committed artifact. No model was called.
+
+### 133. Step 1 of that plan, done: the gate is wired, and it refused twice
+
+**`judgeGrounding` was called from four test files and no product path** (§132.5). It is now called from
+`code-analyzer review pr`, on the one list of findings that command produces, against `change.contents` - the files the
+lenses already read - and against `change.patch`, and **every report carries what it decided**:
+
+```jsonc
+"grounding": {
+  "rule": "path read, range exists, quotation present, backticked names present",
+  "sentence": "grounding applied: 0 of 4 dropped, kept 1; 1 paraphrased quotation(s) kept unchecked",
+  "applied": true, "withheld": null, "findings": 4, "readable": 4,
+  "keptRatio": 1, "unverifiableQuotes": 1, "droppedByReason": {}
+}
+```
+
+**The coverage rule is the part that makes this shippable** (`review/grounding-gate.ts`). The drop is applied only when
+_every_ finding's path was read, and `withheld: "no-readable-arm"` otherwise - the same vocabulary `aacr-promote.mjs`
+uses for an arm it will not score. The two partial rules are both wrong in a way that flatters a figure: dropping only
+what is decidable **keeps every finding on an unread file**, so the measured precision is a mixture that cannot be
+attributed; dropping the undecidable ones **is §23.7**, where a gate took the reading arm from F1 0.2092 to 0.0523.
+
+**And the gate refused twice on this repository's own end-to-end fixture**, which is the reason the wiring is worth
+reporting rather than the reason it was easy:
+
+| what the check did                                      | why it was wrong                                                                                                                                                             | what it does now                                                                                                          |
+| ------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------- |
+| dropped `src/lookup.ts:1`, a missing-docstring finding  | its quotation is `export function lookup(...)` - **true of the file and present in none of it**. A literal search for an elided excerpt fails in every file that contains it | kept, and **counted** in `unverifiableQuotes`, because an escape hatch that cannot be seen gets used                      |
+| dropped a finding whose quotation is a **deleted** line | a removed line exists in the change and nowhere in the file, so a file-only check asks _"did you quote the new revision"_ rather than _"does this code exist"_               | the quotation is searched in **the file or the change**, the rule the reading reviewer's own filing check has always used |
+
+**Both are the _Sifting the Noise_ failure** (arXiv 2601.22952): aggressive filtering suppressed **22%** of true
+vulnerabilities. **The first was a true positive deleted before anyone read it**, on a fixture this repository has run
+for months - and the only reason it was caught is that a markdown assertion about a suggestion line went red. **A gate
+whose over-drops are invisible is a gate that reports the fetcher.**
+
+**What is recorded and not yet measured.** The effect on the published figure. `benchmarks/aacr-bench.json` now carries
+`rankedFindings[].existingCode` and the **whole** claim rather than its first 320 characters - 561 of 569 were truncated,
+and a claim cut mid-word ("…is legal to de") leaves the deciding sentence outside the artifact, which is §130's defect
+at the level of the finding. With those two fields an offline replay can price the gate on a run already paid for; until
+that replay exists, **the only measured statement about the gate is the fixture above**, and this document does not
+claim more.
+
+### 133.1 Price
+
+**0 CNY.** No model was called: the gate is four string operations, and the two over-drops were found by the existing
+suite.

@@ -4361,12 +4361,20 @@ async function main() {
         which: 'agentix-e',
         // **The sentence itself, because a rejection is a claim about wording and this artifact could not show one.**
         //
-        // `findingOnPathRejected` was 98 of 170 goldens on 2026-11-10 and **73 of those 98 sit within ten lines of a
-        // finding we emitted** - so the loss is not that the lane looked elsewhere, it is that what the lane said was
-        // not accepted as the same defect. **An artifact that records the coordinates and not the sentence can report
-        // that fact and cannot let anyone check it**, which is the same omission as the discarded `path` one iteration
-        // earlier, one level up. The text is charged to nothing: it was already in memory and already paid for.
-        text: `${entry.finding.title} :: ${entry.finding.description}`.slice(0, 320),
+        // **And the cap is 2 000 rather than 320, because 561 of 569 findings were truncated at 320** - which is fine for
+        // a reader and useless for a machine: the conclusion of a claim is the part a verifier has to judge, and cutting
+        // a claim mid-word ("…is legal to de") leaves the one sentence that decides it outside the artifact. **A figure
+        // that cannot be recomputed from the file is the §130 defect at the level of the finding.**
+        text: `${entry.finding.title} :: ${entry.finding.description}`.slice(0, 2000),
+        /**
+         * **The code the finding says it is about**, which is the evidence every grounding check reads.
+         *
+         * `judgeGrounding` asks four decidable questions and **three of them need this field**, so an artifact without
+         * it could report that the gate was wired and could never say what the gate would have done. It is charged to
+         * nothing - the quotation was already in memory, copied out of the diff the run had paid for - and **it is the
+         * only way the offline replay of a paid run can price the gate without paying for the run again**.
+         */
+        existingCode: String(entry.finding.existingCode ?? '').slice(0, 2000),
         matchedGoldens: ourMatrix.matches[at],
       });
     });

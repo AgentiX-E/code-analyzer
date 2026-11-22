@@ -234,7 +234,10 @@ const TEST_ONLY: Readonly<Record<string, readonly string[]>> = {
     'review/comment-reflection.ts',
     'review/comment-relocator.ts',
     'review/compiler-comments.ts',
-    'review/grounding-judge.ts',
+    // **`review/grounding-judge.ts` is no longer here**, and its removal is the point of §133: it was listed as reached
+    // only from tests, which is exactly what §132.5 reported - a device with four test callers and no product caller.
+    // `review/grounding-gate.ts` imports it, the gate is exported from the package entry, and `review pr` calls the
+    // gate, so the walk now reaches the judge the way a reader would.
     'review/lenses/synthesis-lens.ts',
     'review/llm-review-pipeline.ts',
     'review/session-manager.ts',
@@ -476,7 +479,12 @@ describe('every module a package compiles is reachable from an entry its manifes
       // only shape that `tsc` inlines without pointing at a JSON file the build never copies. The guard test in
       // `tests/unit/scripts/the-configuration-the-product-ships-is-the-one-a-promotion-wrote.test.ts` re-renders it and
       // fails when the two disagree, so the file is generated and asserted rather than generated and trusted.
-      intelligence: 195,
+      // **196 since §133**, which added `review/grounding-gate.ts`: the rule that decides whether the grounding checks
+      // may delete anything. It is a module rather than a conditional inside `review pr` because **the same decision has
+      // to be read by the command, by the harness and by the report** - a gate applied in one and recorded in another is
+      // the §130 defect, a score computed from a filter the product did not run - and because the refusal
+      // (`withheld: no-readable-arm`) is a state a test can construct without a git checkout.
+      intelligence: 196,
       mcp: 39,
       server: 24,
       // **11 since iteration 121**, which added `utils/type-text.ts`: the depth-counted removal of type arguments and
@@ -517,8 +525,12 @@ describe('every module a package compiles is reachable from an entry its manifes
     // **Seventy-two since iteration 104 added the three modules of the L4 instrument** - the task set, the arithmetic
     // and the lexical null. Same judgement as the digest: measurement code with no runtime caller, recorded rather than
     // exported.
+    // **Seventy-four since §133**, and this is the first time the number has moved *down* by a module that was not
+    // moved to another package: `review/grounding-judge.ts` left because `review/grounding-gate.ts` now reaches it from
+    // `review pr`. **A register that can only grow is a register of things nobody wired**, so the direction of this
+    // change is the claim - the judge was the §130 shape in miniature, four test callers and no product caller.
     const total = Object.values(TEST_ONLY).reduce((sum, modules) => sum + modules.length, 0);
-    expect(total).toBe(75);
+    expect(total).toBe(74);
   });
 
   it('nothing is listed as test-only while the product reaches it', () => {

@@ -28,20 +28,59 @@
 
 import type { ReviewComment } from '@code-analyzer/shared';
 
+/**
+ * **The five things a finding has to carry for any of this to be decidable.**
+ *
+ * **Structural rather than nominal, and that is the point of writing it down.** The checks below need a path, a range and
+ * (when the finding offers one) a quotation; they need **nothing else about the finding**, so a reviewer that emits
+ * `ReviewComment`s and a command that emits `PrReviewFinding`s can be held to one rule instead of two. **Two copies of
+ * this rule is how a harness and a product come to disagree about which findings exist**, which is the defect §130 was
+ * written about - a score computed from a filter the product did not apply.
+ */
+export interface GroundableFinding {
+  /** Repository-relative path, spelled the way the review reads it. */
+  path: string;
+  startLine: number;
+  endLine: number;
+  /** The code the finding quotes, when it quotes any. Absent is not evidence of absence. */
+  existingCode?: string;
+  /** The sentence the reader sees. Used only for the backticked-name check. */
+  content?: string;
+  suggestionCode?: string;
+  /** Set to `false` on everything that survives, so a downstream reader can tell checked from unchecked. */
+  filtered?: boolean;
+}
+
 /** Why a comment was dropped. */
-export interface GroundingVerdict {
-  comment: ReviewComment;
+export interface GroundingVerdict<T extends GroundableFinding = ReviewComment> {
+  comment: T;
   grounded: boolean;
   /** The first check that failed, so a reader can disagree with the rule rather than the verdict. */
   reason: string | null;
 }
 
-export interface GroundingReport {
-  grounded: ReviewComment[];
+export interface GroundingReport<T extends GroundableFinding = ReviewComment> {
+  /**
+   * **`T & { filtered: boolean }`, not `T`**, because the field is written here and a report that claimed to return the
+   * input type would make the one fact this function adds invisible to its own callers.
+   */
+  grounded: Array<T & { filtered: boolean }>;
   /** Kept for reporting, and **not emitted** - the caller decides what to do with them. */
-  ungrounded: GroundingVerdict[];
+  ungrounded: Array<GroundingVerdict<T>>;
   /** **The ratio that matters**, and it is reported even when nothing is dropped. */
   keptRatio: number;
+  /**
+   * **How many findings offered a quotation this check cannot read verbatim**, and were therefore kept unchecked.
+   *
+   * **An ellipsis is a citation with an omission**, not a lie: this repository's own lens writes `export function
+   * lookup(...)` as the evidence for a missing-docstring finding, and **a literal search for that string fails in every
+   * file that contains it**. Dropping on that basis deleted a true positive in the end-to-end fixture - the *Sifting the
+   * Noise* failure, where a filter suppressed 22% of real findings.
+   *
+   * **Counted rather than ignored**, because an escape hatch that cannot be seen is an escape hatch that gets used: a
+   * run whose quotations are a third elided is a run whose precision was checked on two thirds of its evidence.
+   */
+  unverifiableQuotes: number;
 }
 
 /**
@@ -53,17 +92,44 @@ export interface GroundingReport {
  */
 export interface GroundingSources {
   /** File contents by repository-relative path, as the review saw them. */
-  contents: Map<string, string>;
+  contents: ReadonlyMap<string, string>;
+  /**
+   * **The change each file's findings are about, when the caller has it.**
+   *
+   * **This is not a concession to a broken snippet; it is where the evidence actually is.** A finding's quotation is
+   * often a line the pull request *removed*, and a removed line exists in the change and nowhere in the file - so a
+   * check against the file alone does not ask *"does this code exist"*, it asks *"did you quote the new revision"*,
+   * which is a question about the quoter rather than about the finding. The reading reviewer's own filing check has
+   * always accepted a span in the file **or in the diff**, for exactly this reason.
+   *
+   * **Measured, not assumed.** Wiring the file-only version into `review pr` dropped the credential finding on this
+   * repository's own end-to-end fixture with the reason *"the quoted code does not appear at lines 1-1"* - a true
+   * positive deleted before anyone read it. That is the shape *Sifting the Noise* (arXiv 2601.22952) warns about, where
+   * aggressive filtering suppressed 22% of true vulnerabilities.
+   */
+  diffs?: ReadonlyMap<string, string>;
 }
 
 /** A line range that the file actually has. */
-function rangeIsReal(comment: ReviewComment, lines: string[]): boolean {
+function rangeIsReal(comment: GroundableFinding, lines: string[]): boolean {
   const { startLine, endLine } = comment;
   if (!Number.isInteger(startLine) || !Number.isInteger(endLine)) return false;
   if (startLine < 1 || endLine < 1) return false;
   // **An inverted range is a defect in the comment, not a judgement about it.**
   if (endLine < startLine) return false;
   return endLine <= lines.length;
+}
+
+/**
+ * Whether the quotation is a verbatim excerpt at all.
+ *
+ * **`...`, `…` and a lone `…` are omissions**, and an omission is not a claim that a string occurs: `export function
+ * lookup(...)` is true of the file and present in none of it. A check that cannot decide keeps, and the count in the
+ * report is what stops "cannot decide" from becoming a silent exemption.
+ */
+function isVerbatimQuote(quote: string | undefined): boolean {
+  const text = (quote ?? '').trim();
+  return !text.includes('...') && !text.includes('…');
 }
 
 /**
@@ -74,7 +140,7 @@ function rangeIsReal(comment: ReviewComment, lines: string[]): boolean {
  * A comment with no `existingCode` is not checked rather than dropped - **the quotation is evidence when present and
  * its absence is not evidence of absence.**
  */
-function quoteIsPresent(comment: ReviewComment, lines: string[]): boolean {
+function quoteIsPresent(comment: GroundableFinding, lines: string[], diff?: string): boolean {
   const quote = (comment.existingCode ?? '').trim();
   if (quote.length === 0) return true;
   // **The whole file, and the reason is a measurement rather than a preference.**
@@ -93,7 +159,8 @@ function quoteIsPresent(comment: ReviewComment, lines: string[]): boolean {
   // **Whitespace-normalised**, because a diff's indentation and the file's rarely match character for character and
   // **that difference is not what this check is about.**
   const normalise = (s: string) => s.replace(/\s+/g, ' ').trim();
-  return normalise(window).includes(normalise(quote));
+  const wanted = normalise(quote);
+  return normalise(window).includes(wanted) || normalise(diff ?? '').includes(wanted);
 }
 
 /**
@@ -112,7 +179,7 @@ function quoteIsPresent(comment: ReviewComment, lines: string[]): boolean {
  * **Only backticked identifiers are checked**, so prose is not mistaken for code. **A comment that names nothing is
  * kept**, for the same reason a comment that quotes nothing is: **the evidence is required when it is offered.**
  */
-function namesOccurInRegion(comment: ReviewComment, lines: string[]): boolean {
+function namesOccurInRegion(comment: GroundableFinding, lines: string[]): boolean {
   const body = `${comment.content ?? ''} ${comment.suggestionCode ?? ''}`;
   const named = [...body.matchAll(/`([A-Za-z_$][\w$]{2,})`/g)].map((m) => m[1]!);
   if (named.length === 0) return true;
@@ -130,12 +197,13 @@ function namesOccurInRegion(comment: ReviewComment, lines: string[]): boolean {
  * **The order of the checks is the order of their strength**: a path the review never read is unfixable by any
  * reading of the file, a range outside the file is provably wrong, and a quotation that is absent is evidence.
  */
-export function judgeGrounding(
-  comments: ReviewComment[],
+export function judgeGrounding<T extends GroundableFinding>(
+  comments: readonly T[],
   sources: GroundingSources,
-): GroundingReport {
-  const grounded: ReviewComment[] = [];
-  const ungrounded: GroundingVerdict[] = [];
+): GroundingReport<T> {
+  const grounded: Array<T & { filtered: boolean }> = [];
+  const ungrounded: Array<GroundingVerdict<T>> = [];
+  let unverifiableQuotes = 0;
 
   for (const comment of comments) {
     const content = sources.contents.get(comment.path);
@@ -159,11 +227,14 @@ export function judgeGrounding(
       continue;
     }
 
-    if (!quoteIsPresent(comment, lines)) {
+    if (!isVerbatimQuote(comment.existingCode) && (comment.existingCode ?? '').trim().length > 0) {
+      // **Kept and counted**, so the reader can weigh a precision that rests on a paraphrased quotation.
+      unverifiableQuotes += 1;
+    } else if (!quoteIsPresent(comment, lines, sources.diffs?.get(comment.path))) {
       ungrounded.push({
         comment,
         grounded: false,
-        reason: `the quoted code does not appear at lines ${comment.startLine}-${comment.endLine}`,
+        reason: `the quoted code does not appear in the file or in the change at lines ${comment.startLine}-${comment.endLine}`,
       });
       continue;
     }
@@ -186,5 +257,6 @@ export function judgeGrounding(
     ungrounded,
     // **`1` when there was nothing to judge**, which is the honest reading: nothing was dropped.
     keptRatio: total === 0 ? 1 : Math.round((grounded.length / total) * 10000) / 10000,
+    unverifiableQuotes,
   };
 }
