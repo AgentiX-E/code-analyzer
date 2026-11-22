@@ -38,6 +38,8 @@ const MARTIAN_PAIRS = 98; // the unique goldens the Martian pool reached; its ar
 const LEADER = { f1: 0.251, precision: 0.339, recall: 0.2 };
 
 const pct = (x) => `${(x * 100).toFixed(2)}%`;
+/** Four decimals, because `--check` compares strings and a float's last digit is not a claim. */
+const round4 = (x) => Math.round(x * 10000) / 10000;
 const f1 = (p, r) => (p + r === 0 ? 0 : (2 * p * r) / (p + r));
 
 /** Distinct goldens any finding in `rows` touched, keyed by pull request so two repositories cannot collide. */
@@ -257,16 +259,27 @@ if (process.argv.includes('--check')) {
     ['findingOnPathRejected', buckets.findingOnPathRejected, 254],
     ['martian pool ceiling', Math.round(boards[1].poolCeiling * 10000) / 10000, 0.5665],
     ['martian perfect order', Math.round(boards[1].perfectly * 10000) / 10000, 0.7232],
+    // **§137's interval, which is arithmetic over three recorded counts rather than a forecast.** The two operating
+    // points are checked separately because §134 and §135 exist for mixing them: the ungated pool is 569 emissions with
+    // 103 credited pairs, the gated headline is 387 with 85, and the 123 goldens a judge called matched is an ungated
+    // count. A figure on one base subtracted from a figure on the other is the defect this whole file was written for.
+    ['ungated emissions', aacr.rankedFindings.length, 569],
+    ['ungated legacy F1', round4(f1(103 / 569, 103 / GOLDENS)), 0.2018],
+    ['ungated corpus-walk F1, lower bound', round4(f1(103 / 569, 123 / GOLDENS)), 0.2174],
+    ['ungated corpus-walk F1, upper bound', round4(f1(123 / 569, 123 / GOLDENS)), 0.2409],
+    ['gated corpus-walk F1, upper bound', round4(f1(123 / 387, 123 / GOLDENS)), 0.2932],
   ];
   let failed = false;
   for (const [name, actual, expected] of checks) {
     if (String(actual) !== String(expected)) {
-      console.error(`\n${name}: script says ${String(actual)}, §134 says ${String(expected)}`);
+      console.error(
+        `\n${name}: script says ${String(actual)}, the contract says ${String(expected)}`,
+      );
       failed = true;
     }
   }
   if (failed) process.exit(1);
-  console.log('§134 and the artifacts agree on every number this file prints.');
+  console.log('§134, §137 and the artifacts agree on every number this file prints.');
 } else {
   console.log(lines.join('\n'));
 }

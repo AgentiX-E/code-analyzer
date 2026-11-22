@@ -42,6 +42,12 @@ import {
 } from './lib/competitor-comparison.mjs';
 import { goldenDiscordance, pairedCorpus } from './lib/paired-corpus.mjs';
 import { scoreCorpusFileSemantic, scoreFileSemantic } from './lib/file-semantic.mjs';
+import {
+  buildFileSemanticJudgeMessages,
+  parseFileSemanticCovers,
+  planFileSemanticJudgements,
+  toGlobalMatches,
+} from './lib/file-semantic-judge.mjs';
 import { describeUnread, readTheWholeCorpus, unreadCorpus } from './lib/unread-corpus.mjs';
 import {
   DEFAULT_BASELINE_PATH,
@@ -767,6 +773,35 @@ const JUDGE_BATCH = (() => {
 let judgeManyFn = JUDGE_BATCH > 1 ? judgeBatchImpl : null;
 
 /**
+ * **Whether this run also asks the corpus's own question, and why it is a switch rather than the new default.**
+ *
+ * The corpus measures `file-level-semantic-v1` - one judge call per comment, every reference comment of the file in a
+ * numbered list, a verdict that may cover several of them. `lib/file-semantic.mjs` implements that arithmetic and the
+ * harness has been feeding it verdicts from a pairwise judge, which is why the artifact of 2026-11-10 could name the
+ * defect and not the size of it: 141 of the 254 rejected reference comments sat **on the same line** as a finding we had
+ * emitted.
+ *
+ * **The switch is off by default because changing the instrument is not a default.** Every figure in
+ * `docs/EVAL-CONTRACT.md` was measured pairwise, and a run that silently changed the question would make every earlier
+ * figure incomparable to every later one. `AACR_FILE_SEMANTIC_JUDGE=1` buys the second reading **beside** the first -
+ * same findings, same goldens, same run - so the two figures are a paired comparison rather than two runs.
+ *
+ * **It is also the cheaper question, which is the part worth naming.** A pair-shaped judge costs `findings x goldens`
+ * calls; a file-shaped one costs one call per file that carries both a finding and a reference comment. The corpus run
+ * of 2026-11-10 made 14 892 judge calls - so the protocol the corpus measures is an order of magnitude cheaper to
+ * measure repeatedly than the one this repository measured instead.
+ */
+const FILE_SEMANTIC_JUDGE = (() => {
+  const raw = process.env['AACR_FILE_SEMANTIC_JUDGE'];
+  if (raw === undefined || raw === '' || raw === '0') return false;
+  if (raw === '1') return true;
+  throw new Error(`AACR_FILE_SEMANTIC_JUDGE=${raw} is not 0 or 1`);
+})();
+
+/** What the second question cost, and how often it had to fall back to the first. */
+const fileSemanticJudgeSpend = { calls: 0, files: 0, fallbacks: 0, failures: [] };
+
+/**
  * Run `task` over `items` with at most `limit` in flight.
  *
  * **A worker pool rather than `Promise.all(items.map(...))`**, because the matrix is a thousand calls and **a thousand
@@ -923,6 +958,103 @@ async function judgeMatrixBatched(texts, goldens, batch) {
     });
   });
   return { matches, unanswered, verdicts: flat };
+}
+
+/**
+ * **One call per file, asked the corpus's question, for every pull request at once.**
+ *
+ * **Why this is a second pass rather than a change to `judgeMatrix`.** The pairwise matrix is the instrument every
+ * published figure was measured with, and a run that replaced it would break the comparison it exists to support. This
+ * pass runs *after* the engine has emitted and *after* the pairwise matrix has been bought, over the same findings and
+ * the same goldens, and writes its verdicts **beside** the first ones - so one run produces a paired reading of two
+ * instruments rather than two runs that differ in ways nobody enumerated.
+ *
+ * **What it returns is one `matches` array per pull request, or `undefined` for a pull request it could not ask about.**
+ * `undefined` is the honest answer and the caller keeps the pairwise one: a file whose answer could not be read is a
+ * file judged by the old instrument, not a file scored as if nothing had covered anything. **The fallback count travels
+ * in the artifact** for the reason `judgeSpend.batchFallbacks` does - a run that fell back everywhere and a run that
+ * never needed to would otherwise report the same figure under the same name.
+ *
+ * **The order is the scorer's order.** `planFileSemanticJudgements` groups by the same normalisation and in the same
+ * arrival order `lib/file-semantic.mjs` walks, because precision there is a greedy walk in generation order: a plan that
+ * reordered would produce a figure for a reviewer who emitted the same comments in a different order.
+ */
+async function askFileSemantic(job) {
+  const messages = buildFileSemanticJudgeMessages(job);
+  // **The bound is one number per covered reference comment**, because a list of integers is what the answer is and
+  // an unbounded field is an instruction rather than a bound - the same arithmetic the per-pair judge's sixteen tokens
+  // come from, with the widest list this file's reference comments can produce.
+  const maxTokens = job.findings.length * (8 + job.goldens.length * 5) + 32;
+  fileSemanticJudgeSpend.calls += 1;
+  return postJudge(
+    [
+      { role: 'system', content: messages.system },
+      { role: 'user', content: messages.user },
+    ],
+    maxTokens,
+    (text) => {
+      const parsed = parseFileSemanticCovers(text, job.findings.length, job.goldens.length);
+      // **Thrown rather than returned**, so the retry above asks again: an unreadable answer is worth one more
+      // request, and only an answer that is still unreadable after every attempt costs the fallback.
+      if (parsed === null) throw new Error('unreadable covers');
+      return parsed;
+    },
+  );
+}
+
+/**
+ * **The seam for the second question**, for the reason `judgeFn` is a seam: the assembly below - which pull request a
+ * file belongs to, how several files of one pull request are placed, what a failed file leaves behind - is arithmetic,
+ * and arithmetic is only checkable against answers written by hand. `--dry-run` substitutes a table here and asserts the
+ * placement against a fixture; **every other call in this file is the one that runs in the job.**
+ */
+let fileSemanticJudgeFn = askFileSemantic;
+
+async function judgeFileSemanticPulls(pulls) {
+  const jobs = planFileSemanticJudgements(
+    pulls.map((pull, index) => ({ pr: index, findings: pull.findings, goldens: pull.goldens })),
+  );
+  fileSemanticJudgeSpend.files += jobs.length;
+  const answers = await mapLimit(jobs, JUDGE_CONCURRENCY, async (job) => {
+    const covers = await fileSemanticJudgeFn(job);
+    if (covers === undefined) {
+      fileSemanticJudgeSpend.fallbacks += 1;
+      if (fileSemanticJudgeSpend.failures.length < 5) {
+        fileSemanticJudgeSpend.failures.push(`${String(job.pr)} ${job.path}`);
+      }
+      return undefined;
+    }
+    return {
+      pr: job.pr,
+      findingIndices: job.findingIndices,
+      goldenIndices: job.goldenIndices,
+      covers,
+      path: job.path,
+    };
+  });
+
+  // **Placed per pull request, in the pull request's own coordinates**, so several files of one pull request land in the
+  // array `scoreFileSemantic` walks without a merge step that could drop a row.
+  const placed = pulls.map(() => undefined);
+  for (const answer of answers) {
+    if (answer === undefined) continue;
+    // **The index this pass handed in**, read back as a number: the plan's `pr` is an identifier so a caller can log a
+    // URL, and this is the one place that requires it to be a position.
+    const at = Number(answer.pr);
+    if (!Number.isInteger(at) || at < 0 || at >= pulls.length) continue;
+    const target = placed[at] ?? Array.from({ length: pulls[at].findings.length }, () => []);
+    const merged = toGlobalMatches({
+      covers: answer.covers,
+      findingIndices: answer.findingIndices,
+      goldenIndices: answer.goldenIndices,
+      findingCount: pulls[at].findings.length,
+    });
+    merged.forEach((row, index) => {
+      if (row.length > 0) target[index] = row;
+    });
+    placed[at] = target;
+  }
+  return placed;
 }
 
 /**
@@ -1086,6 +1218,64 @@ async function dryRun() {
     texts.length * goldens.length,
     'the matrix is every pair, not the matches: a ledger of matches cannot answer a question about a rejection',
   );
+
+  // **The second instrument, assembled without a model.**
+  //
+  // Two pull requests, one of them with two files, and a scripted answer that covers one reference comment per file -
+  // which is the shape the corpus measures and the shape the placement has to survive. **The assertions are the two
+  // things that can go wrong quietly**: a file's verdict landing at another file's coordinate, and a pull request whose
+  // file the scripted judge could not answer being scored as if it covered nothing.
+  {
+    const fixturePulls = [
+      {
+        findings: [
+          { path: 'src/auth.ts', text: 'the token is compared with ==' },
+          { path: 'src/db.ts', text: 'the query is concatenated' },
+        ],
+        goldens: [
+          { path: 'src/auth.ts', line: 42, text: 'use a constant-time comparison' },
+          { path: 'src/db.ts', line: 7, text: 'parameterise the query' },
+        ],
+        keep: [true, true],
+        matches: [[], []],
+      },
+      {
+        findings: [{ path: 'src/api.ts', text: 'the handler ignores the error' }],
+        goldens: [{ path: 'src/api.ts', line: 3, text: 'propagate the error' }],
+        keep: [true],
+        matches: [[]],
+      },
+    ];
+    const scripted = async (job) =>
+      // **Every file covers its first reference comment and nothing else**, which is a table rather than a judgement:
+      // the question under test is where the answer lands, not what the answer should be.
+      job.findings.map(() => (job.goldens.length > 0 ? [1] : []));
+    const original = fileSemanticJudgeFn;
+    fileSemanticJudgeFn = scripted;
+    const placed = await judgeFileSemanticPulls(fixturePulls);
+    fileSemanticJudgeFn = original;
+
+    assert.deepEqual(
+      placed[0],
+      [[0], [1]],
+      'each file’s coverage lands at its own finding, across two files of one pull request',
+    );
+    assert.deepEqual(placed[1], [[0]], 'a one-file pull request is placed in its own coordinates');
+    const scored = scoreCorpusFileSemantic({
+      pulls: fixturePulls.map((pull, at) => ({ ...pull, matches: placed[at] })),
+    });
+    assert.equal(
+      scored.coveredGoldens,
+      3,
+      'every reference comment is covered exactly once by the scripted table',
+    );
+    assert.equal(scored.hitNewGt, 3, 'and every finding that covered one is a new hit');
+    assert.equal(
+      scored.findings,
+      3,
+      'the denominator is every emission, not every judged emission',
+    );
+  }
 
   // **The order the judge was asked, which is the only part of the cost this file owns.**
   //
@@ -4634,20 +4824,39 @@ async function main() {
    * reviewer files: scoring every comment and then reporting a subset would let a comment the rule never files cover a
    * golden, which is a recall for a reviewer nobody ran.
    */
-  const fileSemanticOf = (pulls) =>
+  /**
+   * **The corpus's arithmetic over one of two sets of verdicts.**
+   *
+   * `matchesOf` defaults to the pairwise matrix because that is the instrument every published figure was measured with.
+   * The file-shaped pass, when the run asked for it, supplies its own array and **the same function scores it** - so the
+   * two figures differ by the verdicts and by nothing else: same goldens, same emission rule, same greedy walk.
+   */
+  const fileSemanticOf = (pulls, matchesOf = (pull) => pull.matches) =>
     scoreCorpusFileSemantic({
-      pulls: pulls.map((pull) => {
-        const kept = pull.findings
-          .map((_, index) => index)
-          .filter((index) => pull.keep[index] === true);
+      pulls: pulls.map((pull, index) => {
+        const kept = pull.findings.map((_, at) => at).filter((at) => pull.keep[at] === true);
+        const matches = matchesOf(pull, index);
         return {
-          findings: kept.map((index) => pull.findings[index]),
+          findings: kept.map((at) => pull.findings[at]),
           goldens: pull.goldens,
-          matches: kept.map((index) => pull.matches[index]),
+          matches: kept.map((at) => matches[at]),
         };
       }),
     });
+  // **The second instrument, bought in the same run or not bought at all.** `null` rather than a zero, because a figure
+  // of zero for an arm that was switched off is a comparison with an instrument nobody used.
+  const fileLevelMatches =
+    FILE_SEMANTIC_JUDGE && fileSemanticPulls.our.length > 0
+      ? await judgeFileSemanticPulls(fileSemanticPulls.our)
+      : null;
   const fileSemanticOur = fileSemanticOf(fileSemanticPulls.our);
+  const fileSemanticFileLevel =
+    fileLevelMatches === null
+      ? null
+      : fileSemanticOf(
+          fileSemanticPulls.our,
+          (pull, index) => fileLevelMatches[index] ?? pull.matches,
+        );
   // **The competitor's arm, only when it ran**, because a figure of zero for an arm that was switched off is a
   // comparison with a competitor who said nothing - and that is the same defect as a missing row counted as a zero.
   const fileSemanticCompetitor =
@@ -5108,6 +5317,29 @@ async function main() {
         operatingPoint: 'the same findings the headline figures are computed over',
         our: fileSemanticOur,
         competitor: fileSemanticCompetitor,
+        // **The corpus's own question, asked of the same findings in the same run** - or `null` when this run did not ask
+        // it. Kept beside `our` rather than replacing it: every figure in the contract was measured pairwise, and a run
+        // that replaced the instrument would make its own figure incomparable to them.
+        fileLevel: fileSemanticFileLevel,
+        fileLevelJudge:
+          fileLevelMatches === null
+            ? null
+            : {
+                protocol: 'file-level-semantic-v1',
+                question:
+                  'one call per file, every reference comment of that file in a numbered list, one coverage list per finding',
+                ...fileSemanticJudgeSpend,
+              },
+        // **What the second question moved, on this run.** Positive means the corpus's own walk credits more than the
+        // pairwise one did, which is the size of the defect §136 recorded rather than a claim about the reviewer.
+        fileLevelDelta:
+          fileSemanticFileLevel === null
+            ? null
+            : {
+                precision: fileSemanticFileLevel.precision - fileSemanticOur.precision,
+                recall: fileSemanticFileLevel.recall - fileSemanticOur.recall,
+                f1: fileSemanticFileLevel.f1 - fileSemanticOur.f1,
+              },
         // **The distance between the two arithmetics on this very run**, which is the only honest way to say how much of
         // a previously published figure was the protocol rather than the reviewer.
         legacyOur: { precision: gated.precision, recall: gated.recall, f1: gated.f1 },

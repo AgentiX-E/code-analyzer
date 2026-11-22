@@ -15182,3 +15182,91 @@ survive a file-level reading is unmeasured, and no number in this document shoul
 
 **0 CNY.** No model was called: this section reads `aacr-bench.json`'s own `scoring.protocol`, a module already in
 the tree, and the test that was already holding the discrepancy.
+
+### 137. The corpus's question is now askable, and its first increment is a measurement rather than a claim
+
+§136 ended with two steps and a prohibition on quoting a number for either. The first step is now wired, the second is
+implemented, and the arithmetic of what each one can move is below - **separated, because they are two increments and
+only one of them is free.**
+
+**Step 1 - the arithmetic alone - is already in the tree** (`lib/file-semantic.mjs`, §136's `fileSemanticPulls`), and
+its figure is not on disk only because the run of 2026-11-10 predates the block that writes it. **What that figure will
+be is bounded by counts the artifact already carries, so the bound is stated before the run rather than after it - and
+the bound is an interval that straddles the instrument, which is why this section does not claim the increment.**
+
+The artifact carries two operating points and they must not be mixed, because §134 and §135 both exist for that mistake:
+
+| Quantity                              |                              ungated |                                  gated (the headline) |
+| ------------------------------------- | -----------------------------------: | ----------------------------------------------------: |
+| emitted findings                      |               569 (`rankedFindings`) | **387** (`truePositives + falsePositives` = 85 + 302) |
+| goldens a one-to-one matching credits |                         103 (§116.4) |                **85** (`recall x 452` = 0.1881 x 452) |
+| goldens a judge called matched        | **123** (`missedGoldens.counts.hit`) |                                      **not recorded** |
+
+**The 123 is ungated**, and the 20 between it and the 103 is exactly the quantity the corpus's walk credits and the
+deprecated one does not: one comment covering more than one reference comment. Under the corpus's arithmetic:
+
+| Operating point                                        | precision |  recall |          F1 |
+| ------------------------------------------------------ | --------: | ------: | ----------: |
+| ungated, pairwise                                      |   0.18102 | 0.22788 | **0.20176** |
+| ungated, corpus walk, lower bound (`hit_new_gt` = 103) |   0.18102 | 0.27212 | **0.21741** |
+| ungated, corpus walk, upper bound (`hit_new_gt` = 123) |   0.21617 | 0.27212 | **0.24094** |
+| gated, pairwise (as published)                         |   0.21964 | 0.18805 | **0.20262** |
+| gated, corpus walk, upper bound                        |   0.31783 | 0.27212 | **0.29321** |
+
+**So step 1 is worth +1.57 to +3.92 F1 points ungated and 0 to +9.06 gated, and the lower bound of the first range is
+below the corpus's 2.40-point resolution.** The recall movement is not in doubt - 0.22788 to 0.27212 is +4.43 points and
+it is arithmetic over three recorded counts - but **F1 is a ratio and the other factor is the one the artifact did not
+record**: which of the 182 findings the emission rule dropped were the ones covering goldens. A run answers that for
+zero model calls, and **this document does not answer it in advance** - that is the same restraint §136 asked for, applied
+to the correction §136 itself proposed.
+
+**Step 2 - the corpus's input shape - is `lib/file-semantic-judge.mjs`.** One call per file, every reference comment of
+that file in a numbered list inside the cached prefix, one coverage list per comment, and a whole answer refused rather
+than half-banked when it does not parse. It is behind `AACR_FILE_SEMANTIC_JUDGE=1` and **off by default**, for the
+reason `AACR_JUDGE_BATCH` is: every figure in this document was measured pairwise, and a run that silently changed the
+instrument would make its own figure incomparable to them.
+
+**What step 2 can move is bounded by the 141.** Of the 254 reference comments whose path carried a finding of ours, **141
+sat on the same line** as one (`missedGoldens.dominantRejectionShape`), 51 within ten lines, 62 beyond fifty. A
+file-level judge is asked _which of these does this comment cover_ and a pairwise judge is asked _are these two
+statements the same defect_; the first question is answerable when a review comment names the symptom and the reference
+comment names the fix. **If all 141 were recovered, ungated recall would be 264/452 = 0.5841 and the F1 ceiling would be
+58.4** - an upper bound, not a forecast, stated only so that a smaller reading cannot be mistaken for a ceiling.
+
+**Why the second question is the cheaper one, which is not a coincidence.** A pair-shaped judge costs
+`findings x goldens` calls per pull request - **14 892 on this corpus**. A file-shaped judge costs one call per file
+that carries both a comment and a reference comment. The protocol the corpus measures is therefore an order of
+magnitude cheaper to measure repeatedly than the one this repository measured instead, and **asking a cheaper question
+that is also the right question is the rare case where cost and correctness point the same way.**
+
+#### 137.1 Pre-registration for the two-arm run
+
+Written before the run, so that a reading cannot be chosen after it.
+
+1. **Both arms, one run, one engine.** The pairwise verdicts and the file-level verdicts are bought in the same job over
+   the same findings, so the two figures are paired: same goldens, same emission rule, same greedy walk, **different
+   question**. Two runs would differ in a hundred ways and the difference would be attributable to none of them.
+2. **Reported as two increments, never as one.** `fileSemantic.counterfactual` is step 1 (same verdicts, corpus
+   arithmetic) and `fileSemantic.fileLevelDelta` is step 2 (corpus question, corpus arithmetic). **A single "we improved
+   by 12 points" that adds them is the defect §136 exists for, in the other direction.**
+3. **The decision rule uses the corpus's own resolution, 2.40 points at 452 goldens** (`resolutionFor`, §134.2), and it
+   is applied to **F1** rather than to recall, because F1 is what the board ranks.
+   - Step 1: `H0: dF1 < 2.40` against `H1: dF1 >= 2.40`. **The predicted interval, +1.57 to +3.92, straddles the
+     decision line**, so this one is a measurement rather than a formality - and that is stated here rather than after
+     the number arrives.
+   - Step 2: the same rule. **Below the resolution the finding is "the question did not move the figure", which is a
+     result and not a failure**; it would send the plan to B2 (line fallback) with the arithmetic already corrected,
+     which is a strictly better position than the one §136 described.
+4. **No other change ships in that run.** Splitting an instrument change and a prompt change into one job is how the
+   two get confused; `AACR_FILE_SEMANTIC_JUDGE=1` is the only difference from a plain run.
+5. **A file the file-level judge could not answer keeps the pairwise verdict**, counted in `fileSemanticJudge.fallbacks`
+   and named in the artifact. **The fallback is the old instrument, not a new one** - the same rule the batch arm and
+   the warm pass follow.
+6. **The gated figure is the one that decides**, because it is the one the headline reports; the ungated interval above
+   is the reason to expect the run to move at all, not the reason to adopt a change before it has.
+
+#### 137.3 Price
+
+**0 CNY.** The run this section pre-registers is B3's (¥14.00: one engine pass plus the pairwise judge, with the
+file-level judge priced at one call per file). **Everything in this section was computed from the artifact on disk and
+from two modules already in the tree.**
