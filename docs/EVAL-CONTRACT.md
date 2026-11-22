@@ -15014,7 +15014,7 @@ because the architecture findings carry goldens that nothing else covers. **So "
 Martian change**, and shipping it as though it were a two-board improvement would have been the same class of error as
 the target above: one board's arithmetic read as both.
 
-*The unit, per board.* `0.0281` is the registered promotion bar and it was measured on the 46-row / 330-golden slice
+_The unit, per board._ `0.0281` is the registered promotion bar and it was measured on the 46-row / 330-golden slice
 (§120). The same instrument on the 50-row corpora this table is computed from is **0.0240 at 452 goldens** and
 **0.0388 at 173 goldens** by `resolutionFor()` (`CORPUS_SAMPLING = { goldens: 715, deltaSd: 0.0191 }`). Quoting the
 Martian bar against AACR rows was the loose end: at 0.0240 the AACR arm is still below its own resolution, so the
