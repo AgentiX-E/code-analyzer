@@ -15295,11 +15295,23 @@ opinion.
 | ----------------------------------------- | --------: | --------: | -----: | --------------- | ---------------------------- |
 | Alibaba OCR, best published               | **25.10** |     33.90 |  20.00 | Claude-4.6-Opus | vendor self-report, 200 PR   |
 | Alibaba OCR, same model family as ours    |     17.90 |     30.60 |  12.70 | DeepSeek-V4-Pro | vendor self-report           |
+| **Alibaba OCR, our corpus, our judge, 47 PR** | **21.25** |  52.73 |  13.30 | DeepSeek-chat   | §116.2, `benchmarks/aacr/competitor-baseline.json` |
+| this repository, same 47 PR               |     19.41 |     20.90 |  18.12 | DeepSeek-chat   | §116.2                       |
 | this repository, pairwise protocol, 50 PR | **20.26** |     21.96 |  18.81 | DeepSeek        | `benchmarks/aacr-bench.json` |
 
-**Against the same-family row this repository is already 2.36 points ahead**, and that row is the only one that answers
-"the competitor using our LLM". **Against the best published row it is 4.84 behind**, so the target is **F1 >= 25.10**
-and the same-family comparison is evidence rather than a target.
+**The row that was missing, and it reverses the sign of the same-family comparison.** §116.2 recomputed both tools on the
+**47 pull requests both artifacts hold and the 436 goldens they share**, under the protocol's own bipartite matching:
+the competitor scores **0.2125** and this repository **0.1941**. That is **a deficit of 1.84 points, not a lead of
+2.36.** The 17.90 row is the vendor's report of its own tool on its own 200-pull-request corpus; the 21.25 row is its
+tool run over **our** rows, scored by **our** judge, with the **same** model family this repository runs on. **A
+comparison across corpora and a comparison inside one are not the same measurement**, and the one that decides a target
+is the one where both sides read the same rows.
+
+**So the honest statement of position is three numbers and no rank.** 25.10 to the best published row (their corpus,
+their model); 21.25 to their tool on our rows under our LLM; 20.26 for this repository on fifty rows. **The target does
+not move — 25.10 is above every one of them** — and what moves is the claim: this repository is **not** ahead of the
+competitor under its own model family on a like-for-like basis. It is 1.84 behind, and the device §137 registers has to
+close that before it can be discussed against 25.10.
 
 **What 25.10 costs, in the arithmetic of §137.** Under the corpus's own walk, ungated, precision is
 `credited / 569` and recall is `covered / 452`:
