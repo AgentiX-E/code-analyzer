@@ -25,18 +25,49 @@ import { scoreFileCut } from './lib/file-cut.mjs';
 import { applyCut, describeCut, parseCut, registeredCuts } from './lib/operating-point.mjs';
 
 function argv(tokens) {
-  const options = { bench: null, cut: null, all: false, json: false };
+  const options = { bench: null, cut: null, json: false, gate: [], agreement: 0 };
   for (let at = 0; at < tokens.length; at += 1) {
     const token = tokens[at];
     if (token === '--bench') options.bench = tokens[(at += 1)] ?? '';
     else if (token === '--cut') options.cut = tokens[(at += 1)] ?? null;
-    else if (token === '--all') options.all = true;
+    else if (token === '--gate') options.gate.push(...String(tokens[(at += 1)] ?? '').split(','));
+    else if (token === '--min-agreement') options.agreement = Number(tokens[(at += 1)] ?? 0);
     else if (token === '--json') options.json = true;
     else if (token === '--help' || token === '-h') options.bench = null;
     else if (options.bench === null && !token.startsWith('-')) options.bench = token;
     else throw new Error(`unknown argument "${token}"`);
   }
   return options;
+}
+
+/**
+ * **The claim-shape predicates, as a diagnostic rather than as a policy.**
+ *
+ * §140 tested five of these as candidate precision devices and **all five cost F1** - and the flag exists so that
+ * refutation can be repeated from the artifact rather than taken on a report's word. **It is deliberately not a step in
+ * the emission policy**: `packages/intelligence/src/review/emission-policy.ts` is the shipped rule and it takes
+ * categories, path classes and a budget, because *"a rule language with more expressive power than the campaign has
+ * hypotheses is a rule language that can fit the corpus"*. A predicate that survives only in a document's negative
+ * result must not reach the product, and it must still be runnable.
+ *
+ * `hedged` is inverted on purpose: the hypothesis is that a hedged claim is a guess, so `not-hedged` is the predicate
+ * and a caller who wants "hedged" spells it as the absence of the others.
+ */
+const PREDICATES = {
+  grounded: (features) => features?.grounded === true,
+  'quotes-diff': (features) => features?.quotesDiff === true,
+  'names-symbol': (features) => features?.namesSymbol === true,
+  'proposes-change': (features) => features?.proposesChange === true,
+  'not-hedged': (features) => features?.hedged !== true,
+};
+
+function keepByPredicates(finding, names, agreement) {
+  for (const name of names) {
+    const predicate = PREDICATES[name];
+    if (predicate === undefined) throw new Error(`"${name}" is not a claim-shape predicate`);
+    if (!predicate(finding?.features)) return false;
+  }
+  return Number(finding?.features?.agreement ?? 0) >= agreement;
 }
 
 /**
@@ -88,9 +119,9 @@ function scoreCut(findings, steps, goldens) {
   });
 }
 
-const HEADER = 'cut                              n  new   cov       P       R      F1    dF1';
+const HEADER = `${'cut'.padEnd(38)}    n  new   cov       P       R      F1    dF1`;
 
-function formatRow(label, point, baseline, width = 28) {
+function formatRow(label, point, baseline, width = 38) {
   const delta = baseline === null ? '' : ((point.f1 - baseline) * 100).toFixed(2);
   return [
     label.padEnd(width),
@@ -108,14 +139,20 @@ function main() {
   const options = argv(process.argv.slice(2));
   if (options.bench === null) {
     console.log(
-      'usage: node scripts/aacr-file-cut-table.mjs <artifact.json> [--cut <cut>] [--all]',
+      'usage: node scripts/aacr-file-cut-table.mjs <artifact.json> [--cut <cut>] [--gate <predicate,...>] ' +
+        '[--min-agreement <n>] [--json]',
     );
     console.log(
       '  the artifact must carry rankedFindings[].fileLevelGoldens, which needs file_semantic_judge=on',
     );
+    console.log('  predicates: grounded, quotes-diff, names-symbol, proposes-change, not-hedged');
     return;
   }
-  const { findings, goldens, carried } = loadArtifact(options.bench);
+  const { findings: all, goldens, carried } = loadArtifact(options.bench);
+  const findings = all.filter((finding) =>
+    keepByPredicates(finding, options.gate, options.agreement),
+  );
+  const gated = all.length - findings.length;
   const cuts =
     options.cut === null
       ? [
@@ -136,7 +173,8 @@ function main() {
     return;
   }
   console.log(
-    `${options.bench}  (${findings.length} findings, ${goldens} goldens, verdicts filed on ${carried})`,
+    `${options.bench}  (${findings.length} findings, ${goldens} goldens, verdicts filed on ${carried}` +
+      `${gated === 0 ? '' : `, ${gated} removed by the claim-shape diagnostic`})`,
   );
   console.log(HEADER);
   for (const row of rows) console.log(formatRow(row.cut, row, baseline));

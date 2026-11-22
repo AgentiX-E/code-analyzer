@@ -465,7 +465,7 @@ jobs:
       - name: Install the document oracle's parser
         # **Pinned, because a reader that changes under the corpus is not a reader**: the same rule the workflow that
         # fetches a dataset follows, applied to the one library that reads it.
-        run: python3 -m pip install --quiet pyyaml==6.0.3
+        run: python3 -m pip install --quiet --require-hashes -r requirements/pyyaml.txt
       - name: Measure the index against eleven languages
         run: pnpm bench:polyglot
       # **The paid job's arithmetic, checked on every push for nothing.**

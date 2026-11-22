@@ -98,7 +98,7 @@ jobs:
           set -euo pipefail
           # **Pinned, because the number this job publishes is `vulture`'s count.** A floating tool makes the
           # baseline a function of the day the job ran; 2.16 is the release the recorded count was read at.
-          pip install --disable-pip-version-check "vulture==2.16"
+          pip install --disable-pip-version-check --require-hashes -r requirements/vulture.txt
           vulture --version | tee -a "$GITHUB_STEP_SUMMARY"
 
       - name: Fetch the two checkouts

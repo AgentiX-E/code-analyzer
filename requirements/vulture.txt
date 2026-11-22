@@ -1,0 +1,10 @@
+# The dead-code oracle. The number `dead-code-quality.yml` publishes is this tool's count, so a floating version makes the baseline a function of the day the job ran.
+#
+# **Every artifact this version published, not the one wheel this machine happened to pick.** A file listing one
+# interpreter's wheel fails on the next runner image, and a hash list that fails is a job that gets
+# `--require-hashes` removed from it - which is how a pin becomes a suggestion.
+#
+# Regenerated from the release's own metadata: https://pypi.org/pypi/vulture/2.16/json
+vulture==2.16 \
+    --hash=sha256:6e0f1c312cef1c87856957e5c2ca9608834a7c794c2180477f30bf0e4cc58eee \
+    --hash=sha256:f8d9f6e2af03011664a3c6c240c9765b3f392917d3135fddca6d6a68d359f717
