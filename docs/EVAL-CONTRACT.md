@@ -15270,3 +15270,91 @@ Written before the run, so that a reading cannot be chosen after it.
 **0 CNY.** The run this section pre-registers is B3's (¥14.00: one engine pass plus the pairwise judge, with the
 file-level judge priced at one call per file). **Everything in this section was computed from the artifact on disk and
 from two modules already in the tree.**
+
+### 138. The targets are the competitors' numbers, and one of them is not reachable at the current emission
+
+The rule for this project is that **a target may not be below the figure a competitor has already published on that
+board.** Two boards, two different situations, and one of them produces an impossibility that is arithmetic rather than
+opinion.
+
+#### 138.1 AACR: the bar is 25.10, and this repository is 4.84 below it
+
+| row                                       |        F1 | precision | recall | judge-model     | source                       |
+| ----------------------------------------- | --------: | --------: | -----: | --------------- | ---------------------------- |
+| Alibaba OCR, best published               | **25.10** |     33.90 |  20.00 | Claude-4.6-Opus | vendor self-report, 200 PR   |
+| Alibaba OCR, same model family as ours    |     17.90 |     30.60 |  12.70 | DeepSeek-V4-Pro | vendor self-report           |
+| this repository, pairwise protocol, 50 PR | **20.26** |     21.96 |  18.81 | DeepSeek        | `benchmarks/aacr-bench.json` |
+
+**Against the same-family row this repository is already 2.36 points ahead**, and that row is the only one that answers
+"the competitor using our LLM". **Against the best published row it is 4.84 behind**, so the target is **F1 >= 25.10**
+and the same-family comparison is evidence rather than a target.
+
+**What 25.10 costs, in the arithmetic of §137.** Under the corpus's own walk, ungated, precision is
+`credited / 569` and recall is `covered / 452`:
+
+| recovered from the 141 same-line rejections | covered |     recall | credited |  precision |         F1 |
+| ------------------------------------------: | ------: | ---------: | -------: | ---------: | ---------: |
+|                                           0 |     123 |     0.2721 |      103 |     0.1810 |     0.2174 |
+|                                      **30** | **153** | **0.3385** |  **133** | **0.2337** | **0.2760** |
+|                                          60 |     183 |     0.4049 |      163 |     0.2865 |     0.3357 |
+
+**The acceptance gate for the file-level judge is therefore "at least 30 of the 141"**, which is 21 % of them and gives
+**F1 27.65 - clearing the 25.10 bar by 2.55 points**, itself above the corpus's 2.40-point resolution. A reading below
+30 recovered is a reading below the competitor, and the plan says so before the run rather than after it.
+
+#### 138.2 Martian: the bar is 65.8, and 65.8 is unreachable at 396 emissions
+
+| row                                                       |       F1 | precision | recall | judge-model |
+| --------------------------------------------------------- | -------: | --------: | -----: | ----------- |
+| Qodo Extended, published                                  | **65.8** |      67.1 |   64.6 | gpt-5.2     |
+| Qodo Extended, re-counted under this project's accounting |     58.8 |      61.1 |   56.6 | gpt-5.2     |
+| this repository, with the category gate (measured)        | **33.0** |      24.0 |   55.0 | DeepSeek    |
+
+**The target is 65.8 and not 58.8**, because the rule is the competitor's published figure. That makes the gap **32.8
+points**, and the arithmetic below is the reason this section exists rather than a paragraph of intent.
+
+This repository currently emits **396 findings against 173 goldens** and covers **95** of them. For any recall `R`, the
+F1 of 65.8 requires precision `P = 0.658 R / (2R - 0.658)` and therefore `emitted = 173 R / P`:
+
+| recall | goldens covered | precision needed | emissions allowed | vs today's 396 |
+| -----: | --------------: | ---------------: | ----------------: | -------------: |
+|   0.60 |             104 |           0.7284 |           **143** |           -253 |
+|   0.65 |             113 |           0.6663 |           **169** |           -227 |
+|   0.70 |             121 |           0.6208 |           **195** |           -201 |
+|   0.75 |             130 |           0.5677 |           **229** |           -167 |
+|   0.80 |             138 |           0.5222 |           **265** |           -131 |
+
+**At 396 emissions the requirement is 264 true positives against 173 goldens, which is more goldens than exist.** So
+**65.8 cannot be reached by improving precision alone at the current emission volume**: the bar requires **cutting the
+emission by at least 131 findings (33 %) while raising coverage by at least 26**, and the two must happen in the same
+change or the ratio does not move.
+
+That is the whole shape of the remaining Martian work, stated as a constraint rather than as an aspiration:
+
+1. **Coverage +26 goldens minimum.** C2 (bounded tool ReAct) is the only device in the plan that can do it: 75 of the
+   173 goldens were never emitted at all, because the dataset gives no path and the reviewer does not read the
+   repository.
+2. **Emission -131 minimum.** D1 (diff-only falsifier) and C1 (category gate, already measured at +5.10 on Martian) are
+   both deletions. **Deletion is the only lever that moves precision without moving the denominator the wrong way**, and
+   §137's `hit_new_gt` is the same argument one board over: a comment that covers nothing new costs what a wrong comment
+   costs.
+3. **`P 24.0 -> 62.1` is a factor of 2.6**, and no single device in this document has moved precision by more than 1.16
+   on this board. **So the target is recorded as the rule requires, and the plan's honest statement is that the current
+   device set is not sufficient for it** - which is a reason to add devices (a rewriter, a verifier over the surviving
+   comment), not a reason to lower the number.
+
+#### 138.3 What the two boards now say together
+
+| board            | competitor's published F1 | competitor under our model family | this repository |       target |
+| ---------------- | ------------------------: | --------------------------------: | --------------: | -----------: |
+| AACR, 50 PR      |                     25.10 |                         **17.90** |       **20.26** | **>= 25.10** |
+| Martian, offline |                      65.8 |           not published by anyone |            33.0 |  **>= 65.8** |
+
+**AACR's target is one device away and its gate is a count of recovered rejections. Martian's target is a ratio whose
+denominator has to fall by a third while its numerator rises by a sixth, and no arm in the current plan has ever moved
+either by that much.** Both statements are measurements of the artifacts on disk; neither is a forecast.
+
+#### 138.4 Price
+
+**0 CNY.** Every figure is read from `benchmarks/aacr-bench.json`, `benchmarks/martian-bench.json`, or the competitors'
+own published rows, and the two requirement tables are closed-form in the counts those files carry.

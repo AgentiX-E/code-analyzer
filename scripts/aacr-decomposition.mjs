@@ -268,6 +268,24 @@ if (process.argv.includes('--check')) {
     ['ungated corpus-walk F1, lower bound', round4(f1(103 / 569, 123 / GOLDENS)), 0.2174],
     ['ungated corpus-walk F1, upper bound', round4(f1(123 / 569, 123 / GOLDENS)), 0.2409],
     ['gated corpus-walk F1, upper bound', round4(f1(123 / 387, 123 / GOLDENS)), 0.2932],
+    // **§138's two requirement tables.** The AACR row is the acceptance gate for the file-level judge - 30 recovered
+    // rejections is the smallest count that clears the vendor's 25.10 - and the Martian rows are why 65.8 is recorded as
+    // a target the current device set cannot reach: at the emission volume this repository runs, the requirement exceeds
+    // the number of goldens that exist.
+    ['§138 AACR gate, 30 recovered', round4(f1(133 / 569, 153 / GOLDENS)), 0.2765],
+    ['§138 Martian precision needed at R 0.70', round4((0.658 * 0.7) / (2 * 0.7 - 0.658)), 0.6208],
+    [
+      '§138 Martian emissions allowed at R 0.70',
+      Math.round((173 * 0.7) / ((0.658 * 0.7) / (2 * 0.7 - 0.658))),
+      195,
+    ],
+    [
+      '§138 Martian true positives needed at 396 emissions',
+      // **The precision of the recall-0.65 row**, because that is the row where 396 emissions and 65.8 F1 meet: at any
+      // recall, 396 emissions that score 65.8 needs this many true positives, and the corpus has 173 goldens.
+      Math.round(396 * ((0.658 * 0.65) / (2 * 0.65 - 0.658))),
+      264,
+    ],
   ];
   let failed = false;
   for (const [name, actual, expected] of checks) {
@@ -279,7 +297,7 @@ if (process.argv.includes('--check')) {
     }
   }
   if (failed) process.exit(1);
-  console.log('§134, §137 and the artifacts agree on every number this file prints.');
+  console.log('§134, §137, §138 and the artifacts agree on every number this file prints.');
 } else {
   console.log(lines.join('\n'));
 }
