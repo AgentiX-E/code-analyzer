@@ -908,9 +908,30 @@ const RUBY_DEF = /^def\s+(?:self\.)?([A-Za-z_]\w*[?!=]?)/u;
 /** The three accessor macros, whose arguments are the properties a class has. */
 const RUBY_ATTR = /^attr_(?:reader|writer|accessor)\s+(.+)$/u;
 
-/** A word that opens a block and therefore owes an `end`, when it is the first word of the line or follows an `=`. */
-const RUBY_OPENS =
-  /^(?:class|module|def|if|unless|while|until|case|begin|for)\b|=\s*(?:if|unless|case|begin|while|until)\b/u;
+/** A word that opens a block and therefore owes an `end`, when it stands at the start of a line. */
+const RUBY_OPENS_A_LINE = /^(?:class|module|def|if|unless|while|until|case|begin|for)\b/u;
+
+/**
+ * **The same words opening a block as the value of an assignment**, which is where Ruby puts a conditional away from
+ * the start of a line: `total = if urgent`, `@kind ||= case row.total`, `state = begin`.
+ *
+ * **A comparison is not an assignment, and the two look alike one character wide.** `capped = row.total >= limit` has
+ * an `=` whose left neighbour is `>`, and a scanner that reads it as an assignment followed by a keyword raises the
+ * depth by one - which does not mis-name anything, it **hides the next method inside this one**. `(?<![!<>])` is the
+ * whole of the rule: `>=`, `<=`, `!=` and `==` are comparisons, and `+=`, `||=` and `&&=` are assignments whose last
+ * character is still a bare `=`.
+ *
+ * **Why this is a second named pattern rather than the other branch of one alternation.** `^A|B` reads as `^(A|B)` and
+ * parses as `(^A)|B`; the two branches answer different questions - *does this line start with a keyword* and *does
+ * this line assign a keyword* - and CodeQL's `js/regex/missing-regexp-anchor` reports the shape for exactly that
+ * reason. Splitting it costs one boolean and makes each half checkable on its own.
+ */
+const RUBY_OPENS_AFTER_ASSIGNMENT = /(?<![!<>])=(?!=)[ \t]*(?:if|unless|case|begin|while|until)\b/u;
+
+/** Either shape: the line starts with a keyword, or its value is one. */
+function opensRubyBlock(trimmed: string): boolean {
+  return RUBY_OPENS_A_LINE.test(trimmed) || RUBY_OPENS_AFTER_ASSIGNMENT.test(trimmed);
+}
 
 /** A `do` at the end of a line, with or without its block parameters. */
 const RUBY_DO = /\bdo\s*(?:\|[^|]*\|)?$/u;
@@ -984,7 +1005,7 @@ function rubyBlockEnd(
     const { code, indent: ownIndent } = lines[at]!;
     const trimmed = code.trim();
     if (trimmed.length === 0) continue;
-    if (RUBY_OPENS.test(trimmed) || RUBY_DO.test(trimmed)) balance += 1;
+    if (opensRubyBlock(trimmed) || RUBY_DO.test(trimmed)) balance += 1;
     if (RUBY_ENDS.test(trimmed)) balance -= 1;
     if (balance <= 0) {
       if (ownIndent === indent) return { end: at, closed: true };
