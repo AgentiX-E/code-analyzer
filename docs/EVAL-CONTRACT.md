@@ -14717,42 +14717,45 @@ measures, which is the one thing a measurement must not be able to do.
 
 **0 CNY.** Ten new tests, two new scripts, one generated module, one new job. No model was called.
 
-## §131 The position, on the field's own axes
+## §131 Where the two axes actually put us, read off the figures that already exist
 
-![code-analyzer and the field on precision, detection and comment volume](figures/position-2026-11-22.svg)
+**This section adds no figure.** `benchmarks/competitive-position.json` already holds two row sets, and
+`scripts/competitive-position.mjs` already draws them - `docs/workflows/docs.yml` re-renders every figure and diffs the
+directory, so a hand-drawn third one is a step that exits non-zero. What this section does is **read the existing ones
+against the §130 mechanism** and say what they mean for the next dispatch.
 
-_Rendered by `scripts/position-figure.mjs`, which `npm run docs:position` fails on when the committed file is not what
-the generator would write. Every field point is a published figure; both of ours are drawn hollow and labelled with the
-sample they were measured on._
+| figure                                                           | what it holds                                                                                            | why it is the one to read                                    |
+| ---------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------ |
+| [`martian-offline.svg`](figures/martian-offline.svg)             | 22 tools from the Martian offline board, **21 of which publish no token count**, plus one measured row   | the field's accuracy, and the hole where its price should be |
+| [`aacr-same-corpus.svg`](figures/aacr-same-corpus.svg)           | three arms on one corpus: the index in the prompt, the same review without it, and a recorded competitor | **a paired measurement, not a leaderboard row**              |
+| [`boards-one-per-column.svg`](figures/boards-one-per-column.svg) | every board in a column of its own                                                                       | the ranking is a function of the answer key, drawn           |
 
-### 131.1 What the figure says, and what it does not
+### 131.1 The numbers, with their denominators
 
-| question                                                 | answer                                                                                                                                                                                                                                                                                                     |
-| -------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| Is precision SOTA?                                       | **No.** The leaderboard's precision band is 65–83 %; ours is 22.0 % on our own corpus and 11.8 % on a six-PR Martian pilot.                                                                                                                                                                                |
-| Is the gap real?                                         | **Yes, and it is not one gap.** The pilot's 11.8 % ran on 6 pull requests with a `deepseek-chat` judge while the field was scored by `gpt-5.2`; our 22.0 % ran on 50 pull requests of our own corpus with our own goldens. **Neither is comparable to the other, and neither is comparable to the field.** |
-| Is the cost competitive?                                 | **Yes on tokens, unmeasured against them.** One run of 50 pull requests spent 7.46 M tokens and **0.9045 USD** - 149 k tokens and 1.8 cents per pull request - with a 56.9 % cache-hit ratio. No competitor publishes tokens per pull request.                                                             |
-| Does a higher-precision neighbour prove a better method? | **No.** Greptile scores **82.5 %** on its own board and **45 %** on Augment's re-run of the same five repositories with a corrected answer key. **The ranking is a function of the answer key before it is a function of the reviewer.**                                                                   |
+| quantity                                              | value                                           | denominator                                   |
+| ----------------------------------------------------- | ----------------------------------------------- | --------------------------------------------- |
+| our F1 on the Martian offline board's row set         | **27.57**                                       | 22 rows, judge `opus-4.5`, `origin: measured` |
+| the board's leader                                    | **65.8** (Qodo Extended)                        | same row set, `origin: published`             |
+| our tokens per review                                 | **155 233**                                     | the same measured run                         |
+| tools on that board publishing a token count          | **1 of 22**                                     | ours                                          |
+| **index in the prompt vs the same review without it** | **23.16 vs 18.12 F1**                           | one corpus, one judge, three arms             |
+| **what the index costs in tokens**                    | **254 442 vs 250 253 - +1.7 %**                 | the same two arms                             |
+| one 50-PR run of our own corpus                       | 7.46 M tokens, **0.9045 USD**, 56.9 % cache hit | `benchmarks/aacr-bench.json`                  |
 
-### 131.2 The three defects the field's numbers expose in ours
+### 131.2 The three things this settles, and the one it does not
 
-1. **We are not on the board.** One row of six pull requests is a pilot, not an entry. **The first act is not a device;
-   it is a run of ≥ 100 Martian pull requests at `n ≥ 30` per repository so that a number exists at all.**
-2. **Our goldens are 3.5 defects per pull request** (§129.6). A partial gold set makes our precision a floor and our
-   recall a floor, and **a floor cannot be compared with a ceiling** - which is what a leaderboard measures.
-3. **The product's arm was not the arm we were optimising** (§130.1). Fixed by §130; the metric a promotion is decided
-   on is now `pullRequestArm.f1`.
+1. **The index is already worth 5.04 F1 for 1.7 % more tokens.** §130's mechanism existed because a measured device never
+   reached the product; **this is the one device already measured, already in the product, and already paid for** - and
+   until §130 nothing on disk said so in a form a promotion could read.
+2. **The gap to the leader is 38.2 F1 and it is not a rounding error.** It is also not a comparison: the leader's row is
+   `published` and ours is `measured`, and the same board has moved its own #1 three times in five months.
+3. **The field does not publish what its accuracy costs.** Twenty-one of twenty-two rows have no token count, so a
+   price/accuracy scatter of the field is not a scatter - it is one measured point and a ranked bar chart. **That absence
+   is itself the finding**, and it is why `martian-offline.svg` draws the unpriced rows rather than cropping them.
+4. **What it does not settle: whether 27.57 is our ceiling or our floor.** The corpus is the board's, the goldens are the
+   board's, and the §129 calibration table - the 885 findings nobody read - is still not built. **A number on somebody
+   else's answer key is a number about their key.**
 
-### 131.3 The two competitor capabilities not yet replicated, and what each buys
+### 131.3 Price
 
-| capability                                    | source                                                                 | what it buys here                                                                                                              | how it is measured                                                                                                                                  |
-| --------------------------------------------- | ---------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------ | --------------------------------------------------------------------------------------------------------------------------------------------------- |
-| **A per-file constraint field in the prompt** | `aoci-code`'s `S` field, already parsed by `review/index/cognition.ts` | the one thing a diff cannot carry: what must not break. `codeContext` shows a window; `S` states an invariant                  | the §20 pair, unchanged: the same corpus with and without, two arms in one dispatch                                                                 |
-| **Structural diff before a lane is paid**     | `difftastic`'s Dijkstra over the syntax lattice                        | **a hunk that is structurally unchanged needs no lane.** Re-indents, wraps and re-ordered arguments are hunks we pay for today | offline and free: classify every hunk in the corpus as `formatting-only / pure-move / pure-rename / semantic`, then price the token spend per class |
-
-**Both are offline until a dispatch is bought**, and the second is offline entirely: the classification costs no model
-call, and its result is a subtraction from a bill already recorded in `benchmarks/aacr-bench.json`.
-
-### 131.4 Price
-
-**0 CNY.** The figure is arithmetic over published numbers; no model was called to write this section.
+**0 CNY.** This section reads two committed JSON files and two committed scripts; no model was called.

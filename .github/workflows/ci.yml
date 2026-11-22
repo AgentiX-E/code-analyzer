@@ -348,13 +348,6 @@ jobs:
       - name: Enforce that stated counts match the code
         run: npm run docs:code-sync
 
-      # **A figure in the tree is a claim, and a claim nobody re-derives is a claim that quietly stops being true.**
-      # `docs/figures/position-2026-11-22.svg` is rendered from the numbers in `scripts/position-figure.mjs`; this step
-      # fails when the committed file is not what the generator would write, which is the same contract
-      # `recall-ceiling-figure.mjs --check` has for the ceiling drawing.
-      - name: Enforce that every committed figure is what its generator renders
-        run: npm run docs:position
-
       - name: Enforce that every path a baseline records still exists
         run: npm run baselines:anchors
 
