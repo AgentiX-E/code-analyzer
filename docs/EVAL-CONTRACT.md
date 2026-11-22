@@ -15116,3 +15116,62 @@ unknown). **No "we beat Qodo" claim is made for Martian until A1 re-judges our f
 
 **0 CNY.** Three artifacts read, no model called. The two purchases this section names - the judge alignment at
 15-25 USD and the opponent run at 3-8 USD - are priced and **not** bought.
+
+### 136. The AACR figure is on a protocol the corpus deprecated, and the ceiling inherited it
+
+**Found while starting the join repair, and it is upstream of the join.**
+
+`benchmarks/aacr-bench.json` records its own procedure in `scoring.protocol`:
+
+> one judge verdict per (finding, golden) pair, then a maximum bipartite matching per pull request
+
+`Alibaba-Aone/aacr-bench/docs/metrics.md` calls that procedure **deprecated**, reachable only behind
+`--use-deprecated-score`. The metric the corpus defines is **file-level semantic**: comments and reference comments are
+grouped by normalised path, **the judge is shown all of a file's reference comments in one call**, one generated
+comment **may cover several** reference comments, and precision walks the generated comments in order counting only
+those that cover a _previously uncovered_ reference (`hit_new_gt`).
+
+**This repository already contains that arithmetic** - `.github/scripts/lib/file-semantic.mjs`, with
+`tests/unit/scripts/the-benchmark-counts-a-file-and-we-counted-a-pair.test.ts` holding it. The test file's opening
+comment states the finding in one sentence: _"This repository was computing the deprecated one ... the figures it
+publishes are not the figures the corpus defines. That is a measurement defect that no prompt can repair."_
+
+**So three numbers in §132-§135 are on the deprecated instrument:**
+
+| figure                       | value                     | what it actually measures                                        |
+| ---------------------------- | ------------------------- | ---------------------------------------------------------------- |
+| AACR precision / recall / F1 | 21.96 / 18.81 / **20.26** | deprecated pairwise protocol, one-to-one matching                |
+| L1 ceiling                   | **37.12**                 | the same protocol's matching basis: 103 pairs over 452 goldens   |
+| the join target              | **38.4**                  | recovering 30% of the 254 rejected pairs, _inside_ that protocol |
+
+**None of them is wrong arithmetic; all of them are the wrong protocol.** A one-to-one matching scores a defect that
+three reviewers restated as one, so the deprecated figure is an understatement in one direction - and because a
+rejected pair was also scored as a false positive, the error does not have a single sign. **That is why no prompt,
+filter or matcher could have closed the gap: the gap was partly in the arithmetic.**
+
+**Why the artifact does not already carry the correction.** `fileSemantic` is `null` in
+`benchmarks/aacr-bench.json`, whose `measuredAt` is **2026-11-10**. The block at `aacr-bench.mjs:5008` that writes
+`fileSemantic.our` and its `counterfactual` was wired **after** that run. **The next run produces both at no
+additional model cost**, because the verdicts are the same verdicts - which is the definition of an arithmetic
+correction.
+
+**What this changes in the plan.** B1 was written as "semantic join: credit one defect under two phrasings". The
+protocol correction is upstream of it and cheaper:
+
+1. **Run the corpus's own arithmetic** (`file-level-semantic-v1`) over the verdicts of the next run, and read
+   `counterfactual.f1LostToTheOldArithmetic`. No extra call: it is the same verdicts.
+2. **Then move the judge to the corpus's input shape** - one file's numbered list, not one pair - which is the half
+   `file-semantic.mjs` explicitly says it does not own (_"our judge reads one pair at a time; theirs is shown one
+   file's numbered list"_). This is a **cheaper** call shape, not a dearer one: one request per file instead of one
+   per pair, with the file's goldens as a cacheable prefix.
+3. **Then**, and only then, ask whether the remaining rejected goldens are a wording problem or a reading problem.
+
+**The honest statement about the 254** is therefore narrower than §135's: they are goldens whose path carries a
+finding of ours that a **pairwise** judge refused. Under the corpus's protocol those same findings would have been
+shown beside the file's whole reference list, and the verdict is not the one that was recorded. **How many of the 254
+survive a file-level reading is unmeasured, and no number in this document should be read as if it were.**
+
+#### 136.1 Price
+
+**0 CNY.** No model was called: this section reads `aacr-bench.json`'s own `scoring.protocol`, a module already in
+the tree, and the test that was already holding the discrepancy.
