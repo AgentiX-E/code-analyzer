@@ -67,6 +67,7 @@
     "coverage:exclusions": "node scripts/coverage-exclusions-gate.js",
     "docs:numbers": "node scripts/numbers-gate.js",
     "docs:decomposition": "node scripts/martian-decomposition.mjs --check",
+    "docs:decomposition:aacr": "node scripts/aacr-decomposition.mjs --check",
     "docs:lca": "node scripts/lca-report.js --check",
     "docs:agentic": "TSX_TSCONFIG_PATH=tsconfig.tests.json tsx scripts/agentic-tools.ts --check && TSX_TSCONFIG_PATH=tsconfig.tests.json tsx scripts/agentic-tools.ts --self-test",
     "docs:permissions": "TSX_TSCONFIG_PATH=tsconfig.tests.json tsx scripts/agentic-permissions.ts --check && TSX_TSCONFIG_PATH=tsconfig.tests.json tsx scripts/agentic-permissions.ts --self-test && TSX_TSCONFIG_PATH=tsconfig.tests.json tsx scripts/agentic-permissions.ts --dry-run",

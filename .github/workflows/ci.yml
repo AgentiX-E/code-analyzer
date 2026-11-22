@@ -356,6 +356,13 @@ jobs:
       - name: Enforce that the score decomposition is what the artifact says
         run: npm run docs:decomposition
 
+      # **And the same check on the other board, because the two were never printed together.** §134 exists because a
+      # plan read §96.1's golden-basis ceiling, skipped §116.4's correction to the matching basis, and named a target
+      # above the bound. The gate below fails when either board's ceiling stops matching its artifact, and it fails
+      # when the golden basis and the matching basis are confused for one another - the exact mistake §134 records.
+      - name: Enforce that both boards' ceilings are what their artifacts say
+        run: npm run docs:decomposition:aacr
+
       - name: Enforce that every path a baseline records still exists
         run: npm run baselines:anchors
 

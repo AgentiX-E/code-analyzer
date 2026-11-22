@@ -9060,7 +9060,13 @@ the matching over the categories each keeps, full emission is **0.162 on Core (1
 | **this engine**                 | **27.6** | **19.4**  | **48.0** |
 | Graphite                        | 14.1     | 100.0     | 7.6      |
 
-**We are 24.4 F1 points under the leader and 14.6 under the worst tool in the top half.** And the split says which half
+> **Amended by §134.** The number in this sentence was **24.4** and the table immediately above it says otherwise:
+> `65.8 - 27.6 = 38.2`, and `42.2 - 27.6 = 14.6`. **The second difference is right and the first was not**, which is
+> why the sentence was credible - one of its two subtractions checked out. The paragraph is left as written for the same
+> reason §96.1 is: the defect is one digit and the reading it supports is unchanged, while a silent edit would remove
+> the evidence that a document can carry a wrong number through six sections.
+
+**We are 38.2 F1 points under the leader and 14.6 under the worst tool in the top half.** And the split says which half
 of the gap is ours: **recall 0.48 is inside the field's range** - above Graphite's 7.6, Devin's 41.1 and Cursor's 46.8,
 below CodeRabbit's 59.5 and Qodo's 64.6 - while **precision 0.19 is below every listed tool**, the cheapest of which
 (CodeRabbit, 32.6) posts two thirds fewer comments per pull request.
@@ -14935,3 +14941,62 @@ claim more.
 
 **0 CNY.** No model was called: the gate is four string operations, and the two over-drops were found by the existing
 suite.
+
+### 134. Both boards on one page, and a target that was above the ceiling
+
+**Three sections held the numbers that decide what to build next, and no file printed them together.** §96.1 gave
+AACR's ceiling on the golden basis, §116.4 corrected it to the matching basis, and §132 gave Martian's. A plan written
+in this session read the first of those three and named **"F1 20.26 → 38-45 %"** as a two-week target. **38 is above
+37.12**, so no policy on this corpus could have reached even the low end. `scripts/aacr-decomposition.mjs` now prints
+both boards, both bases and both ceilings, and `--check` fails when this section and the artifacts disagree.
+
+|                                                  |          AACR-Bench |        Martian offline |
+| ------------------------------------------------ | ------------------: | ---------------------: |
+| pull requests / goldens                          |            50 / 452 |               50 / 173 |
+| findings the lanes wrote                         |                 569 |                    943 |
+| distinct goldens in the pool                     |                 123 |                     98 |
+| pool ceiling, golden basis                       |             27.21 % |                56.65 % |
+| **ceiling at perfect precision, matching basis** |         **37.12 %** |            **72.32 %** |
+| published F1                                     |             20.26 % |                27.57 % |
+| leader                                           | 25.1 % (vendor-run) | 65.8 % (Qodo Extended) |
+
+**The matching basis is the bound and the golden basis is not.** The protocol credits a finding with at most one golden,
+so 123 matched goldens yield at most **103 credited pairs** - which is §116.4's arithmetic, and it caps AACR at 37.12 %
+before any rule exists. **A ceiling quoted on the golden basis is an upper bound on a question the score does not
+ask**, and the 8-point gap between the two bases is exactly the size of the plan error above.
+
+**The bottlenecks are mirror images, and that is the finding rather than a detail.**
+
+| where the goldens went                          |                 AACR |         Martian |
+| ----------------------------------------------- | -------------------: | --------------: |
+| a finding covered it                            |         123 (27.2 %) |     98 (56.6 %) |
+| a finding stood on the right path, not accepted |     **254 (56.2 %)** |               - |
+| never produced at all                           | 36 + 39 unread files | **75 (43.4 %)** |
+
+AACR loses **56 % of its key to a join the harness refuses**; Martian loses **43 % to goldens the pool never produced**,
+because that key carries no coordinates and the readings never reached them. **So the two boards do not want the same
+device.** A matching device raises AACR - closing the join would put recall at 83.4 % of the key before any new
+generation exists - and a recall device raises Martian. **A plan that names one device for both is a plan about one
+board**, which is what the previous iteration was.
+
+**What the AACR arithmetic leaves.** Tying 25.1 needs 0.377 precision at the published recall of 18.81 %, or 0.279 at the
+pool ceiling of 22.79 %. Reaching 32 % needs 0.507 at the ceiling; reaching 37 % needs 0.999, which is the ceiling
+itself. **Two levers and no third**: raise the ceiling through the join, or raise precision toward 0.38. Selection is not
+one of them - every cut of this pool lands between 0.210 and 0.280, and `emission-frontier.json` measured the same
+plateau at 0.210-0.224 on a later pool of 593 findings. Two runs, two pools, same plateau.
+
+**Two documentation defects were found while assembling this, and both are recorded rather than silently fixed.**
+
+| where                              | what it said                                               | what is true                                                                                              |
+| ---------------------------------- | ---------------------------------------------------------- | --------------------------------------------------------------------------------------------------------- |
+| `LEADERBOARDS.md`, Martian offline | this project's 27.6 came from `benchmarks/aacr-bench.json` | it comes from **`benchmarks/martian-bench.json`**; the AACR artifact is a different key                   |
+| §86.5, first sentence              | "24.4 F1 points under the leader"                          | **38.2** - the same paragraph's other subtraction, 14.6 under the worst tool in the top half, was correct |
+
+The second is the one worth keeping visible: **a sentence carrying one right subtraction and one wrong one reads as
+checked**, and it survived six sections. It is amended in place with the original left standing, the way §96.1 is.
+
+### 134.1 Price
+
+**0 CNY.** Every number above is read from `benchmarks/aacr-bench.json`, `benchmarks/martian-bench.json` and
+`emission-frontier.json`. No model was called, no page was fetched, and the one external figure in the table - the
+leader's 25.1 - was already in the artifact's `comparisonBasis`.
