@@ -15433,3 +15433,109 @@ a hosted runner. **The account balance cannot be used as the invoice for this ru
 113.17 CNY after, **a top-up landed inside the window**, which is also the reason the smoke run's 3.64 CNY delta is
 quoted with a caveat rather than as a price. Reconciling the model with the account needs a run whose window contains no
 top-up, and that is a named item rather than a paragraph.
+
+### 140. The second instrument's verdicts are cuttable, and the cut they price is at its ceiling
+
+**Run `45057608080`, 2026-11-22, fifty pull requests, `file_semantic_judge: on`, `$1.0177` modelled and 6.51 CNY off
+the account.** One thing changed from §139's run besides the model's own variance: **the file-level judge now reads the
+whole emission** rather than the twelve comments per pull request the emission policy kept, and every verdict it returns
+is filed on the finding it was asked about — `rankedFindings[].fileLevelGoldens`, 575 of 591 rows. **A verdict that a
+figure was summed from cannot be cut; a verdict filed on its finding can**, and that is the difference between a
+published number and an artifact that answers questions.
+
+| reading                                        |  precision |     recall |         F1 | emissions | covered |
+| ---------------------------------------------- | ---------: | ---------: | ---------: | --------: | ------: |
+| deprecated arithmetic, pairwise (the headline) |     0.3311 |     0.2235 |     0.2668 |       305 |     101 |
+| corpus arithmetic, pairwise verdicts           |     0.2557 |     0.2058 |     0.2280 |       305 |      93 |
+| **corpus arithmetic, file-shaped verdicts**    | **0.3082** | **0.3208** | **0.3144** |       305 |     145 |
+
+**The file-shaped reading moved 4.90 points on the same reviewer, and only part of that is the fuller list.** §139
+measured 0.2631 on the same protocol with the same switch; the deprecated arithmetic moved 0.2530 → 0.2668 over the same
+pair of runs, so **+1.38 is run variance and +3.75 is the instrument reading the whole emission** — above the corpus's
+2.40-point resolution, and the first change in this campaign whose mechanism is the judge's _context_ rather than the
+reviewer's behaviour.
+
+#### 140.1 Every registered cut, priced at zero
+
+`scripts/aacr-file-cut-table.mjs` applies a cut to `rankedFindings` and walks the corpus's arithmetic over the filed
+verdicts. The rows below are the registered cuts of `scripts/lib/operating-point.mjs`, unchanged, scored under the
+corpus's metric instead of the deprecated one:
+
+| cut                                                       | emitted | new hits | covered |      P |      R |         F1 |
+| --------------------------------------------------------- | ------: | -------: | ------: | -----: | -----: | ---------: |
+| **as shipped** (`drop test`, `drop path test`, budget 12) |     305 |       94 |     145 | 0.3082 | 0.3208 | **0.3144** |
+| no rule                                                   |     591 |      124 |     184 | 0.2098 | 0.4071 |     0.2769 |
+| drop test                                                 |     513 |      121 |     179 | 0.2359 | 0.3960 |     0.2956 |
+| drop test + architecture                                  |     331 |       91 |     127 | 0.2749 | 0.2810 |     0.2779 |
+| drop test, budget 13                                      |     333 |       95 |     147 | 0.2853 | 0.3252 |     0.3039 |
+| drop test, drop path test, budget 13                      |     315 |       96 |     148 | 0.3048 | 0.3274 |     0.3157 |
+| drop test, drop path test, budget 24                      |     384 |      108 |     162 | 0.2812 | 0.3584 |     0.3152 |
+| budget 24                                                 |     452 |      108 |     163 | 0.2389 | 0.3606 |     0.2874 |
+
+**No registered cut beats the shipped point by more than 0.13 points, and the corpus resolves 2.40.** The emission
+policy is therefore at a local optimum _under the arithmetic the board scores_, and the remaining four points of
+§139's gap are not an emission question. That is a different sentence from the one the deprecated table supported, where
+`drop test+architecture` looked a point and a half better than the shipped cut.
+
+#### 140.2 The two arithmetics disagree about a category, and the disagreement is the instrument
+
+`drop test + architecture` costs **3.65 points** under the corpus's arithmetic (27.79 against 31.44) and _gains_ 0.24
+under the deprecated one. The mechanism is §85.2 read backwards: **a pairwise judge never asks about a comment that
+stands where no reference comment stands**, so architecture's 70 false positives cost nothing and its 16 true positives
+were part of the total; the corpus charges all 86 emissions, and 16 of them buy reference comments. **A comment that
+buys one reference comment in six is a bad comment and a positive contribution**, and only one of the two instruments
+can see that.
+
+#### 140.3 The ranker cannot see truth, the predicates are refuted, and the dedup is exhausted
+
+`scripts/aacr-file-cut-table.mjs --diagnose` over the same artifact: **AUC 0.5555** for the reviewer's own score against
+"this comment covered at least one reference comment" — 149 comments cover something, 442 cover nothing, and the score
+orders them barely better than a coin. Five claim-shape predicates were the obvious repair and all five were refuted
+under the corpus's arithmetic:
+
+| predicate         | emitted | covered |      P |      R |     F1 | ΔF1, points |
+| ----------------- | ------: | ------: | -----: | -----: | -----: | ----------: |
+| _(shipped)_       |     305 |     145 | 0.3082 | 0.3208 | 0.3144 |           — |
+| `names-symbol`    |     291 |     142 | 0.3162 | 0.3142 | 0.3152 |       +0.08 |
+| `grounded`        |     290 |     140 | 0.3138 | 0.3097 | 0.3118 |       −0.26 |
+| `agreement >= 2`  |     239 |     127 | 0.3431 | 0.2810 | 0.3089 |       −0.55 |
+| `proposes-change` |     264 |     131 | 0.3182 | 0.2898 | 0.3033 |       −1.11 |
+| `not-hedged`      |     282 |     128 | 0.2908 | 0.2832 | 0.2869 |       −2.75 |
+| `quotes-diff`     |      41 |      19 | 0.3171 | 0.0420 | 0.0742 |      −24.02 |
+
+**The best of the five is indistinguishable from doing nothing** (+0.08 against a 2.40-point resolution), and the reason
+is the AUC: a predicate over the shape of a claim can only re-order claims whose truth the shape does not predict. The
+predicates stay runnable (`--gate`, `--min-agreement`) because a refutation is worth its reproducibility, and they stay
+out of `emission-policy.ts` because a rule language that can fit a corpus is a rule language that will.
+
+**And the cheap structural dedup has nothing left to remove**: 591 emissions fall in **591 distinct
+(PR, path, first line, category) cells**. The seventeen duplicate hits the corpus's walk counts are semantic
+restatements in different cells, which is a judge's question and not a filter's.
+
+#### 140.4 The price, reconciled on a window that contains no top-up
+
+`$1.0177` modelled against **6.51 CNY off the account** (87.16 → 80.65, `$0.917` at 7.1): **the model is 11 % above the
+invoice**, and the 3.64 CNY the same instrument appeared to cost in §139's smoke run was a window with other jobs in it.
+3 195 calls, cache-hit ratio 0.908, 0 failures, 0 unpriced calls. **The unit every figure in this document is quoted in
+is therefore the account's, and the model is a conservative estimate of it rather than an unexplained one.**
+
+#### 140.5 Where this puts the position
+
+| row                                                          |        F1 | comparable with            |
+| ------------------------------------------------------------ | --------: | -------------------------- |
+| Alibaba OCR, published best (Claude-4.6-Opus, 200 PR)        |     25.10 | nothing here — their judge |
+| Alibaba OCR on **our** 47 rows, our judge, DeepSeek (§116.2) |     21.25 | our pairwise rows          |
+| this repository, deprecated arithmetic, 50 PR                |     26.68 | every figure before §136   |
+| **this repository, corpus metric, file-shaped judge**        | **31.44** | **the 25.10 bar**          |
+
+**Against the bar the margin is +6.34 points, outside the corpus's 2.40-point resolution, and that is the first time
+this repository has been able to say it.** Against the competitor's tool on our own rows under our own judge the margin
+is +10.19. **The caveat is the judge and it is not small**: §86 records individual tools moving by up to nine F1 points
+between judges, so a cross-judge margin of six is a lead in the ranking rather than a lock on it — and the file-shaped
+reading exists on our side only, because the competitor's artifact was replayed pairwise.
+
+**What is left is not emission and not ranking.** The 442 comments that cover nothing are well-formed, grounded,
+specific, and about something the corpus does not count; the score cannot tell them from the 149 that count, and no
+predicate over their shape can either. **A device that changes the information the score has is the only remaining
+lever**, which is what the diff-only falsifier is and why §85's falsification does not apply to it: §85 removed findings
+from a pool the pairwise judge never asked about, and this instrument asks about every one of them.
