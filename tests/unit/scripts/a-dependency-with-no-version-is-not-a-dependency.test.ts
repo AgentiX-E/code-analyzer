@@ -20,7 +20,7 @@
 // prevent. The failures read `docker build` and `pip`-own reasons rather than scanner vocabulary, because the next
 // person to hit one will be editing a workflow, not reading a SARIF file.
 
-import { readFileSync, readdirSync } from 'node:fs';
+import { existsSync, readFileSync, readdirSync } from 'node:fs';
 import { join } from 'node:path';
 
 import { describe, expect, it } from 'vitest';
@@ -120,6 +120,35 @@ function downloadIsPinnedToACommit(text: string): boolean {
 
 const INSTALLS = [...walk('.github/workflows', ['.yml', '.yaml']), ...walk('scripts', ['.sh'])];
 
+/**
+ * **A requirements file is a pin only when it pins every requirement by hash**, and `-r` is not an exemption.
+ *
+ * The first version of the pip case read every argument for `==` and would have accepted `pip install -r
+ * requirements.txt` as unpinned - which is correct, because the file is where the versions live. **The rule that makes
+ * the file an answer is CodeQL's own**: `--require-hashes` refuses to install anything whose artifact hash is not
+ * listed, so a file that names a version and no hash is a pin the scanner still reads as floating. So this reads the
+ * file and asks for both, and a workflow that installs from a file it does not carry fails here rather than at the
+ * install.
+ */
+function requirementsProblems(reference: string): string[] {
+  const problems: string[] = [];
+  if (!existsSync(reference))
+    return [`${reference}: named by an install, but no such file in the tree`];
+  const logical = readFileSync(reference, 'utf8')
+    .replace(/\\\n/g, ' ')
+    .split('\n')
+    .map((line) => line.trim())
+    .filter((line) => line !== '' && !line.startsWith('#'));
+  if (logical.length === 0) problems.push(`${reference}: carries no requirement`);
+  for (const line of logical) {
+    if (!/==/.test(line))
+      problems.push(`${reference}: "${line.slice(0, 40)}" names no exact version`);
+    if (!line.includes('--hash=sha256:'))
+      problems.push(`${reference}: "${line.slice(0, 40)}" names no hash`);
+  }
+  return problems;
+}
+
 describe('every dependency this repository installs names what it installs', () => {
   it('pins every globally installed npm package to a version', () => {
     const unpinned: string[] = [];
@@ -148,7 +177,15 @@ describe('every dependency this repository installs names what it installs', () 
       for (const entry of linesOf(path)) {
         const install = /(?:python3? -m )?pip3? install (.+)$/.exec(entry.text);
         if (install === null) continue;
+        // **The file an install reads from is not a package**, and its contents are the pins - so it is checked as a
+        // file and removed from the argument list rather than skipped.
+        const fromFile = /(?:^|\s)(?:-r|--requirement)\s+(\S+)/.exec(install[1] ?? '');
+        const reference = fromFile?.[1];
+        if (reference !== undefined) {
+          unpinned.push(...requirementsProblems(reference));
+        }
         for (const name of packagesOf(install[1] ?? '')) {
+          if (name === reference) continue;
           if (!name.includes('==') && !name.endsWith('.whl')) {
             unpinned.push(`${path}:${entry.line} ${name}`);
           }
