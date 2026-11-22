@@ -14716,3 +14716,43 @@ measures, which is the one thing a measurement must not be able to do.
 ### 130.6 Price
 
 **0 CNY.** Ten new tests, two new scripts, one generated module, one new job. No model was called.
+
+## §131 The position, on the field's own axes
+
+![code-analyzer and the field on precision, detection and comment volume](figures/position-2026-11-22.svg)
+
+_Rendered by `scripts/position-figure.mjs`, which `npm run docs:position` fails on when the committed file is not what
+the generator would write. Every field point is a published figure; both of ours are drawn hollow and labelled with the
+sample they were measured on._
+
+### 131.1 What the figure says, and what it does not
+
+| question                                                 | answer                                                                                                                                                                                                                                                                                                     |
+| -------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Is precision SOTA?                                       | **No.** The leaderboard's precision band is 65–83 %; ours is 22.0 % on our own corpus and 11.8 % on a six-PR Martian pilot.                                                                                                                                                                                |
+| Is the gap real?                                         | **Yes, and it is not one gap.** The pilot's 11.8 % ran on 6 pull requests with a `deepseek-chat` judge while the field was scored by `gpt-5.2`; our 22.0 % ran on 50 pull requests of our own corpus with our own goldens. **Neither is comparable to the other, and neither is comparable to the field.** |
+| Is the cost competitive?                                 | **Yes on tokens, unmeasured against them.** One run of 50 pull requests spent 7.46 M tokens and **0.9045 USD** - 149 k tokens and 1.8 cents per pull request - with a 56.9 % cache-hit ratio. No competitor publishes tokens per pull request.                                                             |
+| Does a higher-precision neighbour prove a better method? | **No.** Greptile scores **82.5 %** on its own board and **45 %** on Augment's re-run of the same five repositories with a corrected answer key. **The ranking is a function of the answer key before it is a function of the reviewer.**                                                                   |
+
+### 131.2 The three defects the field's numbers expose in ours
+
+1. **We are not on the board.** One row of six pull requests is a pilot, not an entry. **The first act is not a device;
+   it is a run of ≥ 100 Martian pull requests at `n ≥ 30` per repository so that a number exists at all.**
+2. **Our goldens are 3.5 defects per pull request** (§129.6). A partial gold set makes our precision a floor and our
+   recall a floor, and **a floor cannot be compared with a ceiling** - which is what a leaderboard measures.
+3. **The product's arm was not the arm we were optimising** (§130.1). Fixed by §130; the metric a promotion is decided
+   on is now `pullRequestArm.f1`.
+
+### 131.3 The two competitor capabilities not yet replicated, and what each buys
+
+| capability                                    | source                                                                 | what it buys here                                                                                                              | how it is measured                                                                                                                                  |
+| --------------------------------------------- | ---------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------ | --------------------------------------------------------------------------------------------------------------------------------------------------- |
+| **A per-file constraint field in the prompt** | `aoci-code`'s `S` field, already parsed by `review/index/cognition.ts` | the one thing a diff cannot carry: what must not break. `codeContext` shows a window; `S` states an invariant                  | the §20 pair, unchanged: the same corpus with and without, two arms in one dispatch                                                                 |
+| **Structural diff before a lane is paid**     | `difftastic`'s Dijkstra over the syntax lattice                        | **a hunk that is structurally unchanged needs no lane.** Re-indents, wraps and re-ordered arguments are hunks we pay for today | offline and free: classify every hunk in the corpus as `formatting-only / pure-move / pure-rename / semantic`, then price the token spend per class |
+
+**Both are offline until a dispatch is bought**, and the second is offline entirely: the classification costs no model
+call, and its result is a subtraction from a bill already recorded in `benchmarks/aacr-bench.json`.
+
+### 131.4 Price
+
+**0 CNY.** The figure is arithmetic over published numbers; no model was called to write this section.
