@@ -342,6 +342,17 @@ export function parseCut(text) {
       if (!Number.isInteger(k) || k < 1) throw new Error(`"${token}" is not a budget`);
       return { kind: 'budget', k };
     }
+    // **`drop-path` rather than `drop-path-class`**, because the spelling a person types should be the short one and the
+    // step's own name is what `describeCut` prints; a cut named in a report and a cut parsed from a command line have to
+    // be the same cut, and the two spellings differ only where the reader is not looking.
+    if (kind === 'drop-path') {
+      const classes = argument
+        .split(',')
+        .map((entry) => entry.trim())
+        .filter((entry) => entry.length > 0);
+      if (classes.length === 0) throw new Error(`"${token}" names no path class`);
+      return { kind: 'drop-path-class', classes };
+    }
     throw new Error(`unknown cut step "${token}"`);
   });
 }

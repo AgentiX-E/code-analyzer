@@ -42,6 +42,7 @@ import {
 } from './lib/competitor-comparison.mjs';
 import { goldenDiscordance, pairedCorpus } from './lib/paired-corpus.mjs';
 import { scoreCorpusFileSemantic, scoreFileSemantic } from './lib/file-semantic.mjs';
+import { fileLevelOnFindings, verdictsByPull } from './lib/file-level-placement.mjs';
 import {
   buildFileSemanticJudgeMessages,
   parseFileSemanticCovers,
@@ -3086,6 +3087,8 @@ async function main() {
    */
   const perPr = [];
   const rankedDetail = [];
+  /** Which pull request and which position each `rankedDetail` row came from, for the pass that files a verdict on it. */
+  const rankedRowKeys = [];
   // **One entry per pull request: which bucket each of its goldens fell in**, merged and published below.
   const attributed = [];
   const competitorPerPr = [];
@@ -4587,6 +4590,10 @@ async function main() {
       });
     });
     ranked.forEach((entry, at) => {
+      // **The coordinate the second instrument's verdicts will be filed by**, recorded beside the row rather than inside
+      // it: the artifact's `rankedFindings` is a published shape, and an index whose only reader is this file is not a
+      // field a consumer should have to ignore.
+      rankedRowKeys.push({ pr: competitorKey, at });
       rankedDetail.push({
         pr: pr.githubPrUrl ?? null,
         path: entry.path,
@@ -4861,6 +4868,31 @@ async function main() {
   // comparison with a competitor who said nothing - and that is the same defect as a missing row counted as a zero.
   const fileSemanticCompetitor =
     fileSemanticPulls.competitor.length === 0 ? null : fileSemanticOf(fileSemanticPulls.competitor);
+
+  /**
+   * **The second instrument's verdicts, filed on the findings they are about, so a cut of this run can be priced under
+   * the corpus's arithmetic without paying for the run again.**
+   *
+   * The figures above are three aggregates. **An aggregate cannot be cut**: `fileLevel.findings` is 307 and the question
+   * every remaining device asks is which of those 307 to keep, so a run that published only the totals priced every
+   * gate at one more dispatch - the defect `scripts/aacr-operating-point.mjs` removed for the pairwise instrument and
+   * which the corpus's own arithmetic still had.
+   *
+   * **`null` rather than an empty list for a pull request the pass could not answer.** An empty list says "nothing was
+   * covered", which is a verdict; `null` says "ask the other instrument", which is what §137.5 already requires of the
+   * fallback. `scripts/aacr-file-cut-table.mjs` reads exactly this distinction.
+   */
+  const rankedWithFileLevel =
+    fileLevelMatches === null
+      ? rankedDetail
+      : fileLevelOnFindings({
+          rows: rankedDetail,
+          keys: rankedRowKeys,
+          matchesByPull: verdictsByPull({
+            pulls: fileSemanticPulls.our,
+            matches: fileLevelMatches,
+          }),
+        });
 
   // **Sixty of the rejected goldens, at a stride, with the corpus's sentence beside ours.** The first sixty would be the
   // first six pull requests and a distribution read off them would be a distribution of the alphabet.
@@ -5873,7 +5905,7 @@ async function main() {
      * its own artifact would be a second place for a figure to live.**
      */
     operatingPoints: operatingPointTable(rankedDetail, gated.truePositives + gated.falseNegatives),
-    rankedFindings: rankedDetail,
+    rankedFindings: rankedWithFileLevel,
     // **And the reading after the loop**, so **what the run spent is derivable** and **a draw taken on an empty
     // account is labelled rather than reported as a reviewer's result.**
     credit: { before: creditBefore, after: await creditPosition() },
