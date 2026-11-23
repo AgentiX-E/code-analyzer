@@ -158,7 +158,6 @@
     },
     "auditConfig": {
       "ignoreCves": [
-        "GHSA-vfj7-8cjw-p6xm"
       ]
     }
   }
