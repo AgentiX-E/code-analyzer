@@ -827,6 +827,22 @@ jobs:
           node scripts/aacr-file-cut-table.mjs benchmarks/aacr-bench.json --json > benchmarks/aacr-file-cut-table.json
           node -e "const t=require('./benchmarks/aacr-file-cut-table.json'); for (const r of t.rows) console.log(r.cut.padEnd(38), String(r.emitted).padStart(5), r.f1.toFixed(4))"
 
+      # **A bar cleared on one corpus is not a win over a tool on another, and the difference is a subtraction that must
+      # not be printed.** §140.5 printed `+10.19` as a margin: it was fifty pull requests against forty-seven. The figure
+      # that can be quoted is the rows both artifacts hold, scored by one piece of code - so the run writes it beside the
+      # artifact, on the runner, from the two files it has.
+      #
+      # **The baseline is a precondition and not a failure**: the competitor replay is a separate arm, and a run without
+      # it has nothing to be compared with. `hashFiles` asks before the step starts, so an absent file cannot turn into a
+      # red run that says nothing about the review.
+      - name: Score this run against the competitor on the rows both of them hold
+        id: like_for_like
+        if: hashFiles('benchmarks/aacr/competitor-baseline.json') != ''
+        run: |
+          set -e
+          node scripts/aacr-like-for-like.mjs benchmarks/aacr-bench.json benchmarks/aacr/competitor-baseline.json --volume --json > benchmarks/aacr-like-for-like.json
+          node -e "const c=require('./benchmarks/aacr-like-for-like.json'); const p=(s)=>[String(s.emitted).padStart(4), s.protocol.f1.toFixed(4), s.corpus.f1.toFixed(4)].join(' '); console.log('rows', c.pullRequests, 'goldens', c.goldens); console.log('  ours      ', p(c.sides.ours)); console.log('  competitor', p(c.sides.theirs)); console.log('  at their volume', c.volume[0].total, c.volume[0].side.protocol.f1.toFixed(4))"
+
       # **The ensemble dimension is in the name, and the first run of the merge is why.** That run published
       # `...-adjudicate-off-idioms-off-agent-on-ensemble-off-remarks-off`, the name an agent-only run uses - **two
       # devices, one artifact name**, and a paired comparison matching on names would have compared an arm with itself.
@@ -853,6 +869,7 @@ jobs:
           path: |
             benchmarks/aacr-bench.json
             benchmarks/aacr-file-cut-table.json
+            benchmarks/aacr-like-for-like.json
             benchmarks/aacr/competitor-baseline.json
             benchmarks/runnable-competitors-outputs/
           if-no-files-found: warn

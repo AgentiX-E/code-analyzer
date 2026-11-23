@@ -52,6 +52,7 @@ import {
 import { describeUnread, readTheWholeCorpus, unreadCorpus } from './lib/unread-corpus.mjs';
 import {
   DEFAULT_BASELINE_PATH,
+  JUDGE_PROMPT_VERSION,
   corpusFingerprint,
   parseCompetitorMode,
   readBaseline,
@@ -2017,7 +2018,11 @@ async function main() {
     corpus:
       process.env['AACR_CORPUS_LABEL'] ??
       'Alibaba-Aone/aacr-bench (Apache-2.0, public on Hugging Face)',
-    judge: { model: MODEL, endpoint: BASE },
+    // **The judge prompt's identity belongs on this side too.** The baseline records `aacr-judge-v1` because a figure
+    // is only reusable while the question stays the same; **a head-to-head in which only one artifact names the
+    // question cannot be shown to be a head-to-head at all** - and that is the comparison `scripts/aacr-like-for-like.mjs`
+    // now draws. The constant is imported rather than typed so a bumped prompt cannot leave a stale field behind.
+    judge: { model: MODEL, endpoint: BASE, prompt: JUDGE_PROMPT_VERSION },
     route: 'our engine reading each PR diff; no bot account installed',
     comparisonBasis: 'their published figures, not a run we performed',
   };

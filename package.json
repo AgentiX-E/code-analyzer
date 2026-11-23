@@ -83,6 +83,7 @@
     "measure:heuristic": "npx vitest run --config vitest.config.ts packages/intelligence/src/__tests__/real-ground-truth-benchmark.test.ts",
     "matrix": "node scripts/competitor-matrix-gate.js",
     "aacr:file-cut": "node scripts/aacr-file-cut-table.mjs",
+    "aacr:like-for-like": "node scripts/aacr-like-for-like.mjs",
     "matrix:update": "node scripts/competitor-matrix-gate.js --update --json benchmarks/competitor-matrix-report.json",
     "measure:callgraph": "tsx scripts/callgraph-quality.ts",
     "measure:callgraph:ts": "tsx scripts/callgraph-quality.ts --oracle ts --repo colinhacks/zod=benchmarks/corpora/zod-3.23.8/src --repo redis/ioredis=benchmarks/corpora/ioredis-5.4.2/lib --out benchmarks/callgraph-ts-quality.json",
