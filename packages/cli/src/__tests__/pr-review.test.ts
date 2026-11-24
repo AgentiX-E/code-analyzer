@@ -26,6 +26,7 @@ import {
   runPrReview,
 } from '../commands/pr-review.js';
 import { severityRank } from '../commands/severity.js';
+import { deletedPaths } from '@code-analyzer/intelligence';
 
 const SECRET_AND_SQL = [
   'export function lookup(id: string): string {',
@@ -115,6 +116,39 @@ describe('the grounding gate, before the report is written', () => {
     });
   });
 
+  it('treats a finding on a file the patch deletes as unpostable rather than unchecked', () => {
+    // **The end-to-end shape of §150's third rule, through the function the command calls.** A patch that deletes a file
+    // is a path the revision does not have, and a finding on it cannot become a comment - but it must not make the gate
+    // inert for the findings that *can* be posted, which is what the coverage rule did before the bucket existed.
+    const patch = [
+      'diff --git a/src/math.ts b/src/math.ts',
+      '--- a/src/math.ts',
+      '+++ b/src/math.ts',
+      '@@ -1,3 +1,3 @@',
+      ' export function add(a: number, b: number) {',
+      '-  return a - b;',
+      '+  return a + b;',
+      ' }',
+      'diff --git a/src/old.ts b/src/old.ts',
+      'deleted file mode 100644',
+      '--- a/src/old.ts',
+      '+++ /dev/null',
+      '@@ -1 +0,0 @@',
+      '-export const old = 1;',
+    ].join('\n');
+    const run = groundFindings(
+      [found(), found({ id: 'gone', file: 'src/old.ts', line: 1, endLine: 1, snippet: '' })],
+      CONTENTS,
+      new Map(),
+      { change: patch, absent: deletedPaths(patch) },
+    );
+
+    expect(run.grounding.applied).toBe(true);
+    expect(run.grounding.unpostable).toBe(1);
+    expect(run.findings.map((entry) => entry.id)).toEqual(['f']);
+    expect(run.grounding.sentence).toContain('1 on a path this revision does not have, unpostable');
+  });
+
   it('keeps a paraphrased quotation and reports how much of the evidence it could not read', () => {
     const run = groundFindings(
       [found({ snippet: 'export function add(...)' })],
@@ -160,6 +194,9 @@ describe('runPrReview — the pull request user story', () => {
     expect(report.baseRef).toBe('main');
     expect(report.headRef).toBe('feature');
     expect(report.summary.changedFileCount).toBe(1);
+    // **The two counts §150 added reach the report a workflow reads**, not only the gate's own return value.
+    expect(report.summary.grounding?.unpostable).toBe(0);
+    expect(report.summary.grounding?.namesNowhere).toBeGreaterThanOrEqual(0);
     expect(report.findings.length).toBeGreaterThan(0);
 
     // **Every finding must carry evidence**, because the workflow's own gate rejects the ones that do not and a

@@ -74,21 +74,27 @@ describe('a finding that cannot be grounded is dropped', () => {
     expect(report.ungrounded[0]!.reason).toMatch(/does not appear/);
   });
 
-  it('drops a finding that names an identifier the file does not contain', () => {
-    // **The empirical gate, from the literature.** *Refute-or-Promote* (arXiv 2604.19049) reports ten reviewers
-    // unanimously endorsing a bug that did not exist, **killed only by an empirical test** - so the gate requires
-    // **evidence rather than agreement**. Here the evidence is a symbol lookup: `applyTimingPad` is named in the
-    // comment and occurs nowhere in the file, which makes the finding a claim about something that is not there.
+  it('counts a finding that names an identifier the file does not contain, and keeps it', () => {
+    // **The empirical gate, from the literature, demoted to a note.** *Refute-or-Promote* (arXiv 2604.19049) reports ten
+    // reviewers unanimously endorsing a bug that did not exist, **killed only by an empirical test** - so the gate
+    // requires **evidence rather than agreement**. `applyTimingPad` is named in the comment and occurs nowhere, which is
+    // the shape the check was written for.
+    //
+    // **It is kept as of §150, and the reason is a measurement rather than a preference.** On the published artifact the
+    // widened check convicted 6 findings of which 2 carried a golden - **one in three, against a base rate of one in
+    // three** - so a filter built on it selects wrong comments at the rate the list already contains them. The verdict
+    // survives as a number: *"one of these comments names a symbol that is nowhere in the code"*.
     const report = judgeGrounding(
       [comment({ content: 'the loop in `applyTimingPad` leaks the length' })],
       { contents: CONTENTS },
     );
 
-    expect(report.grounded).toEqual([]);
-    expect(report.ungrounded[0]!.reason).toMatch(/occurs nowhere in the file/);
+    expect(report.grounded.map((c) => c.id)).toEqual(['c1']);
+    expect(report.ungrounded).toEqual([]);
+    expect(report.namesNowhere).toBe(1);
   });
 
-  it('keeps a finding that names an identifier the file does contain', () => {
+  it('keeps a finding that names an identifier the file does contain, and counts nothing', () => {
     // **The other direction, again.** `add` is in the file, so the same rule passes it - **a gate that dropped every
     // comment naming a symbol would suppress the true findings too**, which is the failure mode *Sifting the Noise*
     // (arXiv 2601.22952) measured: aggressive filtering suppressed 22% of real vulnerabilities.
@@ -97,6 +103,38 @@ describe('a finding that cannot be grounded is dropped', () => {
     });
 
     expect(report.grounded.map((c) => c.id)).toContain('c1');
+    expect(report.namesNowhere).toBe(0);
+  });
+
+  it('does not count a literal in backticks, which is syntax rather than a name', () => {
+    // **`?? false` was one of the six false convictions §149 published**, under the heading *"a literal in backticks"*. A
+    // keyword in backticks is a mention of the language: counting it as a vanished identifier would make the note fire on
+    // good comments, and a note that fires on good comments is a note nobody reads.
+    const report = judgeGrounding(
+      [comment({ content: 'the guard falls through to `false` when the count is negative' })],
+      { contents: CONTENTS },
+    );
+
+    expect(report.grounded).toHaveLength(1);
+    expect(report.namesNowhere).toBe(0);
+  });
+
+  it('does not count a name the comment itself proposes, because a proposal is absent by construction', () => {
+    // **`NeedSubElement` was the third of §149's four shapes.** A finding that says *"replace this with `NeedSubElement`"*
+    // names something that does not exist **because that is the whole point of the sentence** - so the suggestion is not
+    // evidence of a hallucination, it is evidence of a fix.
+    const report = judgeGrounding(
+      [
+        comment({
+          content: 'this branches on the raw enum instead of the resolved element',
+          suggestionCode: 'const element = NeedSubElement::from(shape);',
+        }),
+      ],
+      { contents: CONTENTS },
+    );
+
+    expect(report.grounded).toHaveLength(1);
+    expect(report.namesNowhere).toBe(0);
   });
 
   it('keeps a finding with no quotation, because absence is not evidence of absence', () => {

@@ -9,12 +9,8 @@
     "inArtifact": 50,
     "read": 50,
     "unread": [],
-    "withoutHeadFile": [
-      {
-        "pr": "https://github.com/microsoft/typescript-go/pull/831",
-        "path": "testdata/baselines/reference/submodule/conformance/importTag16.types"
-      }
-    ]
+    "absentAtHead": [],
+    "failedReads": []
   },
   "pinned": [
     {
@@ -249,36 +245,34 @@
     "f1": 0.266843
   },
   "gated": {
-    "emitted": 301,
-    "truePositives": 98,
-    "falsePositives": 203,
-    "falseNegatives": 354,
-    "precision": 0.325581,
-    "recall": 0.216814,
-    "f1": 0.260292
+    "emitted": 305,
+    "truePositives": 101,
+    "falsePositives": 204,
+    "falseNegatives": 351,
+    "precision": 0.331148,
+    "recall": 0.223451,
+    "f1": 0.266843
   },
   "reproduced": true,
   "delta": {
-    "emitted": -4,
-    "truePositives": -3,
-    "precision": -0.005567,
-    "recall": -0.006637,
-    "f1": -0.006551
+    "emitted": 0,
+    "truePositives": 0,
+    "precision": 0,
+    "recall": 0,
+    "f1": 0
   },
   "gate": {
     "findings": 591,
-    "dropped": 15,
+    "dropped": 1,
     "coverage": {
       "offered": 591,
-      "readable": 590
+      "readable": 591,
+      "unpostable": 0
     },
     "unverifiableQuotes": 0,
-    "withheldPullRequests": 1,
+    "namesNowhere": 6,
+    "withheldPullRequests": 0,
     "byReason": [
-      {
-        "reason": "the finding names an identifier that occurs nowhere in the file it is about, nor in the change it is about",
-        "count": 14
-      },
       {
         "reason": "lines 234-318 are not a range in a file of 237 lines",
         "count": 1
@@ -291,7 +285,8 @@
         "withheld": null,
         "coverage": {
           "findings": 54,
-          "readable": 54
+          "readable": 54,
+          "unpostable": 0
         },
         "dropped": 0
       },
@@ -301,9 +296,10 @@
         "withheld": null,
         "coverage": {
           "findings": 82,
-          "readable": 82
+          "readable": 82,
+          "unpostable": 0
         },
-        "dropped": 2
+        "dropped": 0
       },
       {
         "pr": "https://github.com/FreeCAD/FreeCAD/pull/22744",
@@ -311,7 +307,8 @@
         "withheld": null,
         "coverage": {
           "findings": 3,
-          "readable": 3
+          "readable": 3,
+          "unpostable": 0
         },
         "dropped": 0
       },
@@ -321,7 +318,8 @@
         "withheld": null,
         "coverage": {
           "findings": 6,
-          "readable": 6
+          "readable": 6,
+          "unpostable": 0
         },
         "dropped": 0
       },
@@ -331,7 +329,8 @@
         "withheld": null,
         "coverage": {
           "findings": 4,
-          "readable": 4
+          "readable": 4,
+          "unpostable": 0
         },
         "dropped": 0
       },
@@ -341,7 +340,8 @@
         "withheld": null,
         "coverage": {
           "findings": 3,
-          "readable": 3
+          "readable": 3,
+          "unpostable": 0
         },
         "dropped": 0
       },
@@ -351,7 +351,8 @@
         "withheld": null,
         "coverage": {
           "findings": 15,
-          "readable": 15
+          "readable": 15,
+          "unpostable": 0
         },
         "dropped": 0
       },
@@ -361,7 +362,8 @@
         "withheld": null,
         "coverage": {
           "findings": 33,
-          "readable": 33
+          "readable": 33,
+          "unpostable": 0
         },
         "dropped": 0
       },
@@ -371,7 +373,8 @@
         "withheld": null,
         "coverage": {
           "findings": 5,
-          "readable": 5
+          "readable": 5,
+          "unpostable": 0
         },
         "dropped": 0
       },
@@ -381,7 +384,8 @@
         "withheld": null,
         "coverage": {
           "findings": 8,
-          "readable": 8
+          "readable": 8,
+          "unpostable": 0
         },
         "dropped": 0
       },
@@ -391,7 +395,8 @@
         "withheld": null,
         "coverage": {
           "findings": 8,
-          "readable": 8
+          "readable": 8,
+          "unpostable": 0
         },
         "dropped": 0
       },
@@ -401,17 +406,19 @@
         "withheld": null,
         "coverage": {
           "findings": 22,
-          "readable": 22
+          "readable": 22,
+          "unpostable": 0
         },
         "dropped": 0
       },
       {
         "pr": "https://github.com/microsoft/typescript-go/pull/831",
-        "applied": false,
-        "withheld": "no-readable-arm",
+        "applied": true,
+        "withheld": null,
         "coverage": {
           "findings": 28,
-          "readable": 27
+          "readable": 28,
+          "unpostable": 0
         },
         "dropped": 0
       },
@@ -421,9 +428,10 @@
         "withheld": null,
         "coverage": {
           "findings": 8,
-          "readable": 8
+          "readable": 8,
+          "unpostable": 0
         },
-        "dropped": 1
+        "dropped": 0
       },
       {
         "pr": "https://github.com/microsoft/typescript-go/pull/691",
@@ -431,7 +439,8 @@
         "withheld": null,
         "coverage": {
           "findings": 2,
-          "readable": 2
+          "readable": 2,
+          "unpostable": 0
         },
         "dropped": 0
       },
@@ -441,7 +450,8 @@
         "withheld": null,
         "coverage": {
           "findings": 2,
-          "readable": 2
+          "readable": 2,
+          "unpostable": 0
         },
         "dropped": 0
       },
@@ -451,7 +461,8 @@
         "withheld": null,
         "coverage": {
           "findings": 7,
-          "readable": 7
+          "readable": 7,
+          "unpostable": 0
         },
         "dropped": 0
       },
@@ -461,7 +472,8 @@
         "withheld": null,
         "coverage": {
           "findings": 1,
-          "readable": 1
+          "readable": 1,
+          "unpostable": 0
         },
         "dropped": 0
       },
@@ -471,7 +483,8 @@
         "withheld": null,
         "coverage": {
           "findings": 1,
-          "readable": 1
+          "readable": 1,
+          "unpostable": 0
         },
         "dropped": 0
       },
@@ -481,7 +494,8 @@
         "withheld": null,
         "coverage": {
           "findings": 5,
-          "readable": 5
+          "readable": 5,
+          "unpostable": 0
         },
         "dropped": 0
       },
@@ -491,7 +505,8 @@
         "withheld": null,
         "coverage": {
           "findings": 4,
-          "readable": 4
+          "readable": 4,
+          "unpostable": 0
         },
         "dropped": 0
       },
@@ -501,7 +516,8 @@
         "withheld": null,
         "coverage": {
           "findings": 12,
-          "readable": 12
+          "readable": 12,
+          "unpostable": 0
         },
         "dropped": 0
       },
@@ -511,7 +527,8 @@
         "withheld": null,
         "coverage": {
           "findings": 11,
-          "readable": 11
+          "readable": 11,
+          "unpostable": 0
         },
         "dropped": 1
       },
@@ -521,7 +538,8 @@
         "withheld": null,
         "coverage": {
           "findings": 6,
-          "readable": 6
+          "readable": 6,
+          "unpostable": 0
         },
         "dropped": 0
       },
@@ -531,7 +549,8 @@
         "withheld": null,
         "coverage": {
           "findings": 5,
-          "readable": 5
+          "readable": 5,
+          "unpostable": 0
         },
         "dropped": 0
       },
@@ -541,7 +560,8 @@
         "withheld": null,
         "coverage": {
           "findings": 38,
-          "readable": 38
+          "readable": 38,
+          "unpostable": 0
         },
         "dropped": 0
       },
@@ -551,7 +571,8 @@
         "withheld": null,
         "coverage": {
           "findings": 10,
-          "readable": 10
+          "readable": 10,
+          "unpostable": 0
         },
         "dropped": 0
       },
@@ -561,7 +582,8 @@
         "withheld": null,
         "coverage": {
           "findings": 1,
-          "readable": 1
+          "readable": 1,
+          "unpostable": 0
         },
         "dropped": 0
       },
@@ -571,9 +593,10 @@
         "withheld": null,
         "coverage": {
           "findings": 21,
-          "readable": 21
+          "readable": 21,
+          "unpostable": 0
         },
-        "dropped": 4
+        "dropped": 0
       },
       {
         "pr": "https://github.com/comfyanonymous/ComfyUI/pull/6033",
@@ -581,7 +604,8 @@
         "withheld": null,
         "coverage": {
           "findings": 7,
-          "readable": 7
+          "readable": 7,
+          "unpostable": 0
         },
         "dropped": 0
       },
@@ -591,7 +615,8 @@
         "withheld": null,
         "coverage": {
           "findings": 6,
-          "readable": 6
+          "readable": 6,
+          "unpostable": 0
         },
         "dropped": 0
       },
@@ -601,7 +626,8 @@
         "withheld": null,
         "coverage": {
           "findings": 3,
-          "readable": 3
+          "readable": 3,
+          "unpostable": 0
         },
         "dropped": 0
       },
@@ -611,9 +637,10 @@
         "withheld": null,
         "coverage": {
           "findings": 13,
-          "readable": 13
+          "readable": 13,
+          "unpostable": 0
         },
-        "dropped": 1
+        "dropped": 0
       },
       {
         "pr": "https://github.com/mrdoob/three.js/pull/30076",
@@ -621,9 +648,10 @@
         "withheld": null,
         "coverage": {
           "findings": 11,
-          "readable": 11
+          "readable": 11,
+          "unpostable": 0
         },
-        "dropped": 1
+        "dropped": 0
       },
       {
         "pr": "https://github.com/mrdoob/three.js/pull/30750",
@@ -631,7 +659,8 @@
         "withheld": null,
         "coverage": {
           "findings": 3,
-          "readable": 3
+          "readable": 3,
+          "unpostable": 0
         },
         "dropped": 0
       },
@@ -641,7 +670,8 @@
         "withheld": null,
         "coverage": {
           "findings": 16,
-          "readable": 16
+          "readable": 16,
+          "unpostable": 0
         },
         "dropped": 0
       },
@@ -651,7 +681,8 @@
         "withheld": null,
         "coverage": {
           "findings": 8,
-          "readable": 8
+          "readable": 8,
+          "unpostable": 0
         },
         "dropped": 0
       },
@@ -661,7 +692,8 @@
         "withheld": null,
         "coverage": {
           "findings": 3,
-          "readable": 3
+          "readable": 3,
+          "unpostable": 0
         },
         "dropped": 0
       },
@@ -671,7 +703,8 @@
         "withheld": null,
         "coverage": {
           "findings": 2,
-          "readable": 2
+          "readable": 2,
+          "unpostable": 0
         },
         "dropped": 0
       },
@@ -681,9 +714,10 @@
         "withheld": null,
         "coverage": {
           "findings": 19,
-          "readable": 19
+          "readable": 19,
+          "unpostable": 0
         },
-        "dropped": 1
+        "dropped": 0
       },
       {
         "pr": "https://github.com/nextcloud/server/pull/52846",
@@ -691,9 +725,10 @@
         "withheld": null,
         "coverage": {
           "findings": 12,
-          "readable": 12
+          "readable": 12,
+          "unpostable": 0
         },
-        "dropped": 1
+        "dropped": 0
       },
       {
         "pr": "https://github.com/lvgl/lvgl/pull/8164",
@@ -701,7 +736,8 @@
         "withheld": null,
         "coverage": {
           "findings": 4,
-          "readable": 4
+          "readable": 4,
+          "unpostable": 0
         },
         "dropped": 0
       },
@@ -711,7 +747,8 @@
         "withheld": null,
         "coverage": {
           "findings": 6,
-          "readable": 6
+          "readable": 6,
+          "unpostable": 0
         },
         "dropped": 0
       },
@@ -721,9 +758,10 @@
         "withheld": null,
         "coverage": {
           "findings": 48,
-          "readable": 48
+          "readable": 48,
+          "unpostable": 0
         },
-        "dropped": 2
+        "dropped": 0
       },
       {
         "pr": "https://github.com/lvgl/lvgl/pull/7602",
@@ -731,7 +769,8 @@
         "withheld": null,
         "coverage": {
           "findings": 7,
-          "readable": 7
+          "readable": 7,
+          "unpostable": 0
         },
         "dropped": 0
       },
@@ -741,7 +780,8 @@
         "withheld": null,
         "coverage": {
           "findings": 1,
-          "readable": 1
+          "readable": 1,
+          "unpostable": 0
         },
         "dropped": 0
       },
@@ -751,7 +791,8 @@
         "withheld": null,
         "coverage": {
           "findings": 5,
-          "readable": 5
+          "readable": 5,
+          "unpostable": 0
         },
         "dropped": 0
       },
@@ -761,9 +802,10 @@
         "withheld": null,
         "coverage": {
           "findings": 3,
-          "readable": 3
+          "readable": 3,
+          "unpostable": 0
         },
-        "dropped": 1
+        "dropped": 0
       },
       {
         "pr": "https://github.com/cline/cline/pull/2347",
@@ -771,7 +813,8 @@
         "withheld": null,
         "coverage": {
           "findings": 5,
-          "readable": 5
+          "readable": 5,
+          "unpostable": 0
         },
         "dropped": 0
       },
@@ -781,7 +824,8 @@
         "withheld": null,
         "coverage": {
           "findings": 4,
-          "readable": 4
+          "readable": 4,
+          "unpostable": 0
         },
         "dropped": 0
       }
@@ -805,7 +849,7 @@
         "withheld": null,
         "findings": 82,
         "readable": 82,
-        "dropped": 2,
+        "dropped": 0,
         "postedBefore": 12,
         "postedAfter": 12,
         "goldensBefore": 7,
@@ -933,10 +977,10 @@
       },
       {
         "pr": "https://github.com/microsoft/typescript-go/pull/831",
-        "applied": false,
-        "withheld": "no-readable-arm",
+        "applied": true,
+        "withheld": null,
         "findings": 28,
-        "readable": 27,
+        "readable": 28,
         "dropped": 0,
         "postedBefore": 12,
         "postedAfter": 12,
@@ -949,9 +993,9 @@
         "withheld": null,
         "findings": 8,
         "readable": 8,
-        "dropped": 1,
+        "dropped": 0,
         "postedBefore": 6,
-        "postedAfter": 5,
+        "postedAfter": 6,
         "goldensBefore": 1,
         "goldensAfter": 1
       },
@@ -1129,11 +1173,11 @@
         "withheld": null,
         "findings": 21,
         "readable": 21,
-        "dropped": 4,
+        "dropped": 0,
         "postedBefore": 12,
         "postedAfter": 12,
         "goldensBefore": 7,
-        "goldensAfter": 6
+        "goldensAfter": 7
       },
       {
         "pr": "https://github.com/comfyanonymous/ComfyUI/pull/6033",
@@ -1177,7 +1221,7 @@
         "withheld": null,
         "findings": 13,
         "readable": 13,
-        "dropped": 1,
+        "dropped": 0,
         "postedBefore": 12,
         "postedAfter": 12,
         "goldensBefore": 3,
@@ -1189,9 +1233,9 @@
         "withheld": null,
         "findings": 11,
         "readable": 11,
-        "dropped": 1,
+        "dropped": 0,
         "postedBefore": 11,
-        "postedAfter": 10,
+        "postedAfter": 11,
         "goldensBefore": 5,
         "goldensAfter": 5
       },
@@ -1261,7 +1305,7 @@
         "withheld": null,
         "findings": 19,
         "readable": 19,
-        "dropped": 1,
+        "dropped": 0,
         "postedBefore": 12,
         "postedAfter": 12,
         "goldensBefore": 6,
@@ -1273,9 +1317,9 @@
         "withheld": null,
         "findings": 12,
         "readable": 12,
-        "dropped": 1,
+        "dropped": 0,
         "postedBefore": 11,
-        "postedAfter": 10,
+        "postedAfter": 11,
         "goldensBefore": 0,
         "goldensAfter": 0
       },
@@ -1309,7 +1353,7 @@
         "withheld": null,
         "findings": 48,
         "readable": 48,
-        "dropped": 2,
+        "dropped": 0,
         "postedBefore": 12,
         "postedAfter": 12,
         "goldensBefore": 8,
@@ -1357,11 +1401,11 @@
         "withheld": null,
         "findings": 3,
         "readable": 3,
-        "dropped": 1,
+        "dropped": 0,
         "postedBefore": 3,
-        "postedAfter": 2,
+        "postedAfter": 3,
         "goldensBefore": 1,
-        "goldensAfter": 0
+        "goldensAfter": 1
       },
       {
         "pr": "https://github.com/cline/cline/pull/2347",
@@ -1390,23 +1434,78 @@
     ]
   },
   "removals": {
-    "posted": 10,
-    "truePositives": 4,
-    "share": 0.4
+    "posted": 0,
+    "truePositives": 0,
+    "share": null
   },
   "admitted": {
-    "posted": 6,
+    "posted": 0,
     "truePositives": 0
   },
   "goldens": {
     "before": 101,
-    "after": 98,
-    "lost": [
-      "https://github.com/FreeCAD/FreeCAD/pull/21257\u00005",
-      "https://github.com/cline/cline/pull/4676\u00002",
-      "https://github.com/comfyanonymous/ComfyUI/pull/8446\u00006"
-    ],
+    "after": 101,
+    "lost": [],
     "gained": []
+  },
+  "anchors": {
+    "findings": 591,
+    "readable": 591,
+    "noName": 379,
+    "inRange": 157,
+    "inFile": 42,
+    "inChange": 7,
+    "nowhere": 6,
+    "examples": [
+      {
+        "pr": "https://github.com/FreeCAD/FreeCAD/pull/21257",
+        "path": "src/Mod/Part/App/MeasureClient.cpp",
+        "line": 101,
+        "names": [
+          "Face1"
+        ]
+      },
+      {
+        "pr": "https://github.com/comfyanonymous/ComfyUI/pull/8446",
+        "path": "comfy/weight_adapter/lora.py",
+        "line": 65,
+        "names": [
+          "ConvNd"
+        ]
+      },
+      {
+        "pr": "https://github.com/comfyanonymous/ComfyUI/pull/8446",
+        "path": "comfy/weight_adapter/base.py",
+        "line": 15,
+        "names": [
+          "TypeError"
+        ]
+      },
+      {
+        "pr": "https://github.com/comfyanonymous/ComfyUI/pull/8446",
+        "path": "comfy/weight_adapter/__init__.py",
+        "line": 1,
+        "names": [
+          "get_weight_adapter"
+        ]
+      },
+      {
+        "pr": "https://github.com/lvgl/lvgl/pull/8689",
+        "path": "src/others/xml/lv_xml_widget.h",
+        "line": 19,
+        "names": [
+          "lv_xml_register_widget"
+        ]
+      },
+      {
+        "pr": "https://github.com/cline/cline/pull/4676",
+        "path": "src/core/storage/state.ts",
+        "line": 31,
+        "names": [
+          "openAiModelID"
+        ]
+      }
+    ]
   },
   "goldensDenominator": 452
 }

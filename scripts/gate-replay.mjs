@@ -24,7 +24,7 @@ import { join } from 'node:path';
 import { pathToFileURL } from 'node:url';
 
 import { formatRow, parseCut, TABLE_HEADER } from './lib/operating-point.mjs';
-import { replayGroundingGate, requiredSources } from './lib/gate-replay.mjs';
+import { anchorsOf, replayGroundingGate, requiredSources } from './lib/gate-replay.mjs';
 import { renderGateReplayPage } from './lib/gate-replay-page.mjs';
 import { isTransientStatus, withRetry } from './lib/transient-fetch.mjs';
 
@@ -202,14 +202,23 @@ async function readPullRequest(key, paths, sourcesDir) {
   return record;
 }
 
-/** The gate's view of one pull request, or `undefined` when the replay could not read it at all. */
+/**
+ * The gate's view of one pull request, or `undefined` when the replay could not read it at all.
+ *
+ * **Three facts, and the third is what §150 added**: the files, the diff per path, **the change as one text and the paths
+ * the head revision does not have**. A `null` in `files` is a 404 - a fact about the revision - and it is the input the
+ * unpostable bucket is built from; an `{ error }` is a failed request, and the cache treats the two differently.
+ */
 function sourcesOf(record) {
   if (record === undefined || record.error !== undefined) return undefined;
   const contents = new Map();
+  const absent = new Set();
   for (const [path, text] of Object.entries(record.files ?? {})) {
     if (typeof text === 'string') contents.set(path, text);
+    else if (text === null) absent.add(path);
   }
-  return { contents, diffs: new Map(Object.entries(record.diffByPath ?? {})) };
+  const diffs = new Map(Object.entries(record.diffByPath ?? {}));
+  return { contents, diffs, change: [...diffs.values()].join('\n'), absent };
 }
 
 export async function main(argv, log = console.log) {
@@ -260,21 +269,32 @@ export async function main(argv, log = console.log) {
     }
   }
 
+  const sourcesOfRecord = (key) => sourcesOf(records.get(key));
   const replay = replayGroundingGate({
     findings,
     goldens,
     steps,
-    sourcesFor: (key) => sourcesOf(records.get(key)),
+    sourcesFor: sourcesOfRecord,
     decide: decideGrounding,
     published,
   });
 
   const unread = [...records.values()].filter((record) => record.error !== undefined);
-  const missingFiles = [...records.values()].flatMap((record) =>
-    Object.entries(record.files ?? {})
-      .filter(([, text]) => text === null || (typeof text === 'object' && text !== null))
-      .map(([path]) => ({ pr: record.pr, path })),
-  );
+  // **A 404 and a failed request are two facts and this tool reported them as one.**
+  //
+  // §149.5 read `withoutHeadFile` as *"a path the head revision does not have"* and told a story about a deleted file
+  // disarming a pull request. The record behind it was `{ error: 'fetch failed' }` - **a request that did not complete**,
+  // and the path exists at head: the refetch read 311 bytes of it. **The bucket is now split**, because a number that
+  // mixes "git says no" with "the network said nothing" is a number that cannot be acted on: the first is unpostable, the
+  // second is a gap in the evidence.
+  const absentAtHead = [];
+  const failedReads = [];
+  for (const record of records.values()) {
+    for (const [path, text] of Object.entries(record.files ?? {})) {
+      if (text === null) absentAtHead.push({ pr: record.pr, path });
+      else if (typeof text === 'object' && text !== null) failedReads.push({ pr: record.pr, path });
+    }
+  }
 
   const output = {
     version: 1,
@@ -287,7 +307,8 @@ export async function main(argv, log = console.log) {
       inArtifact: required.size,
       read: required.size - unread.length,
       unread: unread.map((record) => ({ pr: record.pr, why: record.error })),
-      withoutHeadFile: missingFiles,
+      absentAtHead,
+      failedReads,
     },
     // **The revisions the files were read at**, because the numbers above are reproducible only against the same text:
     // a replay that recorded the figures and not the commits would be a claim nobody could re-derive six months later,
@@ -297,6 +318,10 @@ export async function main(argv, log = console.log) {
       .map((record) => ({ pr: record.pr, sha: record.sha }))
       .sort((left, right) => left.pr.localeCompare(right.pr)),
     ...replay,
+    // **The distribution the name check was reading**, reported whether or not anybody acts on it: a comment naming nothing
+    // and a comment naming something in the lines it points at are the two ends, and the count between them is how much of
+    // the corpus the check could ever have decided.
+    anchors: anchorsOf(findings, sourcesOfRecord),
     goldensDenominator: goldens,
   };
 
@@ -318,8 +343,14 @@ export async function main(argv, log = console.log) {
   );
   log(
     `dropped ${String(replay.gate.dropped)} of ${String(replay.gate.findings)} · coverage ` +
-      `${String(replay.gate.coverage.readable)}/${String(replay.gate.coverage.offered)} · withheld ` +
-      `${String(replay.gate.withheldPullRequests)} pull requests · unverifiable quotes ${String(replay.gate.unverifiableQuotes)}`,
+      `${String(replay.gate.coverage.readable)} readable + ${String(replay.gate.coverage.unpostable)} unpostable of ` +
+      `${String(replay.gate.coverage.offered)} · withheld ${String(replay.gate.withheldPullRequests)} pull requests · ` +
+      `unverifiable quotes ${String(replay.gate.unverifiableQuotes)} · names absent from the code ${String(replay.gate.namesNowhere)} (kept)`,
+  );
+  log(
+    `anchors · ${String(output.anchors.noName)} name nothing · ${String(output.anchors.inRange)} in the lines they cite · ` +
+      `${String(output.anchors.inFile)} elsewhere in the file · ${String(output.anchors.inChange)} only in the change · ` +
+      `${String(output.anchors.nowhere)} nowhere`,
   );
   for (const bucket of replay.gate.byReason)
     log(`  ${String(bucket.count).padStart(4)}  ${bucket.reason}`);

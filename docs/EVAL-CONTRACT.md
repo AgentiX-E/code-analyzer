@@ -16182,6 +16182,11 @@ paying.**
 
 ### 149.5 The withholding rule costs a whole pull request, and that is a defect of its own
 
+> **Retracted by §150.6.** The path in this subsection _does_ exist at head; the record behind it was a request that did
+> not complete, and the tool filed a failed read under the same bucket as a 404. What the subsection says about the rule
+> is still true of a genuinely deleted file - and no pull request in this corpus has one. Read §150.6 before quoting any
+> number below.
+
 One of fifty pull requests was withheld: `microsoft/typescript-go#831`, whose finding sits on
 `testdata/baselines/reference/submodule/conformance/importTag16.types`, a path the head revision does not have. Coverage
 27 of 28 made the gate inert for **all 28** findings of that pull request.
@@ -16213,3 +16218,145 @@ when the arithmetic still produces the recorded figure, and non-zero when it mov
 the per-pull-request rows the totals hide. The run's 17 unit cases are
 `tests/unit/scripts/a-grounding-gate-is-priced-on-the-files-it-read.test.ts` and
 `tests/unit/scripts/a-grounding-replay-page-shows-where-the-gate-acted.test.ts`.
+
+## 150. The gate's remaining rule is postability; the name check selected wrong comments at the base rate
+
+**§149 ended with a device that cost 0.0066 F1 and deleted true comments at 40 % of its pool, and with a repair that made
+the figure slightly worse.** The question it left was not _"how much narrower"_ but _"what is left"_. This is the answer,
+and it is three changes, one measurement and one retraction.
+
+**What changed.**
+
+1. **The name check stops deleting and starts counting** (`namesNowhere`). It is not that the check is wrong about the
+   facts; it is that the fact does not separate the comments a reader should skip from the ones they should not.
+2. **The name check reads the whole change**, not the finding's own file's diff, and **excludes literals and the comment's
+   own proposal**: a sibling module is a place a name exists, `false` is syntax, and `NeedSubElement` is what the finding
+   asks for.
+3. **A path the revision does not have is `unpostable` rather than unread.** It leaves the coverage denominator, so one
+   deleted file stops disarming a pull request.
+
+### 150.1 The measurement, on the same artifact and the same cut
+
+Artifact `45057608080`, 591 findings, 452 goldens, cut `drop test, drop path test, budget 12`, reproduced bit-for-bit by
+the replay (`reproduced: true`). **No model was called; the bill is ¥0.**
+
+| rule                       | posted | true | precision | recall |     F1 |
+| -------------------------- | -----: | ---: | --------: | -----: | -----: |
+| as published               |    305 |  101 |    0.3311 | 0.2235 | 0.2668 |
+| \+ the gate as of §150     |    305 |  101 |    0.3311 | 0.2235 | 0.2668 |
+| §149's version of the gate |    301 |   98 |    0.3256 | 0.2168 | 0.2603 |
+
+**One finding of 591 is dropped**, and it is the only one in the corpus the surviving rules can convict: a finding whose
+range is `234-318` in a file of **237 lines** (`gofr-dev/gofr#1617`). It was not posted, so the pool is **empty** - and an
+empty pool is not a perfect pool, it is a device with nothing to be priced on.
+
+**Coverage is 591 of 591**: no absent path, no failed read, no withheld pull request. §149's `withheld: 1` is gone for a
+reason that is not the code (see §150.6).
+
+### 150.2 Why a filter in front of a fixed budget cannot buy precision
+
+**This is the part that generalises, and it explains why §149's eleven deleted false positives did not make the figure
+better.** The cut is `budget 12`: it posts the twelve best-scoring findings of each pull request. **A filter placed before
+it frees a slot, and the slot is filled by the next finding** - which is wrong at the base rate of the corpus, 33.1 %. So
+the only durable effect of deleting a wrong comment upstream of a budget is **the true comments deleted along the way**:
+measured in §149 as −4 posted, −3 true, −0.0066 F1.
+
+The position matters and is not a detail: **after** the budget a filter really would raise precision, because nothing
+refills the slot. That is a different device (a post-hoc suppression list rather than a review gate), it changes what the
+author sees after the fact, and it is **not** what this product ships. The replay prices the upstream position because
+that is the position the gate is wired in.
+
+> **A precision device that runs before a quota is a recall device with a precision story.** If the deletion list and the
+> posting list are both cut from the same ranking, the ranking is the device and the filter is a tax on it.
+
+### 150.3 The name check's pool, measured against the rate it has to beat
+
+Six findings name an identifier that occurs nowhere in the region, the file, the change, or the comment's own suggestion -
+after the widenings. **Five of the six were posted** by the shipped cut, and **two of those five match a golden**:
+
+| arm                                                               | names a symbol absent from the code | of the posted |  true |       pool |  base rate |
+| ----------------------------------------------------------------- | ----------------------------------: | ------------: | ----: | ---------: | ---------: |
+| §149's check (file + own diff)                                    |                                  15 |            10 |     4 |     40.0 % |     33.1 % |
+| **§150's check (file + whole change, no literals, no proposals)** |                               **6** |         **5** | **2** | **40.0 %** | **33.1 %** |
+
+**The widening halved the damage and left the rate where it was.** Forty per cent against a 33 % base rate means the check
+deletes true comments _more often_ than a random deletion of the same size would - and §75.3 asks a precision device for
+a pool of **≤ 4 %**. It is not a weak filter; it is a filter pointing the wrong way, and the honest use of the fact is a
+number in the report.
+
+### 150.4 Where the names live, which is why the check looked informative
+
+591 findings, every file read:
+
+| what the comment names                                | findings |     share |
+| ----------------------------------------------------- | -------: | --------: |
+| nothing at all                                        |      379 |    64.1 % |
+| a symbol on the lines it cites                        |      157 |    26.6 % |
+| a symbol elsewhere in the same file                   |       42 |     7.1 % |
+| a symbol only the change contains                     |        7 |     1.2 % |
+| **a symbol absent from every place the run can look** |    **6** | **1.0 %** |
+
+**Sixty-four per cent of comments name nothing**, so the check has no opinion about two thirds of the corpus before it
+starts. Of the 212 that do name something, 206 are corroborated and 6 are not. **"The reviewer names a symbol it never
+saw" is a real defect class and it is 1 % of the corpus** - which is the number that decides whether a future device can
+pay, and the reason the verdict is kept as a count rather than thrown away.
+
+### 150.5 The device that remains, and what it is for
+
+Three rules delete, and **none of them is a precision device**:
+
+| rule                                         | what it proves                            | on this corpus |
+| -------------------------------------------- | ----------------------------------------- | -------------: |
+| the revision has no such path                | a comment has no line to attach to        |              0 |
+| the range is not a range of that file        | GitHub would reject the comment           |              1 |
+| the quotation is absent from file and change | the comment quotes code that is not there |              0 |
+
+**That is postability, and postability is the capability the leader's gate is usually mistaken for.** A comment GitHub
+refuses to attach, or one anchored past the end of a file, costs a review its credibility in a way a wrong comment does
+not: the first is a broken tool, the second is an opinion. **§150 therefore states the gate's job as "nothing is emitted
+that cannot be attached to this revision"** and prices it at zero F1 movement - which is exactly what a correctness fix
+should cost.
+
+### 150.6 Retraction: §149.5's absent path was a failed read, and the tool said so
+
+§149.5 reported that one of fifty pull requests was withheld because a finding sat on a path the head revision does not
+have. **The path exists.** The record behind it was `{"error": "… threw: fetch failed"}` - a request that did not
+complete - and the refetch read it without incident. Coverage went from 590 of 591 to **591 of 591** and the withheld
+count from 1 to **0**, with no change to the gate.
+
+**The tool was reporting two different facts under one name.** `withoutHeadFile` collected `null` (a 404) _and_ `{error}`
+(a failed request), and §149.5 read the second as the first. It is now split: `absentAtHead` is git saying no, and
+`failedReads` is the network saying nothing - and the second is retried rather than cached, because **a cache that keeps a
+failure turns one bad minute into a permanent hole in the evidence**.
+
+**What survives and what does not.** The S29 device - a deleted path is unpostable and leaves the coverage denominator -
+is right on its own terms, and it is covered by six cases in
+`packages/intelligence/src/__tests__/a-deleted-file-is-unpostable-not-unread.test.ts`. **Its effect on this corpus is
+zero, not 28**: no pull request here deletes a file a finding sits on. **A device tested and not measured is stated as
+tested and not measured**, which is the difference between a plan and a claim.
+
+### 150.7 What is claimed, and what is not
+
+**Claimed.** On 591 findings of a paid run, the gate as of §150 moves F1 by **0.0000**, deletes **1** finding of 591, and
+that finding's range does not exist in its file. The name check's pool is **40 %** at both its narrow and its wide
+reading, against a base rate of **33.1 %** and a bar of **4 %**. Six findings name a symbol absent from everything the run
+holds.
+
+**Not claimed.** That the gate makes a review better in any way this corpus can resolve: the only drop was not posted, so
+the emitted set is identical. That the name check is useless as a _ranking_ signal - it is 6 comments, and a ranker test
+would need the artifact's scores to be re-derived, which is S30's registration and not this iteration's. That a deleted
+path occurs in this corpus at all.
+
+### 150.8 Reproduce
+
+```
+node scripts/gate-replay.mjs <artifact> --sources <cache> --check benchmarks/gate-replay.json
+node scripts/gate-replay.mjs <artifact> --sources <cache> --html docs/gate-replay.html
+```
+
+`--check` re-derives the committed artifact and exits non-zero when a figure moves; `--html` draws the fifty rows, the two
+new counts and the anchor table. Unit cases: `tests/unit/scripts/what-a-comment-names-is-counted-not-deleted.test.ts`
+(4), `tests/unit/scripts/a-grounding-gate-is-priced-on-the-files-it-read.test.ts` (13),
+`tests/unit/scripts/a-grounding-replay-page-shows-where-the-gate-acted.test.ts` (9),
+`packages/intelligence/src/__tests__/a-deleted-file-is-unpostable-not-unread.test.ts` (6),
+`packages/intelligence/src/__tests__/a-comment-about-a-deletion-names-a-symbol-the-head-file-no-longer-has.test.ts` (6).

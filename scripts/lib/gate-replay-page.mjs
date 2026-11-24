@@ -73,7 +73,36 @@ export function renderGateReplayPage(report, { title = 'Grounding gate replay' }
       String(report.gate.withheldPullRequests),
       `of ${String(rows.length)} pull requests`,
     ],
+    // **The two counts §150 added**, and they are tiles rather than footnotes because each one used to be a rule: an
+    // unpostable finding is one the old coverage rule let disarm a whole pull request, and a `names absent` finding is one
+    // the old check deleted. **Both are now visible and neither is deleted.**
+    ['names absent', String(report.gate.namesNowhere ?? 0), 'kept, and named in the sentence'],
+    [
+      'unpostable',
+      String(report.gate.coverage?.unpostable ?? 0),
+      `of ${String(report.gate.coverage?.offered ?? 0)} findings`,
+    ],
   ];
+
+  // **Where the names live**, which is the distribution the retired check was reading: a comment naming nothing and a
+  // comment naming something in the lines it points at are the two ends, and the pool the check could act on is the last
+  // row. Rendered only when the replay measured it, so an older artifact still renders.
+  const anchors = report.anchors;
+  const anchorRows =
+    anchors === undefined
+      ? []
+      : [
+          ['names nothing at all', anchors.noName],
+          ['names a symbol in the lines it cites', anchors.inRange],
+          ['names a symbol elsewhere in the file', anchors.inFile],
+          ['names a symbol only the change contains', anchors.inChange],
+          ['names a symbol absent from all of it', anchors.nowhere],
+        ].map(
+          ([label, count]) =>
+            `      <tr><td class="num">${String(count)}</td><td>${escape(label)}</td>` +
+            `<td class="bar"><span style="width:${String((Number(count) / Math.max(anchors.readable, 1)) * 100)}%"></span>` +
+            `<b>${percent(Number(count) / Math.max(anchors.readable, 1))}</b></td></tr>`,
+        );
 
   const rowHtml = rows.map((row) => {
     const width = Math.max(row.postedBefore, row.postedAfter, 1);
@@ -188,6 +217,18 @@ ${tiles.map(([label, value, note]) => `    <li><b>${escape(value)}</b><span>${es
     <tbody>
 ${reasons.join('\n')}
 ${reasons.length === 0 ? '      <tr><td class="num">0</td><td class="dim">nothing was dropped</td></tr>' : ''}
+    </tbody>
+  </table>
+
+  <h2>Where the names a comment mentions actually live</h2>
+  <p class="lede">The name check asked whether a backticked identifier occurs in the code its comment is about. This is the
+  answer for the whole corpus: <b>${String(anchors?.readable ?? 0)}</b> findings whose file was read, of which
+  <b>${String(anchors?.nowhere ?? 0)}</b> name something that is in none of the places the run could look.</p>
+  <table>
+    <thead><tr><th>findings</th><th>what the comment names</th><th>share</th></tr></thead>
+    <tbody>
+${anchorRows.join('\n')}
+${anchorRows.length === 0 ? '      <tr><td class="num">0</td><td class="dim">this artifact predates the measurement</td></tr>' : ''}
     </tbody>
   </table>
 

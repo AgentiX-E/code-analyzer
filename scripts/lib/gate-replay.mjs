@@ -113,21 +113,31 @@ export function decidePerPullRequest(findings, sourcesFor, decide) {
   let offered = 0;
   let readable = 0;
   let dropped = 0;
+  let unpostable = 0;
   let unverifiableQuotes = 0;
+  let namesNowhere = 0;
   const byReason = new Map();
 
   for (const [key, indices] of groups) {
     const rows = indices.map((at) => findings[at]);
     const sources = sourcesFor(key);
+    // **The change as a whole and the paths it deleted**, because §150 gave both to the gate: a name can live in a sibling
+    // file of the same change, and a deleted path is unpostable rather than unread.
     const decision = decide(
       rows.map(groundableRow),
       sources?.contents ?? new Map(),
       sources?.diffs,
+      {
+        ...(sources?.change === undefined ? {} : { change: sources.change }),
+        ...(sources?.absent === undefined ? {} : { absent: sources.absent }),
+      },
     );
 
     offered += decision.coverage.findings;
     readable += decision.coverage.readable;
+    unpostable += decision.coverage.unpostable ?? 0;
     unverifiableQuotes += decision.report.unverifiableQuotes ?? 0;
+    namesNowhere += decision.report.namesNowhere ?? 0;
 
     if (!decision.applied) {
       // **Everything is kept, and the report says why**, because a withheld gate is inert by construction: a replay that
@@ -176,11 +186,115 @@ export function decidePerPullRequest(findings, sourcesFor, decide) {
   return {
     keptIndices,
     decisions,
-    coverage: { offered, readable },
+    coverage: { offered, readable, unpostable },
     dropped,
     unverifiableQuotes,
+    namesNowhere,
     byReason,
   };
+}
+
+/**
+ * **Where a comment's names live, which is the question the name check was trying to ask.**
+ *
+ * §150 priced the check and found nothing left in it, so what remains is the *distribution* that made it look informative:
+ * how many comments name nothing at all, how many name something in the lines they point at, and how many name something
+ * that only the rest of the file or the rest of the change contains. **A comment whose names are nowhere is the only one
+ * the check could ever have been right about**, and this is the count that says whether that class is common enough to
+ * justify a device.
+ *
+ * **Literals and proposed names are not names**, the same two exclusions the judge now makes, so the two cannot report
+ * different numbers for the same corpus.
+ */
+const NOT_A_NAME = new Set([
+  'true',
+  'false',
+  'null',
+  'undefined',
+  'nil',
+  'None',
+  'True',
+  'False',
+  'NaN',
+  'Infinity',
+  'void',
+  'this',
+  'self',
+  'super',
+  'new',
+  'delete',
+  'typeof',
+  'instanceof',
+  'async',
+  'await',
+  'yield',
+  'return',
+  'break',
+  'continue',
+  'throw',
+  'catch',
+  'else',
+  'finally',
+  'var',
+  'let',
+  'const',
+  'def',
+  'fn',
+  'func',
+  'yes',
+  'no',
+  'on',
+  'off',
+]);
+
+export function anchorsOf(findings, sourcesFor) {
+  const tally = {
+    findings: findings.length,
+    readable: 0,
+    noName: 0,
+    inRange: 0,
+    inFile: 0,
+    inChange: 0,
+    nowhere: 0,
+  };
+  const nowhere = [];
+  for (const row of findings) {
+    const sources = sourcesFor(pullRequestOf(row));
+    const content = sources?.contents?.get(row.path);
+    if (typeof content !== 'string') continue;
+    tally.readable += 1;
+
+    const proposal = String(row?.suggestionCode ?? '');
+    const body = `${String(row?.text ?? row?.content ?? '')} ${proposal}`;
+    const names = [...body.matchAll(/`([A-Za-z_$][\w$]{2,})`/g)]
+      .map((match) => match[1])
+      .filter((name) => !NOT_A_NAME.has(name) && !proposal.includes(name));
+    if (names.length === 0) {
+      tally.noName += 1;
+      continue;
+    }
+
+    const lines = content.split('\n');
+    const region = lines
+      .slice(Math.max(0, Number(row.startLine) - 1), Number(row.endLine))
+      .join('\n');
+    const file = lines.join('\n');
+    const change = sources?.change ?? '';
+    const missing = names.filter(
+      (name) => !region.includes(name) && !file.includes(name) && !change.includes(name),
+    );
+    if (missing.length === 0) {
+      const inRegion = names.some((name) => region.includes(name));
+      if (inRegion) tally.inRange += 1;
+      else if (names.some((name) => file.includes(name))) tally.inFile += 1;
+      else tally.inChange += 1;
+      continue;
+    }
+    tally.nowhere += 1;
+    if (nowhere.length < 20)
+      nowhere.push({ pr: pullRequestOf(row), path: row.path, line: row.startLine, names: missing });
+  }
+  return { ...tally, examples: nowhere };
 }
 
 /** A point as a table row can quote it, rounded once so two readers cannot disagree about the last digit. */
@@ -309,6 +423,7 @@ export function replayGroundingGate({ findings, goldens, steps, sourcesFor, deci
       dropped: decision.dropped,
       coverage: decision.coverage,
       unverifiableQuotes: decision.unverifiableQuotes,
+      namesNowhere: decision.namesNowhere,
       withheldPullRequests: decision.decisions.filter((entry) => !entry.applied).length,
       byReason: [...decision.byReason.entries()]
         .map(([reason, count]) => ({ reason, count }))

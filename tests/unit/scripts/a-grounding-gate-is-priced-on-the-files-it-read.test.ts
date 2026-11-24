@@ -70,9 +70,10 @@ describe('the gate is priced on the removals it made from what was posted', () =
         score: 0.9,
         matchedGoldens: [0],
       }),
-      // **The identifier is not in the file**, which is the one check the gate can decide without a model and the one
-      // §147.5 exists to price: a finding about a name that occurs nowhere is a finding about nothing.
-      row({ pr: PR_A, path: 'a.ts', startLine: 4, text: 'names `zeta`', score: 0.8 }),
+      // **A range the file does not have**, which as of §150 is one of the two checks that still delete: the name check
+      // was demoted to a count because it selected wrong comments at the rate the list already contains them, and the
+      // quotation check needs a quotation the artifact never carried.
+      row({ pr: PR_A, path: 'a.ts', startLine: 40, text: 'names `zeta`', score: 0.8 }),
     ];
     const replay = replayGroundingGate({
       findings,
@@ -163,7 +164,9 @@ describe('the gate is priced on the removals it made from what was posted', () =
 describe('a gate that could only read part of the list deletes nothing from it', () => {
   it('keeps every row of a pull request it could not read, and says how many it withheld', () => {
     const findings = [
-      row({ pr: PR_A, path: 'a.ts', startLine: 4, text: 'names `zeta`', score: 0.9 }),
+      // **The readable pull request is the one with something to drop**: a range outside its four-line file, so the test
+      // distinguishes "the gate acted where it could read" from "the gate acted nowhere".
+      row({ pr: PR_A, path: 'a.ts', startLine: 40, text: 'names `zeta`', score: 0.9 }),
       row({ pr: PR_B, path: 'b.ts', startLine: 4, text: 'names `zeta`', score: 0.9 }),
     ];
     const replay = replayGroundingGate({
@@ -175,9 +178,11 @@ describe('a gate that could only read part of the list deletes nothing from it',
       decide: decideGrounding,
     });
 
+    // **One drop, and it belongs to the pull request the replay could read.** The withheld one contributes nothing:
+    // a gate that deleted from a list it could only half read would be reporting which files were fetched.
     expect(replay.gate.dropped).toBe(1);
     expect(replay.gate.withheldPullRequests).toBe(1);
-    expect(replay.gate.coverage).toEqual({ offered: 2, readable: 1 });
+    expect(replay.gate.coverage).toEqual({ offered: 2, readable: 1, unpostable: 0 });
     // **The withheld pull request keeps its finding**, so the gate's effect is the readable one's alone.
     expect(replay.gated.emitted).toBe(1);
     expect(replay.gate.decisions.map((entry) => [entry.pr, entry.applied])).toEqual([
@@ -216,7 +221,7 @@ describe('the empty cases report a state rather than a number', () => {
     });
 
     expect(replay.baseline).toMatchObject({ emitted: 0, truePositives: 0, f1: 0 });
-    expect(replay.gate.coverage).toEqual({ offered: 0, readable: 0 });
+    expect(replay.gate.coverage).toEqual({ offered: 0, readable: 0, unpostable: 0 });
     expect(replay.reproduced).toBeNull();
   });
 });

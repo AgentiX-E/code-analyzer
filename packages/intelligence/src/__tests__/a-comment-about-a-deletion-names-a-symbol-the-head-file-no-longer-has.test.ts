@@ -1,5 +1,5 @@
 /**
- * **A comment about a deletion has to name something the file no longer contains, and the check convicted it for that.**
+ * **A comment about a deletion has to name something the file no longer contains, and the check counted it as a hallucination.**
  *
  * §149 priced `judgeGrounding` on the published AACR artifact - 591 findings, 452 goldens, the shipped cut applied before
  * and after - and the gate came back a loss: **21 of the posted comments removed, 6 of them true (28.6 % of the pool,
@@ -11,10 +11,12 @@
  * - `NeedSubElement`, a name the comment proposes;
  * - `false` and `null`, literals written in backticks.
  *
- * **So the check's premise was false rather than its threshold.** It asked *"does this name exist in this file"* when the
- * question the evidence supports is *"does this name exist in the code this comment is about"* - and the change is part of
- * that code. The cases below are that claim, one shape at a time, including the shapes that must still be refused: a
- * narrowed check that keeps everything is not a repair.
+ * **§149.3 made the change a place a name can be found and re-priced the device at 5 goldens spent instead of 6.** That
+ * left the question §150 answers: with the change read whole, literals excluded and proposals excluded, **what is left?**
+ * Six findings, two of them carrying a golden - **one in three, against a base rate of one in three among the comments that
+ * were posted.** So the check is kept as **a count**, and these cases hold the widening that makes the count mean
+ * something: a name in the change, a name in a sibling file of the same change, a name the file declares elsewhere, and a
+ * literal, which is syntax rather than a name.
  */
 import { describe, expect, it } from 'vitest';
 
@@ -48,10 +50,10 @@ const finding = (text: string, over: Record<string, unknown> = {}) => ({
 });
 
 describe('the name check reads the change as well as the file', () => {
-  it('keeps a comment that names the symbol the change removed', () => {
+  it('counts a comment that names the symbol the change removed unless it is shown the change', () => {
     const comment = finding('`dispatchCount` is no longer recomputed after the constructor');
 
-    // **The two arms differ in one field**, which is what makes the repair attributable: the same finding, the same file,
+    // **The two arms differ in one field**, which is what makes the widening attributable: the same finding, the same file,
     // the same rule - and the only change is whether the gate was shown the change.
     const withoutChange = judgeGrounding([comment], { contents: new Map([['src/node.ts', HEAD]]) });
     const withChange = judgeGrounding([comment], {
@@ -59,59 +61,79 @@ describe('the name check reads the change as well as the file', () => {
       diffs: new Map([['src/node.ts', DIFF]]),
     });
 
-    expect(withoutChange.ungrounded).toHaveLength(1);
-    expect(withoutChange.ungrounded[0]?.reason).toMatch(/occurs nowhere/u);
-    expect(withChange.ungrounded).toHaveLength(0);
+    expect(withoutChange.namesNowhere).toBe(1);
+    expect(withChange.namesNowhere).toBe(0);
+    // **And neither arm drops it**, which is the difference between a check and a filter.
+    expect(withoutChange.grounded).toHaveLength(1);
     expect(withChange.grounded).toHaveLength(1);
   });
 
-  it('still refuses a name that occurs in neither the file nor the change', () => {
+  it('counts a name that occurs in neither the file nor the change, and still keeps the finding', () => {
     const comment = finding('`bogusSymbol` is not initialised here');
     const report = judgeGrounding([comment], {
       contents: new Map([['src/node.ts', HEAD]]),
       diffs: new Map([['src/node.ts', DIFF]]),
     });
 
-    expect(report.ungrounded).toHaveLength(1);
-    expect(report.grounded).toHaveLength(0);
+    expect(report.namesNowhere).toBe(1);
+    expect(report.grounded).toHaveLength(1);
+    expect(report.ungrounded).toHaveLength(0);
+  });
+
+  it('finds a name a sibling file of the same change declares', () => {
+    // **`tucker_weight_from_conv` was the fourth shape §149 published**: declared in a module the finding is not on. The
+    // per-path diff cannot see it and **the change as a whole can**, which is why the caller may pass the whole patch.
+    const comment = finding('`tucker_weight_from_conv` is now called without the rank argument');
+    const sources = {
+      contents: new Map([['src/node.ts', HEAD]]),
+      diffs: new Map([['src/node.ts', DIFF]]),
+    };
+
+    expect(judgeGrounding([comment], sources).namesNowhere).toBe(1);
+    expect(
+      judgeGrounding([comment], {
+        ...sources,
+        change: `${DIFF}\n+def tucker_weight_from_conv(weight, rank): ...`,
+      }).namesNowhere,
+    ).toBe(0);
   });
 
   it('keeps a name the file declares away from the finding, which the file-only version already did', () => {
-    // **The repair widened one of three places a name may be found and must not quietly replace another.** A comment may
-    // name a symbol declared elsewhere in the same file, and that was true before this change: a version that checked the
-    // change first and forgot the file would be a second defect wearing the first one's fix.
-    // **`helper` is declared at line 5** - outside the region and absent from the change - so it is kept only by the
-    // file fallback, which is the behaviour that has to survive the widening.
+    // **The widening must not quietly replace a place a name may be found**, only add one. `helper` is declared at line 5
+    // - outside the region and absent from the change - so it is found only by the file fallback.
     const comment = finding('`helper` is now called with a negative value');
     const report = judgeGrounding([comment], {
       contents: new Map([['src/node.ts', HEAD]]),
       diffs: new Map([['src/node.ts', DIFF]]),
     });
 
-    expect(report.ungrounded).toHaveLength(0);
+    expect(report.namesNowhere).toBe(0);
   });
 
   it('behaves exactly as before when the caller has no change to show', () => {
     // **A caller reviewing a diff alone passes no `diffs`**, and its behaviour must not move: the read of an absent diff
-    // is an empty string, and an empty string occurs in nothing.
+    // is an empty string, and an empty string contains nothing.
     const kept = judgeGrounding([finding('`count` is doubled')], {
       contents: new Map([['src/node.ts', HEAD]]),
     });
-    const dropped = judgeGrounding([finding('`dispatchCount` is gone')], {
+    const counted = judgeGrounding([finding('`dispatchCount` is gone')], {
       contents: new Map([['src/node.ts', HEAD]]),
     });
 
-    expect(kept.ungrounded).toHaveLength(0);
-    expect(dropped.ungrounded).toHaveLength(1);
+    expect(kept.namesNowhere).toBe(0);
+    expect(counted.namesNowhere).toBe(1);
+    expect(counted.grounded).toHaveLength(1);
   });
 
-  it('reads a literal in backticks the same way, because the change is where it was', () => {
+  it('does not count a literal in backticks, whichever text it appears in', () => {
+    // **The fifth shape, and the one the change cannot repair**: `false` is not a name at all. Before §150 it was counted
+    // as a vanished identifier unless the change happened to contain it, which made the verdict depend on a hunk boundary.
     const comment = finding('The trailing `false` argument was dropped, which changes the default');
     const report = judgeGrounding([comment], {
       contents: new Map([['src/node.ts', HEAD]]),
       diffs: new Map([['src/node.ts', DIFF]]),
     });
 
-    expect(report.ungrounded).toHaveLength(0);
+    expect(report.namesNowhere).toBe(0);
   });
 });

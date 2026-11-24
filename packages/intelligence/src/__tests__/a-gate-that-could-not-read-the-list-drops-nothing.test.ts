@@ -55,7 +55,7 @@ describe('the grounding gate', () => {
     expect(decision.withheld).toBeNull();
     expect(decision.kept).toHaveLength(1);
     expect(decision.kept[0]).toMatchObject({ existingCode: 'return a + b;', filtered: false });
-    expect(decision.coverage).toEqual({ findings: 3, readable: 3 });
+    expect(decision.coverage).toEqual({ findings: 3, readable: 3, unpostable: 0 });
   });
 
   it('drops nothing at all when one finding is on a file the caller could not read', () => {
@@ -66,7 +66,7 @@ describe('the grounding gate', () => {
     // **Identity, not equality**: a withheld gate returns the caller's own list, so a wiring bug that mutated the array
     // would be visible here rather than in a figure three steps later.
     expect(decision.kept).toBe(findings);
-    expect(decision.coverage).toEqual({ findings: 2, readable: 1 });
+    expect(decision.coverage).toEqual({ findings: 2, readable: 1, unpostable: 0 });
   });
 
   it('drops nothing when the run had no file contents at all, which is the default arm', () => {

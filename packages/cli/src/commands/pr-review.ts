@@ -32,6 +32,7 @@ import {
   SHIPPED_EMISSION_STEPS,
   applyEmissionPolicy,
   decideGrounding,
+  deletedPaths,
   describeEmissionSteps,
   describeGrounding,
   mergeReviewers,
@@ -207,10 +208,14 @@ export interface PrReviewReport {
       withheld: 'no-readable-arm' | null;
       findings: number;
       readable: number;
+      /** Findings on a path the revision does not have: unpostable rather than unchecked (§150). */
+      unpostable: number;
       keptRatio: number;
       droppedByReason: Record<string, number>;
       /** Findings whose quotation was a paraphrase with an ellipsis, so the check could not read it verbatim. */
       unverifiableQuotes: number;
+      /** Findings that named a symbol absent from the code they are about, **kept** and counted (§150). */
+      namesNowhere: number;
     };
   };
   decision: SwarmDecision;
@@ -661,6 +666,11 @@ export function groundFindings(
   findings: readonly PrReviewFinding[],
   contents: ReadonlyMap<string, string>,
   diffs: ReadonlyMap<string, string>,
+  /**
+   * **What the change itself says about the paths**, when the caller has the patch: the whole text is a place a name can
+   * be found, and the deleted paths are findings that cannot be posted rather than findings nobody read (§150).
+   */
+  patch?: { change: string; absent: ReadonlySet<string> },
 ): {
   findings: PrReviewFinding[];
   grounding: NonNullable<PrReviewReport['summary']['grounding']>;
@@ -677,18 +687,21 @@ export function groundFindings(
     })),
     contents,
     diffs,
+    patch,
   );
   return {
     findings: decision.applied ? decision.kept.map((entry) => entry.finding) : [...findings],
     grounding: {
-      rule: 'path read, range exists, quotation present, backticked names present',
+      rule: 'path read or gone, range exists, quotation present, backticked names counted',
       sentence: describeGrounding(decision),
       applied: decision.applied,
       withheld: decision.withheld,
       findings: decision.coverage.findings,
       readable: decision.coverage.readable,
+      unpostable: decision.coverage.unpostable,
       keptRatio: decision.report.keptRatio,
       unverifiableQuotes: decision.report.unverifiableQuotes,
+      namesNowhere: decision.report.namesNowhere,
       droppedByReason: countDropReasons(decision.report.ungrounded),
     },
   };
@@ -938,7 +951,13 @@ export async function runPrReview(options: PrReviewOptions): Promise<PrReviewRun
    * rule finding is produced by matching the file's own text, so its snippet is in the file by construction and the
    * gate would be measuring the rule engine's output with the rule engine's input.
    */
-  const grounded = groundFindings(lensFindings, change.contents, splitPatchByPath(change.patch));
+  // **The patch is passed as well as the split**, because two questions the gate asks are answered by the change rather
+  // than by the files: *does this name occur anywhere in what the pull request touches*, and *does the revision still have
+  // this path* (§150). Both are free - the patch is already in memory.
+  const grounded = groundFindings(lensFindings, change.contents, splitPatchByPath(change.patch), {
+    change: change.patch,
+    absent: deletedPaths(change.patch),
+  });
   const grounding = grounded.grounding;
   lensFindings = grounded.findings;
 
