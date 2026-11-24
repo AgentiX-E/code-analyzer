@@ -30,7 +30,12 @@ import {
   pullCommits,
   readGolden,
 } from '../../scripts/lib/martian-harness.mjs';
-import { parseProseReport, reviewRange } from '../../scripts/lib/ocr-arm.mjs';
+import {
+  cloneStats,
+  parseProseReport,
+  releaseClones,
+  reviewRange,
+} from '../../scripts/lib/ocr-arm.mjs';
 
 const SELF_CHECK = process.argv.includes('--self-check');
 
@@ -308,10 +313,16 @@ async function main() {
   mkdirSync(modelDir, { recursive: true });
   const candidateMerge = mergeCandidates(join(modelDir, 'candidates.json'), candidates, TOOL);
 
+  // **What the checkouts cost, on the row that spent it.** The corpus is fifty pull requests over seven repositories,
+  // and a per-repository clone cache is the difference between seven history downloads and fifty - a number a reader
+  // can check against the corpus rather than take on trust.
+  const checkouts = cloneStats();
+  releaseClones();
   write({
     ...base,
     declaredCountAgrees:
       base.prsScored === 0 ? null : base.findings === base.declaredCount ? true : false,
+    checkouts,
     merge,
     candidates: candidateMerge,
     skipped: null,
@@ -319,7 +330,8 @@ async function main() {
   console.log(
     `MARTIAN-COMPETITOR scored ${String(base.prsScored)} of ${String(base.prsAttempted)} attempted PRs · ` +
       `${String(base.findings)} comments · declared ${String(base.declaredCount)} · ` +
-      `tools ${String(merge.toolsBefore)} -> ${String(merge.toolsAfter)} · ~${String(base.tokensUsed)} tokens`,
+      `tools ${String(merge.toolsBefore)} -> ${String(merge.toolsAfter)} · ~${String(base.tokensUsed)} tokens · ` +
+      `clones ${String(checkouts.clones)} (reused ${String(checkouts.reuses)})`,
   );
 }
 

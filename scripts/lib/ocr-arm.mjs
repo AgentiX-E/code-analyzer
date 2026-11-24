@@ -23,7 +23,7 @@
  */
 
 import { execFileSync } from 'node:child_process';
-import { mkdirSync, mkdtempSync, writeFileSync } from 'node:fs';
+import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 
@@ -113,6 +113,76 @@ export function shortRepo(url) {
 }
 
 /**
+ * **A clone is per repository, and the corpus is why that is not a detail.**
+ *
+ * The Martian corpus is fifty pull requests over **seven** repositories: `calcom/cal.com` ten, `grafana/grafana` ten,
+ * `keycloak/keycloak` nine, `getsentry/sentry` six, and three smaller trees. The first version of this runner cloned per
+ * pull request, so a fifty-row arm paid fifty clones of trees that were already on disk - and a blobless clone of
+ * `grafana/grafana` is not free: it is every commit and every tree in that history.
+ *
+ * **So the checkout is cached by `owner/repo`, and the count is published.** A warm directory still costs one `fetch` of
+ * the two commits and one `checkout`, which are the steps that make the tree correct; what is saved is the history
+ * download, which is the step that made a fifty-row arm look like it might not finish inside a job timeout.
+ *
+ * **`checkout -f` rather than `checkout`**: the directory outlives one review now, and a reviewer that leaves a tracked
+ * file modified must not decide what the next review sees. Nothing here writes to the tree, so the flag is a guard
+ * rather than a repair.
+ */
+const clones = new Map();
+const uses = { clones: 0, reuses: 0 };
+
+/** How many clones this process paid for, and how many reviews reused one. */
+export function cloneStats() {
+  return { ...uses, cached: clones.size };
+}
+
+/**
+ * **Removes the cached checkouts.** A GitHub runner throws its disk away; a developer's machine does not, and a corpus
+ * of seven histories left behind after a run is seven histories somebody has to find later.
+ */
+export function releaseClones() {
+  for (const dir of clones.values()) rmSync(dir, { recursive: true, force: true });
+  clones.clear();
+}
+
+/**
+ * **The one place a working tree is produced**, so "which commit is checked out" has a single answer.
+ *
+ * A failure deletes the cached directory rather than leaving it: a directory that failed a checkout is a directory the
+ * next review would trust, and re-cloning is cheaper than trusting it.
+ */
+function checkoutRange({ slug, source, target, cloneTimeoutMs, run }) {
+  let dir = clones.get(slug);
+  if (dir === undefined) {
+    dir = mkdtempSync(join(tmpdir(), 'ocr-'));
+    run(
+      'git',
+      ['clone', '-q', '--filter=blob:none', '--no-checkout', `https://github.com/${slug}.git`, dir],
+      { stdio: 'pipe', timeout: cloneTimeoutMs },
+    );
+    clones.set(slug, dir);
+    uses.clones += 1;
+  } else {
+    uses.reuses += 1;
+  }
+  try {
+    run('git', ['-C', dir, 'fetch', '-q', 'origin', source, target], {
+      stdio: 'pipe',
+      timeout: cloneTimeoutMs / 3,
+    });
+    run('git', ['-C', dir, 'checkout', '-q', '-f', target], {
+      stdio: 'pipe',
+      timeout: cloneTimeoutMs / 3,
+    });
+  } catch (error) {
+    clones.delete(slug);
+    rmSync(dir, { recursive: true, force: true });
+    throw error;
+  }
+  return dir;
+}
+
+/**
  * **One pull request's range, reviewed by the competitor with our model, and the report kept whole.**
  *
  * The checkout is temporary and blobless: a corpus of fifty pull requests would otherwise pay for fifty full clones of
@@ -135,31 +205,21 @@ export function reviewRange({
   outputDir = null,
   timeoutMs = 600_000,
   cloneTimeoutMs = 900_000,
+  // **The commands are injectable, and that is what makes this file testable.** Two reviews of two pull requests in
+  // one repository either share a clone or they do not, and the assertion is a count of `git clone` calls - the one
+  // thing a test of this file could not observe while the runner was a module-level `execFileSync`.
+  run = execFileSync,
 }) {
   const slug = repo ?? shortRepo(url);
   if (!slug) return { ok: false, reason: 'the pull request URL did not name a repository' };
   if (!source || !target) return { ok: false, reason: 'the range needs two commits' };
-  const dir = mkdtempSync(join(tmpdir(), 'ocr-'));
   try {
-    execFileSync(
-      'git',
-      ['clone', '-q', '--filter=blob:none', '--no-checkout', `https://github.com/${slug}.git`, dir],
-      {
-        stdio: 'pipe',
-        timeout: cloneTimeoutMs,
-      },
-    );
-    execFileSync('git', ['-C', dir, 'fetch', '-q', 'origin', source, target], {
-      stdio: 'pipe',
-      timeout: cloneTimeoutMs / 3,
-    });
-    execFileSync('git', ['-C', dir, 'checkout', '-q', target], {
-      stdio: 'pipe',
-      timeout: cloneTimeoutMs / 3,
-    });
+    // **The directory is the working tree the review runs in**, so the cached one is what `cwd` must be: a reused clone
+    // reviews at this pull request's target commit, not at the one the previous caller checked out.
+    const dir = checkoutRange({ slug, source, target, cloneTimeoutMs, run });
     const env = { ...process.env, OCR_LLM_URL: endpoint ?? '', OCR_LLM_TOKEN: key ?? '' };
     if (model) env.OCR_LLM_MODEL = model;
-    const stdout = execFileSync('ocr', ['review', '--from', source, '--to', target], {
+    const stdout = run('ocr', ['review', '--from', source, '--to', target], {
       cwd: dir,
       encoding: 'utf8',
       stdio: 'pipe',
