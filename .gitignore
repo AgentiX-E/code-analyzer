@@ -56,3 +56,6 @@ benchmarks/lca-parts/
 # matched file at the root of the artifact, so the job copies the record into a directory whose name the gate job then
 # names explicitly. Local runs may leave it behind; it is never the record, only a copy of one.
 artifact/
+
+# Core dumps from a native module that dies in the sandbox or on a runner. Never a source file.
+core.*

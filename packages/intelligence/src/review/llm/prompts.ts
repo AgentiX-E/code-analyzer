@@ -14,6 +14,31 @@ import type { ReviewCategory, Severity } from '@code-analyzer/shared';
 // Types
 // ---------------------------------------------------------------------------
 
+/** Who wrote a finding's `snippet`: the model that proposed the review, or the engine reading the diff. */
+export type SnippetSource = 'model' | 'diff';
+
+/**
+ * **The lines a finding is about, as text, together with where they came from.**
+ *
+ * `text` is the pull request's own added lines at the finding's range - **the code a reader can see in the change**,
+ * rather than the code they would have to go and find. `commit` and `extractor` are what makes the anchor re-openable
+ * six months later: without them the claim "this comment is about line 42" has no revision to be true or false at.
+ */
+export interface FindingEvidence {
+  /** Repository-relative path the finding's line numbers belong to. */
+  readonly file: string;
+  /** First line of the range, always `<= endLine`. */
+  readonly startLine: number;
+  /** Last line of the range, always `>= startLine`. */
+  readonly endLine: number;
+  /** The added lines inside the range, in file order, newline-joined. Never empty. */
+  readonly text: string;
+  /** The revision the lines were read at, as the diff named it; `'unspecified'` when the diff names none. */
+  readonly commit: string;
+  /** The module that resolved the text, so a later reader can check the rule rather than trust the number. */
+  readonly extractor: string;
+}
+
 /** Expected JSON output structure for a single review finding. */
 export interface LLMFinding {
   /** The line number where the issue starts (1-based). */
@@ -36,6 +61,27 @@ export interface LLMFinding {
   lane?: string;
   /** Optional code snippet showing the problematic code. */
   snippet?: string;
+  /**
+   * **Who wrote `snippet`: the model, or this engine reading the diff.**
+   *
+   * **The distinction is what keeps one scoring term honest.** `weighFinding` asks whether the review quoted the change
+   * it is about, and a quotation copied out of the diff would answer yes by construction - the term would stop
+   * measuring the reviewer and start measuring the copier. **So a derived snippet is marked, and the scorer reads
+   * model-authored text only** (`review/actionability.ts`).
+   *
+   * Absent means the field was never resolved at all, which is how every finding reached the scorer before
+   * `review/evidence.ts` existed - so an artifact's scores are reproduced to the digit, not approximately.
+   */
+  snippetSource?: SnippetSource;
+  /**
+   * **The lines this finding is about, resolved to their text and to the commit they were read at.**
+   *
+   * **Why this is not `snippet`.** A snippet is what a reader sees and what the model may have written; **evidence is
+   * what an auditor can re-open** - a file, a line range, a commit, and the name of the module that resolved it. The
+   * two travel together and answer different questions, and merging them would have made the audit trail depend on
+   * whether the model happened to quote something.
+   */
+  evidence?: FindingEvidence;
   /**
    * **The file this finding is about, present only when one call covered more than one file.**
    *

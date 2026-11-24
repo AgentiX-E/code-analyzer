@@ -16,6 +16,7 @@ import {
 } from './prompts.js';
 import { REVIEW_DEFAULTS } from './review-defaults.generated.js';
 import { collectDiffFacts, diffHeaderPaths, rankFindings } from '../actionability.js';
+import { EVIDENCE_EXTRACTOR, attachEvidence } from '../evidence.js';
 import { detectIdioms } from '../idiom-rules.js';
 import { reachLine, type ReachNote } from '../index/cross-file.js';
 import { remarkPrompt, selectRemarks, type RemarkSelection } from '../remark-lane.js';
@@ -388,6 +389,15 @@ export interface PullRequestReviewOptions {
   codeContextLimits?: CodeContextLimits;
   /** Characters every file's window may contribute together. Defaults to 12000. */
   maxCodeContextChars?: number;
+  /**
+   * **The revision this pull request is being reviewed at, carried onto every finding's evidence anchor.**
+   *
+   * **A line number without a revision is a claim with no truth value.** Six months later "the comment was about line
+   * 42" can be neither confirmed nor refuted, because line 42 has changed; with the commit it can be re-opened.
+   * Undefined is recorded as `'unspecified'` rather than guessed from the diff, because **a guessed revision is worse
+   * than an absent one** - it would make an audit look complete.
+   */
+  commit?: string;
 }
 
 /**
@@ -1314,8 +1324,16 @@ export class LLMReviewEngine {
     const located = results
       .filter((result) => result.success)
       .flatMap((result) => result.findings.map((finding) => ({ finding, path: diff.filePath })));
+    const facts = collectDiffFacts(patch);
+    // **Anchored before ranking, because the anchor is part of what is ranked.** `attachEvidence` resolves each finding's
+    // own lines to their text and marks the text `'diff'`; `weighFinding` reads model-authored text only, so the order
+    // is the order the model earned and the reader still gets the code inline.
+    const commit = /^0+$/.test(diff.newHash) ? 'unspecified' : diff.newHash;
+    for (const entry of located) {
+      attachEvidence(entry, facts, { commit, extractor: EVIDENCE_EXTRACTOR });
+    }
     const order = new Map<LLMFinding, number>();
-    rankFindings(located, collectDiffFacts(patch)).forEach((entry, at) => {
+    rankFindings(located, facts).forEach((entry, at) => {
       order.set(entry.finding, at);
     });
     return this.convertToReviewComments(diff, results, order);
@@ -1427,10 +1445,16 @@ export class LLMReviewEngine {
       if (!result.success) continue;
       for (const finding of result.findings) survivors.push({ result, finding });
     }
-    const ranked = rankFindings(
-      survivors.map((entry) => ({ finding: entry.finding, path: String(entry.finding.path) })),
-      facts,
-    );
+    const located = survivors.map((entry) => ({
+      finding: entry.finding,
+      path: String(entry.finding.path),
+    }));
+    const origin = {
+      commit: options?.commit ?? 'unspecified',
+      extractor: EVIDENCE_EXTRACTOR,
+    };
+    for (const entry of located) attachEvidence(entry, facts, origin);
+    const ranked = rankFindings(located, facts);
     const kept = new Set(ranked.slice(0, budget).map((entry) => entry.finding));
 
     let capped = 0;
@@ -1896,7 +1920,15 @@ export class LLMReviewEngine {
       if (!result.success) continue;
 
       for (const finding of result.findings) {
-        const rangeText = this.extractRangeText(diff, finding);
+        // **A quotation, or nothing - never a description of the quotation.** This field used to hold
+        // `[Lines 10-12 -> 10-14] modified`, a sentence about the diff's ranges built by `extractRangeText`. Three
+        // consumers read it as code and all three were wrong about it: the grounding judge asks whether the quote
+        // appears at the lines it names and **a range description appears nowhere in any file**, so every comment was
+        // verifiable-looking and unverifiable; the positioner's exact match could never fire; and the reader was shown
+        // a sentence where the code should be. **An empty quotation is not checked; a fabricated one is convicted** -
+        // `grounding-judge.ts` states that a comment with no `existingCode` is passed rather than dropped, and that is
+        // the behaviour this field has to earn. `review/evidence.ts` supplies the text when the change has lines here.
+        const quotation = finding.snippet ?? '';
 
         built.push({
           finding,
@@ -1907,7 +1939,7 @@ export class LLMReviewEngine {
             path: finding.path ?? diff.filePath,
             content: finding.title,
             thinking: `${finding.description}\n\n[Review Lane: ${LANE_LABELS[result.lane]}]`,
-            existingCode: rangeText,
+            existingCode: quotation,
             suggestionCode: finding.suggestion ?? undefined,
             startLine: finding.startLine,
             endLine: finding.endLine,
@@ -2012,15 +2044,6 @@ export class LLMReviewEngine {
   }
 
   /** Extract relevant code text for a specific finding from the diff. */
-  private extractRangeText(diff: GitDiff, finding: LLMFinding): string {
-    const parts: string[] = [];
-    for (const range of diff.ranges) {
-      parts.push(
-        `[Lines ${range.oldStart}-${range.oldEnd} -> ${range.newStart}-${range.newEnd}] ${range.changeType}`,
-      );
-    }
-    return parts.length > 0 ? parts.join('\n') : `Line ${finding.startLine}-${finding.endLine}`;
-  }
 
   /** Normalize severity string to valid Severity type. */
   private normalizeSeverity(raw: string): Severity {

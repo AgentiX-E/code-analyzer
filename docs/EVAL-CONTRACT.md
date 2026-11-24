@@ -15965,3 +15965,131 @@ current sentences do not contain.
 code it is about, which cannot catch a new defect and still moves F1 by 2.3 points. **That is exactly the gate §145 found
 unreplayable**, because `snippet` has no producer. The published number is the price of the defect: **+2.3 F1 points on
 Martian, above the AACR resolution and above every score re-weighting measured in §147.2.**
+
+#### 147.6 Why the architecture was refused, and the four conditions that would reopen it
+
+**The refusal is not a verdict on semantics.** It is four decisions, priced separately, and only one of them is closed.
+
+| decision                                          | what it would buy                                  | the path from it to a board figure                                       | verdict                            |
+| ------------------------------------------------- | -------------------------------------------------- | ------------------------------------------------------------------------ | ---------------------------------- |
+| RDF quad set as the single truth                  | one addressable fact per symbol, edge and document | **none that skips the mediator**: a board scores comment-against-comment | refused                            |
+| stratified Datalog closure + SHACL shapes         | consequences and constraints as data, not code     | none: neither board reads a shape                                        | refused                            |
+| five materialised projections                     | five keyings off one truth                         | indirect, through retrieval and grounding                                | deferred, see the fourth condition |
+| append-only log + PG notify + stateless instances | 4153x incremental, 16403x snapshot                 | **none: latency is not scored by either board**                          | refused                            |
+
+**The decisive objection is that the truth object is a sentence.** Sigma models code facts - `type`, `calls`, `implements`,
+`documentedBy`. Neither board asks about any of them: AACR and Martian ask whether a comment we emitted matches a reference
+comment a maintainer wrote about the same defect. **There is no predicate in that vocabulary for "the reviewer said this
+about line 42".** Sigma is therefore the truth of the _input_, and this repository already has a stronger truth of the
+_output_: an artifact whose every score is rebuilt to the digit before a delta may be printed (§147.2). Adding Sigma creates
+two truths, and Sigma cannot regenerate the artifact, because the text is produced by a model from facts the graph does not
+contain. **`projection = f(Sigma)` holds for the input side and fails on the only surface that is scored** - which is the
+surface the five projections exist to serve.
+
+**The mediator is already identified, and it is not an ontology.** There are exactly two routes from any code-fact layer to
+F1: a claim that can be verified against the code it is about, or context retrieval good enough to surface the defect. The
+first route's break is not missing semantics; it is that `snippet` is read by the score and written by nobody:
+`actionability.ts:300` composes `finding.snippet ?? ''`, while `llm-review-pipeline.ts:98` only falls back to
+`extractSnippet` on the posting-side comment and never writes the text back onto the finding. **The competitor's own
+ablation priced that exact break at +2.3 F1 (§147.5) - 0.023 absolute, which is 1.8 times the corpus resolution
+(0.0126) and 1.4 times the largest score term (0.0159).** A 3 242-line store is not required to pay an invoice that a `DiffRange` carrying line text settles.
+
+**Two costs are properties of this repository, not opinions.** A 3 242-line engine admitted under this contract means at
+least as many lines of test, no mocks, every dimension at 95 %, no `continue-on-error`, and a new persistence failure mode
+in CI - and its own headline gains are latency, which nothing here scores. And SHACL moves rules from code into data, which
+is precisely the move the de-gamification refactor exists to reverse: a rule that lives in a quad asset cannot be asserted by
+vitest, cannot be ablated term by term the way §147.2 ablates the score, and is invisible to the coverage instrument. **An
+unmeasured rule is what this contract was written against.**
+
+**What was taken from the attachment, and it is not nothing:** the normalising vocabulary (21 labels to 11 classes, 15
+relations to 7 predicates, compression 2.1429) is worth having as a mapping table with tests, not as a substrate; the
+`asserted / derived / unknown` tri-state is already how unresolved edges are excluded, and its `ruleId` provenance belongs on
+the finding, where §147.5 says the money is; and the three-state status vocabulary was adopted wholesale (§141.3, §147.1).
+
+**The four conditions that would reopen the question**, each one a measurement rather than an argument:
+
+1. **The mediator pays and the substrate explains it.** After the `snippet` and gate-replay work lands (§147.5, 1.5 d + 0.5 d),
+   if the replayable gate is worth less than 0.005 F1 - below the resolution - while a context-retrieval device reaches more
+   than 0.0126 on a corpus of at least 150 pull requests and a shared graph is the only account of why, then build the graph.
+   **A plain in-process property graph, not RDF.** The quad algebra is not what would have paid.
+2. **Coherence becomes a latency defect.** If cross-repo query p95 breaches its budget and a profile points at the thirteen
+   intelligence modules re-parsing the same files, build the shared derived index - a cache with a dependency DAG, which is
+   the useful third of what the attachment called a truth.
+3. **Rules must change without a deploy.** Then declarative constraints earn their cost, because the alternative is a release
+   per rule. Until then, rule-as-code is what makes §147.2 possible.
+4. **Sigma can regenerate the artifact.** If the sentence a pull request receives can be derived deterministically from code
+   facts alone, the premise holds and the whole design reopens. **This is the condition to watch, because it is the one that
+   would also mean the product no longer needs a model.**
+
+## 148. The quotation was a description of where the code is
+
+**§145 found a gate that could not be replayed because `snippet` had no producer. Following that thread found a worse
+defect one layer up: the comment's quotation was never code.**
+
+`convertToReviewComments` filled a comment's `existingCode` from `extractRangeText`, whose entire body was:
+
+```text
+`[Lines ${range.oldStart}-${range.oldEnd} -> ${range.newStart}-${range.newEnd}] ${range.changeType}`
+```
+
+**No file in any repository contains that string**, so three consumers were wrong about the same field at once.
+
+| consumer                | what it asked                                                     | what the placeholder answered                                                                                                                  |
+| ----------------------- | ----------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------- |
+| `grounding-judge.ts`    | does this quotation appear at the lines it names                  | **never** - and its rule is that a comment which offers a quotation must have it verified, so the placeholder is a systematic false conviction |
+| `comment-positioner.ts` | does `existingCode` match the file at the claimed lines (`exact`) | never; then heuristically, `[Lines 10-12 -> 10-14] modified` is searched for in the source, which costs a scan and finds nothing               |
+| the reader              | what code is this comment about                                   | a sentence about line numbers where the code should be                                                                                         |
+
+**Why no test caught it.** Every existing test constructed its own `existingCode` and asserted what it put there. **An
+unasserted string is an unmeasured behaviour**, and this one was on the path from the engine to the comment a reviewer
+reads. The `grep` that would have found it is one line: `existingCode:` had exactly one producer in the package, and its
+value was a template literal with no source text in it.
+
+### 148.1 The repair, and the trap it had to avoid
+
+`review/evidence.ts` resolves a finding's own lines to the text the pull request added there, and the comment quotes
+that. **The obvious version of this fix would have made a scoring term circular**: `weighFinding` asks whether the review
+quoted the change, and a quotation copied out of the diff answers yes by construction - so every finding would have
+scored as quoting the change and the term would have stopped measuring the reviewer.
+
+**The trap is closed by marking the source rather than by trusting the field.** `LLMFinding.snippetSource` is `'diff'`
+when this engine wrote the snippet and `'model'` when the model did, and `weighFinding` reads model-authored text only.
+An unmarked snippet - which is every snippet that existed before the distinction - reads exactly as it always did, so
+**every published score is reproduced to the digit rather than approximately**. That is asserted as an equality on the
+whole `ActionabilityScore`, features included, in
+`tests/unit/review/a-snippet-from-the-diff-does-not-move-a-score.test.ts`.
+
+### 148.2 What the anchor is, and the four refusals it makes
+
+`FindingEvidence` is `{ file, startLine, endLine, text, commit, extractor }`: **the lines, the revision they were read at,
+and the name of the rule that resolved them.** A line number without a revision is a claim with no truth value - six
+months later "the comment was about line 42" can be neither confirmed nor refuted.
+
+| refusal                                                | why                                                                                                                                                         |
+| ------------------------------------------------------ | ----------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| a fractional, zero, negative, `NaN` or `Infinity` line | the ingest path already counts these as `invalidLine`; a resolver that repaired them would make two components disagree about how many findings were broken |
+| a range whose lines the change did not add             | quoting a context line lets a comment claim to be about a change it never touched; **the empty answer is the honest one**                                   |
+| an unknown path                                        | the diff does not contain that file, so there is nothing to quote                                                                                           |
+| guessing a revision from the diff                      | **a guessed revision is worse than an absent one** - it makes an audit look complete                                                                        |
+
+The range is **normalised, not rejected**, because `weighFinding` already normalises an inverted range before asking
+whether it is grounded, and a resolver that answered a different question than the grounding check would make the two
+disagree on exactly the malformed findings.
+
+### 148.3 What is claimed, and what is deferred to a measurement
+
+**Claimed:** a comment now quotes the code it is about when the change added those lines, the quotation is traceable to a
+file, a range, a revision and a rule, and the ranking is unchanged (proved by equality, 30 unit cases at
+100 % statement, branch, function and line coverage of the new module, plus 4 end-to-end cases driving the public entry
+point with a deterministic provider).
+
+**Not claimed:** that this raises F1. **The size of the grounding win is exactly what the replay in §147.5 is for**, and
+the rule stands - a delta smaller than the corpus resolution (0.0126 F1 on the 50-pull-request slice, 4.8 true
+positives) is recorded as indistinguishable rather than reported as progress. What can be said without a replay is the
+deductive part: **the placeholder could never be verified, so the gate's verdict on every comment that offered one was
+decided by a string that exists in no file.**
+
+**One consequence worth naming.** Removing the placeholder means a finding whose lines the change did not add now
+carries **no** quotation rather than a fabricated one. `grounding-judge.ts` keeps a comment that offers no quotation and
+drops one whose quotation fails, so this converts a class of false convictions into unchecked comments - which is the
+direction the device was designed to fail in.
