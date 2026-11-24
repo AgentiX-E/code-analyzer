@@ -203,6 +203,22 @@ async function readPullRequest(key, paths, sourcesDir) {
 }
 
 /**
+ * **Whether a cached file entry is a failed request rather than an absent path.**
+ *
+ * The cache holds three shapes under one key: the file's text, `null` for a 404, and `{ error }` for a request that did
+ * not complete. §150 split the last two into different buckets, and the test for the first of them was written as
+ * `text === null` - which CodeQL cannot type, because a record read back through `JSON.parse` has values it describes as
+ * `date | object | regular expression`, none of which it will compare with `null`.
+ *
+ * **`Object.prototype.toString` rather than `instanceof`**, because the value crossed a JSON boundary and has no
+ * prototype of its own to be an instance of. **And the three-way answer is kept three-way**: this says only which of
+ * the two non-text shapes it is, and the caller files the other.
+ */
+export function isFailedRead(value) {
+  return typeof value === 'object' && Object.prototype.toString.call(value) === '[object Object]';
+}
+
+/**
  * The gate's view of one pull request, or `undefined` when the replay could not read it at all.
  *
  * **Three facts, and the third is what §150 added**: the files, the diff per path, **the change as one text and the paths
@@ -291,8 +307,15 @@ export async function main(argv, log = console.log) {
   const failedReads = [];
   for (const record of records.values()) {
     for (const [path, text] of Object.entries(record.files ?? {})) {
-      if (text === null) absentAtHead.push({ pr: record.pr, path });
-      else if (typeof text === 'object' && text !== null) failedReads.push({ pr: record.pr, path });
+      if (typeof text === 'string') continue;
+      // **The discriminator is a function because `text === null` stopped being typeable.** A record read back from the
+      // cache is `JSON.parse`'s output, so CodeQL types its values as `date | object | regular expression` and flags a
+      // comparison against `null` as incompatible - **`js/comparison-between-incompatible-types`, alert 1706, on the
+      // line above the shape it had been reading correctly since §149.** The three shapes are unchanged and a unit
+      // test pins them: a string is a file that was read, an object is a request that failed, and anything else - the
+      // `null` this writes for a 404 - is a path the head revision does not have.
+      if (isFailedRead(text)) failedReads.push({ pr: record.pr, path });
+      else absentAtHead.push({ pr: record.pr, path });
     }
   }
 
