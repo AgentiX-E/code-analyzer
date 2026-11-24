@@ -35,7 +35,9 @@ const report = (over: Record<string, unknown> = {}) => ({
   goldens: { lost: ['https://github.com/owner/alpha/pull/1\u00000'], gained: [] },
   gate: {
     withheldPullRequests: 1,
-    byReason: [{ reason: 'the finding names an identifier that occurs nowhere in the file', count: 1 }],
+    byReason: [
+      { reason: 'the finding names an identifier that occurs nowhere in the file', count: 1 },
+    ],
     perPullRequest: [
       row(),
       row({
@@ -115,6 +117,8 @@ describe('a report with nothing behind it is refused rather than drawn', () => {
   });
 
   it('throws when the rows are absent rather than empty', () => {
-    expect(() => renderGateReplayPage({ ...report(), gate: {} })).toThrow(/no per-pull-request rows/u);
+    expect(() => renderGateReplayPage({ ...report(), gate: {} })).toThrow(
+      /no per-pull-request rows/u,
+    );
   });
 });

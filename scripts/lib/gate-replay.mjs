@@ -90,7 +90,9 @@ function indicesByPullRequest(findings) {
  * prose are two different questions, and a key that collapsed them would credit one row's survival to the other.
  */
 function shapeOf(row) {
-  return [row.path, row.startLine, row.endLine, row.existingCode ?? '', row.content ?? ''].join('\u0000');
+  return [row.path, row.startLine, row.endLine, row.existingCode ?? '', row.content ?? ''].join(
+    '\u0000',
+  );
 }
 
 /**

@@ -199,7 +199,9 @@ function namesOccurInRegion(comment: GroundableFinding, lines: string[], diff?: 
   // **And the change**, because a removed line is a place a name exists: `?? false` alone would make a comment about a
   // deletion unverifiable by construction, which is the failure §149 measured at 28.6 % true removals.
   const change = diff ?? '';
-  return named.every((name) => region.includes(name) || file.includes(name) || change.includes(name));
+  return named.every(
+    (name) => region.includes(name) || file.includes(name) || change.includes(name),
+  );
 }
 
 /**
@@ -255,7 +257,7 @@ export function judgeGrounding<T extends GroundableFinding>(
         comment,
         grounded: false,
         reason:
-        'the finding names an identifier that occurs nowhere in the file it is about, nor in the change it is about',
+          'the finding names an identifier that occurs nowhere in the file it is about, nor in the change it is about',
       });
       continue;
     }

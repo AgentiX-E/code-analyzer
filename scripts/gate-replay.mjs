@@ -112,7 +112,11 @@ async function getText(url, accept) {
             (remaining === null ? '' : ` with ${remaining} requests left in the hour`),
         };
       } catch (error) {
-        return { ok: false, retryable: true, reason: `${url} threw: ${String(error?.message ?? error)}` };
+        return {
+          ok: false,
+          retryable: true,
+          reason: `${url} threw: ${String(error?.message ?? error)}`,
+        };
       }
     },
     { attempts: 4 },
@@ -184,7 +188,16 @@ async function readPullRequest(key, paths, sourcesDir) {
     );
   }
 
-  const record = { pr: key, owner, repo, number, sha, diffByPath, files, fetchedAt: new Date().toISOString() };
+  const record = {
+    pr: key,
+    owner,
+    repo,
+    number,
+    sha,
+    diffByPath,
+    files,
+    fetchedAt: new Date().toISOString(),
+  };
   writeFileSync(file, `${JSON.stringify(record)}\n`);
   return record;
 }
@@ -203,7 +216,8 @@ export async function main(argv, log = console.log) {
   // **Imported here rather than at the top**, so this module's pure helpers can be read by a test without a build: the
   // gate is compiled TypeScript and the splitter is not, and a file that needed `pnpm build` to import its own string
   // functions would be untestable in the order the checks actually run.
-  const { decideGrounding } = await import('../packages/intelligence/dist/review/grounding-gate.js');
+  const { decideGrounding } =
+    await import('../packages/intelligence/dist/review/grounding-gate.js');
 
   const artifactPath = argv.find((argument) => !argument.startsWith('--'));
   if (artifactPath === undefined) usage('no artifact given');
@@ -235,7 +249,9 @@ export async function main(argv, log = console.log) {
       const record = await readPullRequest(key, paths, sourcesDir);
       records.set(key, record);
       done += 1;
-      log(`fetched ${String(done)}/${String(required.size)} ${key}${record.error === undefined ? '' : ` (${record.error})`}`);
+      log(
+        `fetched ${String(done)}/${String(required.size)} ${key}${record.error === undefined ? '' : ` (${record.error})`}`,
+      );
     }
   } else {
     for (const key of required.keys()) {
@@ -285,7 +301,9 @@ export async function main(argv, log = console.log) {
   };
 
   log('');
-  log(`grounding gate · ${String(findings.length)} findings · ${String(goldens)} goldens · ${output.cut.label}`);
+  log(
+    `grounding gate · ${String(findings.length)} findings · ${String(goldens)} goldens · ${output.cut.label}`,
+  );
   log(TABLE_HEADER);
   log(formatRow('as published', replay.baseline));
   log(formatRow('+ grounding gate', replay.gated));
@@ -303,7 +321,8 @@ export async function main(argv, log = console.log) {
       `${String(replay.gate.coverage.readable)}/${String(replay.gate.coverage.offered)} · withheld ` +
       `${String(replay.gate.withheldPullRequests)} pull requests · unverifiable quotes ${String(replay.gate.unverifiableQuotes)}`,
   );
-  for (const bucket of replay.gate.byReason) log(`  ${String(bucket.count).padStart(4)}  ${bucket.reason}`);
+  for (const bucket of replay.gate.byReason)
+    log(`  ${String(bucket.count).padStart(4)}  ${bucket.reason}`);
   if (replay.goldens.lost.length > 0) log(`  lost goldens: ${replay.goldens.lost.join(', ')}`);
 
   const out = flag('out');
@@ -335,7 +354,10 @@ export async function main(argv, log = console.log) {
   return 0;
 }
 
-if (process.argv[1] !== undefined && import.meta.url === pathToFileURL(String(process.argv[1])).href) {
+if (
+  process.argv[1] !== undefined &&
+  import.meta.url === pathToFileURL(String(process.argv[1])).href
+) {
   const code = await main(process.argv.slice(2));
   process.exitCode = code;
 }
