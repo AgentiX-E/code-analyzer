@@ -15991,8 +15991,8 @@ F1: a claim that can be verified against the code it is about, or context retrie
 first route's break is not missing semantics; it is that `snippet` is read by the score and written by nobody:
 `actionability.ts:300` composes `finding.snippet ?? ''`, while `llm-review-pipeline.ts:98` only falls back to
 `extractSnippet` on the posting-side comment and never writes the text back onto the finding. **The competitor's own
-ablation priced that exact break at +2.3 F1 (§147.5), which is 18 times the corpus resolution and 4.6 times the largest score
-term.** A 3 242-line store is not required to pay an invoice that a `DiffRange` carrying line text settles.
+ablation priced that exact break at +2.3 F1 (§147.5) - 0.023 absolute, which is 1.8 times the corpus resolution
+(0.0126) and 1.4 times the largest score term (0.0159).** A 3 242-line store is not required to pay an invoice that a `DiffRange` carrying line text settles.
 
 **Two costs are properties of this repository, not opinions.** A 3 242-line engine admitted under this contract means at
 least as many lines of test, no mocks, every dimension at 95 %, no `continue-on-error`, and a new persistence failure mode
