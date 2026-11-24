@@ -905,8 +905,13 @@ jobs:
       # **The condition is the two proofs, not `success()`.** A run whose artifact replays to its own figure and whose
       # detail layers add up has produced something worth keeping, and whether a *derived* table was written after that
       # is a question about the table. Reading `success()` here made the table able to delete the run.
+      #
+      # **And `always()` is not decoration on that condition.** A step whose `if` contains no status function is
+      # implicitly `success() && …`, so a red step *after* the two proofs still skipped the upload - which is exactly what
+      # happened on run 45411086146: the review, both proofs and the competitor comparison all succeeded, the derived
+      # `martian_profile` table failed, and **the artifact that the run had already earned was never published**. §154.
       - name: Upload the figure
-        if: steps.replay.outcome == 'success' && steps.audit.outcome == 'success'
+        if: always() && steps.replay.outcome == 'success' && steps.audit.outcome == 'success'
         uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7
         with:
           # **Every matrix key is in the name**, because a pair of artifacts whose names differ in one segment is a pair
