@@ -843,6 +843,25 @@ jobs:
           node scripts/aacr-like-for-like.mjs benchmarks/aacr-bench.json benchmarks/aacr/competitor-baseline.json --volume --json > benchmarks/aacr-like-for-like.json
           node -e "const c=require('./benchmarks/aacr-like-for-like.json'); const p=(s)=>[String(s.emitted).padStart(4), s.protocol.f1.toFixed(4), s.corpus.f1.toFixed(4)].join(' '); console.log('rows', c.pullRequests, 'goldens', c.goldens); console.log('  ours      ', p(c.sides.ours)); console.log('  competitor', p(c.sides.theirs)); console.log('  at their volume', c.volume[0].total, c.volume[0].side.protocol.f1.toFixed(4))"
 
+      # **What is left for a selector, printed beside the comparison and not instead of it.**
+      #
+      # Iteration 146 asked the emission five questions about its own wasted mass - is it redundant, is it lexically
+      # duplicated, does the pull request say anything, does the claim name the change, is another ordering better - and
+      # every answer was no, with the shipped score still the best ranker among everything the artifact can see. So the
+      # useful figure stopped being a ranking and became a **ceiling**: how many reference comments name a code object no
+      # sentence of this run names. A comment in that set cannot be bought by a cut, a budget, a quota or a ranker; it
+      # needs a sentence nobody wrote.
+      #
+      # **It is computed here rather than in a report** so that every dispatch republishes it against its own emission,
+      # and so that the next device is aimed at the part of the answer key that is reachable at all.
+      - name: Say how much of the answer key a better selector could still reach
+        id: selection_ceiling
+        run: |
+          set -e
+          corpus="${{ inputs.dataset == 'martian' && format('{0}/benchmarks/martian/positive_samples.json', github.workspace) || '/tmp/aacr-bench/dataset/v1/positive_samples.json' }}"
+          node scripts/aacr-selection-ceiling.mjs benchmarks/aacr-bench.json "$corpus" --json > benchmarks/aacr-selection-ceiling.json
+          node -e "const c=require('./benchmarks/aacr-selection-ceiling.json'); console.log('reachable', (c.ceiling*100).toFixed(1)+'%', 'covered', c.covered, 'reachable-uncovered', c.reachableWithoutCoverage, 'unreachable', c.unreachable, 'unmeasurable', c.unmeasurable, 'of', c.referenceComments)"
+
       # **The ensemble dimension is in the name, and the first run of the merge is why.** That run published
       # `...-adjudicate-off-idioms-off-agent-on-ensemble-off-remarks-off`, the name an agent-only run uses - **two
       # devices, one artifact name**, and a paired comparison matching on names would have compared an arm with itself.
@@ -870,6 +889,7 @@ jobs:
             benchmarks/aacr-bench.json
             benchmarks/aacr-file-cut-table.json
             benchmarks/aacr-like-for-like.json
+            benchmarks/aacr-selection-ceiling.json
             benchmarks/aacr/competitor-baseline.json
             benchmarks/runnable-competitors-outputs/
           if-no-files-found: warn
