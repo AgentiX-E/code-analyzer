@@ -365,7 +365,8 @@ jobs:
       - name: Enforce that the two-arm page is what the artifacts say
         run: |
           set -e
-          npm run -s docs:competitor-board
+          # **Regenerate, then refuse a difference.** `--check` would be the same assertion one step earlier and would
+          # report a stale page without saying which field moved; the diff says which field moved.
           node scripts/competitor-board.mjs
           git diff --exit-code -- docs/competitor-board.html benchmarks/competitor-board.json
 
