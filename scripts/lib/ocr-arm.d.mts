@@ -43,9 +43,29 @@ export interface RangeReview {
   readonly signal?: string | null;
 }
 
+/** How many clones this process paid for, how many reviews reused one, and how many are cached. */
+export interface CloneStats {
+  readonly clones: number;
+  readonly reuses: number;
+  readonly cached: number;
+}
+
+/** The clone counters, so a corpus of fifty pull requests over seven repositories can say what it cost. */
+export function cloneStats(): CloneStats;
+
+/** Removes the cached checkouts; a runner throws its disk away and a developer's machine does not. */
+export function releaseClones(): void;
+
+/** The command runner, shaped like `execFileSync` so a test can count the calls without a network. */
+export type CommandRunner = (
+  file: string,
+  args: readonly string[],
+  options: Record<string, unknown>,
+) => string;
+
 /**
- * Reviews a two-commit range with the competitor's CLI, using the endpoint and key given; the checkout is temporary and
- * blobless, and every fallible step returns a reason rather than throwing.
+ * Reviews a two-commit range with the competitor's CLI, using the endpoint and key given; the checkout is blobless and
+ * cached per repository, and every fallible step returns a reason rather than throwing.
  */
 export function reviewRange(options: {
   url?: string;
@@ -58,4 +78,5 @@ export function reviewRange(options: {
   outputDir?: string | null;
   timeoutMs?: number;
   cloneTimeoutMs?: number;
+  run?: CommandRunner;
 }): RangeReview;

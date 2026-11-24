@@ -2497,7 +2497,19 @@ async function main() {
   const falsifierDropsSeen = [];
   /** How many of them the artifact keeps: enough to read the pattern, few enough to open. */
   const FALSIFIER_DROP_SAMPLES = 80;
-  const engine = new LLMReviewEngine(providerFor(), {
+  /**
+   * **The reviewer, kept because the artifact has to name it.**
+   *
+   * `configuration` recorded the judge's model and the provider family and **not the model that wrote the review** - so
+   * the two-arm page this repository publishes rendered `NOT_RECORDED` for our own rows while the competitor's row
+   * carried `deepseek-chat` (§151.6). **A row that cannot name its reviewer's model cannot support the claim that a
+   * comparison holds the model constant**, which is the whole reason the competitor arm exists.
+   *
+   * The provider names itself: `name` is the vendor and `model` is the identifier it will send. **No call is made here**,
+   * so recording it costs nothing and is available even to a run that spends its ceiling early.
+   */
+  const reviewer = providerFor();
+  const engine = new LLMReviewEngine(reviewer, {
     dedupThreshold: DEDUP_THRESHOLD,
     languageChecklist: CHECKLIST,
     promptOrder: PROMPT_ORDER,
@@ -5366,6 +5378,10 @@ async function main() {
     configuration: {
       languageChecklist: CHECKLIST,
       maxPullRequests: MAX_PRS,
+      // **The reviewer, named the way its provider names itself**, beside the judge and not merged with it: a review
+      // written by one model and scored by another is exactly what every figure here is, and an artifact that carried
+      // one model field could not tell that apart from a run where they were the same call.
+      reviewer: { provider: PROVIDER, name: reviewer.name, model: reviewer.model },
       judgeModel: MODEL,
       judgeEndpoint: BASE,
       dedupThreshold: DEDUP_THRESHOLD,

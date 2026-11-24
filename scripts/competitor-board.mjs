@@ -53,10 +53,14 @@ function armOf(artifact, { competitor }) {
     tool: competitor ? String(figure['tool'] ?? 'open-code-review') : 'agentix-e',
     // **The model is read from the row and never inferred from the run's environment**: an artifact that did not record
     // it cannot support the sentence this page exists to draw.
-    // **Our arm's model is recorded on the run, not on the row.** `configuration.provider` names the family the lanes
-    // ran on; if the artifact predates that field the cell says NOT_RECORDED rather than borrowing the judge's model,
-    // because the judge's model and the reviewer's model are two facts and only one of them was ever the same call.
-    model: competitor ? (figure['model'] ?? null) : (artifact?.['configuration']?.provider ?? null),
+    // **Our arm's model is recorded on the run, not on the row.** `configuration.reviewer.model` is what the provider
+    // says it will send, and it is a separate fact from the judge's model: a review written by one model and scored by
+    // another is what every figure here is, and a cell that borrowed the judge's name would answer a question nobody
+    // asked. **When the artifact predates that field the cell says NOT_RECORDED** rather than inferring it from the
+    // family - `deepseek` is not a model, it is a vendor.
+    model: competitor
+      ? (figure['model'] ?? null)
+      : (artifact?.['configuration']?.reviewer?.model ?? null),
     endpoint: competitor ? (figure['endpoint'] ?? null) : null,
     precision: round(figure['precision']),
     recall: round(figure['recall']),
