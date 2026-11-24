@@ -792,21 +792,6 @@ jobs:
           set -e
           node scripts/aacr-paired-replay.mjs --check
 
-      # **The score is not the only figure an artifact publishes any more.** Iteration 124 added the full attribution
-      # list, the per-category decomposition of the true positives, and the goldens neither reviewer found - and **a
-      # breakdown computed by a second rule can disagree with the figure it decomposes while both numbers are plausible**.
-      # The first draft of the category table did exactly that: it counted findings that matched a golden and reported 73
-      # where the run scored 39, because one golden mentioned by three lanes is one true positive and three matches.
-      #
-      # **It fails here rather than in `compare`** for the same reason the step above does: a run whose own detail layers
-      # do not add up must fail where it produced them, before the artifact is published and before two arms are compared
-      # on it. **No `|| true`**: a refusal is the output.
-      - name: Prove the artifact's detail layers add up
-        id: audit
-        run: |
-          set -e
-          node scripts/aacr-bench-audit.mjs --check
-
       # **The corpus's arithmetic charges every comment, so a gate is worth its price here and zero under the pairwise
       # instrument** - and until this step existed the second instrument's per-comment verdicts were summed and thrown
       # away, which priced every remaining device at one more dispatch. The table is written beside the artifact rather
@@ -910,8 +895,16 @@ jobs:
       # implicitly `success() && …`, so a red step *after* the two proofs still skipped the upload - which is exactly what
       # happened on run 45411086146: the review, both proofs and the competitor comparison all succeeded, the derived
       # `martian_profile` table failed, and **the artifact that the run had already earned was never published**. §154.
+      #
+      # **The upload no longer asks the audit for permission, and the audit now runs after it.** §155 read the condition
+      # as "the two proofs", which was right about *cancelled* runs and wrong about *failed claims*: run 45449046424
+      # reviewed forty-nine pull requests, scored the competitor on the same corpus, and failed the detail-layer check by
+      # one row - and the condition took the artifact with it, so the only record of a paid reading was the log. **An
+      # audit is a verdict on evidence, and a verdict that destroys its evidence leaves nothing to be judged.** The order
+      # below is therefore the statement: the figure lands first, the verdict is pronounced on it afterwards, and a red
+      # job still means the claim failed.
       - name: Upload the figure
-        if: always() && steps.replay.outcome == 'success' && steps.audit.outcome == 'success'
+        if: always() && steps.replay.outcome == 'success'
         uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7
         with:
           # **Every matrix key is in the name**, because a pair of artifacts whose names differ in one segment is a pair
@@ -932,6 +925,28 @@ jobs:
             benchmarks/runnable-competitors-outputs/
           if-no-files-found: warn
           retention-days: 90
+
+      # **The score is not the only figure an artifact publishes any more.** Iteration 124 added the full attribution
+      # list, the per-category decomposition of the true positives, and the goldens neither reviewer found - and **a
+      # breakdown computed by a second rule can disagree with the figure it decomposes while both numbers are plausible**.
+      # The first draft of the category table did exactly that: it counted findings that matched a golden and reported 73
+      # where the run scored 39, because one golden mentioned by three lanes is one true positive and three matches.
+      #
+      # **It fails here rather than in `compare`** for the same reason the step above does: a run whose own detail layers
+      # do not add up must fail where it produced them, before two arms are compared on it. **No `|| true`**: a refusal is
+      # the output.
+      #
+      # **And it runs after the upload, which is the repair of run 45449046424.** The check found a real inconsistency
+      # there - `50 accounted for of 49 scored` - and the run was red for it; what it must not also do is withhold the
+      # artifact, because then the only surviving description of a ¥8 reading is a log line. **A gate decides whether a
+      # claim may be believed, not whether the evidence may be read**, and the `if` is `always()` so that a *derived* table
+      # failing above cannot suppress the verdict either.
+      - name: Prove the artifact's detail layers add up
+        id: audit
+        if: always() && steps.replay.outcome == 'success'
+        run: |
+          set -e
+          node scripts/aacr-bench-audit.mjs --check
 
   # **The comparison, computed where no model can be called.**
   #

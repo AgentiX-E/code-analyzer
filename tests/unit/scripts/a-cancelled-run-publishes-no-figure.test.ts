@@ -61,12 +61,12 @@ describe('the figure a run publishes', () => {
     // suppressed the upload. That is not hypothetical: run 45411086146 reviewed fifty pull requests, passed both proofs,
     // scored the competitor, failed `martian_profile`, and published nothing (§154.4).
     //
-    // **What keeps a cancelled run out is the two proofs, not the absence of `always()`.** Both sit on steps that can
-    // only have run after the review wrote a file, so a run that died mid-review fails the condition twice over - and the
-    // assertion below is on the pair, because `always()` alone would publish a stale tracked file, which is the defect
-    // this case was written for.
+    // **What keeps a cancelled run out is the replay proof, not the absence of `always()`.** It sits on a step that can
+    // only have run after the review wrote a file, so a run that died mid-review fails the condition - and the assertion
+    // below is on that proof, because `always()` alone would publish a stale tracked file, which is the defect this case
+    // was written for.
     expect(head).toContain('always()');
-    expect(head).toContain("steps.replay.outcome == 'success' && steps.audit.outcome == 'success'");
+    expect(head).toContain("steps.replay.outcome == 'success'");
     expect(head).not.toMatch(/if:\s*always\(\)\s*$/m);
     for (const proof of ['replay', 'audit']) {
       const step = WORKFLOW.slice(WORKFLOW.indexOf(`id: ${proof}`));
@@ -74,6 +74,33 @@ describe('the figure a run publishes', () => {
         'run:',
       );
     }
+  });
+
+  it('is not withheld by the audit that judges it, because a verdict cannot destroy its evidence', () => {
+    /**
+     * **Run 45449046424 is the case, and it is the second time this exact repair was needed.** The review succeeded, the
+     * replay proof passed, the competitor was scored on the same forty-nine pull requests - and the detail-layer audit
+     * found one real inconsistency (`50 accounted for of 49 scored`) and went red. The upload's condition named
+     * `steps.audit.outcome == 'success'`, so the artifact of a two-hour, ¥8 reading was never published: **the only
+     * surviving account of it is the log**, which cannot be re-read into the derived tables the next iteration needs.
+     *
+     * **A gate decides whether a claim may be believed, not whether the evidence may be read.** The statement is
+     * positional as well as conditional: the figure lands first, the verdict is pronounced on it afterwards. Both halves
+     * are asserted, because either one alone reintroduces the withholding.
+     */
+    const upload = WORKFLOW.indexOf('- name: Upload the figure');
+    const audit = WORKFLOW.indexOf('id: audit');
+    expect(upload).toBeGreaterThan(0);
+    expect(audit).toBeGreaterThan(0);
+    // **Position**: the evidence is published before the verdict on it is computed.
+    expect(upload).toBeLessThan(audit);
+    // **Condition**: the verdict is not a precondition of the publication.
+    const head = WORKFLOW.slice(upload, WORKFLOW.indexOf('uses:', upload));
+    expect(head).not.toContain('steps.audit.outcome');
+    // **And the verdict still runs when something above it failed**, or a red derived table would silence the audit
+    // rather than let it report - which is the same defect one level down.
+    const auditStep = WORKFLOW.slice(audit);
+    expect(auditStep.slice(0, auditStep.indexOf('run:'))).toContain('always()');
   });
 
   it('still publishes the marker a skipped run writes, because that is what the old condition was for', () => {
