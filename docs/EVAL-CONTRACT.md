@@ -15704,8 +15704,8 @@ a device.**
 
 **The registration, before the work.** §140.3 measured the ranker's ability to tell a comment that buys a reference comment
 from one that does not at **AUC 0.5555**, and §141's frontier priced the next gain at **+8 genuinely new covering comments
-at unchanged emission**. §145.1 wrote the hypothesis that follows from that: *the next device has to change what the score
-knows — ask a question about the comment's referent — and not how it orders.* This section is that hypothesis, tested six
+at unchanged emission**. §145.1 wrote the hypothesis that follows from that: _the next device has to change what the score
+knows — ask a question about the comment's referent — and not how it orders._ This section is that hypothesis, tested six
 ways on one artifact already paid for, at **¥0**.
 
 **The artifact.** `45057608080`, 2026-11-22: 591 emitted comments over 50 pull requests, 452 reference comments, 305 posted
@@ -15715,17 +15715,17 @@ below is validated against the artifact's own headline before it prices anything
 
 #### 144.1 Six hypotheses, and what each one returned
 
-| # | hypothesis | measurement | verdict |
-| - | ---------- | ----------- | ------- |
-| 1 | the wasted mass is **referentially redundant** — several comments point at one place | 305 posted comments fall into **304 referent clusters** at a one-line slack; four clusters at five lines | false |
-| 2 | the wasted mass is **lexically duplicated** — the same sentence twice | **0 pairs** at Jaccard ≥ 0.60 within a pull request | false |
-| 3 | **no single field** in the artifact separates buyers from non-buyers | best \|AUC−0.5\| is `agreement` at 0.0675; six structural fields sit at 0.5000–0.506 | false |
-| 4 | the granularity is wrong: **the pull request knows**, even if the comment does not | AUC **0.7755** at pull-request level, then **−0.0042 held-out F1** when the threshold is fitted (noise band 0.0053) | false |
-| 5 | the claim should **name something the change touched** | AUC **0.5132** full emission, **0.5026** on the posted set; only 12 of 305 posted comments name nothing in the diff | false |
-| 6 | some **other key to the budget's ordering** is better | `named` objects 0.2589 F1, `agreement` 0.2616, `named+score` 0.2589, shipped `score` **0.2668** | false |
+| #   | hypothesis                                                                           | measurement                                                                                                         | verdict |
+| --- | ------------------------------------------------------------------------------------ | ------------------------------------------------------------------------------------------------------------------- | ------- |
+| 1   | the wasted mass is **referentially redundant** — several comments point at one place | 305 posted comments fall into **304 referent clusters** at a one-line slack; four clusters at five lines            | false   |
+| 2   | the wasted mass is **lexically duplicated** — the same sentence twice                | **0 pairs** at Jaccard ≥ 0.60 within a pull request                                                                 | false   |
+| 3   | **no single field** in the artifact separates buyers from non-buyers                 | best \|AUC−0.5\| is `agreement` at 0.0675; six structural fields sit at 0.5000–0.506                                | false   |
+| 4   | the granularity is wrong: **the pull request knows**, even if the comment does not   | AUC **0.7755** at pull-request level, then **−0.0042 held-out F1** when the threshold is fitted (noise band 0.0053) | false   |
+| 5   | the claim should **name something the change touched**                               | AUC **0.5132** full emission, **0.5026** on the posted set; only 12 of 305 posted comments name nothing in the diff | false   |
+| 6   | some **other key to the budget's ordering** is better                                | `named` objects 0.2589 F1, `agreement` 0.2616, `named+score` 0.2589, shipped `score` **0.2668**                     | false   |
 
 **The shipped score is the best ranker among everything the artifact can see.** That is the finding, and it is a finding
-about the *margin*, not about the score: hypothesis 3 is the one that had already been measured as 0.5555 and this run
+about the _margin_, not about the score: hypothesis 3 is the one that had already been measured as 0.5555 and this run
 confirms it at the level of every individual field.
 
 #### 144.2 The device that looked strongest is the one that fails hardest
@@ -15744,25 +15744,25 @@ range of the productive ones. The mean difference that produced 0.7755 is real a
 
 #### 144.3 What is left is a ceiling, and it is arithmetic
 
-If no selector helps, the useful question is how much a *perfect* selector could reach. For every reference comment the
+If no selector helps, the useful question is how much a _perfect_ selector could reach. For every reference comment the
 question is decidable without a model: **does any sentence this run emitted, for this file, name a code object the
 reference comment also names?** `scripts/lib/selection-ceiling.mjs` answers it, publishes the figure on every dispatch
 beside the head-to-head, and refuses three ways of making the answer say too much — the denominator is the **row set's**
 reference comments rather than the emission's, a **covered** reference comment is reachable without a lexical test, and a
 reference comment **naming no code object at all** is counted unmeasurable rather than unreachable.
 
-| bucket | reference comments | what it means |
-| ------ | -----------------: | ------------- |
-| covered by the matching | **101** | bought |
-| not covered, but a sentence of ours names one of their objects | **189** | reachable by a better cut of this emission |
-| naming objects no sentence of ours names | **95** | **no cut, budget, quota or ranker can buy them** |
-| naming no code object at all | **67** | outside a lexical measure on either side |
-| **ceiling: (101 + 189) / 452** | **64.2 %** | and **21.0 % is unreachable at any selectivity** |
+| bucket                                                         | reference comments | what it means                                    |
+| -------------------------------------------------------------- | -----------------: | ------------------------------------------------ |
+| covered by the matching                                        |            **101** | bought                                           |
+| not covered, but a sentence of ours names one of their objects |            **189** | reachable by a better cut of this emission       |
+| naming objects no sentence of ours names                       |             **95** | **no cut, budget, quota or ranker can buy them** |
+| naming no code object at all                                   |             **67** | outside a lexical measure on either side         |
+| **ceiling: (101 + 189) / 452**                                 |         **64.2 %** | and **21.0 % is unreachable at any selectivity** |
 
 **The 95 are not noise.** They are typo reports (`minimumCouts` for `minimumCounts`), naming and style preferences
 (`std::initializer_list` over `std::array`), and one "double newline detected". **A reviewer built to be right two times in
-three does not write them**, which is the same trade the language rules already make — *an idiom reported as a defect is a
-false positive with a suggestion attached*. So the ceiling is not a defect of the engine and not a target either: it is the
+three does not write them**, which is the same trade the language rules already make — _an idiom reported as a defect is a
+false positive with a suggestion attached_. So the ceiling is not a defect of the engine and not a target either: it is the
 part of this answer key that a serious reviewer declines to answer, and **chasing it would be fitting the corpus.**
 
 #### 144.4 Two arithmetic errors in the instrument, caught before publication
@@ -15784,27 +15784,27 @@ Both are the §140.5 defect one level down, and both were in this section's own 
 written, and no re-ordering of 591 sentences produces them. **The frontier's own arithmetic was right and its lever was
 wrong**: it priced the emission, not the selector.
 
-**Not closed: the 189.** They are reachable, and reaching them is a *cut* problem with no signal — which means the next
+**Not closed: the 189.** They are reachable, and reaching them is a _cut_ problem with no signal — which means the next
 device has to add a signal, not re-weight one. The only untested place left is the one the artifact cannot see: **the code
 the comment is about**, as opposed to the words it uses. §145 records why the artifact cannot see it yet.
 
 **And one sentence §144 will not write.** It will not say the corpus is measuring the wrong thing. It says the corpus
 credits one sentence of the several true ones a reviewer can write about a hunk, which is a property of every single-answer
-benchmark, and that the way to score higher on it is to be right about *the same defect*, which is a reader problem.
+benchmark, and that the way to score higher on it is to be right about _the same defect_, which is a reader problem.
 
 ### 145. A published field that nothing fills, and the two objects that own one name
 
 **Found by opening an artifact, not by failing a test.** All 591 rows of `45057608080` publish `existingCode: ""`, and the
-harness comment beside that line claims the field is *"the code the finding says it is about … the only way the offline
-replay of a paid run can price the grounding gate"*. It is not, and the chain is worth writing down because each link is a
+harness comment beside that line claims the field is _"the code the finding says it is about … the only way the offline
+replay of a paid run can price the grounding gate"_. It is not, and the chain is worth writing down because each link is a
 separate mistake:
 
-| link | what is there | what it means |
-| ---- | ------------- | ------------- |
-| `LLMFinding.snippet` | declared in `packages/intelligence/src/review/llm/prompts.ts`, **no producer** | the quotation channel was designed and never wired |
-| `llm-review-engine.extractRangeText` | returns `[Lines 10-20 -> 10-22] added` — a **range label** | the comment's `existingCode` is not code either |
-| `DiffRange` | carries `oldStart/oldEnd/newStart/newEnd/changeType`, **no line content** | the diff parser cannot produce the text at any price |
-| `aacr-bench.mjs` | reads `entry.finding.existingCode` | `LLMFinding` has no such field, so `?? ''` turns the mistake into data |
+| link                                 | what is there                                                                  | what it means                                                          |
+| ------------------------------------ | ------------------------------------------------------------------------------ | ---------------------------------------------------------------------- |
+| `LLMFinding.snippet`                 | declared in `packages/intelligence/src/review/llm/prompts.ts`, **no producer** | the quotation channel was designed and never wired                     |
+| `llm-review-engine.extractRangeText` | returns `[Lines 10-20 -> 10-22] added` — a **range label**                     | the comment's `existingCode` is not code either                        |
+| `DiffRange`                          | carries `oldStart/oldEnd/newStart/newEnd/changeType`, **no line content**      | the diff parser cannot produce the text at any price                   |
+| `aacr-bench.mjs`                     | reads `entry.finding.existingCode`                                             | `LLMFinding` has no such field, so `?? ''` turns the mistake into data |
 
 **Why nothing caught it.** The harness is `.mjs`, so a field name read off a typed object is checked by nothing, and
 `?? ''` makes a missing field and an empty field the same fact. **A gate replayed over those rows is a gate shown no
