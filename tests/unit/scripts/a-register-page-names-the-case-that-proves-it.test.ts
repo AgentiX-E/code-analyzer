@@ -44,8 +44,8 @@ afterAll(() => rmSync(scratch, { recursive: true, force: true }));
 
 describe('the register is read, not assumed', () => {
   it('finds every row of the committed register', () => {
-    expect(ROWS.length).toBe(40);
-    expect(new Set(ROWS.map((row) => row.id)).size).toBe(40);
+    expect(ROWS.length).toBe(43);
+    expect(new Set(ROWS.map((row) => row.id)).size).toBe(43);
   });
 
   it('keeps the section each row belongs to, so the page can group them by user story', () => {

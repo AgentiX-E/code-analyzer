@@ -26,7 +26,8 @@ const JSON_OUT = join(ROOT, 'benchmarks', 'competitor-board.json');
 const HTML_OUT = join(ROOT, 'docs', 'competitor-board.html');
 
 const read = (path) => (existsSync(path) ? JSON.parse(readFileSync(path, 'utf8')) : null);
-const round = (value) => (typeof value === 'number' && Number.isFinite(value) ? Number(value.toFixed(4)) : null);
+const round = (value) =>
+  typeof value === 'number' && Number.isFinite(value) ? Number(value.toFixed(4)) : null;
 
 /** The denominator a row was divided by, which is part of the row (§147.4). */
 const goldensOf = (artifact) =>
@@ -39,7 +40,9 @@ function armOf(artifact, { competitor }) {
     return {
       arm: 'competitor',
       measured: false,
-      reason: String(figure['notComparableReason'] ?? figure['modeReason'] ?? 'the arm produced no row'),
+      reason: String(
+        figure['notComparableReason'] ?? figure['modeReason'] ?? 'the arm produced no row',
+      ),
       tool: String(figure['tool'] ?? 'open-code-review'),
       model: null,
     };
@@ -53,9 +56,7 @@ function armOf(artifact, { competitor }) {
     // **Our arm's model is recorded on the run, not on the row.** `configuration.provider` names the family the lanes
     // ran on; if the artifact predates that field the cell says NOT_RECORDED rather than borrowing the judge's model,
     // because the judge's model and the reviewer's model are two facts and only one of them was ever the same call.
-    model: competitor
-      ? (figure['model'] ?? null)
-      : (artifact?.['configuration']?.provider ?? null),
+    model: competitor ? (figure['model'] ?? null) : (artifact?.['configuration']?.provider ?? null),
     endpoint: competitor ? (figure['endpoint'] ?? null) : null,
     precision: round(figure['precision']),
     recall: round(figure['recall']),
@@ -110,7 +111,9 @@ function build() {
     }),
   ].filter(Boolean);
   if (boards.length === 0) {
-    process.stderr.write('competitor-board: no artifact carries two arms, so there is nothing to draw\n');
+    process.stderr.write(
+      'competitor-board: no artifact carries two arms, so there is nothing to draw\n',
+    );
     process.exit(2);
   }
   return {
@@ -196,7 +199,11 @@ function render(data) {
     .join('');
   const rowsPerBoard = Math.max(...data.boards.map((b) => b.arms.length));
   const head = (label) =>
-    Array.from({ length: rowsPerBoard }, () => `<th>${label} arm</th><th>${label} tool</th><th>${label} model</th><th>P</th><th>R</th><th>F1</th>`).join('');
+    Array.from(
+      { length: rowsPerBoard },
+      () =>
+        `<th>${label} arm</th><th>${label} tool</th><th>${label} model</th><th>P</th><th>R</th><th>F1</th>`,
+    ).join('');
   return `<!doctype html>
 <html lang="en"><head><meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
@@ -262,7 +269,9 @@ if (process.argv.includes('--check')) {
   const a = JSON.stringify(previous.boards);
   const b = JSON.stringify(payload.boards);
   if (a !== b) {
-    process.stderr.write('competitor-board --check: the committed figure is not this recomputation\n');
+    process.stderr.write(
+      'competitor-board --check: the committed figure is not this recomputation\n',
+    );
     process.exit(1);
   }
   process.stdout.write(`competitor-board --check ok · ${String(payload.boards.length)} boards\n`);
