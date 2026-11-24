@@ -46,6 +46,17 @@ export function maximumMatchingByPullRequest(
   creditOf: (finding: EmittedFinding) => readonly number[],
 ): number;
 
+/**
+ * The same matching, keeping the identities: one `Map` from pull request to `golden index -> position`.
+ *
+ * The paired comparison needs *which* reference comments were bought, and computing them twice would be two
+ * implementations of one pairing.
+ */
+export function matchingByPullRequest(
+  findings: readonly EmittedFinding[],
+  creditOf: (finding: EmittedFinding) => readonly number[],
+): ReadonlyMap<string, ReadonlyMap<number, number>>;
+
 export function pullRequestOf(finding: EmittedFinding | undefined): string;
 
 export function score(
