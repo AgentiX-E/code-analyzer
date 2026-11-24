@@ -16522,3 +16522,103 @@ Unit cases added: `the-competitors-report-has-one-parser.test.ts` (10), `a-merge
 `the-three-shapes-a-cached-file-entry-can-take.test.ts` (3). **The Martian arm is a dispatch input and not the schedule**,
 because the scheduled run already buys our own review of fifty diffs and a second reviewer on a weekly job nobody asked
 to grow would double a bill for a figure that changes when the corpus changes, not when the week does.
+
+---
+
+## 152. Fifty pull requests, seven repositories: the clone that was paid for forty-three times
+
+**A measurement can fail for a reason that is not about the measurement.** The Martian competitor arm reviews fifty
+pull requests, and until this section it cloned **per pull request** - fifty blobless clones of trees the run already
+had. The corpus is fifty rows over **seven** repositories:
+
+| rows | repository                                     |
+| ---- | ---------------------------------------------- |
+| 10   | `calcom/cal.com`                               |
+| 10   | `ai-code-review-evaluation/discourse-graphite` |
+| 10   | `grafana/grafana`                              |
+| 9    | `keycloak/keycloak`                            |
+| 6    | `getsentry/sentry`                             |
+| 4    | `ai-code-review-evaluation/sentry-greptile`    |
+| 1    | `ai-code-review-evaluation/keycloak-greptile`  |
+
+**So 43 of every 50 history downloads were the same seven histories again**, and a blobless clone of
+`grafana/grafana` is not free: it is every commit and every tree in that history. **The cost is not money - it is
+minutes**, and a job that spends them on downloads is a job that reaches its timeout before it reports a figure. That is
+the failure mode this section is about: **not a wrong number, an absent one**, and the absent one is indistinguishable
+from a reviewer that scored nothing.
+
+### 152.1 One clone per repository, and the counters that say so
+
+`scripts/lib/ocr-arm.mjs` now caches the checkout by `owner/repo`. What is shared is the **history download**; what is
+not shared is the working state, because every review still fetches its own two commits and checks out its own target:
+
+```
+clone --filter=blob:none --no-checkout      once per repository
+fetch -q origin <source> <target>           once per pull request
+checkout -q -f <target>                     once per pull request
+```
+
+**`-f` is the guard the reuse needs.** The directory outlives one review now, so a reviewer that leaves a tracked file
+modified must not decide what the next review sees. Nothing here writes to the tree, which makes the flag a guard rather
+than a repair - and a flag that is a guard is the only kind worth adding before something breaks.
+
+**A checkout that throws deletes the directory rather than caching it**, because a directory that failed a checkout is a
+directory the next review would trust, and re-cloning is cheaper than trusting it.
+
+**And the claim is a test against the corpus, not an example against two URLs**:
+`tests/unit/scripts/a-clone-is-per-repository.test.ts` reads `benchmarks/martian/positive_samples.json`, runs all fifty
+rows through the reviewer with an injected command runner, and asserts **7 clones and 43 reuses**. The runner is
+injectable for exactly one reason: a count of `git clone` calls is the only observation that distinguishes a cache from
+a coincidence, and it was not observable while the runner was a module-level `execFileSync`.
+
+### 152.2 The row carries what the checkouts cost
+
+`benchmarks/martian-competitor.json` gains `checkouts: { clones, reuses, cached }`, and the run prints
+`clones 7 (reused 43)`. **A reader can then check the cost against the corpus** rather than take a sentence's word for
+it - which is the same rule this document applies to figures, applied to the harness that produces them.
+
+### 152.3 The gap the two-arm page found in our own row
+
+The page §151 introduced renders a card per board per arm, and **our own row said `NOT_RECORDED` for its model** while
+the competitor's row said `deepseek-chat`. That is not a rendering defect: `configuration` recorded the judge's model
+(`judgeModel`) and the provider **family**, and **a family is not a model** - `deepseek` is a vendor, and a row that
+cannot name the model that wrote the review cannot support the claim that a comparison holds the model constant. **That
+claim is the entire reason the competitor arm exists.**
+
+So the artifact now records the reviewer as its provider names itself:
+
+```json
+"reviewer": { "provider": "deepseek", "name": "DeepSeek", "model": "deepseek-chat" }
+```
+
+**It is a separate field from `judgeModel` and stays separate**, because a review written by one model and scored by
+another is what every figure in this document is, and one model field could not tell that apart from a run where they
+were the same call. `scripts/competitor-board.mjs` reads `configuration.reviewer.model` and **still says
+`NOT_RECORDED` for any artifact that predates the field** - including the one committed today, which is the honest
+state: the field exists in the instrument and no published figure carries it yet.
+
+### 152.4 What the dispatched run may claim, registered before it is read
+
+Run `45411086146` (`dataset: martian`, `competitor: record`, `max_pull_requests: 50`) is the first run in which both
+arms use `deepseek-chat` on that board. **It is still in the review step and its artifact has not been read**, and this
+section is written before it is:
+
+| field                 | value                                                                                                                              |
+| --------------------- | ---------------------------------------------------------------------------------------------------------------------------------- |
+| what it may claim     | the competitor's P/R/F1 on 173 goldens and on the `core` 158, same judge, same goldens                                             |
+| what it may not claim | that **this** dispatch's cloneless counting applies to it: it ran the per-pull-request clone, and §152.1 is what the next one runs |
+| resolution            | **MDE 0.0126 F1** on a paired difference at this corpus size (§147.3)                                                              |
+| ceiling               | the per-run bound from `spendCeilingUsd`, recorded in its own artifact                                                             |
+| falsifier             | our F1 at or below the competitor's, same job                                                                                      |
+
+**A dispatch that runs out of minutes reports no row, and that outcome is recorded as no row** - not as a competitor
+that scored zero. If that happens, the next dispatch is the same arm with the clone cache and a smaller slice, because
+**a calibration at twelve pull requests that lands is worth more than fifty that do not.**
+
+### 152.5 Reproduce
+
+```
+npx vitest run tests/unit/scripts/a-clone-is-per-repository.test.ts   # 6 cases, no network
+node .github/scripts/run-martian-competitor.mjs --self-check          # no model, no charge
+node scripts/competitor-board.mjs --check                             # the page against the artifacts
+```
