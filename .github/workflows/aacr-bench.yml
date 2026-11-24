@@ -878,6 +878,19 @@ jobs:
           node scripts/aacr-score-ablation.mjs benchmarks/aacr-bench.json --json benchmarks/aacr-score-ablation.json
           node -e "const c=require('./benchmarks/aacr-score-ablation.json'); const d=(t)=>[t.term.padEnd(15), String(t.without.truePositives).padStart(4), t.delta.toFixed(4).padStart(9), ('['+t.interval.lo.toFixed(4)+','+t.interval.hi.toFixed(4)+']').padStart(19), (t.onlyBase+'->'+t.onlyAlt).padStart(8), t.p.toFixed(4)].join(' '); console.log('baseline', c.baseline.truePositives+'/'+c.goldens, 'F1', c.baseline.f1.toFixed(4), 'resolution', c.resolution.mde.toFixed(4)); for (const t of c.terms) console.log(' ', d(t))"
 
+      # **The board's denominator, on the board's terms.**
+      #
+      # Martian scores a Core profile of 158 of its 173 curated comments - the eight defect categories - and every figure
+      # published on that board is divided by 158. This repository counted all 173, so our F1 and theirs were divided by
+      # different numbers, which is the §140.5 defect one level up: the corpus rather than the emission. The instrument
+      # rebuilds the artifact's own shipped point first and refuses to print a profile it cannot reconcile, then prints
+      # both, so a reader can see which denominator they are reading.
+      - name: martian_profile
+        if: inputs.dataset == 'martian'
+        run: |
+          set -e
+          node scripts/martian-profile.mjs benchmarks/aacr-bench.json benchmarks/martian/positive_samples.json --json benchmarks/martian-profile.json
+
       # **The ensemble dimension is in the name, and the first run of the merge is why.** That run published
       # `...-adjudicate-off-idioms-off-agent-on-ensemble-off-remarks-off`, the name an agent-only run uses - **two
       # devices, one artifact name**, and a paired comparison matching on names would have compared an arm with itself.
@@ -907,6 +920,7 @@ jobs:
             benchmarks/aacr-like-for-like.json
             benchmarks/aacr-selection-ceiling.json
             benchmarks/aacr-score-ablation.json
+            benchmarks/martian-profile.json
             benchmarks/aacr/competitor-baseline.json
             benchmarks/runnable-competitors-outputs/
           if-no-files-found: warn
