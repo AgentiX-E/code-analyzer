@@ -2887,6 +2887,12 @@ async function main() {
   let recordedAny = 0;
   const competitor = {
     tool: 'open-code-review',
+    // **The model behind the competitor's row, recorded on the row.** §62's claim is that the comparison is not a
+    // comparison across models - and **an artifact that does not name the competitor's model cannot support that claim**,
+    // it can only assert it. The endpoint is recorded for the same reason: a row produced against a different base URL
+    // is a different row even when the model's name is the same.
+    model: process.env['OCR_LLM_MODEL'] ?? null,
+    endpoint: process.env['OCR_LLM_URL'] ?? null,
     // **What this run did with the arm, and why** - the three figures a reader needs to price the run without reading
     // the code: which mode was asked for, how many pull requests were replayed, and how many the record could not answer.
     mode: competitorChoice.mode,

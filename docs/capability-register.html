@@ -57,22 +57,22 @@
   point — a row without one is not accepted, whatever its unit coverage, because the last three defects here were joins
   between components that each passed their own tests.</p>
   <ul class="tiles">
-    <li><b>40</b><span>capabilities</span></li>
-    <li><b>33</b><span>done</span></li>
-    <li><b>5</b><span>partial</span></li>
+    <li><b>43</b><span>capabilities</span></li>
+    <li><b>35</b><span>done</span></li>
+    <li><b>6</b><span>partial</span></li>
     <li><b>2</b><span>not built</span></li>
-    <li><b>33</b><span>with an end-to-end case</span></li>
-    <li><b>27</b><span>ours only</span></li>
+    <li><b>34</b><span>with an end-to-end case</span></li>
+    <li><b>30</b><span>ours only</span></li>
     <li><b>4</b><span>competitor only</span></li>
   </ul>
 </header>
 <nav>
-  <button data-filter="all" aria-pressed="true">All <span style="opacity:.6">40</span></button>
+  <button data-filter="all" aria-pressed="true">All <span style="opacity:.6">43</span></button>
   <button data-filter="NONE" aria-pressed="false">Not built <span style="opacity:.6">2</span></button>
-  <button data-filter="PART" aria-pressed="false">Partial <span style="opacity:.6">5</span></button>
-  <button data-filter="DONE" aria-pressed="false">Done <span style="opacity:.6">33</span></button>
+  <button data-filter="PART" aria-pressed="false">Partial <span style="opacity:.6">6</span></button>
+  <button data-filter="DONE" aria-pressed="false">Done <span style="opacity:.6">35</span></button>
   <button data-filter="C" aria-pressed="false">Competitor only <span style="opacity:.6">4</span></button>
-  <button data-filter="no-e2e" aria-pressed="false">No end-to-end case <span style="opacity:.6">7</span></button>
+  <button data-filter="no-e2e" aria-pressed="false">No end-to-end case <span style="opacity:.6">9</span></button>
   <input id="q" type="search" placeholder="filter by capability, file or surface" aria-label="filter">
 </nav>
 <main>
@@ -423,7 +423,7 @@
     </table>
   </section>
   <section>
-    <h2>researcher, I want every number to be reproducible and every difference to be real<span class="count">6</span></h2>
+    <h2>researcher, I want every number to be reproducible and every difference to be real<span class="count">9</span></h2>
     <table>
       <thead><tr><th>#</th><th>Capability</th><th>Ships at</th><th>Unit</th><th>End-to-end</th><th>State</th><th>What the state means</th></tr></thead>
       <tbody>
@@ -480,6 +480,33 @@
         <td class="proof"><span class="none">no end-to-end case</span></td>
         <td><span class="state PART">PART</span></td>
         <td class="why">PART — the generator exists, the SPA does not</td>
+      </tr>
+      <tr data-state="PART" data-who="O" data-e2e="true">
+        <td class="id">41</td>
+        <td class="cap">A competitor's comparison names the model of both arms, so the model is not the difference<span class="surface">harness</span></td>
+        <td><span class="tag O">ours only</span></td>
+        <td class="proof"><code>the-competitors-report-has-one-parser</code></td>
+        <td class="proof"><code>— (harness, not product)</code></td>
+        <td><span class="state PART">PART</span></td>
+        <td class="why">PART — the competitor's model and endpoint are on its row (§151.6) and its first Martian row is being measured (run 45411086146); our own arm still records no model, which is the named gap</td>
+      </tr>
+      <tr data-state="DONE" data-who="O" data-e2e="false">
+        <td class="id">42</td>
+        <td class="cap">The competitor's two commits are resolved from the pull request when the corpus names none<span class="surface">harness</span></td>
+        <td><span class="tag O">ours only</span></td>
+        <td class="proof"><code>the-competitors-report-has-one-parser</code></td>
+        <td class="proof"><span class="none">no end-to-end case</span></td>
+        <td><span class="state DONE">DONE</span></td>
+        <td class="why">DONE (§151.2) — the Martian corpus names no commits, which is why that board never had a competitor row</td>
+      </tr>
+      <tr data-state="DONE" data-who="O" data-e2e="false">
+        <td class="id">43</td>
+        <td class="cap">One parser reads the competitor's report for both boards, and a self-check proves it without a model<span class="surface">harness</span></td>
+        <td><span class="tag O">ours only</span></td>
+        <td class="proof"><code>the-competitors-report-has-one-parser</code></td>
+        <td class="proof"><span class="none">no end-to-end case</span></td>
+        <td><span class="state DONE">DONE</span></td>
+        <td class="why">DONE (§151.3) — the fixture failed twice on its own guesses before the parser could be trusted</td>
       </tr>
       </tbody>
     </table>

@@ -86,3 +86,9 @@ docs/capability-register.html
 # formatter pass here would be reverted by the next replay, and a `--check` failure would be a formatter opinion about a
 # generated file rather than a defect in one.
 docs/gate-replay.html
+
+# **The two-arm page and its figure, for the reason the two pages above are excluded.** They are emitted by
+# `scripts/competitor-board.mjs` from the artifacts, and the CI step that regenerates them would otherwise fail on a
+# formatter opinion about a file the generator owns.
+docs/competitor-board.html
+benchmarks/competitor-board.json

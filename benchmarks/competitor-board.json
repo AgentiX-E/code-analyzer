@@ -1,0 +1,91 @@
+{
+  "comment": [
+    "Two reviewers, one model, one judge, one set of goldens - the comparison each report claims, drawn from the",
+    "artifacts that produced it. A row that did not record its model prints as NOT_RECORDED rather than as a gap",
+    "in the drawing, and an arm that produced no row prints its own reason rather than a zero."
+  ],
+  "generatedFrom": [
+    {
+      "name": "aacr",
+      "path": "benchmarks/aacr-bench.json"
+    },
+    {
+      "name": "martian",
+      "path": "benchmarks/martian-bench.json"
+    }
+  ],
+  "boards": [
+    {
+      "board": "AACR-Bench",
+      "corpus": "Alibaba-Aone/aacr-bench (Apache-2.0, public on Hugging Face)",
+      "measuredAt": "2026-11-10",
+      "judge": "deepseek-chat",
+      "route": "our engine reading each PR diff; no bot account installed",
+      "goldens": 452,
+      "coreGoldens": null,
+      "dedupThreshold": 0.8,
+      "arms": [
+        {
+          "arm": "ours",
+          "measured": true,
+          "tool": "agentix-e",
+          "model": null,
+          "endpoint": null,
+          "precision": 0.2196,
+          "recall": 0.1881,
+          "f1": 0.2026,
+          "comments": null,
+          "mode": null,
+          "caveat": null
+        },
+        {
+          "arm": "competitor",
+          "measured": true,
+          "tool": "open-code-review",
+          "model": null,
+          "endpoint": null,
+          "precision": 0.3289,
+          "recall": 0.2941,
+          "f1": 0.3106,
+          "comments": 152,
+          "mode": "replay",
+          "caveat": "36 of 50 pull requests have no competitor row, so its figure would be computed over a smaller corpus than ours and the two numbers would not be the same measurement"
+        }
+      ],
+      "core": null
+    },
+    {
+      "board": "Martian (code-review-benchmark)",
+      "corpus": "withmartian/code-review-benchmark (MIT, 50 PRs, 173 goldens)",
+      "measuredAt": "2026-11-18",
+      "judge": "deepseek-chat",
+      "route": "our engine reading each PR diff; no bot account installed",
+      "goldens": 173,
+      "coreGoldens": null,
+      "dedupThreshold": 0.8,
+      "arms": [
+        {
+          "arm": "ours",
+          "measured": true,
+          "tool": "agentix-e",
+          "model": null,
+          "endpoint": null,
+          "precision": 0.1935,
+          "recall": 0.4798,
+          "f1": 0.2757,
+          "comments": null,
+          "mode": null,
+          "caveat": null
+        },
+        {
+          "arm": "competitor",
+          "measured": false,
+          "reason": "the competitor arm produced no row at all - 50 of 50 pull requests are missing - so a head-to-head would be a comparison against nothing",
+          "tool": "open-code-review",
+          "model": null
+        }
+      ],
+      "core": null
+    }
+  ]
+}

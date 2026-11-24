@@ -87,6 +87,9 @@ a register that only lists what exists cannot be used to decide what to build.**
 | 38  | A competitor run is bought once                                                                       | harness | O     | —                                                            | `a-competitor-run-is-bought-once` | DONE                                              |
 | 39  | Two engines agree on a state machine's reachable states (formal)                                      | harness | **O** | —                                                            | —                                 | **NONE — probed, not built**                      |
 | 40  | A single-file, clickable report with the evidence graph                                               | CLI     | O     | —                                                            | —                                 | **PART — the generator exists, the SPA does not** |
+| 41  | **A competitor's comparison names the model of both arms, so the model is not the difference**       | harness | **O** | `the-competitors-report-has-one-parser`                      | — (harness, not product)          | PART — the competitor's model and endpoint are on its row (§151.6) and its first Martian row is being measured (run `45411086146`); **our own arm still records no model**, which is the named gap |
+| 42  | The competitor's two commits are resolved from the pull request when the corpus names none            | harness | O     | `the-competitors-report-has-one-parser`                      | —                                 | DONE (§151.2) — the Martian corpus names no commits, which is why that board never had a competitor row |
+| 43  | One parser reads the competitor's report for both boards, and a self-check proves it without a model  | harness | O     | `the-competitors-report-has-one-parser`                      | —                                 | DONE (§151.3) — the fixture failed twice on its own guesses before the parser could be trusted |
 
 ---
 
@@ -94,11 +97,11 @@ a register that only lists what exists cannot be used to decide what to build.**
 
 |                             | rows |  share |
 | --------------------------- | ---: | -----: |
-| `DONE`                      |   33 |   82 % |
-| `PART`                      |    5 |   12 % |
+| `DONE`                      |   35 |   81 % |
+| `PART`                      |    6 |   14 % |
 | `NONE`                      |    2 |    5 % |
-| **with an end-to-end case** |   33 | 82.5 % |
-| **with a unit case**        |   13 | 32.5 % |
+| **with an end-to-end case** |   33 |   77 % |
+| **with a unit case**        |   13 |   30 % |
 | **`O` ours-only**           |   26 |   65 % |
 | **`P` public**              |    9 | 22.5 % |
 | **`C` competitor-only**     |    5 | 12.5 % |
