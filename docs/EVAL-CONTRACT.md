@@ -15732,12 +15732,13 @@ confirms it at the level of every individual field.
 
 Hypothesis 4 is worth its own paragraph because the number is good and the conclusion is not. **Thirteen of fifty pull
 requests buy nothing at all**, and they hold 59 reference comments — 13 % of the answer key. Cutting them would take the
-figure from 0.2668 to 0.3017 by removing 64 of 305 comments at no recall cost. At pull-request level, the best comment's
+figure from 0.2668 to **0.2915** by removing 64 of 305 comments at no recall cost — and the denominator stays 452,
+because abstaining does not remove a pull request from the row set (the same rule §144.4's second error is about). At pull-request level, the best comment's
 score separates "this pull request has something for us" from "it does not" at **AUC 0.7755**, and `mean of top three`
 reaches 0.7193.
 
 **A ranking is not a cut**, and the held-out reading is what says so: the threshold chosen on the other forty-nine pull
-requests collapses the figure to **0.2524**, a **−0.0042** delta that sits inside the 0.0053 noise band. The reason is in
+requests collapses the figure to **0.2626**, a **−0.0042** delta that sits inside the 0.0053 noise band. The reason is in
 the data rather than in the fitting — **the thirteen fruitless pull requests have best scores of 0.71 to 0.88**, inside the
 range of the productive ones. The mean difference that produced 0.7755 is real and the boundary it implies does not exist.
 
