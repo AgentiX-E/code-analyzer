@@ -221,7 +221,12 @@ describe('the model family is a dispatch input, and the artifact says which one 
       'createLLMProvider(PROVIDER, undefined, { ledger, ceilingUsd: MAX_USD })',
     );
     expect(BENCH).not.toContain('new DeepSeekProvider(');
-    expect(BENCH).toContain('new LLMReviewEngine(providerFor(),');
+    // **The registry's answer is bound once and handed to the engine**, because §152.3 records the reviewer on the
+    // artifact: a provider built inline as the constructor's argument would leave nothing to name. The assertion is on
+    // both halves - the binding comes from `providerFor` and the engine takes the binding - so a call site that
+    // reverted to an inline construction would fail even though `providerFor` is still in the file.
+    expect(BENCH).toContain('const reviewer = providerFor();');
+    expect(BENCH).toContain('new LLMReviewEngine(reviewer,');
   });
 
   it('is the key the artifact publishes, so two families cannot be compared as one', () => {
