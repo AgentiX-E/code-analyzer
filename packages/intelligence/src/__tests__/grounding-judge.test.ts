@@ -137,6 +137,16 @@ describe('a finding that cannot be grounded is dropped', () => {
     expect(report.namesNowhere).toBe(0);
   });
 
+  it('keeps a finding whose quotation is absent rather than empty', () => {
+    // **`undefined` and `''` are two arms of the same rule**: the artifact writes no `existingCode` for a finding that
+    // quotes nothing, and the product writes an empty string. A version that handled one and crashed or dropped on the
+    // other would be a rule about the producer rather than about the finding.
+    const report = judgeGrounding([comment({ existingCode: undefined })], { contents: CONTENTS });
+
+    expect(report.grounded.map((c) => c.id)).toEqual(['c1']);
+    expect(report.unverifiableQuotes).toBe(0);
+  });
+
   it('keeps a finding with no quotation, because absence is not evidence of absence', () => {
     // **A comment that quotes nothing is not checked rather than dropped.** The quotation is evidence when present;
     // treating its absence as a failure would drop every comment the heuristics write.
