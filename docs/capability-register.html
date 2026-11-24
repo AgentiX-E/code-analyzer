@@ -58,8 +58,8 @@
   between components that each passed their own tests.</p>
   <ul class="tiles">
     <li><b>44</b><span>capabilities</span></li>
-    <li><b>36</b><span>done</span></li>
-    <li><b>6</b><span>partial</span></li>
+    <li><b>37</b><span>done</span></li>
+    <li><b>5</b><span>partial</span></li>
     <li><b>2</b><span>not built</span></li>
     <li><b>35</b><span>with an end-to-end case</span></li>
     <li><b>31</b><span>ours only</span></li>
@@ -69,8 +69,8 @@
 <nav>
   <button data-filter="all" aria-pressed="true">All <span style="opacity:.6">44</span></button>
   <button data-filter="NONE" aria-pressed="false">Not built <span style="opacity:.6">2</span></button>
-  <button data-filter="PART" aria-pressed="false">Partial <span style="opacity:.6">6</span></button>
-  <button data-filter="DONE" aria-pressed="false">Done <span style="opacity:.6">36</span></button>
+  <button data-filter="PART" aria-pressed="false">Partial <span style="opacity:.6">5</span></button>
+  <button data-filter="DONE" aria-pressed="false">Done <span style="opacity:.6">37</span></button>
   <button data-filter="C" aria-pressed="false">Competitor only <span style="opacity:.6">4</span></button>
   <button data-filter="no-e2e" aria-pressed="false">No end-to-end case <span style="opacity:.6">9</span></button>
   <input id="q" type="search" placeholder="filter by capability, file or surface" aria-label="filter">
@@ -481,14 +481,14 @@
         <td><span class="state PART">PART</span></td>
         <td class="why">PART — the generator exists, the SPA does not</td>
       </tr>
-      <tr data-state="PART" data-who="O" data-e2e="true">
+      <tr data-state="DONE" data-who="O" data-e2e="true">
         <td class="id">41</td>
         <td class="cap">A competitor's comparison names the model of both arms, so the model is not the difference<span class="surface">harness</span></td>
         <td><span class="tag O">ours only</span></td>
         <td class="proof"><code>a-two-arm-pair-is-read-at-the-cut-the-effect-was-measured</code></td>
         <td class="proof"><code>— (harness, not product)</code></td>
-        <td><span class="state PART">PART</span></td>
-        <td class="why">PART — the competitor's model and endpoint are on its row (§151.6), and our own arm's reviewer is now recorded as its provider names itself (configuration.reviewer, §152.3); no published artifact carries that field yet, which is the remaining gap and closes on the next run</td>
+        <td><span class="state DONE">DONE</span></td>
+        <td class="why">DONE (§151.6, §154) — the competitor's model and endpoint are on its row, our own reviewer is recorded as its provider names itself, and run 45411086146 is the first paired measurement on Martian in which both arms used deepseek-chat; the artifact for it was skipped by a red derived table and is being re-dispatched</td>
       </tr>
       <tr data-state="DONE" data-who="O" data-e2e="false">
         <td class="id">42</td>

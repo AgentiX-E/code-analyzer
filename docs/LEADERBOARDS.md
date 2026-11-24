@@ -56,11 +56,21 @@ accepted at ASE 2026. **It does not rank a reviewer**, so it is not a board this
 **the corpus**, and §115.3's ArkTS row said _no public checkout this project can fetch_ for eleven sections. That sentence
 is now a statement about what was searched for rather than about what exists.
 
-**And one column that has never had a number until §151.** Every competitor figure on the offline Martian row was
-produced with **its own vendor's model**, and this repository's competitor arm on that board **produced no row at all** -
-fifty of fifty pull requests missing, because the corpus names no commits and a range review needs two. §151 corrected the
-arm and dispatched the first run in which **both reviewers use `deepseek-chat`** (run `45411086146`); until its artifact is
-read, the only honest sentence about that cell is _not measured with our model_.
+**And the column that had no number until §154.** Every published competitor figure on the offline Martian row was
+produced with **its own vendor's model**, so a comparison against one is a comparison across two models as well as two
+reviewers. Run `45411086146` removed the second difference: `open-code-review` over the same fifty pull requests on the
+same `deepseek-chat` the judge uses, scored by the same judge on the same 173 goldens.
+
+| arm, both on `deepseek-chat`           | P      | R      | F1         |
+| -------------------------------------- | ------ | ------ | ---------- |
+| ours (the policy that posts)           | 0.1854 | 0.4393 | **0.2607** |
+| competitor                             | 0.1599 | 0.6821 | **0.2591** |
+| **their findings, our ranking device** | —      | —      | **0.3488** |
+
+**0.0016 is not a lead at a 0.0126 resolution** (McNemar p = 0.8126, 34 findings only we made and 37 only they made), so
+the honest cell is **tied, and both arms answer the question the same way**: they find more (0.6821 against 0.4393) and
+we are more precise (0.1854 against 0.1599). **The third row is the one that names the bottleneck** - their candidate set,
+ranked by our device, is 0.088 F1 above our own review - so the constraint is discovery, not selection (§154.2).
 
 **Two rows are the whole strategy.** The offline Martian key is the only place a competitor's number and ours are the
 same **corpus and profile** - and, since §134.1, **not the same instrument**: the board's 65.8 and this project's 27.6

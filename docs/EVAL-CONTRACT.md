@@ -16706,3 +16706,101 @@ node scripts/install-pinned.mjs @vscode/vsce@3.9.2                              
 node scripts/install-pinned.mjs a-package-that-is-not-published@1.0.0 --optional             # exit 0, one line
 node scripts/install-pinned.mjs a-package-that-is-not-published@1.0.0                        # exit 1
 ```
+
+---
+
+## 154. The Martian competitor row exists, and it says we are tied
+
+Run `45411086146` (`dataset: martian`, `competitor: record`, 50 pull requests) finished on 2026-11-24. **It is the first
+run in which both reviewers on that board used `deepseek-chat`**, and it answered the third question §151 could only
+register. **Its artifact was not published** - see §154.4 - so every figure below is read from the job log, which is
+where the run wrote them:
+
+```
+AACR-BENCH reviewed 50 PRs · gate tp 76 fp 334 fn 97 · P 0.1854 R 0.4393 F1 0.2607
+AACR-BENCH full list tp 101 fp 844 · P 0.1069 R 0.5838 F1 0.1807
+AACR-BENCH competitor open-code-review · record · recorded 49 · missing 0 · findings 738 ·
+  P 0.1599 R 0.6821 F1 0.2591 · same ranker F1 0.3488
+AACR-BENCH comparison not significant at 0.05 · ours-only 34 · theirs-only 37 · p 0.8126 · coverage 50/50
+AACR-BENCH spend · calls 3615 · usd 1.2733 · cold-cache usd 1.8551 · ceiling 12
+AACR-BENCH judge · calls 8906 · unanswered 0 · usd 0.3532
+```
+
+### 154.1 The answer to the fifth question, on 173 goldens
+
+| arm                                     | P      | R      | F1         | findings |
+| --------------------------------------- | ------ | ------ | ---------- | -------- |
+| **ours** (the policy that posts)        | 0.1854 | 0.4393 | **0.2607** | 410      |
+| **ours** (every finding, no cut)        | 0.1069 | 0.5838 | 0.1807     | 945      |
+| **competitor, our model**               | 0.1599 | 0.6821 | **0.2591** | 738      |
+| **their findings ranked by our device** | —      | —      | **0.3488** | —        |
+
+**The gap is 0.0016 F1**, and §147.3's resolution at this corpus size is **0.0126**. So the honest sentence is not _"we
+lead"_: **the two reviewers are indistinguishable on this board, and McNemar agrees** - 34 findings only we made, 37 only
+they made, p = 0.8126. **A claim of superiority here would be a claim under the noise floor**, which is the one thing
+this document does not allow.
+
+**And the fifth question's target is now a number rather than a wish**: the competitor using our LLM scores **0.2591**,
+so a target _at or above_ it is 0.2591 - met at 0.2607 - and a target that can be _claimed_ is **0.2717**, one MDE
+above. That is the registered bar for the next iteration.
+
+### 154.2 Where the difference actually is
+
+The two arms fail in opposite directions, and the third row is the one to read twice:
+
+- **They find more**: recall 0.6821 against our 0.4393 - 118 goldens against 76 - on the same 173.
+- **We are more precise**: 0.1854 against 0.1599, with 410 comments against their 738.
+- **Their pool, our ranking**: 0.3488. **Ranked by the device this repository built, the competitor's candidate set beats
+  our own review by 0.088 F1.**
+
+**That last line is the measurement the board has never carried.** It separates the two halves of the product - _what the
+lanes find_ and _what the selector keeps_ - and it says the selector is not the bottleneck: **our review's candidate set
+is the ceiling, and it is 0.088 F1 below what the same selector gets from somebody else's.** Every ranking experiment
+this document has run (§147.2's re-weighting, the actionability terms, the emission cut) operates on our own pool, which
+is why none of them moved F1 by more than 0.016.
+
+**So the next iteration's work is discovery, not ranking**: lanes that read what the corpus's goldens are about. The
+corpus says what those are - `missedGoldens` reports **70 of 173 goldens with no path at all** in their notes, and the
+AACR run's dominant rejection shape was _the lanes spoke on that file about something else_. **A failure mode that both
+boards report independently is a property of the reviewer, not of a corpus.**
+
+### 154.3 What the run cost
+
+| item                                      | value                            |
+| ----------------------------------------- | -------------------------------- |
+| our review, 50 pull requests, 3 615 calls | **$1.2733** (cold cache $1.8551) |
+| the judge, 8 906 calls                    | **$0.3532**                      |
+| ceiling the run was bounded by            | $12                              |
+| **total**                                 | **≈ $1.63 ≈ ¥11.6**              |
+
+**A fifty-pull-request paired measurement costs less than a sandwich**, which matters for the plan: the reason to
+calibrate on twelve rows was time, not money, and §152.1's clone cache is what removes the time.
+
+### 154.4 The defect that cost the artifact rather than the figure
+
+The run's last steps were:
+
+| step                                       | outcome     |
+| ------------------------------------------ | ----------- |
+| review, both proofs, competitor comparison | success     |
+| `score_terms`                              | success     |
+| `martian_profile` (a derived table)        | **failure** |
+| `Upload the figure`                        | **skipped** |
+
+**A derived table deleted the measurement.** The upload's condition was
+`steps.replay.outcome == 'success' && steps.audit.outcome == 'success'` - and **a step whose `if` contains no status
+function is implicitly `success() && …`**, so the failure of a later step skipped it. The comment above that step had
+already removed `success()` _by name_ for exactly this reason; **the implicit one remained**, which is the same defect
+wearing the other half of its name.
+
+`always()` is now part of the condition. **The figure itself was never lost** - it is in the log, and §154.1 is read from
+there - but the artifact was, and an artifact is what the page and the next iteration read. `45449046424` is the
+re-dispatch on the fixed workflow.
+
+### 154.5 What is not claimed
+
+1. **No superiority on Martian.** 0.0016 F1 at a 0.0126 resolution is a tie, and p = 0.8126 says so.
+2. **No comparison with the board's published rows**, which were produced with each vendor's own model. The whole point
+   of this run is that those rows answer a different question.
+3. **The `core` 158 re-index is not in this section**, because the table that computes it (`martian_profile`) is the step
+   that failed. It lands with the artifact, not before it.
