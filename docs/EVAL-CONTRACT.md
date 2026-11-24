@@ -15901,11 +15901,12 @@ calibration this instrument is worth anything only after.
 on ΔF1, plus the exact McNemar test on the reference comments that changed hands. Two figures follow and both are about the
 **corpus** rather than about any device:
 
-| figure                                              |       value | meaning                                                                                   |
-| --------------------------------------------------- | ----------: | ----------------------------------------------------------------------------------------- |
-| paired standard error of ΔF1                        |  **0.0045** | the noise of one term's removal                                                           |
-| **minimum detectable difference** (5 %, 80 % power) |  **0.0126** | **3.6 true positives.** A move smaller than this cannot be shown here, however true it is |
-| frontier of §141, priced at +8 covering comments    | **+0.0212** | 2·109/757 − 2·101/757: **above** the resolution, so that target is measurable             |
+| figure                                              |       value | meaning                                                                                                                   |
+| --------------------------------------------------- | ----------: | ------------------------------------------------------------------------------------------------------------------------- |
+| paired standard error of ΔF1                        |  **0.0045** | the noise of one term's removal                                                                                           |
+| **minimum detectable difference** (5 %, 80 % power) |  **0.0126** | **4.8 true positives** (`0.0126 x 757 / 2`, since one comment is worth `2/(305+452)`). A move smaller than this cannot be |
+| shown here, however true it is                      |
+| frontier of §141, priced at +8 covering comments    | **+0.0212** | 2·109/757 − 2·101/757: **above** the resolution, so that target is measurable                                             |
 
 **This is why the two iterations before this one kept finding nothing.** §144 ended with a ceiling and §145 with a defect;
 the moves in between were worth one to three true positives, which is inside ±0.0126. **The instrument now says so before a
