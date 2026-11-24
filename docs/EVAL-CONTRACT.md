@@ -15699,3 +15699,123 @@ under the corpus's arithmetic and a 0.24-point gain under the deprecated one; **
 is neither.** Keeping the category is worth **+1.99** over deleting it (0.3144 against 0.2945), and capping it at two is
 worth **+1.20** over keeping all of it — **a small, positive, inside-the-resolution contribution, not a liability and not
 a device.**
+
+### 144. The selection problem is exhausted, and the reason is a ceiling rather than a ranker
+
+**The registration, before the work.** §140.3 measured the ranker's ability to tell a comment that buys a reference comment
+from one that does not at **AUC 0.5555**, and §141's frontier priced the next gain at **+8 genuinely new covering comments
+at unchanged emission**. §145.1 wrote the hypothesis that follows from that: *the next device has to change what the score
+knows — ask a question about the comment's referent — and not how it orders.* This section is that hypothesis, tested six
+ways on one artifact already paid for, at **¥0**.
+
+**The artifact.** `45057608080`, 2026-11-22: 591 emitted comments over 50 pull requests, 452 reference comments, 305 posted
+under the shipped policy (`drop test`, drop the test path class, twelve per pull request), 101 bought. All arithmetic
+below is validated against the artifact's own headline before it prices anything: **TP 101, P 0.33115, R 0.22345, F1
+0.26684**, against the artifact's `0.3311 / 0.2235 / 0.2668`.
+
+#### 144.1 Six hypotheses, and what each one returned
+
+| # | hypothesis | measurement | verdict |
+| - | ---------- | ----------- | ------- |
+| 1 | the wasted mass is **referentially redundant** — several comments point at one place | 305 posted comments fall into **304 referent clusters** at a one-line slack; four clusters at five lines | false |
+| 2 | the wasted mass is **lexically duplicated** — the same sentence twice | **0 pairs** at Jaccard ≥ 0.60 within a pull request | false |
+| 3 | **no single field** in the artifact separates buyers from non-buyers | best \|AUC−0.5\| is `agreement` at 0.0675; six structural fields sit at 0.5000–0.506 | false |
+| 4 | the granularity is wrong: **the pull request knows**, even if the comment does not | AUC **0.7755** at pull-request level, then **−0.0042 held-out F1** when the threshold is fitted (noise band 0.0053) | false |
+| 5 | the claim should **name something the change touched** | AUC **0.5132** full emission, **0.5026** on the posted set; only 12 of 305 posted comments name nothing in the diff | false |
+| 6 | some **other key to the budget's ordering** is better | `named` objects 0.2589 F1, `agreement` 0.2616, `named+score` 0.2589, shipped `score` **0.2668** | false |
+
+**The shipped score is the best ranker among everything the artifact can see.** That is the finding, and it is a finding
+about the *margin*, not about the score: hypothesis 3 is the one that had already been measured as 0.5555 and this run
+confirms it at the level of every individual field.
+
+#### 144.2 The device that looked strongest is the one that fails hardest
+
+Hypothesis 4 is worth its own paragraph because the number is good and the conclusion is not. **Thirteen of fifty pull
+requests buy nothing at all**, and they hold 59 reference comments — 13 % of the answer key. Cutting them would take the
+figure from 0.2668 to 0.3017 by removing 64 of 305 comments at no recall cost. At pull-request level, the best comment's
+score separates "this pull request has something for us" from "it does not" at **AUC 0.7755**, and `mean of top three`
+reaches 0.7193.
+
+**A ranking is not a cut**, and the held-out reading is what says so: the threshold chosen on the other forty-nine pull
+requests collapses the figure to **0.2524**, a **−0.0042** delta that sits inside the 0.0053 noise band. The reason is in
+the data rather than in the fitting — **the thirteen fruitless pull requests have best scores of 0.71 to 0.88**, inside the
+range of the productive ones. The mean difference that produced 0.7755 is real and the boundary it implies does not exist.
+
+#### 144.3 What is left is a ceiling, and it is arithmetic
+
+If no selector helps, the useful question is how much a *perfect* selector could reach. For every reference comment the
+question is decidable without a model: **does any sentence this run emitted, for this file, name a code object the
+reference comment also names?** `scripts/lib/selection-ceiling.mjs` answers it, publishes the figure on every dispatch
+beside the head-to-head, and refuses three ways of making the answer say too much — the denominator is the **row set's**
+reference comments rather than the emission's, a **covered** reference comment is reachable without a lexical test, and a
+reference comment **naming no code object at all** is counted unmeasurable rather than unreachable.
+
+| bucket | reference comments | what it means |
+| ------ | -----------------: | ------------- |
+| covered by the matching | **101** | bought |
+| not covered, but a sentence of ours names one of their objects | **189** | reachable by a better cut of this emission |
+| naming objects no sentence of ours names | **95** | **no cut, budget, quota or ranker can buy them** |
+| naming no code object at all | **67** | outside a lexical measure on either side |
+| **ceiling: (101 + 189) / 452** | **64.2 %** | and **21.0 % is unreachable at any selectivity** |
+
+**The 95 are not noise.** They are typo reports (`minimumCouts` for `minimumCounts`), naming and style preferences
+(`std::initializer_list` over `std::array`), and one "double newline detected". **A reviewer built to be right two times in
+three does not write them**, which is the same trade the language rules already make — *an idiom reported as a defect is a
+false positive with a suggestion attached*. So the ceiling is not a defect of the engine and not a target either: it is the
+part of this answer key that a serious reviewer declines to answer, and **chasing it would be fitting the corpus.**
+
+#### 144.4 Two arithmetic errors in the instrument, caught before publication
+
+Both are the §140.5 defect one level down, and both were in this section's own probe rather than in the repository.
+
+1. **A reference comment counted once per finding.** The first version credited a golden to every comment whose verdicts
+   accepted it, which is not what a maximum matching does — a comment accepted for two reference comments still buys one.
+   It read **F1 0.2937** where the artifact reads 0.2668: **+0.027 of pure error, in the flattering direction.** The probe
+   now reproduces the artifact's TP, precision and F1 before it prices anything, and exits non-zero when it cannot.
+2. **A pull request with no emission dropped from the denominator.** `openCV/pull/27297` posted nothing, so the loop never
+   visited it and its reference comment left the recall denominator — **+0.0003 F1 for saying nothing**, the §141 rule
+   ("the denominator belongs to the row set") broken one level down. Three tests in
+   `a-selector-cannot-buy-a-sentence-nobody-wrote.test.ts` now hold it.
+
+#### 144.5 What this closes and what it does not
+
+**Closed: the +8 of §141's frontier as a selection move.** Eight new covering comments require eight sentences nobody has
+written, and no re-ordering of 591 sentences produces them. **The frontier's own arithmetic was right and its lever was
+wrong**: it priced the emission, not the selector.
+
+**Not closed: the 189.** They are reachable, and reaching them is a *cut* problem with no signal — which means the next
+device has to add a signal, not re-weight one. The only untested place left is the one the artifact cannot see: **the code
+the comment is about**, as opposed to the words it uses. §145 records why the artifact cannot see it yet.
+
+**And one sentence §144 will not write.** It will not say the corpus is measuring the wrong thing. It says the corpus
+credits one sentence of the several true ones a reviewer can write about a hunk, which is a property of every single-answer
+benchmark, and that the way to score higher on it is to be right about *the same defect*, which is a reader problem.
+
+### 145. A published field that nothing fills, and the two objects that own one name
+
+**Found by opening an artifact, not by failing a test.** All 591 rows of `45057608080` publish `existingCode: ""`, and the
+harness comment beside that line claims the field is *"the code the finding says it is about … the only way the offline
+replay of a paid run can price the grounding gate"*. It is not, and the chain is worth writing down because each link is a
+separate mistake:
+
+| link | what is there | what it means |
+| ---- | ------------- | ------------- |
+| `LLMFinding.snippet` | declared in `packages/intelligence/src/review/llm/prompts.ts`, **no producer** | the quotation channel was designed and never wired |
+| `llm-review-engine.extractRangeText` | returns `[Lines 10-20 -> 10-22] added` — a **range label** | the comment's `existingCode` is not code either |
+| `DiffRange` | carries `oldStart/oldEnd/newStart/newEnd/changeType`, **no line content** | the diff parser cannot produce the text at any price |
+| `aacr-bench.mjs` | reads `entry.finding.existingCode` | `LLMFinding` has no such field, so `?? ''` turns the mistake into data |
+
+**Why nothing caught it.** The harness is `.mjs`, so a field name read off a typed object is checked by nothing, and
+`?? ''` makes a missing field and an empty field the same fact. **A gate replayed over those rows is a gate shown no
+code**, and its removals would have read as a statement about the gate.
+
+**What was repaired, and what was only named.** The row now takes its evidence from `quotationOf` in
+`.github/scripts/lib/published-evidence.mjs`, which reads the field `LLMFinding` declares and publishes
+`existingCodeFrom` beside it — so `none` is a reviewer that quoted nothing and `snippet` is a harness that found one, which
+are different facts and no longer the same empty string. The artifact carries `evidence: { rows, quoted, none, field,
+version }` so a run that publishes 591 empty quotations says so in the data. **What is not repaired is the product**: no
+lane populates `snippet`, `extractRangeText` still returns a label, and `DiffRange` still discards line content — so
+comment positioning and the grounding gate both run on a field that was never the code. That is §146's item, and it is
+registered here rather than fixed quietly because **filling `snippet` from the range text would make `quotesDiff`
+nearly identical to `grounded`, and one score term double-counting another is a ranking change that has to be measured
+before it ships.**
