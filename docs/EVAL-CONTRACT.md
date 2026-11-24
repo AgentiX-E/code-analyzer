@@ -15820,3 +15820,147 @@ comment positioning and the grounding gate both run on a field that was never th
 registered here rather than fixed quietly because **filling `snippet` from the range text would make `quotesDiff`
 nearly identical to `grounded`, and one score term double-counting another is a ranking change that has to be measured
 before it ships.**
+
+### 147. What an attachment can be asked, and what the score is worth term by term
+
+**The attachment.** A 826-line specification, _Code Analyzer 统一数据集设计优化与实现规范_, proposes an RDF quad set as the
+single truth, an ontology with a stratified Datalog closure, five materialised projections, four retrieval arms, a
+self-contained report and a PostgreSQL truth source with stateless instances. It states in §3 that **every fact below is
+taken from the repository source, with line numbers**, and registers 36 features across 19 authoritative benchmarks with 78
+references "pending external execution". It was audited against this repository and against the published specifications of
+the boards it names. **This section records what verified, what did not, and which one of its methods was worth adopting.**
+
+#### 147.1 The audit, claim by claim
+
+| claim                                                                                                                                              | repository fact                                                                                                               | verdict                        |
+| -------------------------------------------------------------------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------- | ------------------------------ |
+| 13 modules under `packages/infra/src/unified/` (`algebra`, `ontology`, `engine`, `stores`, `incremental`, `distributed`, `report`, …), 3 242 lines | **directory does not exist**; `git log --all` finds no commit that ever contained it                                          | absent                         |
+| `benchmarks/unified/{ontology-ablation,scale-50k,scale-50k-worker,optimize-and-cluster}.ts`, `acceptance_gate.py`                                  | **directory does not exist**                                                                                                  | absent                         |
+| `scripts/ontology-verify.mjs`, `tests 23 / pass 23`                                                                                                | **file does not exist**                                                                                                       | absent                         |
+| "zero third-party runtime dependency" for an RDF/OWL/SHACL stack                                                                                   | `package.json` has **no RDF, SPARQL, N3 or quad dependency**, because there is no such stack                                  | vacuous                        |
+| `packages/mcp/src/tools/{ask,change-impact,smart-response,cross-repo}.ts` at 247 / 680 / 887 / 1339 lines                                          | present at **246 / 679 / 886 / 1338**                                                                                         | verified, off by one line each |
+| `packages/analyzer/src/languages/*.ts`, 53 files                                                                                                   | **53**                                                                                                                        | verified                       |
+| `packages/mcp/src/tools/*.ts`, 23 files                                                                                                            | **25**                                                                                                                        | drifted                        |
+| `benchmarks/citations.json` with a nine-field schema and a numbers gate                                                                            | **present**, 14 records, `scripts/numbers-gate.js` enforces three rules                                                       | already implemented here       |
+| `docs/EVAL-CONTRACT.md` as the numeric-discipline register                                                                                         | present, and this section is the 147th of it                                                                                  | verified                       |
+| O1: reachability recall **0.1988 → 1.0000**, gain **0.8012**                                                                                       | the baseline is "asserted edges only"; `change-impact.ts` has traversed transitively since it shipped (`depth` default **3**) | measured against a strawman    |
+
+**The one number the attachment publishes is the one that does not transfer.** Its 0.8012 is the difference between an
+engine that follows only asserted edges and one that closes a transitive property - and this product has never been the
+former, so the gain is a comparison with a baseline no user could have been running. **Everything else in the document is
+`PENDING_EXTERNAL` by its own admission**, which its §14 makes a first-class status: 78 references, 0 executed.
+
+**What was adopted, and what was refused.**
+
+| mechanism                                                                                                                                  | decision                                                                                                            |
+| ------------------------------------------------------------------------------------------------------------------------------------------ | ------------------------------------------------------------------------------------------------------------------- |
+| ablation as the unit of attribution: hold the corpus fixed, toggle one asset, read the difference as that asset's contribution (its O1–O7) | **adopted**, and pointed at the score (§147.2) - the only component that decides which comments a pull request gets |
+| resolution as a first-class figure: a sample floor of 100 turned into "the smallest difference this design could show"                     | **adopted** (§147.3)                                                                                                |
+| three-state status (`PASS_LOCAL` / `PENDING_EXTERNAL` / `FAIL`), so a local figure is never quoted as an external one                      | **adopted** as a rule; §141.3 already said it in prose, this makes it a register                                    |
+| the single-truth / five-projection / PG-notify architecture                                                                                | **refused**: no path from it to a change in P/R/F1 on either board, and its own evidence is a strawman baseline     |
+
+#### 147.2 The score, priced term by term
+
+`ACTIONABILITY_WEIGHTS` sums eight terms into one number in [0, 1] and the number decides which twelve comments of a pull
+request are posted. Every argument about the ranking so far has been an argument about the sum. `scripts/lib/score-ablation.mjs`
+removes one term at a time - setting its weight to zero and re-running the same accumulation in the engine's order - and
+re-cuts the emission, and `scripts/aacr-score-ablation.mjs` runs it on a published artifact. **It refuses to print a delta
+until the weights rebuild every published score to the digit.**
+
+Artifact `45057608080`: **591 rows, 452 reference comments, 305 posted, TP 101, F1 0.2668** - rebuilt exactly, which is the
+calibration this instrument is worth anything only after.
+
+| term             | weight | fires | TP without | F1 without |         ΔF1 | 95 % CI           | lost → won |      p |
+| ---------------- | -----: | ----: | ---------: | ---------: | ----------: | ----------------- | ---------: | -----: |
+| `proposesChange` |   0.20 |   457 |         95 |     0.2510 | **−0.0159** | [−0.0344, 0.0000] |      7 → 1 | 0.0703 |
+| `severity`       |   0.12 |   591 |         99 |     0.2616 | **−0.0053** | [−0.0169, 0.0000] |      2 → 0 | 0.5000 |
+| `grounded`       |   0.30 |   540 |        100 |     0.2642 | **−0.0026** | [−0.0122, 0.0059] |      2 → 1 | 1.0000 |
+| `lane`           |   0.06 |   591 |        100 |     0.2642 | **−0.0026** | [−0.0084, 0.0000] |      1 → 0 | 1.0000 |
+| `namesSymbol`    |   0.08 |   551 |        101 |     0.2668 |      0.0000 | [0.0000, 0.0000]  |      0 → 0 | 1.0000 |
+| `agreement`      |   0.10 |   591 |        101 |     0.2668 |      0.0000 | [0.0000, 0.0000]  |      2 → 2 | 1.0000 |
+| `quotesDiff`     |   0.14 |    48 |        102 |     0.2695 | **+0.0026** | [−0.0055, 0.0119] |      2 → 3 | 1.0000 |
+| `hedgePenalty`   |   0.10 |    78 |        103 |     0.2721 | **+0.0053** | [−0.0044, 0.0157] |      1 → 3 | 0.6250 |
+
+**Three readings, and only the first is safe to act on.**
+
+1. **`proposesChange` is the term that decides the ranking.** Removing it costs six true positives, its interval nearly
+   excludes zero, and it is the only term whose effect is larger than the corpus's resolution. A suggestion that names an
+   action or shows a replacement is, on this evidence, what a posted comment is worth.
+2. **`namesSymbol` and `agreement` exchange nothing, and `agreement` exchanges two for two.** 0.18 of the score's weight
+   (`namesSymbol` 0.08 + `agreement` 0.10) does not change _which_ reference comments are bought at all. This is not the
+   same as "the terms are useless" - it says they reorder comments that all buy nothing. **The §145 defect is the reason
+   for one of them**: `quotesDiff`'s interval is `[−0.0055, +0.0119]` and it fires 48 times out of 591 because there is no
+   quotation to test - the term asks whether the _narrative_ happens to contain a line of the diff.
+3. **The two negative terms are below the resolution and their exact tests agree.** `hedgePenalty` and `quotesDiff` look
+   like gains of +0.0053 and +0.0026, and their McNemar p-values are 0.625 and 1.000 on discordance of 1→3 and 2→3.
+   **A term cannot be removed on this evidence.**
+
+#### 147.3 The resolution, which is the iteration's actual finding
+
+`scripts/lib/paired-difference.mjs` resamples the fifty pull requests (2 000 rounds, seed 20261124) and reports the interval
+on ΔF1, plus the exact McNemar test on the reference comments that changed hands. Two figures follow and both are about the
+**corpus** rather than about any device:
+
+| figure                                              |       value | meaning                                                                                   |
+| --------------------------------------------------- | ----------: | ----------------------------------------------------------------------------------------- |
+| paired standard error of ΔF1                        |  **0.0045** | the noise of one term's removal                                                           |
+| **minimum detectable difference** (5 %, 80 % power) |  **0.0126** | **3.6 true positives.** A move smaller than this cannot be shown here, however true it is |
+| frontier of §141, priced at +8 covering comments    | **+0.0212** | 2·109/757 − 2·101/757: **above** the resolution, so that target is measurable             |
+
+**This is why the two iterations before this one kept finding nothing.** §144 ended with a ceiling and §145 with a defect;
+the moves in between were worth one to three true positives, which is inside ±0.0126. **The instrument now says so before a
+device is built**, and it says the frontier is worth chasing precisely because it is the one remaining move that is bigger
+than the ruler.
+
+The split-half check is the confirmation and it is not flattering: choosing the best single omission on one half of the
+corpus and reading it on the other selects **`quotesDiff` in both directions and moves nothing** (0.2210 → 0.2210), while
+the full-corpus best is `hedgePenalty`. **Two halves disagree about which term to remove where the whole corpus "agrees" it
+is that term** - the definition of a selection made inside the noise.
+
+#### 147.4 The Martian denominator, which was not the board's
+
+The fifth question every iteration has to answer compares our Martian figure with the board's. **Our figure was divided by a
+different number than every published competitor.** The board curates **173** comments and scores on a **Core** profile of
+**158** - the eight categories `bug, security, concurrency, data, api, perf, test_gap, doc_defect`, which is 173 minus
+`style` (10) and `speculative` (5). `aacr-bench.mjs` counted `comments.filter((c) => note !== '')`: all 173.
+
+`scripts/lib/corpus-profile.mjs` re-indexes the verdicts into a named profile - **the same arithmetic, one level up**: the
+judge already answered each (comment, golden) pair, and which goldens count is a property of the question. On the local
+Martian run, after rebuilding the artifact's own shipped point (429 comments, TP 83, exactly as published):
+
+| profile             | emitted |     TP | goldens |  precision |     recall |     **F1** |
+| ------------------- | ------: | -----: | ------: | ---------: | ---------: | ---------: |
+| all, shipped        |     429 |     83 |     173 |     0.1935 |     0.4798 |     0.2757 |
+| **core, shipped**   | **429** | **78** | **158** | **0.1818** | **0.4937** | **0.2658** |
+| all, full emission  |     943 |     96 |     173 |     0.1018 |     0.5549 |     0.1720 |
+| core, full emission |     943 |     89 |     158 |     0.0944 |     0.5633 |     0.1617 |
+
+**The correction lowers our figure by 0.0099** - the fifteen excluded comments were disproportionately ones we bought, which
+is itself a statement about what the reading arm writes. And it makes the comparison possible for the first time.
+
+#### 147.5 At equal volume, theirs are the same defects and ours are not
+
+The published leaderboard supplies the operating point nobody in this repository had: **PR Lens 105 hits / 158 at 164
+comments (F1 0.652, F2 0.660); Qodo Extended 102 / 50 (0.658); MergeJudge `--deep` 60 / 19 (0.506).** That is **≈3.3
+comments per pull request at ≈64 % precision**, against a published second-run ablation - verifier off, 102.0 hits / 69.3
+wrong → F1 .619; verifier on, 102.3 / 58.3 → F1 .642 - **a gate that found no extra bug and raised F1 by 2.3 points by
+withholding eleven wrong comments.**
+
+Our own budget curve on the same 50 pull requests:
+
+| comments per PR | emitted |     TP |  precision |     recall |         F1 |
+| --------------: | ------: | -----: | ---------: | ---------: | ---------: |
+|               1 |      50 |     20 |     0.4000 |     0.1156 |     0.1794 |
+|           **3** | **147** | **34** | **0.2313** | **0.1965** | **0.2125** |
+|               8 |     357 |     67 |     0.1877 |     0.3873 |     0.2528 |
+|              12 |     484 |     84 |     0.1736 |     0.4855 |     0.2557 |
+
+**At three comments per pull request the leaders buy 105 of 158 reference comments and we buy 34.** The gap is not volume,
+not selection and not the score: at the same budget they catch **three times** as many of the same defects. §144's ceiling
+and this table are the same finding from two directions, and together they say the next device has to _find_ something the
+current sentences do not contain.
+
+**And the leader's own ablation names the mechanism we are missing**: a falsification pass that verifies a claim against the
+code it is about, which cannot catch a new defect and still moves F1 by 2.3 points. **That is exactly the gate §145 found
+unreplayable**, because `snippet` has no producer. The published number is the price of the defect: **+2.3 F1 points on
+Martian, above the AACR resolution and above every score re-weighting measured in §147.2.**
