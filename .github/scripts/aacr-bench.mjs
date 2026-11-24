@@ -2911,6 +2911,18 @@ async function main() {
     modeReason: competitorChoice.reason,
     replayed: 0,
     recorded: 0,
+    /**
+     * **The pull requests this arm holds a row for, named - the coverage statement, rather than a count of it.**
+     *
+     * `recorded` and `replayed` are two numbers and the coverage they support is a set; an audit that compares the
+     * numbers to the corpus can only subtract totals, and **a total cannot tell a row outside the corpus from a hole
+     * inside it**. The run of 2026-11-24 published `50 accounted for of 49 scored` on complete coverage for exactly
+     * that reason, and the difference was its own failed pull request - the one our review never reached.
+     *
+     * **Filled at each recorded and replayed row**, so it is written by the same branch that writes the count and
+     * cannot drift from it.
+     */
+    coveredKeys: [],
     // **How each replayed row was checked**, because a row transcribed before per-pull fingerprints existed can only be
     // checked by its golden count - and **a figure resting on fourteen count-checked rows is a different figure from one
     // resting on fourteen fingerprint-checked rows**, even though both are called "replayed".
@@ -3358,6 +3370,8 @@ async function main() {
       competitor.findings += Number(competitorDecision.pull.findings ?? 0);
       competitor.judgeUnanswered += Number(competitorDecision.pull.unanswered ?? 0);
       competitor.replayed += 1;
+      // **The same branch writes the key**, so the coverage statement and the count of it cannot disagree.
+      competitor.coveredKeys.push(competitorKey);
     } else if (competitorDecision.kind === 'missing') {
       competitor.missing.push({ key: competitorKey, reason: competitorDecision.reason });
     } else if (competitorDecision.kind === 'record' && !ocrKey) {
@@ -3684,6 +3698,8 @@ async function main() {
             );
             competitor.recorded += 1;
             recordedAny += 1;
+            // **The same branch writes the key**, so the coverage statement and the count of it cannot disagree.
+            competitor.coveredKeys.push(competitorKey);
           }
         } catch (error) {
           competitor.prsFailed += 1;
