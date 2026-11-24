@@ -348,6 +348,16 @@ jobs:
       - name: Enforce that stated counts match the code
         run: npm run docs:code-sync
 
+      # **The register is rendered here, not by hand**, so the page a reader opens and the table a reviewer edits are the
+      # same artefact. A renderer nothing invokes is the shape this repository already paid for once: a correct, tested
+      # script that guarded nothing. The step fails on a register whose table the renderer cannot parse, which is what a
+      # hand-edited row with a missing column looks like.
+      - name: Render the capability register as one self-contained page
+        run: npm run docs:register
+
+      - name: Enforce that the rendered page is what the register says
+        run: git diff --exit-code -- docs/capability-register.html
+
       # **A section that explains a score by quoting a corpus has to be re-derived from that corpus.** §132 attributes
       # our 27.57 and the leader's 65.8 to five named places, and every figure in it comes from
       # `benchmarks/martian-bench.json` by arithmetic - so the reading is reproducible for free, and it is checked here

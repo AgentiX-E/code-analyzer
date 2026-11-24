@@ -68,3 +68,9 @@ benchmarks/aacr-*.json
 # which is most of what the file is) would break the one assertion that proves the JSON and the engine agree. Excluded
 # for the same reason the two artifacts above are: the generator is the author, and the formatter is not a second one.
 packages/intelligence/src/review/llm/review-defaults.generated.ts
+
+# **A rendered page is not formatted by hand, and this one cannot be.** `docs/capability-register.html` is emitted by
+# `scripts/capability-register.mjs` from `docs/CAPABILITY-REGISTER.md`, and CI regenerates it and fails on a diff - so a
+# formatter run here would be reverted by the next build, and a `--check` failure would be a formatter opinion about a
+# generated file rather than a defect in one. Excluded rather than reformatted, for the same reason the JSON artifact above is.
+docs/capability-register.html

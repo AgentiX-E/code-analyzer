@@ -2,7 +2,7 @@
   "name": "code-analyzer",
   "private": true,
   "version": "0.1.0",
-  "description": "Code intelligence platform \u2014 knowledge graph analysis, PR review, and cross-repo intelligence for AI agents",
+  "description": "Code intelligence platform — knowledge graph analysis, PR review, and cross-repo intelligence for AI agents",
   "author": "Lambertyan",
   "license": "MIT",
   "keywords": [
@@ -66,6 +66,7 @@
     "lint:update": "node scripts/lint-per-file.js --update",
     "coverage:exclusions": "node scripts/coverage-exclusions-gate.js",
     "docs:numbers": "node scripts/numbers-gate.js",
+    "docs:register": "node scripts/capability-register.mjs",
     "docs:decomposition": "node scripts/martian-decomposition.mjs --check",
     "docs:decomposition:aacr": "node scripts/aacr-decomposition.mjs --check",
     "docs:lca": "node scripts/lca-report.js --check",
