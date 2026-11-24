@@ -16,8 +16,15 @@
 // their prompts and their models. **This file only fills in the input**, which is **the one part of their pipeline
 // that is about us rather than about them.**
 
-import { existsSync, mkdirSync, readFileSync, readdirSync, writeFileSync } from 'node:fs';
+import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs';
 import { join, resolve } from 'node:path';
+
+import {
+  fetchDiff,
+  mergeCandidates,
+  mergeReviews,
+  readGolden,
+} from '../../scripts/lib/martian-harness.mjs';
 
 /**
  * **Where the field's harness was cloned, and it has to be said rather than guessed.**
@@ -43,37 +50,11 @@ const HAS_KEY = Boolean(process.env['DEEPSEEK_API_KEY']);
 const TOKEN = process.env['GITHUB_TOKEN'] ?? '';
 const MAX_PRS = Number(process.env['MAX_PRS'] ?? '6');
 
-function readGolden() {
-  if (!existsSync(GOLDEN)) return [];
-  const out = [];
-  for (const name of readdirSync(GOLDEN)) {
-    if (!name.endsWith('.json')) continue;
-    const repo = name.replace('.json', '');
-    const entries = JSON.parse(readFileSync(join(GOLDEN, name), 'utf8'));
-    for (const e of entries)
-      out.push({ repo, prTitle: e.pr_title ?? '', url: e.url, comments: e.comments ?? [] });
-  }
-  return out;
-}
-
-/** The unified diff of a PR, through the API, because that is what a reviewer reads. */
-async function fetchDiff(url) {
-  const m = /github\.com\/([^/]+)\/([^/]+)\/pull\/(\d+)/.exec(url);
-  if (!m) return null;
-  const [, owner, repo, num] = m;
-  const res = await fetch(`https://api.github.com/repos/${owner}/${repo}/pulls/${num}`, {
-    headers: {
-      accept: 'application/vnd.github.v3.diff',
-      'user-agent': 'agentix-e-martian-harness',
-      ...(TOKEN ? { authorization: `token ${TOKEN}` } : {}),
-    },
-  });
-  if (!res.ok) return null;
-  return await res.text();
-}
-
+// **The corpus and the two files are read and written by the shared module** (`scripts/lib/martian-harness.mjs`),
+// because this harness is now one of two arms writing the same file - and a second copy of the merge would be a second
+// definition of what "our row" means. `readGolden` and `fetchDiff` moved there with it.
 async function main() {
-  const prs = readGolden();
+  const prs = readGolden(GOLDEN);
   const base = {
     comment: [
       "Our review engine's output, in the schema Martian's pipeline documents, for their judge to score.",
@@ -145,7 +126,7 @@ async function main() {
   let noDiff = 0;
 
   for (const pr of prs.slice(0, MAX_PRS)) {
-    const diff = await fetchDiff(pr.url);
+    const diff = await fetchDiff(pr.url, TOKEN);
     if (diff === null) {
       noDiff += 1;
       continue;
@@ -204,34 +185,13 @@ async function main() {
       existing = {};
     }
   }
-  const shippedTools = new Set();
-  for (const entry of Object.values(existing)) {
-    for (const review of entry?.reviews ?? []) if (review?.tool) shippedTools.add(review.tool);
-  }
-  let merged = 0;
-  for (const [url, entry] of Object.entries(benchmark)) {
-    const target = existing[url];
-    if (!target) {
-      existing[url] = entry;
-      continue;
-    }
-    // **Our review replaces any earlier one for the same tool, and nothing else is touched** - so **a rerun is
-    // idempotent and a shipped tool is never dropped by a run that only knows about ours.**
-    target.reviews = (target.reviews ?? []).filter((r) => r.tool !== TOOL);
-    target.reviews.push(...(entry.reviews ?? []));
-    // **The golden comments come from the shipped entry when it has them**, because **they are the ground truth and
-    // a run of ours has no business rewriting it.**
-    if (!target.golden_comments && entry.golden_comments)
-      target.golden_comments = entry.golden_comments;
-    merged += 1;
-  }
-  writeFileSync(shippedPath, JSON.stringify(existing, null, 2) + '\n');
-  const nowTools = new Set();
-  for (const entry of Object.values(existing)) {
-    for (const review of entry?.reviews ?? []) if (review?.tool) nowTools.add(review.tool);
-  }
+  // **Their file, and the merge is the shared module's** - one definition of "our row" for both arms, so a run of ours
+  // and a run of the competitor's cannot disagree about what replacing a row means.
+  const merge = mergeReviews(existing, benchmark, TOOL);
+  writeFileSync(shippedPath, `${JSON.stringify(existing, null, 2)}\n`);
   console.log(
-    `MARTIAN-HARNESS merged our reviews into ${Object.keys(existing).length} PRs · tools before ${shippedTools.size} · after ${nowTools.size} · merged rows ${merged}`,
+    `MARTIAN-HARNESS merged our reviews into ${String(merge.prs)} PRs · tools before ${String(merge.toolsBefore)} · ` +
+      `after ${String(merge.toolsAfter)} · merged rows ${String(merge.merged)}`,
   );
 
   // **And `step3` reads a second file that `step2` would have written**, which is why running our own review instead
@@ -241,22 +201,25 @@ async function main() {
   // **So this is their schema filled in without a second model call**, and **the shape is theirs**:
   // `{ "<golden_url>": { "<tool>": [ { text, path, line, source } ] } }` at
   // `results/{sanitized_model}/candidates.json`, where **the model component is `MARTIAN_MODEL` with its slash
-  // replaced**, which their `sanitize_model_name` does and this mirrors rather than guesses.
+  // replaced**, which their `sanitize_model_name` does and this mirrors rather than guesses. **The write merges per
+  // tool**, so the competitor arm's candidates for the same pull requests survive a run of ours.
   const sanitized = (process.env['MARTIAN_MODEL'] ?? 'openai/gpt-4o-mini')
     .trim()
     .replace(/\//g, '_');
   const modelDir = join(OFFLINE, 'results', sanitized);
   mkdirSync(modelDir, { recursive: true });
-  const candidates = {};
+  const perUrl = {};
   for (const [url, entry] of Object.entries(benchmark)) {
-    const findings = entry.reviews?.[0]?.candidates ?? [];
-    candidates[url] = {
-      [TOOL]: findings.map((text) => ({ text, path: null, line: null, source: 'extracted' })),
-    };
+    perUrl[url] = (entry.reviews?.[0]?.candidates ?? []).map((text) => ({
+      text,
+      path: null,
+      line: null,
+      source: 'extracted',
+    }));
   }
-  writeFileSync(join(modelDir, 'candidates.json'), JSON.stringify(candidates, null, 2) + '\n');
+  const candidates = mergeCandidates(join(modelDir, 'candidates.json'), perUrl, TOOL);
   console.log(
-    `MARTIAN-HARNESS wrote ${Object.keys(candidates).length} candidate sets to ${modelDir}/candidates.json`,
+    `MARTIAN-HARNESS wrote ${String(candidates.rows)} candidate sets (${String(candidates.tools)} tools) to ${modelDir}/candidates.json`,
   );
 
   write({
