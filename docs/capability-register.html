@@ -1,0 +1,522 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Capability register — code-analyzer</title>
+<style>
+  :root {
+    --bg: #0f1115; --panel: #171a21; --line: #262b36; --ink: #e7ecf3; --dim: #98a2b3;
+    --ours: #4ade80; --public: #60a5fa; --comp: #f59e0b; --done: #4ade80; --part: #f59e0b; --none: #f87171;
+  }
+  * { box-sizing: border-box; }
+  body { margin: 0; background: var(--bg); color: var(--ink);
+         font: 14px/1.55 ui-sans-serif, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", sans-serif; }
+  header { padding: 28px 32px 18px; border-bottom: 1px solid var(--line); }
+  h1 { margin: 0 0 6px; font-size: 20px; letter-spacing: .2px; }
+  .lede { color: var(--dim); max-width: 78ch; margin: 0; }
+  .tiles { display: flex; flex-wrap: wrap; gap: 10px; margin: 18px 0 0; padding: 0; list-style: none; }
+  .tiles li { background: var(--panel); border: 1px solid var(--line); border-radius: 10px; padding: 10px 14px; min-width: 118px; }
+  .tiles b { display: block; font-size: 20px; font-variant-numeric: tabular-nums; }
+  .tiles span { color: var(--dim); font-size: 12px; }
+  nav { display: flex; flex-wrap: wrap; gap: 8px; padding: 14px 32px; border-bottom: 1px solid var(--line); position: sticky; top: 0; background: var(--bg); z-index: 2; }
+  nav button { background: var(--panel); color: var(--ink); border: 1px solid var(--line); border-radius: 999px;
+                padding: 6px 13px; font: inherit; cursor: pointer; }
+  nav button[aria-pressed="true"] { border-color: var(--ink); background: #222835; }
+  nav input { background: var(--panel); border: 1px solid var(--line); border-radius: 999px; color: var(--ink);
+              padding: 6px 13px; font: inherit; min-width: 220px; }
+  main { padding: 8px 32px 56px; }
+  h2 { font-size: 15px; margin: 30px 0 10px; display: flex; align-items: center; gap: 10px; }
+  h2 .count { color: var(--dim); font-weight: 400; font-size: 12px; border: 1px solid var(--line); border-radius: 999px; padding: 1px 8px; }
+  table { width: 100%; border-collapse: collapse; background: var(--panel); border: 1px solid var(--line); border-radius: 10px; overflow: hidden; }
+  th, td { text-align: left; padding: 9px 12px; border-bottom: 1px solid var(--line); vertical-align: top; }
+  th { font-size: 11px; text-transform: uppercase; letter-spacing: .6px; color: var(--dim); font-weight: 600; }
+  tr:last-child td { border-bottom: 0; }
+  td.id { color: var(--dim); font-variant-numeric: tabular-nums; width: 44px; }
+  td.cap { max-width: 46ch; }
+  .surface { display: block; color: var(--dim); font-size: 11.5px; margin-top: 2px; }
+  .tag, .state { font-size: 11px; border-radius: 999px; padding: 2px 9px; border: 1px solid; white-space: nowrap; }
+  .tag.O { color: var(--ours); border-color: color-mix(in srgb, var(--ours) 45%, transparent); }
+  .tag.P { color: var(--public); border-color: color-mix(in srgb, var(--public) 45%, transparent); }
+  .tag.C { color: var(--comp); border-color: color-mix(in srgb, var(--comp) 45%, transparent); }
+  .state.DONE { color: var(--done); border-color: color-mix(in srgb, var(--done) 45%, transparent); }
+  .state.PART { color: var(--part); border-color: color-mix(in srgb, var(--part) 45%, transparent); }
+  .state.NONE { color: var(--none); border-color: color-mix(in srgb, var(--none) 45%, transparent); }
+  code { font: 11.5px/1.4 ui-monospace, SFMono-Regular, Menlo, monospace; color: #cbd5e1; }
+  .none { color: var(--none); font-size: 11.5px; }
+  td.why { color: var(--dim); font-size: 12.5px; max-width: 40ch; }
+  tr[hidden] { display: none; }
+  footer { color: var(--dim); font-size: 12px; padding: 0 32px 40px; }
+</style>
+</head>
+<body>
+<header>
+  <h1>Capability register</h1>
+  <p class="lede">Forty capabilities, grouped by the person who needs them. <b>Ships at</b> says whether a named competitor
+  has it, this repository has it alone, or everyone does. <b>End-to-end</b> names the case that drives the public entry
+  point — a row without one is not accepted, whatever its unit coverage, because the last three defects here were joins
+  between components that each passed their own tests.</p>
+  <ul class="tiles">
+    <li><b>40</b><span>capabilities</span></li>
+    <li><b>32</b><span>done</span></li>
+    <li><b>6</b><span>partial</span></li>
+    <li><b>2</b><span>not built</span></li>
+    <li><b>33</b><span>with an end-to-end case</span></li>
+    <li><b>27</b><span>ours only</span></li>
+    <li><b>4</b><span>competitor only</span></li>
+  </ul>
+</header>
+<nav>
+  <button data-filter="all" aria-pressed="true">All <span style="opacity:.6">40</span></button>
+  <button data-filter="NONE" aria-pressed="false">Not built <span style="opacity:.6">2</span></button>
+  <button data-filter="PART" aria-pressed="false">Partial <span style="opacity:.6">6</span></button>
+  <button data-filter="DONE" aria-pressed="false">Done <span style="opacity:.6">32</span></button>
+  <button data-filter="C" aria-pressed="false">Competitor only <span style="opacity:.6">4</span></button>
+  <button data-filter="no-e2e" aria-pressed="false">No end-to-end case <span style="opacity:.6">7</span></button>
+  <input id="q" type="search" placeholder="filter by capability, file or surface" aria-label="filter">
+</nav>
+<main>
+  <section>
+    <h2>developer opening a pull request, I want a review I can act on<span class="count">10</span></h2>
+    <table>
+      <thead><tr><th>#</th><th>Capability</th><th>Ships at</th><th>Unit</th><th>End-to-end</th><th>State</th><th>What the state means</th></tr></thead>
+      <tbody>
+      <tr data-state="DONE" data-who="P" data-e2e="true">
+        <td class="id">1</td>
+        <td class="cap">Five review lanes over one diff, each told what it is looking for<span class="surface">GitHub App, CLI</span></td>
+        <td><span class="tag P">public</span></td>
+        <td class="proof"><code>tests/unit/review/review-engine.test.ts</code></td>
+        <td class="proof"><code>review-reads-in-the-order-a-developer-would</code></td>
+        <td><span class="state DONE">DONE</span></td>
+        <td class="why">DONE</td>
+      </tr>
+      <tr data-state="DONE" data-who="O" data-e2e="true">
+        <td class="id">2</td>
+        <td class="cap">Findings ranked so the first comment read is the most actionable<span class="surface">GitHub App, CLI</span></td>
+        <td><span class="tag O">ours only</span></td>
+        <td class="proof"><code>a-score-term-is-worth-what-removing-it-costs</code></td>
+        <td class="proof"><code>review-reads-in-the-order-a-developer-would</code></td>
+        <td><span class="state DONE">DONE</span></td>
+        <td class="why">DONE</td>
+      </tr>
+      <tr data-state="DONE" data-who="O" data-e2e="true">
+        <td class="id">3</td>
+        <td class="cap">A comment quotes the code it is about, traceable to file, range and revision<span class="surface">GitHub App, CLI</span></td>
+        <td><span class="tag O">ours only</span></td>
+        <td class="proof"><code>a-comment-carries-the-lines-it-is-about</code></td>
+        <td class="proof"><code>a-review-quotes-the-code-it-is-about</code></td>
+        <td><span class="state DONE">DONE</span></td>
+        <td class="why">DONE (§148)</td>
+      </tr>
+      <tr data-state="DONE" data-who="O" data-e2e="true">
+        <td class="id">4</td>
+        <td class="cap">A finding naming no file, or a file the call did not show, is dropped and counted separately<span class="surface">GitHub App</span></td>
+        <td><span class="tag O">ours only</span></td>
+        <td class="proof"><code>a-finding-is-located-by-the-code-it-quotes</code></td>
+        <td class="proof"><code>review-of-a-pull-request-names-the-file-that-has-to-change</code></td>
+        <td><span class="state DONE">DONE</span></td>
+        <td class="why">DONE</td>
+      </tr>
+      <tr data-state="DONE" data-who="O" data-e2e="true">
+        <td class="id">5</td>
+        <td class="cap">The review is told what the change reaches, so a comment can name the caller it breaks<span class="surface">CLI, MCP</span></td>
+        <td><span class="tag O">ours only</span></td>
+        <td class="proof"><span class="none">no unit case</span></td>
+        <td class="proof"><code>a-review-is-told-what-a-change-reaches</code></td>
+        <td><span class="state DONE">DONE</span></td>
+        <td class="why">DONE</td>
+      </tr>
+      <tr data-state="DONE" data-who="C" data-e2e="true">
+        <td class="id">6</td>
+        <td class="cap">The review reads the function the change sits in, not only the hunk<span class="surface">CLI</span></td>
+        <td><span class="tag C">competitor only</span></td>
+        <td class="proof"><code>a-review-can-read-the-code-it-is-reviewing</code></td>
+        <td class="proof"><code>a-review-reads-the-function-the-change-sits-in</code></td>
+        <td><span class="state DONE">DONE</span></td>
+        <td class="why">DONE</td>
+      </tr>
+      <tr data-state="PART" data-who="O" data-e2e="true">
+        <td class="id">7</td>
+        <td class="cap">Quotations are checked against the file and the change before a comment survives<span class="surface">CLI</span></td>
+        <td><span class="tag O">ours only</span></td>
+        <td class="proof"><code>a-review-that-reads-before-it-accuses</code></td>
+        <td class="proof"><code>review-tells-the-reviewer-what-not-to-report</code></td>
+        <td><span class="state PART">PART</span></td>
+        <td class="why">PART — the gate is applied where a report is built; how much it is worth is NOT_MEASURED (§147.5, replay pending)</td>
+      </tr>
+      <tr data-state="DONE" data-who="P" data-e2e="true">
+        <td class="id">8</td>
+        <td class="cap">A review spends a stated budget and stops at a ceiling<span class="surface">CLI, GitHub App</span></td>
+        <td><span class="tag P">public</span></td>
+        <td class="proof"><span class="none">no unit case</span></td>
+        <td class="proof"><code>a-review-reports-what-it-spent-and-stops-at-the-ceiling</code></td>
+        <td><span class="state DONE">DONE</span></td>
+        <td class="why">DONE</td>
+      </tr>
+      <tr data-state="DONE" data-who="C" data-e2e="true">
+        <td class="id">9</td>
+        <td class="cap">The reviewer that reads the repository runs as a command<span class="surface">CLI</span></td>
+        <td><span class="tag C">competitor only</span></td>
+        <td class="proof"><span class="none">no unit case</span></td>
+        <td class="proof"><code>the-reviewer-that-reads-runs-from-the-command</code></td>
+        <td><span class="state DONE">DONE</span></td>
+        <td class="why">DONE</td>
+      </tr>
+      <tr data-state="DONE" data-who="O" data-e2e="true">
+        <td class="id">10</td>
+        <td class="cap">A lane pays for its instructions once, not once per call<span class="surface">— (cost)</span></td>
+        <td><span class="tag O">ours only</span></td>
+        <td class="proof"><span class="none">no unit case</span></td>
+        <td class="proof"><code>a-lane-pays-for-its-instructions-once</code></td>
+        <td><span class="state DONE">DONE</span></td>
+        <td class="why">DONE</td>
+      </tr>
+      </tbody>
+    </table>
+  </section>
+  <section>
+    <h2>maintainer, I want the review to be right about my language<span class="count">6</span></h2>
+    <table>
+      <thead><tr><th>#</th><th>Capability</th><th>Ships at</th><th>Unit</th><th>End-to-end</th><th>State</th><th>What the state means</th></tr></thead>
+      <tbody>
+      <tr data-state="DONE" data-who="P" data-e2e="true">
+        <td class="id">11</td>
+        <td class="cap">33 language providers, 11 of them with a per-language defect checklist<span class="surface">all</span></td>
+        <td><span class="tag P">public</span></td>
+        <td class="proof"><code>tests/unit/pipeline</code></td>
+        <td class="proof"><code>a-name-in-a-type-position-java-python-kotlin</code></td>
+        <td><span class="state DONE">DONE</span></td>
+        <td class="why">DONE</td>
+      </tr>
+      <tr data-state="DONE" data-who="O" data-e2e="true">
+        <td class="id">12</td>
+        <td class="cap">A name in a type position is a dependency (Java, Python, Kotlin)<span class="surface">MCP, CLI</span></td>
+        <td><span class="tag O">ours only</span></td>
+        <td class="proof"><span class="none">no unit case</span></td>
+        <td class="proof"><code>a-name-in-a-type-position-java-python-kotlin</code></td>
+        <td><span class="state DONE">DONE</span></td>
+        <td class="why">DONE</td>
+      </tr>
+      <tr data-state="DONE" data-who="O" data-e2e="true">
+        <td class="id">13</td>
+        <td class="cap">A Kotlin parameter type resolves the call across files<span class="surface">MCP</span></td>
+        <td><span class="tag O">ours only</span></td>
+        <td class="proof"><span class="none">no unit case</span></td>
+        <td class="proof"><code>a-kotlin-parameter-type-resolves-the-call</code></td>
+        <td><span class="state DONE">DONE</span></td>
+        <td class="why">DONE</td>
+      </tr>
+      <tr data-state="DONE" data-who="O" data-e2e="true">
+        <td class="id">14</td>
+        <td class="cap">A type mention is a dependency, not a call<span class="surface">MCP</span></td>
+        <td><span class="tag O">ours only</span></td>
+        <td class="proof"><span class="none">no unit case</span></td>
+        <td class="proof"><code>a-type-mention-is-a-dependency</code></td>
+        <td><span class="state DONE">DONE</span></td>
+        <td class="why">DONE</td>
+      </tr>
+      <tr data-state="DONE" data-who="O" data-e2e="true">
+        <td class="id">15</td>
+        <td class="cap">A question in Kotlin about a Java checkout is answered<span class="surface">MCP</span></td>
+        <td><span class="tag O">ours only</span></td>
+        <td class="proof"><span class="none">no unit case</span></td>
+        <td class="proof"><code>kotlin-question-in-a-java-checkout</code></td>
+        <td><span class="state DONE">DONE</span></td>
+        <td class="why">DONE</td>
+      </tr>
+      <tr data-state="PART" data-who="O" data-e2e="false">
+        <td class="id">16</td>
+        <td class="cap">ARKTS and the JVM/Python/TS families the brief prioritises are covered by a corpus in-repo<span class="surface">all</span></td>
+        <td><span class="tag O">ours only</span></td>
+        <td class="proof"><code>the-arkts-corpus-the-repository-did-not-have</code></td>
+        <td class="proof"><span class="none">no end-to-end case</span></td>
+        <td><span class="state PART">PART</span></td>
+        <td class="why">PART — no E2E case yet, which under §1's rule means this row is not accepted</td>
+      </tr>
+      </tbody>
+    </table>
+  </section>
+  <section>
+    <h2>agent, I want one answer from whichever surface I ask<span class="count">9</span></h2>
+    <table>
+      <thead><tr><th>#</th><th>Capability</th><th>Ships at</th><th>Unit</th><th>End-to-end</th><th>State</th><th>What the state means</th></tr></thead>
+      <tbody>
+      <tr data-state="DONE" data-who="P" data-e2e="true">
+        <td class="id">17</td>
+        <td class="cap">51 MCP tools behind one registry and one context<span class="surface">MCP</span></td>
+        <td><span class="tag P">public</span></td>
+        <td class="proof"><code>tests/unit/mcp</code></td>
+        <td class="proof"><code>mcp-e2e</code></td>
+        <td><span class="state DONE">DONE</span></td>
+        <td class="why">DONE</td>
+      </tr>
+      <tr data-state="DONE" data-who="P" data-e2e="true">
+        <td class="id">18</td>
+        <td class="cap">Index a checkout, then ask a question about it<span class="surface">MCP</span></td>
+        <td><span class="tag P">public</span></td>
+        <td class="proof"><span class="none">no unit case</span></td>
+        <td class="proof"><code>index-then-ask</code></td>
+        <td><span class="state DONE">DONE</span></td>
+        <td class="why">DONE</td>
+      </tr>
+      <tr data-state="DONE" data-who="O" data-e2e="true">
+        <td class="id">19</td>
+        <td class="cap">A question asked on four retrieval arms is one answer<span class="surface">MCP, CLI</span></td>
+        <td><span class="tag O">ours only</span></td>
+        <td class="proof"><code>a-search-engine-belongs-to-its-store</code></td>
+        <td class="proof"><code>one-question-four-answers-is-one-answer</code></td>
+        <td><span class="state DONE">DONE</span></td>
+        <td class="why">DONE</td>
+      </tr>
+      <tr data-state="DONE" data-who="O" data-e2e="true">
+        <td class="id">20</td>
+        <td class="cap">Search in the CLI is the search that was measured<span class="surface">CLI</span></td>
+        <td><span class="tag O">ours only</span></td>
+        <td class="proof"><span class="none">no unit case</span></td>
+        <td class="proof"><code>a-search-in-the-cli-is-the-search-that-was-measured</code></td>
+        <td><span class="state DONE">DONE</span></td>
+        <td class="why">DONE</td>
+      </tr>
+      <tr data-state="DONE" data-who="O" data-e2e="true">
+        <td class="id">21</td>
+        <td class="cap">An answer survives a checkout the tool may not read<span class="surface">MCP</span></td>
+        <td><span class="tag O">ours only</span></td>
+        <td class="proof"><span class="none">no unit case</span></td>
+        <td class="proof"><code>fused-localisation-on-a-refused-checkout</code></td>
+        <td><span class="state DONE">DONE</span></td>
+        <td class="why">DONE</td>
+      </tr>
+      <tr data-state="DONE" data-who="O" data-e2e="true">
+        <td class="id">22</td>
+        <td class="cap">Ask with no index and be told where to start<span class="surface">MCP</span></td>
+        <td><span class="tag O">ours only</span></td>
+        <td class="proof"><span class="none">no unit case</span></td>
+        <td class="proof"><code>locate-without-index</code></td>
+        <td><span class="state DONE">DONE</span></td>
+        <td class="why">DONE</td>
+      </tr>
+      <tr data-state="DONE" data-who="O" data-e2e="true">
+        <td class="id">23</td>
+        <td class="cap">An issue becomes ranked files, then an answer in the body<span class="surface">CLI, MCP</span></td>
+        <td><span class="tag O">ours only</span></td>
+        <td class="proof"><span class="none">no unit case</span></td>
+        <td class="proof"><code>issue-to-ranked-files, issue-answer-lives-in-the-body</code></td>
+        <td><span class="state DONE">DONE</span></td>
+        <td class="why">DONE</td>
+      </tr>
+      <tr data-state="DONE" data-who="P" data-e2e="true">
+        <td class="id">24</td>
+        <td class="cap">GraphQL and the web surfaces answer from the same store<span class="surface">server</span></td>
+        <td><span class="tag P">public</span></td>
+        <td class="proof"><span class="none">no unit case</span></td>
+        <td class="proof"><code>graphql-e2e, full-stack</code></td>
+        <td><span class="state DONE">DONE</span></td>
+        <td class="why">DONE</td>
+      </tr>
+      <tr data-state="DONE" data-who="O" data-e2e="true">
+        <td class="id">25</td>
+        <td class="cap">A hash space does not rank — similarity is not identity<span class="surface">MCP</span></td>
+        <td><span class="tag O">ours only</span></td>
+        <td class="proof"><span class="none">no unit case</span></td>
+        <td class="proof"><code>hash-space-does-not-rank</code></td>
+        <td><span class="state DONE">DONE</span></td>
+        <td class="why">DONE</td>
+      </tr>
+      </tbody>
+    </table>
+  </section>
+  <section>
+    <h2>platform owner, I want several repositories and several languages<span class="count">5</span></h2>
+    <table>
+      <thead><tr><th>#</th><th>Capability</th><th>Ships at</th><th>Unit</th><th>End-to-end</th><th>State</th><th>What the state means</th></tr></thead>
+      <tbody>
+      <tr data-state="DONE" data-who="O" data-e2e="true">
+        <td class="id">26</td>
+        <td class="cap">Cross-repository impact from a real workspace<span class="surface">MCP, CLI</span></td>
+        <td><span class="tag O">ours only</span></td>
+        <td class="proof"><span class="none">no unit case</span></td>
+        <td class="proof"><code>cross-repo-real-workspace</code></td>
+        <td><span class="state DONE">DONE</span></td>
+        <td class="why">DONE</td>
+      </tr>
+      <tr data-state="DONE" data-who="O" data-e2e="true">
+        <td class="id">27</td>
+        <td class="cap">An agent's answer crosses a repository boundary<span class="surface">MCP</span></td>
+        <td><span class="tag O">ours only</span></td>
+        <td class="proof"><span class="none">no unit case</span></td>
+        <td class="proof"><code>cross-repo-agent-impact</code></td>
+        <td><span class="state DONE">DONE</span></td>
+        <td class="why">DONE</td>
+      </tr>
+      <tr data-state="DONE" data-who="O" data-e2e="true">
+        <td class="id">28</td>
+        <td class="cap">A multilingual, multi-repository question is answered in one pass<span class="surface">MCP</span></td>
+        <td><span class="tag O">ours only</span></td>
+        <td class="proof"><span class="none">no unit case</span></td>
+        <td class="proof"><code>qa-multilingual-crossrepo</code></td>
+        <td><span class="state DONE">DONE</span></td>
+        <td class="why">DONE</td>
+      </tr>
+      <tr data-state="DONE" data-who="O" data-e2e="true">
+        <td class="id">29</td>
+        <td class="cap">Leiden communities over a real corpus<span class="surface">MCP</span></td>
+        <td><span class="tag O">ours only</span></td>
+        <td class="proof"><span class="none">no unit case</span></td>
+        <td class="proof"><code>communities-real-corpus</code></td>
+        <td><span class="state DONE">DONE</span></td>
+        <td class="why">DONE</td>
+      </tr>
+      <tr data-state="NONE" data-who="P" data-e2e="false">
+        <td class="id">30</td>
+        <td class="cap">Incremental re-index: a push re-scans the files it changed<span class="surface">server, CLI</span></td>
+        <td><span class="tag P">public</span></td>
+        <td class="proof"><span class="none">no unit case</span></td>
+        <td class="proof"><span class="none">no end-to-end case</span></td>
+        <td><span class="state NONE">NONE</span></td>
+        <td class="why">NONE — C-class gap, planned (S12)</td>
+      </tr>
+      </tbody>
+    </table>
+  </section>
+  <section>
+    <h2>security owner, I want to know what the code exposes<span class="count">4</span></h2>
+    <table>
+      <thead><tr><th>#</th><th>Capability</th><th>Ships at</th><th>Unit</th><th>End-to-end</th><th>State</th><th>What the state means</th></tr></thead>
+      <tbody>
+      <tr data-state="PART" data-who="P" data-e2e="true">
+        <td class="id">31</td>
+        <td class="cap">OWASP Benchmark measured, TPR and FPR reported<span class="surface">CLI, harness</span></td>
+        <td><span class="tag P">public</span></td>
+        <td class="proof"><span class="none">no unit case</span></td>
+        <td class="proof"><code>owasp-benchmark</code></td>
+        <td><span class="state PART">PART</span></td>
+        <td class="why">PART — one tree; the second tree is the acceptance</td>
+      </tr>
+      <tr data-state="PART" data-who="C" data-e2e="false">
+        <td class="id">32</td>
+        <td class="cap">Dead code and unreachable functions<span class="surface">MCP</span></td>
+        <td><span class="tag C">competitor only</span></td>
+        <td class="proof"><span class="none">no unit case</span></td>
+        <td class="proof"><span class="none">no end-to-end case</span></td>
+        <td><span class="state PART">PART</span></td>
+        <td class="why">PART — an engine, no E2E, no competitor corpus</td>
+      </tr>
+      <tr data-state="PART" data-who="C" data-e2e="true">
+        <td class="id">33</td>
+        <td class="cap">Taint tracking across HTTP links<span class="surface">MCP</span></td>
+        <td><span class="tag C">competitor only</span></td>
+        <td class="proof"><span class="none">no unit case</span></td>
+        <td class="proof"><code>endpoint-inventory</code></td>
+        <td><span class="state PART">PART</span></td>
+        <td class="why">PART</td>
+      </tr>
+      <tr data-state="DONE" data-who="P" data-e2e="true">
+        <td class="id">34</td>
+        <td class="cap">A webhook is verified and answered inside ten seconds<span class="surface">server</span></td>
+        <td><span class="tag P">public</span></td>
+        <td class="proof"><span class="none">no unit case</span></td>
+        <td class="proof"><code>webhook-e2e</code></td>
+        <td><span class="state DONE">DONE</span></td>
+        <td class="why">DONE</td>
+      </tr>
+      </tbody>
+    </table>
+  </section>
+  <section>
+    <h2>researcher, I want every number to be reproducible and every difference to be real<span class="count">6</span></h2>
+    <table>
+      <thead><tr><th>#</th><th>Capability</th><th>Ships at</th><th>Unit</th><th>End-to-end</th><th>State</th><th>What the state means</th></tr></thead>
+      <tbody>
+      <tr data-state="DONE" data-who="O" data-e2e="true">
+        <td class="id">35</td>
+        <td class="cap">The score is ablated term by term, and the artifact is rebuilt to the digit before a delta is printed<span class="surface">harness</span></td>
+        <td><span class="tag O">ours only</span></td>
+        <td class="proof"><code>a-score-term-is-worth-what-removing-it-costs</code></td>
+        <td class="proof"><code>— (harness, not product)</code></td>
+        <td><span class="state DONE">DONE</span></td>
+        <td class="why">DONE</td>
+      </tr>
+      <tr data-state="DONE" data-who="O" data-e2e="false">
+        <td class="id">36</td>
+        <td class="cap">A difference the corpus cannot resolve is recorded as indistinguishable<span class="surface">harness</span></td>
+        <td><span class="tag O">ours only</span></td>
+        <td class="proof"><code>a-difference-the-corpus-cannot-resolve-is-not-a-difference</code></td>
+        <td class="proof"><span class="none">no end-to-end case</span></td>
+        <td><span class="state DONE">DONE</span></td>
+        <td class="why">DONE</td>
+      </tr>
+      <tr data-state="DONE" data-who="O" data-e2e="false">
+        <td class="id">37</td>
+        <td class="cap">A board's denominator is part of the question (Martian Core = 158)<span class="surface">harness</span></td>
+        <td><span class="tag O">ours only</span></td>
+        <td class="proof"><code>a-denominator-is-part-of-the-question</code></td>
+        <td class="proof"><span class="none">no end-to-end case</span></td>
+        <td><span class="state DONE">DONE</span></td>
+        <td class="why">DONE</td>
+      </tr>
+      <tr data-state="DONE" data-who="O" data-e2e="true">
+        <td class="id">38</td>
+        <td class="cap">A competitor run is bought once<span class="surface">harness</span></td>
+        <td><span class="tag O">ours only</span></td>
+        <td class="proof"><span class="none">no unit case</span></td>
+        <td class="proof"><code>a-competitor-run-is-bought-once</code></td>
+        <td><span class="state DONE">DONE</span></td>
+        <td class="why">DONE</td>
+      </tr>
+      <tr data-state="NONE" data-who="O" data-e2e="false">
+        <td class="id">39</td>
+        <td class="cap">Two engines agree on a state machine's reachable states (formal)<span class="surface">harness</span></td>
+        <td><span class="tag O">ours only</span></td>
+        <td class="proof"><span class="none">no unit case</span></td>
+        <td class="proof"><span class="none">no end-to-end case</span></td>
+        <td><span class="state NONE">NONE</span></td>
+        <td class="why">NONE — probed, not built</td>
+      </tr>
+      <tr data-state="PART" data-who="O" data-e2e="false">
+        <td class="id">40</td>
+        <td class="cap">A single-file, clickable report with the evidence graph<span class="surface">CLI</span></td>
+        <td><span class="tag O">ours only</span></td>
+        <td class="proof"><span class="none">no unit case</span></td>
+        <td class="proof"><span class="none">no end-to-end case</span></td>
+        <td><span class="state PART">PART</span></td>
+        <td class="why">PART — the generator exists, the SPA does not</td>
+      </tr>
+      </tbody>
+    </table>
+  </section>
+</main>
+<footer>Rendered from <code>docs/CAPABILITY-REGISTER.md</code> by <code>scripts/capability-register.mjs</code>. No external
+resource is referenced, so the page opens from a file system with no network.</footer>
+<script>
+  const rows = () => [...document.querySelectorAll('tbody tr')];
+  const buttons = [...document.querySelectorAll('nav button')];
+  let active = 'all';
+  let query = '';
+  function apply() {
+    for (const row of rows()) {
+      const stateOk =
+        active === 'all' ||
+        (active === 'no-e2e' ? row.dataset.e2e === 'false' : row.dataset.state === active || row.dataset.who === active);
+      const textOk = query === '' || row.textContent.toLowerCase().includes(query);
+      row.hidden = !(stateOk && textOk);
+    }
+    for (const section of document.querySelectorAll('section')) {
+      const visible = [...section.querySelectorAll('tbody tr')].filter((row) => !row.hidden).length;
+      section.hidden = visible === 0;
+      section.querySelector('.count').textContent = String(visible);
+    }
+  }
+  for (const button of buttons) {
+    button.addEventListener('click', () => {
+      active = button.dataset.filter;
+      for (const other of buttons) other.setAttribute('aria-pressed', String(other === button));
+      apply();
+    });
+  }
+  document.getElementById('q').addEventListener('input', (event) => {
+    query = event.target.value.trim().toLowerCase();
+    apply();
+  });
+</script>
+</body>
+</html>
