@@ -15,10 +15,11 @@ import { join } from 'node:path';
 import { describe, expect, it } from 'vitest';
 
 import { mergeCandidates, mergeReviews, pullOf } from '../../../scripts/lib/martian-harness.mjs';
+import type { ReviewRows } from '../../../scripts/lib/martian-harness.mjs';
 
 const URL = 'https://github.com/calcom/cal.com/pull/8087';
 
-const shippedFile = () => ({
+const shippedFile = (): ReviewRows => ({
   [URL]: {
     pr_title: 'Async import of the appStore packages',
     golden_comments: [{ comment: 'Consider adding try-catch around the await' }],
@@ -29,7 +30,7 @@ const shippedFile = () => ({
   },
 });
 
-const ourRow = (tool, body) => ({
+const ourRow = (tool: string, body: string): ReviewRows => ({
   [URL]: {
     reviews: [{ tool, review_comments: [{ path: 'a.ts', line: 1, body }] }],
   },

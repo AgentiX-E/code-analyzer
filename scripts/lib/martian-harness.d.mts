@@ -25,6 +25,24 @@ export function pullCommits(
   token?: string,
 ): Promise<{ source: string; target: string } | null>;
 
+/** One comment as the field's schema stores it: where it points and what it says. */
+export interface ReviewComment {
+  readonly path?: string;
+  readonly line?: number;
+  readonly body?: string;
+  readonly category?: string | null;
+  readonly severity?: string | null;
+  readonly created_at?: string;
+}
+
+/** One arm's review of one pull request, under the tool name the arm wrote it with. */
+export interface ToolReview {
+  readonly tool: string;
+  readonly pr_url?: string;
+  readonly review_comments?: readonly ReviewComment[];
+  readonly candidates?: readonly string[];
+}
+
 /** One arm's rows, keyed by pull request URL, in their `benchmark_data.json` entry shape. */
 export interface ReviewRows {
   readonly [url: string]: {
@@ -32,7 +50,7 @@ export interface ReviewRows {
     readonly original_url?: string;
     readonly source_repo?: string;
     readonly golden_comments?: readonly unknown[];
-    readonly reviews?: readonly { readonly tool: string; readonly [key: string]: unknown }[];
+    readonly reviews?: readonly ToolReview[];
   };
 }
 
