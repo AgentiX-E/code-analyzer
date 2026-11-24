@@ -41,7 +41,7 @@ jobs:
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
 
       - name: Initialize CodeQL
-        uses: github/codeql-action/init@9418214df1f2c4b8128c770156c409013b07d6b9 # v3
+        uses: github/codeql-action/init@33d7b85da1a04171e211befe2c739303b9a4c066 # v3
         with:
           languages: ${{ matrix.language }}
           # **The suite and the triage both live in one file**, `.github/codeql/codeql-config.yml`: the queries it names
@@ -49,10 +49,14 @@ jobs:
           # suppression could be added without a reason next to it.
           config-file: ./.github/codeql/codeql-config.yml
 
+      # **All three steps of `codeql-action` are pinned to one commit, and they move together.** Dependabot PR #70 bumps
+      # `autobuild` alone, which would have run `init`, `autobuild` and `analyze` from two different releases - the same
+      # class as the graphql pair (#76 + #74) that were each green and did not work together. The bump below is the same
+      # SHA the PR asks for, applied to all three.
       - name: Autobuild
-        uses: github/codeql-action/autobuild@9418214df1f2c4b8128c770156c409013b07d6b9 # v3
+        uses: github/codeql-action/autobuild@33d7b85da1a04171e211befe2c739303b9a4c066 # v3
 
       - name: Perform CodeQL Analysis
-        uses: github/codeql-action/analyze@9418214df1f2c4b8128c770156c409013b07d6b9 # v3
+        uses: github/codeql-action/analyze@33d7b85da1a04171e211befe2c739303b9a4c066 # v3
         with:
           category: '/language:${{matrix.language}}'
