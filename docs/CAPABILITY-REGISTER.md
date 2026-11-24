@@ -90,6 +90,7 @@ a register that only lists what exists cannot be used to decide what to build.**
 | 41  | **A competitor's comparison names the model of both arms, so the model is not the difference**        | harness | **O** | `a-two-arm-pair-is-read-at-the-cut-the-effect-was-measured`  | — (harness, not product)          | PART — the competitor's model and endpoint are on its row (§151.6), and **our own arm's reviewer is now recorded as its provider names itself** (`configuration.reviewer`, §152.3); **no published artifact carries that field yet**, which is the remaining gap and closes on the next run |
 | 42  | The competitor's two commits are resolved from the pull request when the corpus names none            | harness | O     | `the-competitors-report-has-one-parser`                      | —                                 | DONE (§151.2) — the Martian corpus names no commits, which is why that board never had a competitor row                                                                                                                                                                                     |
 | 43  | One parser reads the competitor's report for both boards, and a self-check proves it without a model  | harness | O     | `the-competitors-report-has-one-parser`                      | —                                 | DONE (§151.3) — the fixture failed twice on its own guesses before the parser could be trusted                                                                                                                                                                                              |
+| 44  | **Every tool the harness installs is checked against the registry's published hash before it runs**   | harness | O     | `a-version-pin-is-verified-before-it-is-installed`           | — (harness, not product)          | DONE (§153) — every npm call site is verified; **pip (`pyarrow`, `pandas`, `pr-agent`) and the vendor's pipe-to-shell installer remain**, the second because it cannot be pinned at all                                                                                                     |
 
 ---
 
@@ -97,10 +98,10 @@ a register that only lists what exists cannot be used to decide what to build.**
 
 |                             | rows |  share |
 | --------------------------- | ---: | -----: |
-| `DONE`                      |   35 |   81 % |
-| `PART`                      |    6 |   14 % |
-| `NONE`                      |    2 |    5 % |
-| **with an end-to-end case** |   33 |   77 % |
+| `DONE`                      |   36 |   80 % |
+| `PART`                      |    6 |   13 % |
+| `NONE`                      |    2 |    4 % |
+| **with an end-to-end case** |   33 |   73 % |
 | **with a unit case**        |   13 |   30 % |
 | **`O` ours-only**           |   26 |   65 % |
 | **`P` public**              |    9 | 22.5 % |
