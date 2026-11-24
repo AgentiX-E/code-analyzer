@@ -178,8 +178,16 @@ function quoteIsPresent(comment: GroundableFinding, lines: string[], diff?: stri
  *
  * **Only backticked identifiers are checked**, so prose is not mistaken for code. **A comment that names nothing is
  * kept**, for the same reason a comment that quotes nothing is: **the evidence is required when it is offered.**
+ *
+ * **And the change counts as somewhere the name can be.** §149 priced the file-only version on the published artifact and
+ * found it deleting true positives at **28.6 % of its pool** - seven times the §75.3 bar - because **every one of the
+ * removals that cost a golden named something the head file legitimately cannot contain**: `dispatchCount`, a symbol the
+ * change *removed* and the comment is about; `lv_event_free_user_data_cb`, a helper declared in another file and imported;
+ * `NeedSubElement`, a name the comment proposes; `false` and `null`, literals in backticks. **A comment about a deletion
+ * must name something that no longer exists** - that is the shape of the finding, not a defect in it, and a check that
+ * cannot see the removed lines convicts it by construction.
  */
-function namesOccurInRegion(comment: GroundableFinding, lines: string[]): boolean {
+function namesOccurInRegion(comment: GroundableFinding, lines: string[], diff?: string): boolean {
   const body = `${comment.content ?? ''} ${comment.suggestionCode ?? ''}`;
   const named = [...body.matchAll(/`([A-Za-z_$][\w$]{2,})`/g)].map((m) => m[1]!);
   if (named.length === 0) return true;
@@ -188,7 +196,10 @@ function namesOccurInRegion(comment: GroundableFinding, lines: string[]): boolea
   // the same file, so the region is where it must be *shown* and the file is where it must *exist*.
   const region = lines.slice(Math.max(0, comment.startLine - 1), comment.endLine).join('\n');
   const file = lines.join('\n');
-  return named.every((name) => region.includes(name) || file.includes(name));
+  // **And the change**, because a removed line is a place a name exists: `?? false` alone would make a comment about a
+  // deletion unverifiable by construction, which is the failure §149 measured at 28.6 % true removals.
+  const change = diff ?? '';
+  return named.every((name) => region.includes(name) || file.includes(name) || change.includes(name));
 }
 
 /**
@@ -239,11 +250,12 @@ export function judgeGrounding<T extends GroundableFinding>(
       continue;
     }
 
-    if (!namesOccurInRegion(comment, lines)) {
+    if (!namesOccurInRegion(comment, lines, sources.diffs?.get(comment.path))) {
       ungrounded.push({
         comment,
         grounded: false,
-        reason: 'the finding names an identifier that occurs nowhere in the file it is about',
+        reason:
+        'the finding names an identifier that occurs nowhere in the file it is about, nor in the change it is about',
       });
       continue;
     }

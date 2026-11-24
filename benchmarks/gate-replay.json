@@ -1,0 +1,1412 @@
+{
+  "version": 1,
+  "instrument": "scripts/gate-replay.mjs",
+  "builtFrom": "/tmp/art/aacr-bench.json",
+  "artifactDigest": "36517dea5d5126ff542513d33014d223ede0b41dfee019f163c15699efad3caf",
+  "corpus": "Alibaba-Aone/aacr-bench (Apache-2.0, public on Hugging Face)",
+  "measuredAt": "2026-11-22",
+  "pullRequests": {
+    "inArtifact": 50,
+    "read": 50,
+    "unread": [],
+    "withoutHeadFile": [
+      {
+        "pr": "https://github.com/microsoft/typescript-go/pull/831",
+        "path": "testdata/baselines/reference/submodule/conformance/importTag16.types"
+      }
+    ]
+  },
+  "pinned": [
+    {
+      "pr": "https://github.com/CherryHQ/cherry-studio/pull/5540",
+      "sha": "c7161ac85890d698038bbfa1346bfd43c09cab78"
+    },
+    {
+      "pr": "https://github.com/CherryHQ/cherry-studio/pull/5637",
+      "sha": "9b0e3680e23ade9e1fd742a2a85ce74bffebf1c5"
+    },
+    {
+      "pr": "https://github.com/cline/cline/pull/2347",
+      "sha": "4021d0a4e8af04ee90147f999b63a24541f4009c"
+    },
+    {
+      "pr": "https://github.com/cline/cline/pull/4676",
+      "sha": "4dd9f97254b249eccfe824baeb4c3d89137123a6"
+    },
+    {
+      "pr": "https://github.com/cline/cline/pull/4786",
+      "sha": "2195a689b787a963bdacc35d348f4590c30a2692"
+    },
+    {
+      "pr": "https://github.com/cline/cline/pull/5177",
+      "sha": "42d9c7fbecc7e4e765e79cc132195abb2a82418c"
+    },
+    {
+      "pr": "https://github.com/cline/cline/pull/5955",
+      "sha": "a138247cfc414bb0fb50249fd63414bdd125fe54"
+    },
+    {
+      "pr": "https://github.com/comfyanonymous/ComfyUI/pull/6033",
+      "sha": "16d7a86f913b6921756871f2201c0444ddb149ad"
+    },
+    {
+      "pr": "https://github.com/comfyanonymous/ComfyUI/pull/6542",
+      "sha": "f594ea41f5f42405a87601117c07c31e68ca9a1c"
+    },
+    {
+      "pr": "https://github.com/comfyanonymous/ComfyUI/pull/7952",
+      "sha": "77612077956708407e5dab039682f09f16018bd5"
+    },
+    {
+      "pr": "https://github.com/comfyanonymous/ComfyUI/pull/8446",
+      "sha": "bbcc65e7e03a940f0d090989d39068a5c27c3c69"
+    },
+    {
+      "pr": "https://github.com/comfyanonymous/ComfyUI/pull/9560",
+      "sha": "efd299d681491e7e847d2d119f1d989369655eb0"
+    },
+    {
+      "pr": "https://github.com/FreeCAD/FreeCAD/pull/18688",
+      "sha": "7b057fbbb20e9fc0117cbabb4f4962fbe52247d0"
+    },
+    {
+      "pr": "https://github.com/FreeCAD/FreeCAD/pull/19411",
+      "sha": "b386e461c26119329b836ca77c00b6109c69e1de"
+    },
+    {
+      "pr": "https://github.com/FreeCAD/FreeCAD/pull/19426",
+      "sha": "5042b944630b3bb64a7e1ba4c84cc1bf11868f2c"
+    },
+    {
+      "pr": "https://github.com/FreeCAD/FreeCAD/pull/19977",
+      "sha": "b090e27dcf2130655866433cd824fa179aa33d31"
+    },
+    {
+      "pr": "https://github.com/FreeCAD/FreeCAD/pull/20156",
+      "sha": "68ab78ae245e4458db40263dbaf82b71b47195f0"
+    },
+    {
+      "pr": "https://github.com/FreeCAD/FreeCAD/pull/20336",
+      "sha": "d2af5f696e81e61649ce162556087d4c614627e3"
+    },
+    {
+      "pr": "https://github.com/FreeCAD/FreeCAD/pull/20612",
+      "sha": "fd68573caaf6a91de781231e8a179ce21e23c74e"
+    },
+    {
+      "pr": "https://github.com/FreeCAD/FreeCAD/pull/20825",
+      "sha": "e9df4c37bbf323c2eef81390a9958b49418258b9"
+    },
+    {
+      "pr": "https://github.com/FreeCAD/FreeCAD/pull/21257",
+      "sha": "41e2eb876821133793c24b27dbeef0eceac919e7"
+    },
+    {
+      "pr": "https://github.com/FreeCAD/FreeCAD/pull/22235",
+      "sha": "bb08e120d29edc9074ee8aecf4bd239c991f589d"
+    },
+    {
+      "pr": "https://github.com/FreeCAD/FreeCAD/pull/22744",
+      "sha": "26a1330ce0c0aadc0fa8e6546c40ba324c674fae"
+    },
+    {
+      "pr": "https://github.com/gofr-dev/gofr/pull/1325",
+      "sha": "f5377a561cfc2b5a7b7757f4d51ce4654314af06"
+    },
+    {
+      "pr": "https://github.com/gofr-dev/gofr/pull/1355",
+      "sha": "f21a9a452df0efc12d0fa60913a467b35100e009"
+    },
+    {
+      "pr": "https://github.com/gofr-dev/gofr/pull/1395",
+      "sha": "c4ff7ce15f719b80d7bf35d3877d985341f04db6"
+    },
+    {
+      "pr": "https://github.com/gofr-dev/gofr/pull/1617",
+      "sha": "8fff2bc7524652d090f058521d59db71b322daab"
+    },
+    {
+      "pr": "https://github.com/gofr-dev/gofr/pull/1681",
+      "sha": "a6ae7b9a244d433626929a13e4ceebd909e6e988"
+    },
+    {
+      "pr": "https://github.com/gofr-dev/gofr/pull/1696",
+      "sha": "0cdac32a89d47ef1b58b871e416d05a88a381c50"
+    },
+    {
+      "pr": "https://github.com/libsdl-org/SDL/pull/12718",
+      "sha": "6439c2f17690f07c4e893e97d4d53b78f83ff0f1"
+    },
+    {
+      "pr": "https://github.com/libsdl-org/SDL/pull/12964",
+      "sha": "cd4bfc0b83d1149f2de81c806b4b9b4439f405a1"
+    },
+    {
+      "pr": "https://github.com/lvgl/lvgl/pull/7602",
+      "sha": "18232f30ad2e2f6928f41fe4c25b98e659e318d8"
+    },
+    {
+      "pr": "https://github.com/lvgl/lvgl/pull/8129",
+      "sha": "e06b7eff8794c8e1dc450b5ca2ec49bf8bec7b2a"
+    },
+    {
+      "pr": "https://github.com/lvgl/lvgl/pull/8164",
+      "sha": "7d29ce7cac997a5740f7a18bf92d91e1e5763675"
+    },
+    {
+      "pr": "https://github.com/lvgl/lvgl/pull/8689",
+      "sha": "5ce50d670f04906e49472c806c67b4ee8418b1e2"
+    },
+    {
+      "pr": "https://github.com/microsoft/typescript-go/pull/1000",
+      "sha": "9e170a897a3bc56c1e061bc0ea26040059898c80"
+    },
+    {
+      "pr": "https://github.com/microsoft/typescript-go/pull/1354",
+      "sha": "0958014070b76516b642baf0a6e42b777468eff4"
+    },
+    {
+      "pr": "https://github.com/microsoft/typescript-go/pull/1446",
+      "sha": "bcc446d2376a9498b8868b0cd93f8000ff5e51a3"
+    },
+    {
+      "pr": "https://github.com/microsoft/typescript-go/pull/691",
+      "sha": "8d19fa7f7431f910f621ace5d1347ba899db5736"
+    },
+    {
+      "pr": "https://github.com/microsoft/typescript-go/pull/698",
+      "sha": "8fbccde3fbc105d351173a34cf63901b621aa046"
+    },
+    {
+      "pr": "https://github.com/microsoft/typescript-go/pull/831",
+      "sha": "e68e536361df4e376332bb324772229e6e6becbf"
+    },
+    {
+      "pr": "https://github.com/mrdoob/three.js/pull/30076",
+      "sha": "4c3168f2bc49af3885decbe18b70ba04f660fa26"
+    },
+    {
+      "pr": "https://github.com/mrdoob/three.js/pull/30750",
+      "sha": "61eda49188e82d5f290e01ae28dd67a7ecfbbc32"
+    },
+    {
+      "pr": "https://github.com/mrdoob/three.js/pull/31402",
+      "sha": "aa60b0cca42da40b489070a135d4a23459bad59e"
+    },
+    {
+      "pr": "https://github.com/nextcloud/server/pull/52846",
+      "sha": "74bded74a31305a1bc274e84fd4ecf7ceb20e02e"
+    },
+    {
+      "pr": "https://github.com/opencv/opencv/pull/26815",
+      "sha": "e133b2a1b91d38c53d284ad495524c21d230a69d"
+    },
+    {
+      "pr": "https://github.com/opencv/opencv/pull/27284",
+      "sha": "c3be0532fce48738d241289d5e2c24ee6cbb28e7"
+    },
+    {
+      "pr": "https://github.com/opencv/opencv/pull/27297",
+      "sha": "6b20ffe368b0ae0d15c91851a6979a600f1bb423"
+    },
+    {
+      "pr": "https://github.com/PowerShell/PowerShell/pull/24910",
+      "sha": "c92f4f7f565331fd044beb28c0ff4819a6a7d88f"
+    },
+    {
+      "pr": "https://github.com/PowerShell/PowerShell/pull/25780",
+      "sha": "6dba017e69e499ec34e71e336f42f31058184902"
+    }
+  ],
+  "cut": {
+    "label": "drop test, drop path test, budget 12",
+    "steps": [
+      {
+        "kind": "drop",
+        "categories": [
+          "test"
+        ]
+      },
+      {
+        "kind": "drop-path-class",
+        "classes": [
+          "test"
+        ]
+      },
+      {
+        "kind": "budget",
+        "k": 12
+      }
+    ]
+  },
+  "baseline": {
+    "emitted": 305,
+    "truePositives": 101,
+    "falsePositives": 204,
+    "falseNegatives": 351,
+    "precision": 0.331148,
+    "recall": 0.223451,
+    "f1": 0.266843
+  },
+  "gated": {
+    "emitted": 301,
+    "truePositives": 98,
+    "falsePositives": 203,
+    "falseNegatives": 354,
+    "precision": 0.325581,
+    "recall": 0.216814,
+    "f1": 0.260292
+  },
+  "reproduced": true,
+  "delta": {
+    "emitted": -4,
+    "truePositives": -3,
+    "precision": -0.005567,
+    "recall": -0.006637,
+    "f1": -0.006551
+  },
+  "gate": {
+    "findings": 591,
+    "dropped": 15,
+    "coverage": {
+      "offered": 591,
+      "readable": 590
+    },
+    "unverifiableQuotes": 0,
+    "withheldPullRequests": 1,
+    "byReason": [
+      {
+        "reason": "the finding names an identifier that occurs nowhere in the file it is about, nor in the change it is about",
+        "count": 14
+      },
+      {
+        "reason": "lines 234-318 are not a range in a file of 237 lines",
+        "count": 1
+      }
+    ],
+    "decisions": [
+      {
+        "pr": "https://github.com/FreeCAD/FreeCAD/pull/19411",
+        "applied": true,
+        "withheld": null,
+        "coverage": {
+          "findings": 54,
+          "readable": 54
+        },
+        "dropped": 0
+      },
+      {
+        "pr": "https://github.com/FreeCAD/FreeCAD/pull/21257",
+        "applied": true,
+        "withheld": null,
+        "coverage": {
+          "findings": 82,
+          "readable": 82
+        },
+        "dropped": 2
+      },
+      {
+        "pr": "https://github.com/FreeCAD/FreeCAD/pull/22744",
+        "applied": true,
+        "withheld": null,
+        "coverage": {
+          "findings": 3,
+          "readable": 3
+        },
+        "dropped": 0
+      },
+      {
+        "pr": "https://github.com/FreeCAD/FreeCAD/pull/20612",
+        "applied": true,
+        "withheld": null,
+        "coverage": {
+          "findings": 6,
+          "readable": 6
+        },
+        "dropped": 0
+      },
+      {
+        "pr": "https://github.com/FreeCAD/FreeCAD/pull/18688",
+        "applied": true,
+        "withheld": null,
+        "coverage": {
+          "findings": 4,
+          "readable": 4
+        },
+        "dropped": 0
+      },
+      {
+        "pr": "https://github.com/FreeCAD/FreeCAD/pull/22235",
+        "applied": true,
+        "withheld": null,
+        "coverage": {
+          "findings": 3,
+          "readable": 3
+        },
+        "dropped": 0
+      },
+      {
+        "pr": "https://github.com/FreeCAD/FreeCAD/pull/20336",
+        "applied": true,
+        "withheld": null,
+        "coverage": {
+          "findings": 15,
+          "readable": 15
+        },
+        "dropped": 0
+      },
+      {
+        "pr": "https://github.com/FreeCAD/FreeCAD/pull/20825",
+        "applied": true,
+        "withheld": null,
+        "coverage": {
+          "findings": 33,
+          "readable": 33
+        },
+        "dropped": 0
+      },
+      {
+        "pr": "https://github.com/FreeCAD/FreeCAD/pull/19977",
+        "applied": true,
+        "withheld": null,
+        "coverage": {
+          "findings": 5,
+          "readable": 5
+        },
+        "dropped": 0
+      },
+      {
+        "pr": "https://github.com/FreeCAD/FreeCAD/pull/20156",
+        "applied": true,
+        "withheld": null,
+        "coverage": {
+          "findings": 8,
+          "readable": 8
+        },
+        "dropped": 0
+      },
+      {
+        "pr": "https://github.com/FreeCAD/FreeCAD/pull/19426",
+        "applied": true,
+        "withheld": null,
+        "coverage": {
+          "findings": 8,
+          "readable": 8
+        },
+        "dropped": 0
+      },
+      {
+        "pr": "https://github.com/microsoft/typescript-go/pull/1354",
+        "applied": true,
+        "withheld": null,
+        "coverage": {
+          "findings": 22,
+          "readable": 22
+        },
+        "dropped": 0
+      },
+      {
+        "pr": "https://github.com/microsoft/typescript-go/pull/831",
+        "applied": false,
+        "withheld": "no-readable-arm",
+        "coverage": {
+          "findings": 28,
+          "readable": 27
+        },
+        "dropped": 0
+      },
+      {
+        "pr": "https://github.com/microsoft/typescript-go/pull/1446",
+        "applied": true,
+        "withheld": null,
+        "coverage": {
+          "findings": 8,
+          "readable": 8
+        },
+        "dropped": 1
+      },
+      {
+        "pr": "https://github.com/microsoft/typescript-go/pull/691",
+        "applied": true,
+        "withheld": null,
+        "coverage": {
+          "findings": 2,
+          "readable": 2
+        },
+        "dropped": 0
+      },
+      {
+        "pr": "https://github.com/microsoft/typescript-go/pull/1000",
+        "applied": true,
+        "withheld": null,
+        "coverage": {
+          "findings": 2,
+          "readable": 2
+        },
+        "dropped": 0
+      },
+      {
+        "pr": "https://github.com/microsoft/typescript-go/pull/698",
+        "applied": true,
+        "withheld": null,
+        "coverage": {
+          "findings": 7,
+          "readable": 7
+        },
+        "dropped": 0
+      },
+      {
+        "pr": "https://github.com/PowerShell/PowerShell/pull/24910",
+        "applied": true,
+        "withheld": null,
+        "coverage": {
+          "findings": 1,
+          "readable": 1
+        },
+        "dropped": 0
+      },
+      {
+        "pr": "https://github.com/PowerShell/PowerShell/pull/25780",
+        "applied": true,
+        "withheld": null,
+        "coverage": {
+          "findings": 1,
+          "readable": 1
+        },
+        "dropped": 0
+      },
+      {
+        "pr": "https://github.com/libsdl-org/SDL/pull/12964",
+        "applied": true,
+        "withheld": null,
+        "coverage": {
+          "findings": 5,
+          "readable": 5
+        },
+        "dropped": 0
+      },
+      {
+        "pr": "https://github.com/libsdl-org/SDL/pull/12718",
+        "applied": true,
+        "withheld": null,
+        "coverage": {
+          "findings": 4,
+          "readable": 4
+        },
+        "dropped": 0
+      },
+      {
+        "pr": "https://github.com/gofr-dev/gofr/pull/1681",
+        "applied": true,
+        "withheld": null,
+        "coverage": {
+          "findings": 12,
+          "readable": 12
+        },
+        "dropped": 0
+      },
+      {
+        "pr": "https://github.com/gofr-dev/gofr/pull/1617",
+        "applied": true,
+        "withheld": null,
+        "coverage": {
+          "findings": 11,
+          "readable": 11
+        },
+        "dropped": 1
+      },
+      {
+        "pr": "https://github.com/gofr-dev/gofr/pull/1325",
+        "applied": true,
+        "withheld": null,
+        "coverage": {
+          "findings": 6,
+          "readable": 6
+        },
+        "dropped": 0
+      },
+      {
+        "pr": "https://github.com/gofr-dev/gofr/pull/1355",
+        "applied": true,
+        "withheld": null,
+        "coverage": {
+          "findings": 5,
+          "readable": 5
+        },
+        "dropped": 0
+      },
+      {
+        "pr": "https://github.com/gofr-dev/gofr/pull/1395",
+        "applied": true,
+        "withheld": null,
+        "coverage": {
+          "findings": 38,
+          "readable": 38
+        },
+        "dropped": 0
+      },
+      {
+        "pr": "https://github.com/gofr-dev/gofr/pull/1696",
+        "applied": true,
+        "withheld": null,
+        "coverage": {
+          "findings": 10,
+          "readable": 10
+        },
+        "dropped": 0
+      },
+      {
+        "pr": "https://github.com/comfyanonymous/ComfyUI/pull/7952",
+        "applied": true,
+        "withheld": null,
+        "coverage": {
+          "findings": 1,
+          "readable": 1
+        },
+        "dropped": 0
+      },
+      {
+        "pr": "https://github.com/comfyanonymous/ComfyUI/pull/8446",
+        "applied": true,
+        "withheld": null,
+        "coverage": {
+          "findings": 21,
+          "readable": 21
+        },
+        "dropped": 4
+      },
+      {
+        "pr": "https://github.com/comfyanonymous/ComfyUI/pull/6033",
+        "applied": true,
+        "withheld": null,
+        "coverage": {
+          "findings": 7,
+          "readable": 7
+        },
+        "dropped": 0
+      },
+      {
+        "pr": "https://github.com/comfyanonymous/ComfyUI/pull/9560",
+        "applied": true,
+        "withheld": null,
+        "coverage": {
+          "findings": 6,
+          "readable": 6
+        },
+        "dropped": 0
+      },
+      {
+        "pr": "https://github.com/comfyanonymous/ComfyUI/pull/6542",
+        "applied": true,
+        "withheld": null,
+        "coverage": {
+          "findings": 3,
+          "readable": 3
+        },
+        "dropped": 0
+      },
+      {
+        "pr": "https://github.com/mrdoob/three.js/pull/31402",
+        "applied": true,
+        "withheld": null,
+        "coverage": {
+          "findings": 13,
+          "readable": 13
+        },
+        "dropped": 1
+      },
+      {
+        "pr": "https://github.com/mrdoob/three.js/pull/30076",
+        "applied": true,
+        "withheld": null,
+        "coverage": {
+          "findings": 11,
+          "readable": 11
+        },
+        "dropped": 1
+      },
+      {
+        "pr": "https://github.com/mrdoob/three.js/pull/30750",
+        "applied": true,
+        "withheld": null,
+        "coverage": {
+          "findings": 3,
+          "readable": 3
+        },
+        "dropped": 0
+      },
+      {
+        "pr": "https://github.com/CherryHQ/cherry-studio/pull/5540",
+        "applied": true,
+        "withheld": null,
+        "coverage": {
+          "findings": 16,
+          "readable": 16
+        },
+        "dropped": 0
+      },
+      {
+        "pr": "https://github.com/CherryHQ/cherry-studio/pull/5637",
+        "applied": true,
+        "withheld": null,
+        "coverage": {
+          "findings": 8,
+          "readable": 8
+        },
+        "dropped": 0
+      },
+      {
+        "pr": "https://github.com/opencv/opencv/pull/26815",
+        "applied": true,
+        "withheld": null,
+        "coverage": {
+          "findings": 3,
+          "readable": 3
+        },
+        "dropped": 0
+      },
+      {
+        "pr": "https://github.com/opencv/opencv/pull/27297",
+        "applied": true,
+        "withheld": null,
+        "coverage": {
+          "findings": 2,
+          "readable": 2
+        },
+        "dropped": 0
+      },
+      {
+        "pr": "https://github.com/opencv/opencv/pull/27284",
+        "applied": true,
+        "withheld": null,
+        "coverage": {
+          "findings": 19,
+          "readable": 19
+        },
+        "dropped": 1
+      },
+      {
+        "pr": "https://github.com/nextcloud/server/pull/52846",
+        "applied": true,
+        "withheld": null,
+        "coverage": {
+          "findings": 12,
+          "readable": 12
+        },
+        "dropped": 1
+      },
+      {
+        "pr": "https://github.com/lvgl/lvgl/pull/8164",
+        "applied": true,
+        "withheld": null,
+        "coverage": {
+          "findings": 4,
+          "readable": 4
+        },
+        "dropped": 0
+      },
+      {
+        "pr": "https://github.com/lvgl/lvgl/pull/8129",
+        "applied": true,
+        "withheld": null,
+        "coverage": {
+          "findings": 6,
+          "readable": 6
+        },
+        "dropped": 0
+      },
+      {
+        "pr": "https://github.com/lvgl/lvgl/pull/8689",
+        "applied": true,
+        "withheld": null,
+        "coverage": {
+          "findings": 48,
+          "readable": 48
+        },
+        "dropped": 2
+      },
+      {
+        "pr": "https://github.com/lvgl/lvgl/pull/7602",
+        "applied": true,
+        "withheld": null,
+        "coverage": {
+          "findings": 7,
+          "readable": 7
+        },
+        "dropped": 0
+      },
+      {
+        "pr": "https://github.com/cline/cline/pull/5177",
+        "applied": true,
+        "withheld": null,
+        "coverage": {
+          "findings": 1,
+          "readable": 1
+        },
+        "dropped": 0
+      },
+      {
+        "pr": "https://github.com/cline/cline/pull/5955",
+        "applied": true,
+        "withheld": null,
+        "coverage": {
+          "findings": 5,
+          "readable": 5
+        },
+        "dropped": 0
+      },
+      {
+        "pr": "https://github.com/cline/cline/pull/4676",
+        "applied": true,
+        "withheld": null,
+        "coverage": {
+          "findings": 3,
+          "readable": 3
+        },
+        "dropped": 1
+      },
+      {
+        "pr": "https://github.com/cline/cline/pull/2347",
+        "applied": true,
+        "withheld": null,
+        "coverage": {
+          "findings": 5,
+          "readable": 5
+        },
+        "dropped": 0
+      },
+      {
+        "pr": "https://github.com/cline/cline/pull/4786",
+        "applied": true,
+        "withheld": null,
+        "coverage": {
+          "findings": 4,
+          "readable": 4
+        },
+        "dropped": 0
+      }
+    ],
+    "perPullRequest": [
+      {
+        "pr": "https://github.com/FreeCAD/FreeCAD/pull/19411",
+        "applied": true,
+        "withheld": null,
+        "findings": 54,
+        "readable": 54,
+        "dropped": 0,
+        "postedBefore": 12,
+        "postedAfter": 12,
+        "goldensBefore": 9,
+        "goldensAfter": 9
+      },
+      {
+        "pr": "https://github.com/FreeCAD/FreeCAD/pull/21257",
+        "applied": true,
+        "withheld": null,
+        "findings": 82,
+        "readable": 82,
+        "dropped": 2,
+        "postedBefore": 12,
+        "postedAfter": 12,
+        "goldensBefore": 7,
+        "goldensAfter": 7
+      },
+      {
+        "pr": "https://github.com/FreeCAD/FreeCAD/pull/22744",
+        "applied": true,
+        "withheld": null,
+        "findings": 3,
+        "readable": 3,
+        "dropped": 0,
+        "postedBefore": 3,
+        "postedAfter": 3,
+        "goldensBefore": 0,
+        "goldensAfter": 0
+      },
+      {
+        "pr": "https://github.com/FreeCAD/FreeCAD/pull/20612",
+        "applied": true,
+        "withheld": null,
+        "findings": 6,
+        "readable": 6,
+        "dropped": 0,
+        "postedBefore": 5,
+        "postedAfter": 5,
+        "goldensBefore": 0,
+        "goldensAfter": 0
+      },
+      {
+        "pr": "https://github.com/FreeCAD/FreeCAD/pull/18688",
+        "applied": true,
+        "withheld": null,
+        "findings": 4,
+        "readable": 4,
+        "dropped": 0,
+        "postedBefore": 4,
+        "postedAfter": 4,
+        "goldensBefore": 0,
+        "goldensAfter": 0
+      },
+      {
+        "pr": "https://github.com/FreeCAD/FreeCAD/pull/22235",
+        "applied": true,
+        "withheld": null,
+        "findings": 3,
+        "readable": 3,
+        "dropped": 0,
+        "postedBefore": 3,
+        "postedAfter": 3,
+        "goldensBefore": 0,
+        "goldensAfter": 0
+      },
+      {
+        "pr": "https://github.com/FreeCAD/FreeCAD/pull/20336",
+        "applied": true,
+        "withheld": null,
+        "findings": 15,
+        "readable": 15,
+        "dropped": 0,
+        "postedBefore": 12,
+        "postedAfter": 12,
+        "goldensBefore": 2,
+        "goldensAfter": 2
+      },
+      {
+        "pr": "https://github.com/FreeCAD/FreeCAD/pull/20825",
+        "applied": true,
+        "withheld": null,
+        "findings": 33,
+        "readable": 33,
+        "dropped": 0,
+        "postedBefore": 12,
+        "postedAfter": 12,
+        "goldensBefore": 8,
+        "goldensAfter": 8
+      },
+      {
+        "pr": "https://github.com/FreeCAD/FreeCAD/pull/19977",
+        "applied": true,
+        "withheld": null,
+        "findings": 5,
+        "readable": 5,
+        "dropped": 0,
+        "postedBefore": 4,
+        "postedAfter": 4,
+        "goldensBefore": 2,
+        "goldensAfter": 2
+      },
+      {
+        "pr": "https://github.com/FreeCAD/FreeCAD/pull/20156",
+        "applied": true,
+        "withheld": null,
+        "findings": 8,
+        "readable": 8,
+        "dropped": 0,
+        "postedBefore": 8,
+        "postedAfter": 8,
+        "goldensBefore": 6,
+        "goldensAfter": 6
+      },
+      {
+        "pr": "https://github.com/FreeCAD/FreeCAD/pull/19426",
+        "applied": true,
+        "withheld": null,
+        "findings": 8,
+        "readable": 8,
+        "dropped": 0,
+        "postedBefore": 8,
+        "postedAfter": 8,
+        "goldensBefore": 4,
+        "goldensAfter": 4
+      },
+      {
+        "pr": "https://github.com/microsoft/typescript-go/pull/1354",
+        "applied": true,
+        "withheld": null,
+        "findings": 22,
+        "readable": 22,
+        "dropped": 0,
+        "postedBefore": 12,
+        "postedAfter": 12,
+        "goldensBefore": 2,
+        "goldensAfter": 2
+      },
+      {
+        "pr": "https://github.com/microsoft/typescript-go/pull/831",
+        "applied": false,
+        "withheld": "no-readable-arm",
+        "findings": 28,
+        "readable": 27,
+        "dropped": 0,
+        "postedBefore": 12,
+        "postedAfter": 12,
+        "goldensBefore": 7,
+        "goldensAfter": 7
+      },
+      {
+        "pr": "https://github.com/microsoft/typescript-go/pull/1446",
+        "applied": true,
+        "withheld": null,
+        "findings": 8,
+        "readable": 8,
+        "dropped": 1,
+        "postedBefore": 6,
+        "postedAfter": 5,
+        "goldensBefore": 1,
+        "goldensAfter": 1
+      },
+      {
+        "pr": "https://github.com/microsoft/typescript-go/pull/691",
+        "applied": true,
+        "withheld": null,
+        "findings": 2,
+        "readable": 2,
+        "dropped": 0,
+        "postedBefore": 1,
+        "postedAfter": 1,
+        "goldensBefore": 1,
+        "goldensAfter": 1
+      },
+      {
+        "pr": "https://github.com/microsoft/typescript-go/pull/1000",
+        "applied": true,
+        "withheld": null,
+        "findings": 2,
+        "readable": 2,
+        "dropped": 0,
+        "postedBefore": 1,
+        "postedAfter": 1,
+        "goldensBefore": 0,
+        "goldensAfter": 0
+      },
+      {
+        "pr": "https://github.com/microsoft/typescript-go/pull/698",
+        "applied": true,
+        "withheld": null,
+        "findings": 7,
+        "readable": 7,
+        "dropped": 0,
+        "postedBefore": 5,
+        "postedAfter": 5,
+        "goldensBefore": 0,
+        "goldensAfter": 0
+      },
+      {
+        "pr": "https://github.com/PowerShell/PowerShell/pull/24910",
+        "applied": true,
+        "withheld": null,
+        "findings": 1,
+        "readable": 1,
+        "dropped": 0,
+        "postedBefore": 1,
+        "postedAfter": 1,
+        "goldensBefore": 1,
+        "goldensAfter": 1
+      },
+      {
+        "pr": "https://github.com/PowerShell/PowerShell/pull/25780",
+        "applied": true,
+        "withheld": null,
+        "findings": 1,
+        "readable": 1,
+        "dropped": 0,
+        "postedBefore": 1,
+        "postedAfter": 1,
+        "goldensBefore": 0,
+        "goldensAfter": 0
+      },
+      {
+        "pr": "https://github.com/libsdl-org/SDL/pull/12964",
+        "applied": true,
+        "withheld": null,
+        "findings": 5,
+        "readable": 5,
+        "dropped": 0,
+        "postedBefore": 4,
+        "postedAfter": 4,
+        "goldensBefore": 2,
+        "goldensAfter": 2
+      },
+      {
+        "pr": "https://github.com/libsdl-org/SDL/pull/12718",
+        "applied": true,
+        "withheld": null,
+        "findings": 4,
+        "readable": 4,
+        "dropped": 0,
+        "postedBefore": 4,
+        "postedAfter": 4,
+        "goldensBefore": 3,
+        "goldensAfter": 3
+      },
+      {
+        "pr": "https://github.com/gofr-dev/gofr/pull/1681",
+        "applied": true,
+        "withheld": null,
+        "findings": 12,
+        "readable": 12,
+        "dropped": 0,
+        "postedBefore": 9,
+        "postedAfter": 9,
+        "goldensBefore": 1,
+        "goldensAfter": 1
+      },
+      {
+        "pr": "https://github.com/gofr-dev/gofr/pull/1617",
+        "applied": true,
+        "withheld": null,
+        "findings": 11,
+        "readable": 11,
+        "dropped": 1,
+        "postedBefore": 6,
+        "postedAfter": 6,
+        "goldensBefore": 2,
+        "goldensAfter": 2
+      },
+      {
+        "pr": "https://github.com/gofr-dev/gofr/pull/1325",
+        "applied": true,
+        "withheld": null,
+        "findings": 6,
+        "readable": 6,
+        "dropped": 0,
+        "postedBefore": 4,
+        "postedAfter": 4,
+        "goldensBefore": 0,
+        "goldensAfter": 0
+      },
+      {
+        "pr": "https://github.com/gofr-dev/gofr/pull/1355",
+        "applied": true,
+        "withheld": null,
+        "findings": 5,
+        "readable": 5,
+        "dropped": 0,
+        "postedBefore": 3,
+        "postedAfter": 3,
+        "goldensBefore": 2,
+        "goldensAfter": 2
+      },
+      {
+        "pr": "https://github.com/gofr-dev/gofr/pull/1395",
+        "applied": true,
+        "withheld": null,
+        "findings": 38,
+        "readable": 38,
+        "dropped": 0,
+        "postedBefore": 2,
+        "postedAfter": 2,
+        "goldensBefore": 1,
+        "goldensAfter": 1
+      },
+      {
+        "pr": "https://github.com/gofr-dev/gofr/pull/1696",
+        "applied": true,
+        "withheld": null,
+        "findings": 10,
+        "readable": 10,
+        "dropped": 0,
+        "postedBefore": 9,
+        "postedAfter": 9,
+        "goldensBefore": 2,
+        "goldensAfter": 2
+      },
+      {
+        "pr": "https://github.com/comfyanonymous/ComfyUI/pull/7952",
+        "applied": true,
+        "withheld": null,
+        "findings": 1,
+        "readable": 1,
+        "dropped": 0,
+        "postedBefore": 1,
+        "postedAfter": 1,
+        "goldensBefore": 1,
+        "goldensAfter": 1
+      },
+      {
+        "pr": "https://github.com/comfyanonymous/ComfyUI/pull/8446",
+        "applied": true,
+        "withheld": null,
+        "findings": 21,
+        "readable": 21,
+        "dropped": 4,
+        "postedBefore": 12,
+        "postedAfter": 12,
+        "goldensBefore": 7,
+        "goldensAfter": 6
+      },
+      {
+        "pr": "https://github.com/comfyanonymous/ComfyUI/pull/6033",
+        "applied": true,
+        "withheld": null,
+        "findings": 7,
+        "readable": 7,
+        "dropped": 0,
+        "postedBefore": 7,
+        "postedAfter": 7,
+        "goldensBefore": 6,
+        "goldensAfter": 6
+      },
+      {
+        "pr": "https://github.com/comfyanonymous/ComfyUI/pull/9560",
+        "applied": true,
+        "withheld": null,
+        "findings": 6,
+        "readable": 6,
+        "dropped": 0,
+        "postedBefore": 6,
+        "postedAfter": 6,
+        "goldensBefore": 3,
+        "goldensAfter": 3
+      },
+      {
+        "pr": "https://github.com/comfyanonymous/ComfyUI/pull/6542",
+        "applied": true,
+        "withheld": null,
+        "findings": 3,
+        "readable": 3,
+        "dropped": 0,
+        "postedBefore": 3,
+        "postedAfter": 3,
+        "goldensBefore": 1,
+        "goldensAfter": 1
+      },
+      {
+        "pr": "https://github.com/mrdoob/three.js/pull/31402",
+        "applied": true,
+        "withheld": null,
+        "findings": 13,
+        "readable": 13,
+        "dropped": 1,
+        "postedBefore": 12,
+        "postedAfter": 12,
+        "goldensBefore": 3,
+        "goldensAfter": 3
+      },
+      {
+        "pr": "https://github.com/mrdoob/three.js/pull/30076",
+        "applied": true,
+        "withheld": null,
+        "findings": 11,
+        "readable": 11,
+        "dropped": 1,
+        "postedBefore": 11,
+        "postedAfter": 10,
+        "goldensBefore": 5,
+        "goldensAfter": 5
+      },
+      {
+        "pr": "https://github.com/mrdoob/three.js/pull/30750",
+        "applied": true,
+        "withheld": null,
+        "findings": 3,
+        "readable": 3,
+        "dropped": 0,
+        "postedBefore": 3,
+        "postedAfter": 3,
+        "goldensBefore": 0,
+        "goldensAfter": 0
+      },
+      {
+        "pr": "https://github.com/CherryHQ/cherry-studio/pull/5540",
+        "applied": true,
+        "withheld": null,
+        "findings": 16,
+        "readable": 16,
+        "dropped": 0,
+        "postedBefore": 12,
+        "postedAfter": 12,
+        "goldensBefore": 0,
+        "goldensAfter": 0
+      },
+      {
+        "pr": "https://github.com/CherryHQ/cherry-studio/pull/5637",
+        "applied": true,
+        "withheld": null,
+        "findings": 8,
+        "readable": 8,
+        "dropped": 0,
+        "postedBefore": 8,
+        "postedAfter": 8,
+        "goldensBefore": 3,
+        "goldensAfter": 3
+      },
+      {
+        "pr": "https://github.com/opencv/opencv/pull/26815",
+        "applied": true,
+        "withheld": null,
+        "findings": 3,
+        "readable": 3,
+        "dropped": 0,
+        "postedBefore": 3,
+        "postedAfter": 3,
+        "goldensBefore": 1,
+        "goldensAfter": 1
+      },
+      {
+        "pr": "https://github.com/opencv/opencv/pull/27297",
+        "applied": true,
+        "withheld": null,
+        "findings": 2,
+        "readable": 2,
+        "dropped": 0,
+        "postedBefore": 0,
+        "postedAfter": 0,
+        "goldensBefore": 0,
+        "goldensAfter": 0
+      },
+      {
+        "pr": "https://github.com/opencv/opencv/pull/27284",
+        "applied": true,
+        "withheld": null,
+        "findings": 19,
+        "readable": 19,
+        "dropped": 1,
+        "postedBefore": 12,
+        "postedAfter": 12,
+        "goldensBefore": 6,
+        "goldensAfter": 6
+      },
+      {
+        "pr": "https://github.com/nextcloud/server/pull/52846",
+        "applied": true,
+        "withheld": null,
+        "findings": 12,
+        "readable": 12,
+        "dropped": 1,
+        "postedBefore": 11,
+        "postedAfter": 10,
+        "goldensBefore": 0,
+        "goldensAfter": 0
+      },
+      {
+        "pr": "https://github.com/lvgl/lvgl/pull/8164",
+        "applied": true,
+        "withheld": null,
+        "findings": 4,
+        "readable": 4,
+        "dropped": 0,
+        "postedBefore": 3,
+        "postedAfter": 3,
+        "goldensBefore": 2,
+        "goldensAfter": 2
+      },
+      {
+        "pr": "https://github.com/lvgl/lvgl/pull/8129",
+        "applied": true,
+        "withheld": null,
+        "findings": 6,
+        "readable": 6,
+        "dropped": 0,
+        "postedBefore": 6,
+        "postedAfter": 6,
+        "goldensBefore": 3,
+        "goldensAfter": 3
+      },
+      {
+        "pr": "https://github.com/lvgl/lvgl/pull/8689",
+        "applied": true,
+        "withheld": null,
+        "findings": 48,
+        "readable": 48,
+        "dropped": 2,
+        "postedBefore": 12,
+        "postedAfter": 12,
+        "goldensBefore": 8,
+        "goldensAfter": 8
+      },
+      {
+        "pr": "https://github.com/lvgl/lvgl/pull/7602",
+        "applied": true,
+        "withheld": null,
+        "findings": 7,
+        "readable": 7,
+        "dropped": 0,
+        "postedBefore": 2,
+        "postedAfter": 2,
+        "goldensBefore": 1,
+        "goldensAfter": 1
+      },
+      {
+        "pr": "https://github.com/cline/cline/pull/5177",
+        "applied": true,
+        "withheld": null,
+        "findings": 1,
+        "readable": 1,
+        "dropped": 0,
+        "postedBefore": 1,
+        "postedAfter": 1,
+        "goldensBefore": 1,
+        "goldensAfter": 1
+      },
+      {
+        "pr": "https://github.com/cline/cline/pull/5955",
+        "applied": true,
+        "withheld": null,
+        "findings": 5,
+        "readable": 5,
+        "dropped": 0,
+        "postedBefore": 5,
+        "postedAfter": 5,
+        "goldensBefore": 4,
+        "goldensAfter": 4
+      },
+      {
+        "pr": "https://github.com/cline/cline/pull/4676",
+        "applied": true,
+        "withheld": null,
+        "findings": 3,
+        "readable": 3,
+        "dropped": 1,
+        "postedBefore": 3,
+        "postedAfter": 2,
+        "goldensBefore": 1,
+        "goldensAfter": 0
+      },
+      {
+        "pr": "https://github.com/cline/cline/pull/2347",
+        "applied": true,
+        "withheld": null,
+        "findings": 5,
+        "readable": 5,
+        "dropped": 0,
+        "postedBefore": 5,
+        "postedAfter": 5,
+        "goldensBefore": 1,
+        "goldensAfter": 1
+      },
+      {
+        "pr": "https://github.com/cline/cline/pull/4786",
+        "applied": true,
+        "withheld": null,
+        "findings": 4,
+        "readable": 4,
+        "dropped": 0,
+        "postedBefore": 4,
+        "postedAfter": 4,
+        "goldensBefore": 2,
+        "goldensAfter": 2
+      }
+    ]
+  },
+  "removals": {
+    "posted": 10,
+    "truePositives": 4,
+    "share": 0.4
+  },
+  "admitted": {
+    "posted": 6,
+    "truePositives": 0
+  },
+  "goldens": {
+    "before": 101,
+    "after": 98,
+    "lost": [
+      "https://github.com/FreeCAD/FreeCAD/pull/21257\u00005",
+      "https://github.com/cline/cline/pull/4676\u00002",
+      "https://github.com/comfyanonymous/ComfyUI/pull/8446\u00006"
+    ],
+    "gained": []
+  },
+  "goldensDenominator": 452
+}

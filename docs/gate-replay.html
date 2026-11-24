@@ -1,0 +1,679 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Grounding gate replay — code-analyzer</title>
+<style>
+  :root { --bg:#0f1115; --panel:#171a21; --line:#262b36; --ink:#e7ecf3; --dim:#98a2b3;
+          --good:#4ade80; --warn:#f59e0b; --bad:#f87171; --accent:#60a5fa; }
+  * { box-sizing: border-box; }
+  body { margin:0; background:var(--bg); color:var(--ink);
+         font:14px/1.55 ui-sans-serif,-apple-system,"Segoe UI",Roboto,"Helvetica Neue",sans-serif; }
+  header { padding:28px 32px 18px; border-bottom:1px solid var(--line); }
+  h1 { margin:0 0 6px; font-size:20px; letter-spacing:.2px; }
+  .lede { color:var(--dim); max-width:82ch; margin:0; }
+  .tiles { display:flex; flex-wrap:wrap; gap:10px; margin:18px 0 0; padding:0; list-style:none; }
+  .tiles li { background:var(--panel); border:1px solid var(--line); border-radius:10px; padding:10px 14px; min-width:132px; }
+  .tiles b { display:block; font-size:20px; font-variant-numeric:tabular-nums; }
+  .tiles span { color:var(--dim); font-size:12px; }
+  .tiles i { display:block; color:var(--dim); font-size:11.5px; font-style:normal; margin-top:2px; }
+  nav { display:flex; flex-wrap:wrap; gap:8px; padding:14px 32px; border-bottom:1px solid var(--line);
+        position:sticky; top:0; background:var(--bg); z-index:2; }
+  nav button { background:var(--panel); color:var(--ink); border:1px solid var(--line); border-radius:999px;
+               padding:6px 13px; font:inherit; cursor:pointer; }
+  nav button[aria-pressed="true"] { border-color:var(--ink); background:#222835; }
+  main { padding:8px 32px 56px; }
+  h2 { font-size:15px; margin:28px 0 10px; }
+  table { width:100%; border-collapse:collapse; background:var(--panel); border:1px solid var(--line);
+          border-radius:10px; overflow:hidden; }
+  th,td { text-align:left; padding:8px 11px; border-bottom:1px solid var(--line); vertical-align:middle; }
+  th { font-size:11px; text-transform:uppercase; letter-spacing:.6px; color:var(--dim); font-weight:600; }
+  tr:last-child td { border-bottom:0; }
+  td.num { font-variant-numeric:tabular-nums; width:64px; }
+  td.pr a { color:var(--accent); text-decoration:none; }
+  td.pr a:hover { text-decoration:underline; }
+  td.bar { position:relative; width:120px; font-variant-numeric:tabular-nums; font-size:12px; }
+  td.bar span { position:absolute; left:0; top:4px; bottom:4px; background:#2b3444; border-radius:4px; z-index:0; }
+  td.bar.after span { background:color-mix(in srgb, var(--accent) 32%, transparent); }
+  /* **The number sits on top of the bar rather than after it**, because a full-width bar pushes an outside label into the
+     next column and the row then reads as one value too many. */
+  td.bar b { position:relative; z-index:1; padding-left:7px; font-weight:500; }
+  td.lost { color:var(--bad); font-variant-numeric:tabular-nums; }
+  td.dim { color:var(--dim); }
+  .state { font-size:11px; border-radius:999px; padding:2px 9px; border:1px solid; }
+  .state.applied { color:var(--good); border-color:color-mix(in srgb, var(--good) 45%, transparent); }
+  .state.withheld { color:var(--warn); border-color:color-mix(in srgb, var(--warn) 45%, transparent); }
+  code { font:11.5px/1.4 ui-monospace,SFMono-Regular,Menlo,monospace; color:#cbd5e1; }
+  tr[hidden] { display:none; }
+  footer { color:var(--dim); font-size:12px; padding:0 32px 40px; }
+</style>
+</head>
+<body>
+<header>
+  <h1>Grounding gate replay</h1>
+  <p class="lede">The grounding gate priced on a run that was already paid for: the artifact's own verdict matrix, the files
+  at the head commit it named, and the shipped cut applied before and after the gate. <b>Posted</b> is what a reader would
+  have seen; <b>goldens</b> is what the corpus paid for. A pull request whose gate was <b>withheld</b> is one the replay
+  could not read in full — <code>decideGrounding</code> keeps every finding it could not check, so nothing was deleted
+  there.</p>
+  <ul class="tiles">
+    <li><b>0.2668</b><span>published F1</span><i>305 posted · 101 true</i></li>
+    <li><b>0.2603</b><span>with the gate</span><i>301 posted · 98 true</i></li>
+    <li><b>-0.0066</b><span>delta F1</span><i>resolution 0.0126 on this slice</i></li>
+    <li><b>10</b><span>removals</span><i>40.0% true</i></li>
+    <li><b>3</b><span>goldens lost</span><i>0 gained</i></li>
+    <li><b>1</b><span>withheld</span><i>of 50 pull requests</i></li>
+  </ul>
+</header>
+<nav>
+  <button data-filter="all" aria-pressed="true">All 50</button>
+  <button data-filter="changed" aria-pressed="false">Moved</button>
+  <button data-filter="applied" aria-pressed="false">Applied</button>
+  <button data-filter="withheld" aria-pressed="false">Withheld</button>
+  <button data-filter="lost" aria-pressed="false">Lost a golden</button>
+</nav>
+<main>
+  <h2>The two points, under the cut <code>drop test, drop path test, budget 12</code></h2>
+  <table>
+    <thead><tr><th>rule</th><th>posted</th><th>true</th><th>precision</th><th>recall</th><th>F1</th><th>reproduced</th></tr></thead>
+    <tbody>
+      <tr><td>as published</td><td class="num">305</td><td class="num">101</td>
+          <td class="num">0.3311</td><td class="num">0.2235</td>
+          <td class="num">0.2668</td><td class="dim">true</td></tr>
+      <tr><td>+ grounding gate</td><td class="num">301</td><td class="num">98</td>
+          <td class="num">0.3256</td><td class="num">0.2168</td>
+          <td class="num">0.2603</td><td class="dim">—</td></tr>
+    </tbody>
+  </table>
+
+  <h2>Why findings were dropped</h2>
+  <table>
+    <thead><tr><th>count</th><th>reason the judge gave</th></tr></thead>
+    <tbody>
+      <tr><td class="num">14</td><td>the finding names an identifier that occurs nowhere in the file it is about, nor in the change it is about</td></tr>
+      <tr><td class="num">1</td><td>lines 234-318 are not a range in a file of 237 lines</td></tr>
+
+    </tbody>
+  </table>
+
+  <h2>Where the gate acted, pull request by pull request</h2>
+  <table>
+    <thead><tr><th>pull request</th><th>findings</th><th>readable</th><th>dropped</th><th>posted before</th>
+      <th>posted after</th><th>goldens</th><th>lost</th><th>decision</th></tr></thead>
+    <tbody>
+      <tr data-state="applied" data-changed="false">
+        <td class="pr"><a href="https://github.com/FreeCAD/FreeCAD/pull/19411">FreeCAD/FreeCAD/pull/19411</a></td>
+        <td class="num">54</td>
+        <td class="num">54</td>
+        <td class="num">0</td>
+        <td class="bar"><span style="width:100%"></span><b>12</b></td>
+        <td class="bar after"><span style="width:100%"></span><b>12</b></td>
+        <td class="num">9 → 9</td>
+        <td class="dim">—</td>
+        <td><span class="state applied">applied</span></td>
+      </tr>
+      <tr data-state="applied" data-changed="true">
+        <td class="pr"><a href="https://github.com/FreeCAD/FreeCAD/pull/21257">FreeCAD/FreeCAD/pull/21257</a></td>
+        <td class="num">82</td>
+        <td class="num">82</td>
+        <td class="num">2</td>
+        <td class="bar"><span style="width:100%"></span><b>12</b></td>
+        <td class="bar after"><span style="width:100%"></span><b>12</b></td>
+        <td class="num">7 → 7</td>
+        <td class="lost">−1</td>
+        <td><span class="state applied">applied</span></td>
+      </tr>
+      <tr data-state="applied" data-changed="false">
+        <td class="pr"><a href="https://github.com/FreeCAD/FreeCAD/pull/22744">FreeCAD/FreeCAD/pull/22744</a></td>
+        <td class="num">3</td>
+        <td class="num">3</td>
+        <td class="num">0</td>
+        <td class="bar"><span style="width:100%"></span><b>3</b></td>
+        <td class="bar after"><span style="width:100%"></span><b>3</b></td>
+        <td class="num">0 → 0</td>
+        <td class="dim">—</td>
+        <td><span class="state applied">applied</span></td>
+      </tr>
+      <tr data-state="applied" data-changed="false">
+        <td class="pr"><a href="https://github.com/FreeCAD/FreeCAD/pull/20612">FreeCAD/FreeCAD/pull/20612</a></td>
+        <td class="num">6</td>
+        <td class="num">6</td>
+        <td class="num">0</td>
+        <td class="bar"><span style="width:100%"></span><b>5</b></td>
+        <td class="bar after"><span style="width:100%"></span><b>5</b></td>
+        <td class="num">0 → 0</td>
+        <td class="dim">—</td>
+        <td><span class="state applied">applied</span></td>
+      </tr>
+      <tr data-state="applied" data-changed="false">
+        <td class="pr"><a href="https://github.com/FreeCAD/FreeCAD/pull/18688">FreeCAD/FreeCAD/pull/18688</a></td>
+        <td class="num">4</td>
+        <td class="num">4</td>
+        <td class="num">0</td>
+        <td class="bar"><span style="width:100%"></span><b>4</b></td>
+        <td class="bar after"><span style="width:100%"></span><b>4</b></td>
+        <td class="num">0 → 0</td>
+        <td class="dim">—</td>
+        <td><span class="state applied">applied</span></td>
+      </tr>
+      <tr data-state="applied" data-changed="false">
+        <td class="pr"><a href="https://github.com/FreeCAD/FreeCAD/pull/22235">FreeCAD/FreeCAD/pull/22235</a></td>
+        <td class="num">3</td>
+        <td class="num">3</td>
+        <td class="num">0</td>
+        <td class="bar"><span style="width:100%"></span><b>3</b></td>
+        <td class="bar after"><span style="width:100%"></span><b>3</b></td>
+        <td class="num">0 → 0</td>
+        <td class="dim">—</td>
+        <td><span class="state applied">applied</span></td>
+      </tr>
+      <tr data-state="applied" data-changed="false">
+        <td class="pr"><a href="https://github.com/FreeCAD/FreeCAD/pull/20336">FreeCAD/FreeCAD/pull/20336</a></td>
+        <td class="num">15</td>
+        <td class="num">15</td>
+        <td class="num">0</td>
+        <td class="bar"><span style="width:100%"></span><b>12</b></td>
+        <td class="bar after"><span style="width:100%"></span><b>12</b></td>
+        <td class="num">2 → 2</td>
+        <td class="dim">—</td>
+        <td><span class="state applied">applied</span></td>
+      </tr>
+      <tr data-state="applied" data-changed="false">
+        <td class="pr"><a href="https://github.com/FreeCAD/FreeCAD/pull/20825">FreeCAD/FreeCAD/pull/20825</a></td>
+        <td class="num">33</td>
+        <td class="num">33</td>
+        <td class="num">0</td>
+        <td class="bar"><span style="width:100%"></span><b>12</b></td>
+        <td class="bar after"><span style="width:100%"></span><b>12</b></td>
+        <td class="num">8 → 8</td>
+        <td class="dim">—</td>
+        <td><span class="state applied">applied</span></td>
+      </tr>
+      <tr data-state="applied" data-changed="false">
+        <td class="pr"><a href="https://github.com/FreeCAD/FreeCAD/pull/19977">FreeCAD/FreeCAD/pull/19977</a></td>
+        <td class="num">5</td>
+        <td class="num">5</td>
+        <td class="num">0</td>
+        <td class="bar"><span style="width:100%"></span><b>4</b></td>
+        <td class="bar after"><span style="width:100%"></span><b>4</b></td>
+        <td class="num">2 → 2</td>
+        <td class="dim">—</td>
+        <td><span class="state applied">applied</span></td>
+      </tr>
+      <tr data-state="applied" data-changed="false">
+        <td class="pr"><a href="https://github.com/FreeCAD/FreeCAD/pull/20156">FreeCAD/FreeCAD/pull/20156</a></td>
+        <td class="num">8</td>
+        <td class="num">8</td>
+        <td class="num">0</td>
+        <td class="bar"><span style="width:100%"></span><b>8</b></td>
+        <td class="bar after"><span style="width:100%"></span><b>8</b></td>
+        <td class="num">6 → 6</td>
+        <td class="dim">—</td>
+        <td><span class="state applied">applied</span></td>
+      </tr>
+      <tr data-state="applied" data-changed="false">
+        <td class="pr"><a href="https://github.com/FreeCAD/FreeCAD/pull/19426">FreeCAD/FreeCAD/pull/19426</a></td>
+        <td class="num">8</td>
+        <td class="num">8</td>
+        <td class="num">0</td>
+        <td class="bar"><span style="width:100%"></span><b>8</b></td>
+        <td class="bar after"><span style="width:100%"></span><b>8</b></td>
+        <td class="num">4 → 4</td>
+        <td class="dim">—</td>
+        <td><span class="state applied">applied</span></td>
+      </tr>
+      <tr data-state="applied" data-changed="false">
+        <td class="pr"><a href="https://github.com/microsoft/typescript-go/pull/1354">microsoft/typescript-go/pull/1354</a></td>
+        <td class="num">22</td>
+        <td class="num">22</td>
+        <td class="num">0</td>
+        <td class="bar"><span style="width:100%"></span><b>12</b></td>
+        <td class="bar after"><span style="width:100%"></span><b>12</b></td>
+        <td class="num">2 → 2</td>
+        <td class="dim">—</td>
+        <td><span class="state applied">applied</span></td>
+      </tr>
+      <tr data-state="withheld" data-changed="false">
+        <td class="pr"><a href="https://github.com/microsoft/typescript-go/pull/831">microsoft/typescript-go/pull/831</a></td>
+        <td class="num">28</td>
+        <td class="num">27</td>
+        <td class="num">0</td>
+        <td class="bar"><span style="width:100%"></span><b>12</b></td>
+        <td class="bar after"><span style="width:100%"></span><b>12</b></td>
+        <td class="num">7 → 7</td>
+        <td class="dim">—</td>
+        <td><span class="state withheld">withheld</span> <code>no-readable-arm</code></td>
+      </tr>
+      <tr data-state="applied" data-changed="true">
+        <td class="pr"><a href="https://github.com/microsoft/typescript-go/pull/1446">microsoft/typescript-go/pull/1446</a></td>
+        <td class="num">8</td>
+        <td class="num">8</td>
+        <td class="num">1</td>
+        <td class="bar"><span style="width:100%"></span><b>6</b></td>
+        <td class="bar after"><span style="width:83.33333333333334%"></span><b>5</b></td>
+        <td class="num">1 → 1</td>
+        <td class="dim">—</td>
+        <td><span class="state applied">applied</span></td>
+      </tr>
+      <tr data-state="applied" data-changed="false">
+        <td class="pr"><a href="https://github.com/microsoft/typescript-go/pull/691">microsoft/typescript-go/pull/691</a></td>
+        <td class="num">2</td>
+        <td class="num">2</td>
+        <td class="num">0</td>
+        <td class="bar"><span style="width:100%"></span><b>1</b></td>
+        <td class="bar after"><span style="width:100%"></span><b>1</b></td>
+        <td class="num">1 → 1</td>
+        <td class="dim">—</td>
+        <td><span class="state applied">applied</span></td>
+      </tr>
+      <tr data-state="applied" data-changed="false">
+        <td class="pr"><a href="https://github.com/microsoft/typescript-go/pull/1000">microsoft/typescript-go/pull/1000</a></td>
+        <td class="num">2</td>
+        <td class="num">2</td>
+        <td class="num">0</td>
+        <td class="bar"><span style="width:100%"></span><b>1</b></td>
+        <td class="bar after"><span style="width:100%"></span><b>1</b></td>
+        <td class="num">0 → 0</td>
+        <td class="dim">—</td>
+        <td><span class="state applied">applied</span></td>
+      </tr>
+      <tr data-state="applied" data-changed="false">
+        <td class="pr"><a href="https://github.com/microsoft/typescript-go/pull/698">microsoft/typescript-go/pull/698</a></td>
+        <td class="num">7</td>
+        <td class="num">7</td>
+        <td class="num">0</td>
+        <td class="bar"><span style="width:100%"></span><b>5</b></td>
+        <td class="bar after"><span style="width:100%"></span><b>5</b></td>
+        <td class="num">0 → 0</td>
+        <td class="dim">—</td>
+        <td><span class="state applied">applied</span></td>
+      </tr>
+      <tr data-state="applied" data-changed="false">
+        <td class="pr"><a href="https://github.com/PowerShell/PowerShell/pull/24910">PowerShell/PowerShell/pull/24910</a></td>
+        <td class="num">1</td>
+        <td class="num">1</td>
+        <td class="num">0</td>
+        <td class="bar"><span style="width:100%"></span><b>1</b></td>
+        <td class="bar after"><span style="width:100%"></span><b>1</b></td>
+        <td class="num">1 → 1</td>
+        <td class="dim">—</td>
+        <td><span class="state applied">applied</span></td>
+      </tr>
+      <tr data-state="applied" data-changed="false">
+        <td class="pr"><a href="https://github.com/PowerShell/PowerShell/pull/25780">PowerShell/PowerShell/pull/25780</a></td>
+        <td class="num">1</td>
+        <td class="num">1</td>
+        <td class="num">0</td>
+        <td class="bar"><span style="width:100%"></span><b>1</b></td>
+        <td class="bar after"><span style="width:100%"></span><b>1</b></td>
+        <td class="num">0 → 0</td>
+        <td class="dim">—</td>
+        <td><span class="state applied">applied</span></td>
+      </tr>
+      <tr data-state="applied" data-changed="false">
+        <td class="pr"><a href="https://github.com/libsdl-org/SDL/pull/12964">libsdl-org/SDL/pull/12964</a></td>
+        <td class="num">5</td>
+        <td class="num">5</td>
+        <td class="num">0</td>
+        <td class="bar"><span style="width:100%"></span><b>4</b></td>
+        <td class="bar after"><span style="width:100%"></span><b>4</b></td>
+        <td class="num">2 → 2</td>
+        <td class="dim">—</td>
+        <td><span class="state applied">applied</span></td>
+      </tr>
+      <tr data-state="applied" data-changed="false">
+        <td class="pr"><a href="https://github.com/libsdl-org/SDL/pull/12718">libsdl-org/SDL/pull/12718</a></td>
+        <td class="num">4</td>
+        <td class="num">4</td>
+        <td class="num">0</td>
+        <td class="bar"><span style="width:100%"></span><b>4</b></td>
+        <td class="bar after"><span style="width:100%"></span><b>4</b></td>
+        <td class="num">3 → 3</td>
+        <td class="dim">—</td>
+        <td><span class="state applied">applied</span></td>
+      </tr>
+      <tr data-state="applied" data-changed="false">
+        <td class="pr"><a href="https://github.com/gofr-dev/gofr/pull/1681">gofr-dev/gofr/pull/1681</a></td>
+        <td class="num">12</td>
+        <td class="num">12</td>
+        <td class="num">0</td>
+        <td class="bar"><span style="width:100%"></span><b>9</b></td>
+        <td class="bar after"><span style="width:100%"></span><b>9</b></td>
+        <td class="num">1 → 1</td>
+        <td class="dim">—</td>
+        <td><span class="state applied">applied</span></td>
+      </tr>
+      <tr data-state="applied" data-changed="true">
+        <td class="pr"><a href="https://github.com/gofr-dev/gofr/pull/1617">gofr-dev/gofr/pull/1617</a></td>
+        <td class="num">11</td>
+        <td class="num">11</td>
+        <td class="num">1</td>
+        <td class="bar"><span style="width:100%"></span><b>6</b></td>
+        <td class="bar after"><span style="width:100%"></span><b>6</b></td>
+        <td class="num">2 → 2</td>
+        <td class="dim">—</td>
+        <td><span class="state applied">applied</span></td>
+      </tr>
+      <tr data-state="applied" data-changed="false">
+        <td class="pr"><a href="https://github.com/gofr-dev/gofr/pull/1325">gofr-dev/gofr/pull/1325</a></td>
+        <td class="num">6</td>
+        <td class="num">6</td>
+        <td class="num">0</td>
+        <td class="bar"><span style="width:100%"></span><b>4</b></td>
+        <td class="bar after"><span style="width:100%"></span><b>4</b></td>
+        <td class="num">0 → 0</td>
+        <td class="dim">—</td>
+        <td><span class="state applied">applied</span></td>
+      </tr>
+      <tr data-state="applied" data-changed="false">
+        <td class="pr"><a href="https://github.com/gofr-dev/gofr/pull/1355">gofr-dev/gofr/pull/1355</a></td>
+        <td class="num">5</td>
+        <td class="num">5</td>
+        <td class="num">0</td>
+        <td class="bar"><span style="width:100%"></span><b>3</b></td>
+        <td class="bar after"><span style="width:100%"></span><b>3</b></td>
+        <td class="num">2 → 2</td>
+        <td class="dim">—</td>
+        <td><span class="state applied">applied</span></td>
+      </tr>
+      <tr data-state="applied" data-changed="false">
+        <td class="pr"><a href="https://github.com/gofr-dev/gofr/pull/1395">gofr-dev/gofr/pull/1395</a></td>
+        <td class="num">38</td>
+        <td class="num">38</td>
+        <td class="num">0</td>
+        <td class="bar"><span style="width:100%"></span><b>2</b></td>
+        <td class="bar after"><span style="width:100%"></span><b>2</b></td>
+        <td class="num">1 → 1</td>
+        <td class="dim">—</td>
+        <td><span class="state applied">applied</span></td>
+      </tr>
+      <tr data-state="applied" data-changed="false">
+        <td class="pr"><a href="https://github.com/gofr-dev/gofr/pull/1696">gofr-dev/gofr/pull/1696</a></td>
+        <td class="num">10</td>
+        <td class="num">10</td>
+        <td class="num">0</td>
+        <td class="bar"><span style="width:100%"></span><b>9</b></td>
+        <td class="bar after"><span style="width:100%"></span><b>9</b></td>
+        <td class="num">2 → 2</td>
+        <td class="dim">—</td>
+        <td><span class="state applied">applied</span></td>
+      </tr>
+      <tr data-state="applied" data-changed="false">
+        <td class="pr"><a href="https://github.com/comfyanonymous/ComfyUI/pull/7952">comfyanonymous/ComfyUI/pull/7952</a></td>
+        <td class="num">1</td>
+        <td class="num">1</td>
+        <td class="num">0</td>
+        <td class="bar"><span style="width:100%"></span><b>1</b></td>
+        <td class="bar after"><span style="width:100%"></span><b>1</b></td>
+        <td class="num">1 → 1</td>
+        <td class="dim">—</td>
+        <td><span class="state applied">applied</span></td>
+      </tr>
+      <tr data-state="applied" data-changed="true">
+        <td class="pr"><a href="https://github.com/comfyanonymous/ComfyUI/pull/8446">comfyanonymous/ComfyUI/pull/8446</a></td>
+        <td class="num">21</td>
+        <td class="num">21</td>
+        <td class="num">4</td>
+        <td class="bar"><span style="width:100%"></span><b>12</b></td>
+        <td class="bar after"><span style="width:100%"></span><b>12</b></td>
+        <td class="num">7 → 6</td>
+        <td class="lost">−1</td>
+        <td><span class="state applied">applied</span></td>
+      </tr>
+      <tr data-state="applied" data-changed="false">
+        <td class="pr"><a href="https://github.com/comfyanonymous/ComfyUI/pull/6033">comfyanonymous/ComfyUI/pull/6033</a></td>
+        <td class="num">7</td>
+        <td class="num">7</td>
+        <td class="num">0</td>
+        <td class="bar"><span style="width:100%"></span><b>7</b></td>
+        <td class="bar after"><span style="width:100%"></span><b>7</b></td>
+        <td class="num">6 → 6</td>
+        <td class="dim">—</td>
+        <td><span class="state applied">applied</span></td>
+      </tr>
+      <tr data-state="applied" data-changed="false">
+        <td class="pr"><a href="https://github.com/comfyanonymous/ComfyUI/pull/9560">comfyanonymous/ComfyUI/pull/9560</a></td>
+        <td class="num">6</td>
+        <td class="num">6</td>
+        <td class="num">0</td>
+        <td class="bar"><span style="width:100%"></span><b>6</b></td>
+        <td class="bar after"><span style="width:100%"></span><b>6</b></td>
+        <td class="num">3 → 3</td>
+        <td class="dim">—</td>
+        <td><span class="state applied">applied</span></td>
+      </tr>
+      <tr data-state="applied" data-changed="false">
+        <td class="pr"><a href="https://github.com/comfyanonymous/ComfyUI/pull/6542">comfyanonymous/ComfyUI/pull/6542</a></td>
+        <td class="num">3</td>
+        <td class="num">3</td>
+        <td class="num">0</td>
+        <td class="bar"><span style="width:100%"></span><b>3</b></td>
+        <td class="bar after"><span style="width:100%"></span><b>3</b></td>
+        <td class="num">1 → 1</td>
+        <td class="dim">—</td>
+        <td><span class="state applied">applied</span></td>
+      </tr>
+      <tr data-state="applied" data-changed="true">
+        <td class="pr"><a href="https://github.com/mrdoob/three.js/pull/31402">mrdoob/three.js/pull/31402</a></td>
+        <td class="num">13</td>
+        <td class="num">13</td>
+        <td class="num">1</td>
+        <td class="bar"><span style="width:100%"></span><b>12</b></td>
+        <td class="bar after"><span style="width:100%"></span><b>12</b></td>
+        <td class="num">3 → 3</td>
+        <td class="dim">—</td>
+        <td><span class="state applied">applied</span></td>
+      </tr>
+      <tr data-state="applied" data-changed="true">
+        <td class="pr"><a href="https://github.com/mrdoob/three.js/pull/30076">mrdoob/three.js/pull/30076</a></td>
+        <td class="num">11</td>
+        <td class="num">11</td>
+        <td class="num">1</td>
+        <td class="bar"><span style="width:100%"></span><b>11</b></td>
+        <td class="bar after"><span style="width:90.9090909090909%"></span><b>10</b></td>
+        <td class="num">5 → 5</td>
+        <td class="dim">—</td>
+        <td><span class="state applied">applied</span></td>
+      </tr>
+      <tr data-state="applied" data-changed="false">
+        <td class="pr"><a href="https://github.com/mrdoob/three.js/pull/30750">mrdoob/three.js/pull/30750</a></td>
+        <td class="num">3</td>
+        <td class="num">3</td>
+        <td class="num">0</td>
+        <td class="bar"><span style="width:100%"></span><b>3</b></td>
+        <td class="bar after"><span style="width:100%"></span><b>3</b></td>
+        <td class="num">0 → 0</td>
+        <td class="dim">—</td>
+        <td><span class="state applied">applied</span></td>
+      </tr>
+      <tr data-state="applied" data-changed="false">
+        <td class="pr"><a href="https://github.com/CherryHQ/cherry-studio/pull/5540">CherryHQ/cherry-studio/pull/5540</a></td>
+        <td class="num">16</td>
+        <td class="num">16</td>
+        <td class="num">0</td>
+        <td class="bar"><span style="width:100%"></span><b>12</b></td>
+        <td class="bar after"><span style="width:100%"></span><b>12</b></td>
+        <td class="num">0 → 0</td>
+        <td class="dim">—</td>
+        <td><span class="state applied">applied</span></td>
+      </tr>
+      <tr data-state="applied" data-changed="false">
+        <td class="pr"><a href="https://github.com/CherryHQ/cherry-studio/pull/5637">CherryHQ/cherry-studio/pull/5637</a></td>
+        <td class="num">8</td>
+        <td class="num">8</td>
+        <td class="num">0</td>
+        <td class="bar"><span style="width:100%"></span><b>8</b></td>
+        <td class="bar after"><span style="width:100%"></span><b>8</b></td>
+        <td class="num">3 → 3</td>
+        <td class="dim">—</td>
+        <td><span class="state applied">applied</span></td>
+      </tr>
+      <tr data-state="applied" data-changed="false">
+        <td class="pr"><a href="https://github.com/opencv/opencv/pull/26815">opencv/opencv/pull/26815</a></td>
+        <td class="num">3</td>
+        <td class="num">3</td>
+        <td class="num">0</td>
+        <td class="bar"><span style="width:100%"></span><b>3</b></td>
+        <td class="bar after"><span style="width:100%"></span><b>3</b></td>
+        <td class="num">1 → 1</td>
+        <td class="dim">—</td>
+        <td><span class="state applied">applied</span></td>
+      </tr>
+      <tr data-state="applied" data-changed="false">
+        <td class="pr"><a href="https://github.com/opencv/opencv/pull/27297">opencv/opencv/pull/27297</a></td>
+        <td class="num">2</td>
+        <td class="num">2</td>
+        <td class="num">0</td>
+        <td class="bar"><span style="width:0%"></span><b>0</b></td>
+        <td class="bar after"><span style="width:0%"></span><b>0</b></td>
+        <td class="num">0 → 0</td>
+        <td class="dim">—</td>
+        <td><span class="state applied">applied</span></td>
+      </tr>
+      <tr data-state="applied" data-changed="true">
+        <td class="pr"><a href="https://github.com/opencv/opencv/pull/27284">opencv/opencv/pull/27284</a></td>
+        <td class="num">19</td>
+        <td class="num">19</td>
+        <td class="num">1</td>
+        <td class="bar"><span style="width:100%"></span><b>12</b></td>
+        <td class="bar after"><span style="width:100%"></span><b>12</b></td>
+        <td class="num">6 → 6</td>
+        <td class="dim">—</td>
+        <td><span class="state applied">applied</span></td>
+      </tr>
+      <tr data-state="applied" data-changed="true">
+        <td class="pr"><a href="https://github.com/nextcloud/server/pull/52846">nextcloud/server/pull/52846</a></td>
+        <td class="num">12</td>
+        <td class="num">12</td>
+        <td class="num">1</td>
+        <td class="bar"><span style="width:100%"></span><b>11</b></td>
+        <td class="bar after"><span style="width:90.9090909090909%"></span><b>10</b></td>
+        <td class="num">0 → 0</td>
+        <td class="dim">—</td>
+        <td><span class="state applied">applied</span></td>
+      </tr>
+      <tr data-state="applied" data-changed="false">
+        <td class="pr"><a href="https://github.com/lvgl/lvgl/pull/8164">lvgl/lvgl/pull/8164</a></td>
+        <td class="num">4</td>
+        <td class="num">4</td>
+        <td class="num">0</td>
+        <td class="bar"><span style="width:100%"></span><b>3</b></td>
+        <td class="bar after"><span style="width:100%"></span><b>3</b></td>
+        <td class="num">2 → 2</td>
+        <td class="dim">—</td>
+        <td><span class="state applied">applied</span></td>
+      </tr>
+      <tr data-state="applied" data-changed="false">
+        <td class="pr"><a href="https://github.com/lvgl/lvgl/pull/8129">lvgl/lvgl/pull/8129</a></td>
+        <td class="num">6</td>
+        <td class="num">6</td>
+        <td class="num">0</td>
+        <td class="bar"><span style="width:100%"></span><b>6</b></td>
+        <td class="bar after"><span style="width:100%"></span><b>6</b></td>
+        <td class="num">3 → 3</td>
+        <td class="dim">—</td>
+        <td><span class="state applied">applied</span></td>
+      </tr>
+      <tr data-state="applied" data-changed="true">
+        <td class="pr"><a href="https://github.com/lvgl/lvgl/pull/8689">lvgl/lvgl/pull/8689</a></td>
+        <td class="num">48</td>
+        <td class="num">48</td>
+        <td class="num">2</td>
+        <td class="bar"><span style="width:100%"></span><b>12</b></td>
+        <td class="bar after"><span style="width:100%"></span><b>12</b></td>
+        <td class="num">8 → 8</td>
+        <td class="dim">—</td>
+        <td><span class="state applied">applied</span></td>
+      </tr>
+      <tr data-state="applied" data-changed="false">
+        <td class="pr"><a href="https://github.com/lvgl/lvgl/pull/7602">lvgl/lvgl/pull/7602</a></td>
+        <td class="num">7</td>
+        <td class="num">7</td>
+        <td class="num">0</td>
+        <td class="bar"><span style="width:100%"></span><b>2</b></td>
+        <td class="bar after"><span style="width:100%"></span><b>2</b></td>
+        <td class="num">1 → 1</td>
+        <td class="dim">—</td>
+        <td><span class="state applied">applied</span></td>
+      </tr>
+      <tr data-state="applied" data-changed="false">
+        <td class="pr"><a href="https://github.com/cline/cline/pull/5177">cline/cline/pull/5177</a></td>
+        <td class="num">1</td>
+        <td class="num">1</td>
+        <td class="num">0</td>
+        <td class="bar"><span style="width:100%"></span><b>1</b></td>
+        <td class="bar after"><span style="width:100%"></span><b>1</b></td>
+        <td class="num">1 → 1</td>
+        <td class="dim">—</td>
+        <td><span class="state applied">applied</span></td>
+      </tr>
+      <tr data-state="applied" data-changed="false">
+        <td class="pr"><a href="https://github.com/cline/cline/pull/5955">cline/cline/pull/5955</a></td>
+        <td class="num">5</td>
+        <td class="num">5</td>
+        <td class="num">0</td>
+        <td class="bar"><span style="width:100%"></span><b>5</b></td>
+        <td class="bar after"><span style="width:100%"></span><b>5</b></td>
+        <td class="num">4 → 4</td>
+        <td class="dim">—</td>
+        <td><span class="state applied">applied</span></td>
+      </tr>
+      <tr data-state="applied" data-changed="true">
+        <td class="pr"><a href="https://github.com/cline/cline/pull/4676">cline/cline/pull/4676</a></td>
+        <td class="num">3</td>
+        <td class="num">3</td>
+        <td class="num">1</td>
+        <td class="bar"><span style="width:100%"></span><b>3</b></td>
+        <td class="bar after"><span style="width:66.66666666666666%"></span><b>2</b></td>
+        <td class="num">1 → 0</td>
+        <td class="lost">−1</td>
+        <td><span class="state applied">applied</span></td>
+      </tr>
+      <tr data-state="applied" data-changed="false">
+        <td class="pr"><a href="https://github.com/cline/cline/pull/2347">cline/cline/pull/2347</a></td>
+        <td class="num">5</td>
+        <td class="num">5</td>
+        <td class="num">0</td>
+        <td class="bar"><span style="width:100%"></span><b>5</b></td>
+        <td class="bar after"><span style="width:100%"></span><b>5</b></td>
+        <td class="num">1 → 1</td>
+        <td class="dim">—</td>
+        <td><span class="state applied">applied</span></td>
+      </tr>
+      <tr data-state="applied" data-changed="false">
+        <td class="pr"><a href="https://github.com/cline/cline/pull/4786">cline/cline/pull/4786</a></td>
+        <td class="num">4</td>
+        <td class="num">4</td>
+        <td class="num">0</td>
+        <td class="bar"><span style="width:100%"></span><b>4</b></td>
+        <td class="bar after"><span style="width:100%"></span><b>4</b></td>
+        <td class="num">2 → 2</td>
+        <td class="dim">—</td>
+        <td><span class="state applied">applied</span></td>
+      </tr>
+    </tbody>
+  </table>
+</main>
+<footer>Rendered by <code>scripts/gate-replay.mjs --html</code>. Every figure is recomputed from the artifact and the
+pinned revisions recorded beside it; no model was called to produce this page.</footer>
+<script>
+  const rows = [...document.querySelectorAll('tbody tr[data-state]')];
+  const buttons = [...document.querySelectorAll('nav button')];
+  const show = (filter) => {
+    for (const row of rows) {
+      const lost = row.querySelector('td.lost') !== null;
+      const keep =
+        filter === 'all' ||
+        (filter === 'changed' && row.dataset.changed === 'true') ||
+        (filter === 'applied' && row.dataset.state === 'applied') ||
+        (filter === 'withheld' && row.dataset.state === 'withheld') ||
+        (filter === 'lost' && lost);
+      row.hidden = !keep;
+    }
+    for (const button of buttons) button.setAttribute('aria-pressed', String(button.dataset.filter === filter));
+  };
+  for (const button of buttons) button.addEventListener('click', () => show(button.dataset.filter));
+</script>
+</body>
+</html>
