@@ -16804,3 +16804,34 @@ re-dispatch on the fixed workflow.
    of this run is that those rows answer a different question.
 3. **The `core` 158 re-index is not in this section**, because the table that computes it (`martian_profile`) is the step
    that failed. It lands with the artifact, not before it.
+
+---
+
+## 155. The dependency queue, read as five PRs rather than five greens
+
+**Five Dependabot pull requests are open and no security alert is** (`dependabot/alerts` returns zero). The queue is
+handled by reading each one against the others, because **two green PRs are not a pair of working greens** - §151's
+graphql pair (#76 `graphql@17` + #74 `graphql-yoga@6`) were each green, installed together they called
+`getIncrementalSpecParameterNames`, and eleven GraphQL end-to-end cases went red.
+
+| PR  | what it bumps                                  | CI                    | handling                                                                                                                |
+| --- | ---------------------------------------------- | --------------------- | ----------------------------------------------------------------------------------------------------------------------- |
+| 70  | `github/codeql-action/autobuild` v3 → v3 (SHA) | 18 success, 1 neutral | **applied, all three steps together**                                                                                   |
+| 73  | `tree-sitter-c-sharp` 0.21.3 → 0.24.0          | 11 success, 2 failure | **not applied** - a grammar major-version bump changes node shapes the Kotlin/C# paths read; it needs its own iteration |
+| 72  | `vite` 8.3.5 → 8.3.8                           | 17 success, 2 failure | **not applied** - a patch bump with two red checks is a red check to read, not a version to take                        |
+| 76  | `graphql` 16 → 17                              | green                 | **not applied, and not mergeable with #74** (§151's measured incompatibility)                                           |
+| 74  | `graphql-yoga` 5 → 6                           | green                 | **not applied** for the same reason                                                                                     |
+
+### 155.1 Why #70 was applied to three lines rather than one
+
+`codeql.yml` pins `init`, `autobuild` and `analyze` to one commit. **#70 bumps `autobuild` alone**, which would run one
+step from a release the other two do not share - **the same shape as #76 + #74**, one layer up: each of the two is fine
+and the pair is not. The SHA the PR asks for (`33d7b85`) is applied to all three steps and the workflow says why they
+travel as a unit.
+
+### 155.2 Why #72 and #73 are recorded rather than merged
+
+**A red check on a dependency bump is information about the bump.** #72 is a patch release with two failing checks, which
+is either a flake to re-run or a real regression in a dev dependency; #73 moves a tree-sitter grammar across a minor
+version, which changes the node shapes every C#/Kotlin query reads. **Merging either to clear a queue would be the
+`|| true` this repository forbids, one pull request up.**
