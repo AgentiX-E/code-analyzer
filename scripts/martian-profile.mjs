@@ -49,8 +49,31 @@ if (findings.length === 0) {
 }
 
 const shipped = artifact.emissionRules?.shipped ?? {};
-const cut =
-  options.cut ?? (String(shipped.rule ?? '').includes('budget 12') ? 'drop:test+budget:12' : null);
+
+/**
+ * **The cut is read from the artifact's own structured steps, not from its prose and not from a constant here.**
+ *
+ * The harness records `steps: [{kind: 'drop', categories: [...]}, {kind: 'budget', k: 12}]`, which is the same statement
+ * `parseCut` reads as `drop:test+budget:12`. Rebuilding the string from the steps means a non-default arm - a different
+ * budget, an extra dropped category - is priced against the cut it actually shipped, instead of being refused or, worse,
+ * silently priced against the default one.
+ */
+function cutFromSteps(steps) {
+  if (!Array.isArray(steps) || steps.length === 0) return null;
+  const parts = [];
+  for (const step of steps) {
+    if (step?.kind === 'drop' && Array.isArray(step.categories) && step.categories.length > 0) {
+      parts.push(`drop:${step.categories.join('+')}`);
+    } else if (step?.kind === 'budget' && Number.isFinite(step.k)) {
+      parts.push(`budget:${step.k}`);
+    } else {
+      return null;
+    }
+  }
+  return parts.length > 0 ? parts.join('+') : null;
+}
+
+const cut = options.cut ?? cutFromSteps(shipped.steps);
 if (cut === null) {
   process.stderr.write(
     'the artifact does not record a cut this instrument can rebuild; pass --cut\n',
