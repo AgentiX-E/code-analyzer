@@ -201,6 +201,38 @@ export function auditArtifact(artifact) {
   const failed = Array.isArray(theirs.failedPullRequests) ? theirs.failedPullRequests.length : 0;
   const missing = Array.isArray(theirs.missing) ? theirs.missing.length : 0;
   const accounted = Number(theirs.recorded ?? 0) + Number(theirs.replayed ?? 0) + failed + missing;
+  /**
+   * **The partition is over membership, and the totals were only ever a proxy for it.**
+   *
+   * The run of 2026-11-24 scored forty-nine pull requests against an arm holding fifty rows - forty-eight recorded, one
+   * failed, one missing - because the arm's failure was the one pull request **our own** review never reached. The
+   * coverage was complete and the check read `50 accounted for of 49 scored`: **a total cannot tell a row outside the
+   * corpus from a hole inside it**, and it reported the first as the second. Two hours of purchased work went red, and
+   * the upload step that the red light skipped is the step that would have kept the artifact the failure was about.
+   *
+   * **So the check reads the keys the arm already writes.** `coveredKeys` is the list of pull requests the arm holds a
+   * row for; the failed and missing lists already carry their own. The statement becomes what it always meant: *every
+   * pull request this run scored is named by the arm, one way or another* - and the keys it is not named by are
+   * published, because a count sends a reader to a corpus while a key sends them to a row.
+   *
+   * **Artifacts on disk predate `coveredKeys`**, so the totals remain the fallback for them: a check that demanded the
+   * new field would fail every old artifact for being old, which is the same wrong premise one level down.
+   */
+  const scoredKeys = Array.isArray(artifact?.coverage?.byPullRequest)
+    ? artifact.coverage.byPullRequest
+        .map((row) => String(row?.pr ?? ''))
+        .filter((key) => key !== '')
+    : [];
+  const keyListed = Array.isArray(theirs.coveredKeys);
+  const namedKeys = new Set(keyListed ? theirs.coveredKeys.map(String) : []);
+  for (const row of Array.isArray(theirs.failedPullRequests) ? theirs.failedPullRequests : []) {
+    namedKeys.add(String(row?.key ?? ''));
+  }
+  for (const row of Array.isArray(theirs.missing) ? theirs.missing : []) {
+    namedKeys.add(String(row?.key ?? ''));
+  }
+  const uncovered = scoredKeys.filter((key) => !namedKeys.has(key));
+  const byMembership = keyListed && scoredKeys.length > 0;
   // **And a run whose competitor arm was switched off is not asked to account for rows it never had.** `off` is the one
   // mode that produces no rows on purpose, so a partition over the corpus would report the corpus as unaccounted rather
   // than the arm as removed.
@@ -222,12 +254,20 @@ export function auditArtifact(artifact) {
   );
   record(
     'every scored pull request is either replayed, recorded, failed or missing',
-    switchedOff || corpusSize === 0 || accounted === corpusSize,
+    switchedOff ||
+      corpusSize === 0 ||
+      (byMembership ? uncovered.length === 0 : accounted === corpusSize),
     switchedOff
       ? 'the competitor arm was switched off for this run'
       : corpusSize === 0
         ? 'no corpus in this artifact'
-        : `${String(accounted)} accounted for of ${String(corpusSize)} scored (${String(theirs.recorded ?? 0)} recorded, ${String(theirs.replayed ?? 0)} replayed, ${String(failed)} failed, ${String(missing)} missing)`,
+        : byMembership
+          ? `${String(scoredKeys.length - uncovered.length)} of ${String(scoredKeys.length)} scored pull requests named by the arm${
+              uncovered.length === 0
+                ? ''
+                : `; nothing accounts for ${uncovered.slice(0, 5).join(', ')}${uncovered.length > 5 ? ` and ${String(uncovered.length - 5)} more` : ''}`
+            } (${String(theirs.recorded ?? 0)} recorded, ${String(theirs.replayed ?? 0)} replayed, ${String(failed)} failed, ${String(missing)} missing)`
+          : `${String(accounted)} accounted for of ${String(corpusSize)} scored (${String(theirs.recorded ?? 0)} recorded, ${String(theirs.replayed ?? 0)} replayed, ${String(failed)} failed, ${String(missing)} missing)`,
   );
 
   // **9. And every failure that was counted is a failure that can be read.** `prsFailed` and the length of the failure

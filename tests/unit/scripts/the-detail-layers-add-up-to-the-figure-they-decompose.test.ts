@@ -479,6 +479,88 @@ describe('every scored pull request is accounted for', () => {
   });
 });
 
+describe('an arm whose rows and the corpus are two different sets', () => {
+  /**
+   * **The run of 2026-11-24 published `50 accounted for of 49 scored` while being completely accounted for**, and the
+   * check that said so was comparing two totals rather than two sets.
+   *
+   * The run scored forty-nine pull requests and the arm held fifty rows: forty-eight recorded, one failed, one missing.
+   * The extra row was the pull request **our own** review never reached, so the arm's failure fell outside the corpus
+   * this run scored - and a total is the one shape that cannot tell "a row outside the corpus" from "a hole inside it".
+   * The figure was right, the artifact was right, and the job went red for two hours of purchased work whose artifact
+   * was then withheld by the step the red light skipped.
+   *
+   * **A partition is a statement about membership, so it is checked against membership.** The keys are what the arm
+   * already writes; comparing their counts is what loses the distinction the counts were supposed to carry.
+   */
+  const scored = (count: number) => ({
+    byPullRequest: Array.from({ length: count }, (_, at) => ({ pr: `p${String(at)}` })),
+  });
+
+  it('passes when every scored pull request is named, though the counts differ by one', () => {
+    const artifact = consistentArtifact() as unknown as Record<string, unknown>;
+    artifact['coverage'] = scored(49);
+    artifact['prsInDataset'] = 49;
+    artifact['secondReviewer'] = {
+      mode: 'record',
+      recorded: 48,
+      replayed: 0,
+      prsAttempted: 50,
+      prsFailed: 1,
+      coveredKeys: Array.from({ length: 48 }, (_, at) => `p${String(at)}`),
+      // **The row that is not in the scored corpus**, which is why the totals disagree.
+      failedPullRequests: [{ key: 'p49', goldens: 1, reason: 'it produced nothing', stage: 'run' }],
+      missing: [{ key: 'p48', reason: 'the range did not resolve' }],
+      findingsAtItsOwnOperatingPoint: [{ path: 'a.ts', startLine: 1, text: 'what they said' }],
+    };
+    const audit = auditArtifact(artifact);
+    const check = audit.findings.find(
+      (finding) =>
+        finding.name ===
+        'every scored pull request is either replayed, recorded, failed or missing',
+    );
+    expect(check?.ok).toBe(true);
+    expect(check?.detail).toContain('49 of 49');
+  });
+
+  it('names the scored pull request that nothing accounts for', () => {
+    const artifact = consistentArtifact() as unknown as Record<string, unknown>;
+    artifact['coverage'] = scored(4);
+    artifact['prsInDataset'] = 4;
+    artifact['secondReviewer'] = {
+      mode: 'record',
+      recorded: 2,
+      replayed: 0,
+      prsAttempted: 4,
+      prsFailed: 1,
+      coveredKeys: ['p0', 'p1'],
+      failedPullRequests: [{ key: 'p2', goldens: 1, reason: 'it produced nothing', stage: 'run' }],
+      missing: [],
+      findingsAtItsOwnOperatingPoint: [{ path: 'a.ts', startLine: 1, text: 'what they said' }],
+    };
+    const audit = auditArtifact(artifact);
+    const check = audit.findings.find(
+      (finding) =>
+        finding.name ===
+        'every scored pull request is either replayed, recorded, failed or missing',
+    );
+    // **The key is published, because "3 of 4" sends a reader to a corpus while a key sends them to a row.**
+    expect(check?.ok).toBe(false);
+    expect(check?.detail).toContain('p3');
+    expect(check?.detail).toContain('3 of 4');
+  });
+
+  it('falls back to the totals for an artifact that predates the key list', () => {
+    // **The field is new, and every artifact already on disk lacks it.** A check that demanded it would fail each of
+    // them for being old rather than for being wrong, which is the same defect as a wrong premise one level down.
+    const artifact = consistentArtifact();
+    artifact.prsInDataset = 4;
+    expect(failuresOf(artifact)).toContain(
+      'every scored pull request is either replayed, recorded, failed or missing',
+    );
+  });
+});
+
 describe('a recording run that replayed most of its rows', () => {
   it('is not failed for the rows it did not pay for', () => {
     // **The run of 2026-11-12 was failed by this check while being entirely correct.** Its record predates the `text`
