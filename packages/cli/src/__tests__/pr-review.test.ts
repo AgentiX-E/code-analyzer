@@ -6,6 +6,7 @@
 // five documents described did not exist — and a command that exists but reports the wrong lines is the same failure
 // with better manners.
 
+import { deletedPaths } from '@code-analyzer/intelligence';
 import { afterAll, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest';
 
 import { createRepo, type GitFixture } from './git-fixture.js';
@@ -26,7 +27,6 @@ import {
   runPrReview,
 } from '../commands/pr-review.js';
 import { severityRank } from '../commands/severity.js';
-import { deletedPaths } from '@code-analyzer/intelligence';
 
 const SECRET_AND_SQL = [
   'export function lookup(id: string): string {',
