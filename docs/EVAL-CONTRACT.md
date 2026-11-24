@@ -16622,3 +16622,87 @@ npx vitest run tests/unit/scripts/a-clone-is-per-repository.test.ts   # 6 cases,
 node .github/scripts/run-martian-competitor.mjs --self-check          # no model, no charge
 node scripts/competitor-board.mjs --check                             # the page against the artifacts
 ```
+
+---
+
+## 153. A version pin is not a pin
+
+`PinnedDependenciesID` has been open on this repository's install lines for several iterations, and §151.6 recorded them
+as **"one queue (S1) rather than seven incidents"**. This section is the first pass over that queue, and it is about the
+finding the rule is actually making rather than about silencing it.
+
+### 153.1 What the rule is saying
+
+```
+npm install -g @alibaba-group/open-code-review@1.13.8
+```
+
+**That names a version and trusts the registry to serve the same bytes under it.** The comparison this repository
+publishes is _"our reviewer against `open-code-review` 1.13.8"_, and the pin is what makes the number reproducible -
+but **a pin whose bytes nobody checked is a pin on a name**. A registry compromise, a re-published tarball or a typo in
+a package name all produce a job that installs a different program and reports a figure about it, and the run's own log
+would say `1.13.8` in every case.
+
+### 153.2 The repair: verify, then install from what was verified
+
+`scripts/install-pinned.mjs` does four things in this order, and the order is the content:
+
+| step | what it does                                                       |
+| ---- | ------------------------------------------------------------------ |
+| 1    | fetch the version document: `dist.tarball` and `dist.integrity`    |
+| 2    | fetch the tarball                                                  |
+| 3    | **check the bytes against the published hash** - `verifyIntegrity` |
+| 4    | `npm install -g <the file that was checked>`, then delete it       |
+
+**An install that runs first and a verification that runs after it has measured the wrong thing**, whatever it reports.
+The tarball is removed afterwards for the same reason: a verified file left on disk is a file the next step can install
+from without verifying it.
+
+**Two defects were found in this file by its own tests before it ever ran in a job**, and both are worth recording
+because both would have refused packages that are intact:
+
+1. **`verifyIntegrity` split the integrity string at its first dash.** npm publishes one token today, and the format is a
+   whitespace-separated list - so `sha1-… sha512-…` was read as _algorithm `sha1`, expected value `… sha512-…`_, which
+   matches nothing. It now parses every `algorithm-hash` token, checks each, and accepts any match; **an algorithm this
+   runtime cannot compute is skipped rather than fatal**, because the question is whether _any_ published hash matches,
+   and a string with no parsable token is still a refusal.
+2. **The fixture matched its tarball by the substring `/tarball`** against a URL containing `pkg-tarball.tgz`, served
+   the metadata document in place of the tarball, and **the only reason it failed loudly was the integrity check** -
+   which is the property the file exists for, demonstrated by accident. The fixture now matches the extension, and the
+   comment says why.
+
+### 153.3 `--optional` is for an absence, not for a failure
+
+Three of the call sites are probes rather than requirements - `greptile`, `auggie` and `kodus` are installed to find out
+whether a competitor can be run at all, and their `|| echo "…"` was the pattern this repository forbids elsewhere.
+**`--optional` continues from a 404 and from nothing else**: a name that is not published is the fact the probe records,
+and **a 500, a redirect loop or a hash mismatch are failures about the package that was asked for** - a step that
+continued past them would report a measurement of something else.
+
+### 153.4 What moved, and what is still open
+
+| install                                                             | now                                                                                                                                                                                         |
+| ------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `open-code-review@1.13.8` (AACR, Martian, runnable probes)          | `node scripts/install-pinned.mjs …@1.13.8` - verified                                                                                                                                       |
+| `@kodus/cli@0.4.22`, `@augmentcode/auggie@0.37.1`, `greptile@3.8.0` | verified, `--optional`                                                                                                                                                                      |
+| `@vscode/vsce@3.9.2`                                                | verified                                                                                                                                                                                    |
+| `node-gyp@10.2.0` (Dockerfile, before the race it prevents)         | verified, from a COPY of the one script                                                                                                                                                     |
+| `pyarrow==26.0.1`, `pandas==3.1.1`, `pr-agent==0.50.0`              | **still named-and-trusted** - a pip path is the same repair, one ecosystem over, and it is not done                                                                                         |
+| `curl -fsSL https://cubic.dev/install \| bash`                      | **still unpinnable in principle**, and recorded as the finding: the vendor ships an installer and nothing else                                                                              |
+| `npm install --omit=dev --no-package-lock` (`vscode-ci`)            | **still unpinned, and the real defect is `--no-package-lock`**: that step resolves versions at run time, so no hash can pin it. Fixing it means committing a lockfile for that package tree |
+
+**A pin that moved is a pin a reader can check**: `install-pinned` prints the package, the version, the byte count and
+the integrity it verified, so the job log carries the hash rather than a version string. **The verified install was also
+run for real before it was wired into a workflow** - `@alibaba-group/open-code-review@1.13.8`, 2 438 315 bytes,
+`sha512-E5uFMRqIrK0gb8GDDsvvJLbwelLqWby6JgiygrSM+OgilEXcPKdD9E86N5izmUs3qmCme46eo1QYFRuIQc5RDw==`, installed from the
+checked file in 2 s - because a verification step that has never verified a real tarball is a step that has only been
+tested against a fixture.
+
+### 153.5 Reproduce
+
+```
+npx vitest run tests/unit/scripts/a-version-pin-is-verified-before-it-is-installed.test.ts   # 11 cases
+node scripts/install-pinned.mjs @vscode/vsce@3.9.2                                          # verifies, then installs
+node scripts/install-pinned.mjs a-package-that-is-not-published@1.0.0 --optional             # exit 0, one line
+node scripts/install-pinned.mjs a-package-that-is-not-published@1.0.0                        # exit 1
+```
