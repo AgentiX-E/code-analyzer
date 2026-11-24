@@ -67,6 +67,7 @@ import {
 } from './lib/competitor-baseline.mjs';
 import { operatingPointTable } from '../../scripts/lib/operating-point.mjs';
 import { locateLaneFindings } from '../../scripts/lib/lane-attribution.mjs';
+import { evidenceSummary, quotationOf } from './lib/published-evidence.mjs';
 import { isTransientStatus, withRetry } from '../../scripts/lib/transient-fetch.mjs';
 import { readReviewDefaults } from './lib/review-defaults.mjs';
 
@@ -4628,7 +4629,7 @@ async function main() {
          * nothing - the quotation was already in memory, copied out of the diff the run had paid for - and **it is the
          * only way the offline replay of a paid run can price the gate without paying for the run again**.
          */
-        existingCode: String(entry.finding.existingCode ?? '').slice(0, 2000),
+        ...quotationOf(entry.finding),
         matchedGoldens: ourMatrix.matches[at],
       });
     });
@@ -5910,6 +5911,14 @@ async function main() {
      * its own artifact would be a second place for a figure to live.**
      */
     operatingPoints: operatingPointTable(rankedDetail, gated.truePositives + gated.falseNegatives),
+    /**
+     * **What evidence the rows above actually carry**, because 591 empty strings read as data for five iterations.
+     *
+     * The field is filled by `quotationOf` from `LLMFinding.snippet` - the field the engine declares - and
+     * `existingCodeFrom` names what filled it, so `none` is a reviewer that quoted no code rather than a harness that
+     * read a field that does not exist. A gate replayed over `none` rows is a gate shown no code.
+     */
+    evidence: evidenceSummary(rankedDetail),
     rankedFindings: rankedWithFileLevel,
     // **And the reading after the loop**, so **what the run spent is derivable** and **a draw taken on an empty
     // account is labelled rather than reported as a reviewer's result.**
