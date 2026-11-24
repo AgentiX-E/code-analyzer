@@ -16430,6 +16430,11 @@ separates category from severity with **U+00B7**. **A fixture that agrees with a
 cannot read the tool**, which is why `run-martian-competitor.mjs --self-check` runs in the job before the paid steps and
 needs neither network nor model: it proves the parser, the merge and the candidate merge, and it costs nothing.
 
+**And the self-check has now run in the job, not only here.** The scheduled Martian run `45423372906` executed it before
+any paid step and printed `MARTIAN-COMPETITOR self-check: parser, merge and candidate merge all hold`, and the harness's
+own merge in the same job reported `tools before 49 · after 50` - **which is the other half of the rule proved on the
+field's real file**: adding an arm left forty-nine tools where it found them.
+
 ### 151.4 The second arm, and why it is a merge
 
 `run-martian-competitor.mjs` reviews the same fifty diffs with the competitor, on **the same `deepseek-chat` endpoint the
