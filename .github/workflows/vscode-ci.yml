@@ -151,7 +151,9 @@ jobs:
           npm install --omit=dev --legacy-peer-deps --ignore-scripts --no-package-lock
 
       - name: Install vsce
-        run: npm install -g @vscode/vsce@3.9.2
+        # **Verified rather than named**: `vsce` is what packages the extension, so the bytes that run are the ones the
+        # registry published an integrity for.
+        run: node scripts/install-pinned.mjs @vscode/vsce@3.9.2
 
       # tree-sitter 0.25 grammars declare peer ranges older than 0.25, so
       # `npm list --production` exits non-zero (ELSPROBLEMS) despite printing

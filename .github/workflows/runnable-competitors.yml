@@ -71,7 +71,10 @@ jobs:
           # **`open-code-review`: a Go CLI on npm, pinned to the version the published comparisons were measured
           # against.** An unpinned install makes "the competitor" a moving target, and the probe records the version it
           # ran so a bump is visible in the artifact rather than inferred from a date.
-          npm install -g @alibaba-group/open-code-review@1.13.8
+          # **And the pin is verified rather than named.** `npm install -g pkg@1.13.8` names a version and trusts the
+          # registry to serve the same bytes under it; `scripts/install-pinned.mjs` fetches the version document, checks
+          # the tarball against the integrity the registry published, and installs from the file it checked.
+          node scripts/install-pinned.mjs @alibaba-group/open-code-review@1.13.8
           command -v ocr
           ocr --version
           # **`PR-Agent`: pip, and its model layer is LiteLLM** - so **the endpoint below is the whole of the
@@ -84,7 +87,9 @@ jobs:
           # to ask for, `@kodus/flow`, is not published at all - so the `|| echo` behind it was the only path ever
           # taken, and the probe has been recording "not distributed under that name" for a package that never
           # existed under it.
-          npm install -g @kodus/cli@0.4.22 || echo "kodus is not installable from npm in this environment"
+          # **`--optional` continues from a 404 and from nothing else**: a name that is not published is the fact this
+          # step records, and a tarball whose hash is not the published one is not a name that is merely absent.
+          node scripts/install-pinned.mjs @kodus/cli@0.4.22 --optional
           # **The three this job twice filed as `serviceOnly`.** **Each installs a CLI, and the probe records whether
           # it starts** - because **the claim that a tool cannot be run is a claim this repository has now got wrong
           # twice, and a probe is what settles it.**
@@ -93,8 +98,8 @@ jobs:
           # of whatever the vendor deploys next. It is recorded rather than removed, because "the vendor only offers an
           # installer nobody can pin" is the finding - and the probe is where that finding lives.
           curl -fsSL https://cubic.dev/install | bash || echo "the cubic installer did not complete"
-          npm install -g @augmentcode/auggie@0.37.1 || echo "auggie is not installable from npm in this environment"
-          npm install -g greptile@3.8.0 || echo "greptile is not distributed on npm under that name"
+          node scripts/install-pinned.mjs @augmentcode/auggie@0.37.1 --optional
+          node scripts/install-pinned.mjs greptile@3.8.0 --optional
 
       # **One step, and the probe makes every call in it.** **Its own documentation says `ocr` is configured
       # interactively**, so **the question "can this run unattended" is answered by asking the CLI**, not by guessing a

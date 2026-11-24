@@ -27,8 +27,11 @@ describe('the competitor install is pinned to the version the figures were measu
   it.each(WORKFLOWS)('%s names the version', (path) => {
     const workflow = readFileSync(path, 'utf8');
 
+    // **And the pin is verified now, not merely named.** `npm install -g pkg@1.13.8` freezes the version and trusts
+    // the registry to serve the same bytes under it; the install goes through `scripts/install-pinned.mjs`, which checks
+    // the tarball against the integrity the registry published and installs from the file it checked. §153.
     expect(workflow).toContain(
-      `npm install -g @alibaba-group/open-code-review@${MEASURED_VERSION}`,
+      `node scripts/install-pinned.mjs @alibaba-group/open-code-review@${MEASURED_VERSION}`,
     );
     // **A bare install line is the defect**, and it is one keystroke away from the pinned one.
     expect(workflow).not.toMatch(/npm install -g @alibaba-group\/open-code-review\s*$/m);
