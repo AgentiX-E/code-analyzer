@@ -16764,6 +16764,13 @@ corpus says what those are - `missedGoldens` reports **70 of 173 goldens with no
 AACR run's dominant rejection shape was _the lanes spoke on that file about something else_. **A failure mode that both
 boards report independently is a property of the reviewer, not of a corpus.**
 
+> **Corrected in §156.3, and the correction moves the aim.** Those 70 are not goldens whose notes lack a path: **all 173
+> goldens of this corpus have `path: null`**, because the upstream benchmark carries no coordinates at all. `noPath` is
+> the bucket a golden lands in when the judge matched nothing, and the four path-shaped buckets are structurally
+> unreachable on this board. **The rejection shape quoted above is measurable on AACR and not on Martian**, so the two
+> boards do not report it independently - and on Martian the lane's only lever is the vocabulary it asks in, not the
+> files it reads. The direction survives; the mechanism is narrower than this paragraph implies.
+
 ### 154.3 What the run cost
 
 | item                                      | value                            |
@@ -16835,3 +16842,189 @@ travel as a unit.
 is either a flake to re-run or a real regression in a dev dependency; #73 moves a tree-sitter grammar across a minor
 version, which changes the node shapes every C#/Kotlin query reads. **Merging either to clear a queue would be the
 `|| true` this repository forbids, one pull request up.**
+
+## 156. The same arm, twice: a tie that held, and the corpus fact §154 got wrong
+
+Run `45449046424` (`dataset: martian`, `competitor: record`, 50 pull requests) finished on 2026-11-24. **It is the
+second run of the configuration `45411086146` used**, dispatched because that run's artifact was withheld (§154.4), and
+it is the first run of this board whose two arms can be compared twice on the same corpus with the same model.
+
+**Its artifact was withheld too**, by a different defect (§156.2), and every figure below is again read from the job log:
+
+```
+AACR-BENCH reviewed 49 PRs · gate tp 74 fp 311 fn 95 · P 0.1922 R 0.4379 F1 0.2671
+AACR-BENCH full list tp 100 fp 834 · P 0.1071 R 0.5917 F1 0.1813
+AACR-BENCH missed · hit 101 · noPath 68 · pathNotInPull 0 · fileNotReviewed 0 · noFindingOnPath 0 ·
+  findingOnPathRejected 0 · f1 in [0.2671, 0.2671]
+AACR-BENCH rejected · sameLine 0 · within10 0 · beyond50 0 · noLine 0 · dominant none
+AACR-BENCH competitor open-code-review · record · replayed 0 · recorded 48 · missing 1 · findings 676 ·
+  P 0.1775 R 0.7101 F1 0.2840 · same ranker F1 0.356
+AACR-BENCH comparison not significant at 0.05 · ours-only 28 · theirs-only 30 · p 0.8957 · coverage 49/50
+AACR-BENCH spend · calls 3550 · failures 0 · usd 0.8149 · cold-cache usd 1.8338 · ceiling 12
+AACR-BENCH judge · calls 8488 · unanswered 0 · usd 0.3377
+```
+
+### 156.1 The two runs side by side, because one of them is a sample
+
+| run            | scored | our P   | our R   | our F1      | their P | their R | their F1    | same ranker | p      |
+| -------------- | ------ | ------- | ------- | ----------- | ------- | ------- | ----------- | ----------- | ------ |
+| `45411086146`  | 50     | 0.1854  | 0.4393  | **0.2607**  | 0.1599  | 0.6821  | **0.2591**  | 0.3488      | 0.8126 |
+| `45449046424`  | 49     | 0.1922  | 0.4379  | **0.2671**  | 0.1775  | 0.7101  | **0.2840**  | 0.3560      | 0.8957 |
+| **difference** | −1     | +0.0068 | −0.0014 | **+0.0064** | +0.0176 | +0.0280 | **+0.0249** | +0.0072     | —      |
+
+**Our figure is stable to within a third of an MDE** (0.0064 against 0.0126) and **the competitor's is not** (0.0249):
+the arm that produces 676–738 comments has the wider variance, which is what a second sample of it looks like. Neither
+run's difference is significant, and **neither is a win**: the honest reading is unchanged from §154.1 - the two
+reviewers are indistinguishable on this board.
+
+**The fifth question's target moves with the better of the two competitor readings.** A target that may only be _at or
+above the competitor using our LLM_ is now **0.2840**, and a target that may be _claimed_ is one MDE above it:
+**0.2966**. That is a higher bar than §154.1 registered (0.2717) and it comes from a second sample rather than from a
+new device.
+
+### 156.2 The audit that found a real inconsistency and destroyed the evidence of it
+
+The run's last steps:
+
+| step                                        | outcome     |
+| ------------------------------------------- | ----------- |
+| review, replay proof, competitor comparison | success     |
+| `score_terms`, `martian_profile`            | success     |
+| `Prove the artifact's detail layers add up` | **failure** |
+| `Upload the figure`                         | **skipped** |
+
+**The finding was real and the consequence was not.** The check read
+
+```
+FAIL every scored pull request is either replayed, recorded, failed or missing ·
+  50 accounted for of 49 scored (48 recorded, 0 replayed, 1 failed, 1 missing)
+```
+
+and the arithmetic behind it was **a comparison of two totals**: `recorded + replayed + failed + missing` against the
+size of the corpus this run scored. The arm held **fifty** rows for **forty-nine** scored pull requests, because its one
+failure was the pull request _our own_ review never reached - `reviewed 49 PRs`, and the arm had been asked about fifty.
+
+**A total cannot tell a row outside the corpus from a hole inside it**, and this is the second time this module has been
+repaired for that shape: §151's partition was the first, where the denominator was `prsAttempted` and the check read
+`36 accounted for of 4 attempted`. **The repair is the one the second occurrence makes obvious** - the check reads keys:
+
+- `.github/scripts/aacr-bench.mjs` writes `secondReviewer.coveredKeys` at the two branches that already increment
+  `recorded` and `replayed`, so the coverage statement and the count of it cannot drift;
+- `scripts/lib/artifact-audit.mjs` checks `scored keys ⊆ covered ∪ failed ∪ missing` and **publishes the keys nothing
+  accounts for**, because a count sends a reader to a corpus while a key sends them to a row;
+- artifacts that predate the field fall back to the totals, since a check that demanded it would fail every old artifact
+  for being old.
+
+**And the upload no longer asks the audit for permission.** §155 read the condition as "the two proofs" and was right
+about _cancelled_ runs and wrong about _failed claims_: the audit is a verdict on evidence, and **a verdict that destroys
+its evidence leaves nothing to be judged**. The figure now lands before the verdict is computed, and the job still goes
+red - `always() && steps.replay.outcome == 'success'` on the upload, `always()` on the audit, position asserted in
+`a-cancelled-run-publishes-no-figure.test.ts`.
+
+**Two runs, two withheld artifacts, ¥8 each.** The first was a derived table (§154.4), the second was the gate itself.
+Both are now on the same side of the evidence: **nothing downstream of the review can prevent the review from being
+read.**
+
+### 156.3 The corpus fact §154.2 got wrong
+
+§154.2 said the corpus "reports **70 of 173 goldens with no path at all** in their notes". **That sentence is wrong, and
+the error is the kind that aims an iteration at the wrong place.** `benchmarks/martian/positive_samples.json` carries
+**173 goldens and all 173 have `path: null`** - not 70:
+
+```
+goldens 173 · path null 173 · from_line null 173
+```
+
+**The upstream benchmark has no coordinates to lose.** `scripts/build-martian-corpus.mjs` says so in its header, quoting
+the source: the golden rows carry `url`, `pr_title` and `comments[]` and **no diff, no path, no line**, because Martian
+matches a review comment against a golden comment with an LLM judge and never asks where either of them stood.
+
+**`noPath` in the artifact is therefore not a statement about the corpus; it is the bucket a golden lands in when the
+judge matched no finding and there is no path to attribute it to.** The run's own numbers make this unambiguous:
+
+| bucket                  | count | what it can mean on a corpus with no coordinates             |
+| ----------------------- | ----- | ------------------------------------------------------------ |
+| `hit`                   | 101   | the judge matched a finding to this golden                   |
+| `noPath`                | 68    | **the judge matched nothing, and there is no path to blame** |
+| `fileNotReviewed`       | 0     | cannot occur without paths                                   |
+| `noFindingOnPath`       | 0     | cannot occur without paths                                   |
+| `findingOnPathRejected` | 0     | cannot occur without paths                                   |
+
+**Four of the five buckets are structurally unreachable on this board**, and the log's `rejected · sameLine 0 ·
+within10 0 · beyond50 0 · noLine 0 · dominant none` is the same fact from the other side. **Every path-shaped device in
+this repository is unmeasurable on Martian** - the grounding gate, the name check, the file cut, the rejection anatomy -
+and a figure quoted from this board cannot be evidence for any of them.
+
+**What that leaves is a cleaner statement than §154.2's.** With no coordinates, a golden can only be reached by a
+finding that _says the same thing_, so the score is a product of two numbers and nothing else:
+
+| arm    | findings | matched | per-finding | P      | R      |
+| ------ | -------- | ------- | ----------- | ------ | ------ |
+| ours   | 410      | 76      | **0.185**   | 0.1854 | 0.4393 |
+| theirs | 738      | 118     | 0.160       | 0.1599 | 0.6821 |
+
+**Our per-finding hit rate is 16 % higher and our volume is 44 % lower**, which is why the F1s tie: on a board with no
+coordinates, **volume and precision are the only two variables**, and they trade against each other at almost exactly
+the rate that makes the product equal.
+
+**And the third row is still the one that names the mechanism**: the same ranker over their pool scores **0.3488 /
+0.3560**, against our **0.2607 / 0.2671**. The selector is an asset; **the pool it is given is the constraint** - and on
+this board the pool is widened by _asking more questions_, not by reading more files.
+
+### 156.4 What this changes about the next step, and what it does not
+
+- **It does not change the direction**: §154.2's conclusion - _the work is discovery, not ranking_ - survives, and the
+  same-ranker row is what carries it.
+- **It changes the mechanism**: a lane cannot be aimed at "the files the goldens name", because the goldens name none.
+  On this board the lane's only lever is **the vocabulary it asks in**, and the corpus's own categories
+  (`bug`, `security`, `concurrency`, `data`, `api`, `perf`, `test_gap`, `doc_defect`) are the closest thing to a
+  specification of that vocabulary the board publishes.
+- **It deletes a hypothesis rather than adding one**: "our lanes spoke on the file about something else" was §154.2's
+  reading of a rejection shape that **cannot be measured on this corpus**. On AACR it can (§149's 40 % removal rate is
+  that measurement), and there the finding stands on its own evidence.
+- **It raises the bar**: the target is 0.2966 (§156.1), not 0.2717.
+
+### 156.5 Reproduce
+
+```
+gh workflow run aacr-bench.yml -f dataset=martian -f competitor=record -f max_pull_requests=50
+```
+
+The two arms use `deepseek-chat` at `https://api.deepseek.com/anthropic`, the corpus is the forty-nine pull requests
+whose diffs resolved, and the pass condition on the artifact is `scripts/aacr-bench-audit.mjs --check` **after** the
+upload rather than instead of it.
+
+### 156.6 S32, registered before it is run
+
+**The device already exists and has never been signable on the corpus it was built for.** `lane_set: wide` is R-37's
+union - `shipped` plus `behaviour`, one extra call per file - and §75.2 gave it no registration because its expected
+gain (+0.0155) sits **under AACR's own resolution of 0.0191** on 146 pull requests and 1 054 goldens.
+
+**Martian's resolution is 0.0126, and that is what makes the same device testable.** The bar is a property of the
+corpus, not of the device: on fifty pull requests the smallest difference this instrument can sign is 0.0126, and
+0.0155 is above it.
+
+**And the board's mechanism is the one the device moves.** §156.3 showed that with no golden carrying a coordinate the
+score is a product of exactly two numbers - volume and per-finding precision - and that our volume is 44 % below the
+competitor's at a 16 % higher per-finding rate. `wide` changes **only** the volume: it adds one question per file and
+nothing else in the pipeline moves.
+
+| item                  | value                                                                                                |
+| --------------------- | ---------------------------------------------------------------------------------------------------- |
+| device                | `lane_set: wide` (six lanes, one extra call per file)                                                |
+| corpus                | Martian, the same 50 rows, the same judge, the same model                                            |
+| denominator           | 169 goldens with an attribution, as in §156.1                                                        |
+| arms                  | `shipped` and `wide`, **one dispatch**, `competitor: off`                                            |
+| competitor baseline   | §156.1's reading, reused rather than re-bought: the arm does not change our figure                   |
+| cost                  | ≈ ¥16 (two arms × $0.81 + $0.34)                                                                     |
+| **accept**            | ΔF1 ≥ **+0.0126** and recall up: the device buys volume at a precision it can afford                 |
+| **indistinguishable** | \|ΔF1\| < 0.0126: recorded as unresolvable **on this corpus**, which is a statement about the corpus |
+| **reject**            | ΔF1 ≤ −0.0126, or recall flat with precision down: the sixth question adds comments nobody wanted    |
+
+**The prediction is written down before the run, and it is falsifiable in one direction.** If `wide` raises recall and
+lowers precision by more than the recall it buys, **the conclusion is not that the lanes are wrong** - it is that on a
+corpus with no coordinates, adding a question is a linear trade and the only way out is a lane whose per-finding rate
+is higher than the ones shipping. That is a different device, and it would need its own registration.
+
+**What this registration refuses to do**: read the result as a statement about AACR. Two boards, two resolutions, two
+mechanisms; §156.3 exists because a figure from one was used to aim work at the other.
