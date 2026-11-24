@@ -48,7 +48,10 @@ describe('the competitor install is pinned to the version the figures were measu
   it('pins the harness tool the same way', () => {
     const workflow = readFileSync('.github/workflows/martian-harness.yml', 'utf8');
 
-    expect(workflow).toMatch(/pip install uv==\d+\.\d+\.\d+/);
+    // **The harness's resolver is pinned and verified too**, and the pin is now expressed by the installer that checks
+    // the wheel against the digest the index publishes - a resolver that reads the harness's lock is not a tool this
+    // repository can install unverified.
+    expect(workflow).toMatch(/install-pinned-pip\.mjs" uv==\d+\.\d+\.\d+/);
     expect(workflow).not.toMatch(/pip install uv\s*$/m);
   });
 });

@@ -100,8 +100,10 @@ jobs:
         working-directory: /tmp/martian/offline
         run: |
           # **Pinned to the version the stored run used** (`Successfully installed uv-0.13.7` in run 42820158574),
-          # because `uv sync` resolves the harness's own lock against whatever uv is installed.
-          pip install uv==0.13.7
+          # because `uv sync` resolves the harness's own lock against whatever uv is installed - **and verified, because
+          # the resolver that reads that lock is not a tool this repository can afford to install unverified.** The path
+          # is absolute because this step runs in the harness's directory rather than the checkout.
+          node "$GITHUB_WORKSPACE/scripts/install-pinned-pip.mjs" uv==0.13.7
           uv sync
 
       # **Our reviews, in their schema.** The script reads their golden comments for the PR list, scores each PR's
