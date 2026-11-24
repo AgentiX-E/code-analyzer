@@ -128,7 +128,7 @@ jobs:
           set -e
           # **Pinned to the version the AACR head-to-head was measured against**, so the two boards compare the same
           # program and a bump is a visible change to both rather than a silent one.
-          npm install -g @alibaba-group/open-code-review@1.13.8
+          node scripts/install-pinned.mjs @alibaba-group/open-code-review@1.13.8
           command -v ocr
           ocr --version
 

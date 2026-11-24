@@ -50,7 +50,11 @@ RUN apt-get update && apt-get install -y --no-install-recommends build-essential
 #
 # node-gyp is pinned to the exact version pnpm bundles so that the install marker the
 # bundled node-gyp looks for matches the one written here.
-RUN npm install -g node-gyp@10.2.0 && node-gyp install
+# **The one-line installer becomes a verified one.** `npm install -g node-gyp@10.2.0` names a version and trusts the
+# registry to serve the same bytes under it; the script copied on the line above fetches the version document, checks the
+# tarball against the published integrity, and installs from the file it checked.
+COPY scripts/install-pinned.mjs /opt/install-pinned.mjs
+RUN node /opt/install-pinned.mjs node-gyp@10.2.0 && node-gyp install
 WORKDIR /app
 
 # ─────────────────────────────────────────────────────────────────────────────
