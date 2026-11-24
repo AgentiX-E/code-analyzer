@@ -70,6 +70,7 @@ import { locateLaneFindings } from '../../scripts/lib/lane-attribution.mjs';
 import { evidenceSummary, quotationOf } from './lib/published-evidence.mjs';
 import { isTransientStatus, withRetry } from '../../scripts/lib/transient-fetch.mjs';
 import { readReviewDefaults } from './lib/review-defaults.mjs';
+import { parseProseReport, reviewRange } from '../../scripts/lib/ocr-arm.mjs';
 
 /**
  * **The reviewer the product ships, read from the one file a promotion writes.**
@@ -2068,94 +2069,10 @@ async function main() {
   // `target_commit`, so **a checkout at those two commits is what its `review --from --to` needs** - **the same
   // three fields this repository already reads to fetch the diff.**
   /**
-   * **Where the competitor's own output goes when a field cannot hold it.**
-   *
-   * **This constant was missing when the spill was first written, and the field reported it in one line**:
-   * `firstFailure: "OUTPUTS_DIR is not defined"` - **because the spill was copied from `runnable-competitors.mjs`,
-   * where the constant exists, and this file never had one.** **A name that resolves in one file and not another is
-   * exactly what a copy does not tell you**, and **the reason the failure was legible is that every fallible step here
-   * writes its reason into a field.**
+   * **The parser and the spill directory moved to `scripts/lib/ocr-arm.mjs`** (`parseProseReport`, `REVIEW_*`,
+   * `OUTPUTS_DIR`), because a second arm on a second board now reads the same report - **and a harness with its own
+   * copy of a device measures the copy.** `reviewWithOcr` below stays here as the delegate it always was.
    */
-  const OUTPUTS_DIR = resolve(process.cwd(), 'benchmarks', 'runnable-competitors-outputs');
-
-  const { execFileSync } = await import('node:child_process');
-  const { mkdtempSync } = await import('node:fs');
-  const { tmpdir } = await import('node:os');
-
-  /**
-   * **The prose parser, written from a report that was read rather than guessed.**
-   *
-   * **`ocr review` has no machine-readable mode.** **`scan --json` works and `review --json` reports `unknown flag`**
-   * - so **four extraction strategies over a stream containing no document all failed**, and **the only way forward
-   * was to keep one whole output and read it.**
-   *
-   * **And the format is regular**, which is what the whole output showed:
-   *
-   *     Review complete: 9 finding(s) across 35 selected item(s).
-   *
-   *     --- src/Mod/TechDraw/App/DrawViewPart.cpp:1299-1300 ---
-   *     [bug . medium] `angle` is declared uninitialized and only assigned inside the two `if` branches. ...
-   *     -     double angle;
-   *     +     double angle = 0.0;
-   *
-   * **Three shapes, one regular each**: **a header carrying the tool's own count**, **a separator carrying the file and
-   * a line range**, and **a bracketed tag carrying a category and a severity**, followed by prose and **sometimes a
-   * suggested diff**. **The separator uses U+2500 box-drawing characters**, which is why it is matched on the code
-   * point rather than on a dash.
-   *
-   * **And the tool's own count is kept**, because **a parser that returns fewer findings than the tool reported is
-   * indistinguishable from a tool that found fewer** - which is **the same distinction `prsFailed` draws one level
-   * up, applied to a parser instead of a run.**
-   */
-  const REVIEW_SEPARATOR = /^\u2500{3}\s+(.+?):(\d+)-(\d+)\s+\u2500{3}$/;
-  const REVIEW_TAG = /^\[([^\u00b7\]]+?)\s*\u00b7\s*([^\]]+?)\]\s*(.*)$/;
-  const REVIEW_COUNT = /Review complete:\s*(\d+)\s+finding/i;
-
-  function parseProseReport(text) {
-    const lines = String(text).split(String.fromCharCode(10));
-    const findings = [];
-    let declaredCount = null;
-    let current = null;
-    for (const raw of lines) {
-      const line = raw.replace(/\r$/, '');
-      const countMatch = REVIEW_COUNT.exec(line);
-      if (countMatch) {
-        declaredCount = Number(countMatch[1]);
-        continue;
-      }
-      const sep = REVIEW_SEPARATOR.exec(line);
-      if (sep) {
-        if (current) findings.push(current);
-        // **A separator closes the previous finding**, so **prose that spans lines is gathered rather than truncated
-        // to its first line.**
-        current = {
-          path: sep[1],
-          startLine: Number(sep[2]),
-          endLine: Number(sep[3]),
-          category: null,
-          severity: null,
-          body: [],
-        };
-        continue;
-      }
-      if (!current) continue;
-      const tag = REVIEW_TAG.exec(line);
-      if (tag && current.category === null) {
-        current.category = tag[1].trim();
-        current.severity = tag[2].trim();
-        current.body.push(tag[3]);
-        continue;
-      }
-      // **A diff line is part of the finding**, and **a blank line ends nothing** - the next separator does.
-      current.body.push(line);
-    }
-    if (current) findings.push(current);
-    return {
-      declaredCount,
-      findings: findings.map((f) => ({ ...f, body: f.body.join(String.fromCharCode(10)).trim() })),
-    };
-  }
-
   /**
    * `owner/repo` from a pull request URL.
    *
@@ -2246,93 +2163,23 @@ async function main() {
    * for a local review of a range** - and **the checkout is shallow and temporary**, because **the corpus is 200 pull
    * requests** and **a full clone per pull request is a cost this job would pay 200 times for history it never reads.**
    */
-  const reviewWithOcr = (endpoint, key, url, source, target) => {
-    const repo = shortRepo(url);
-    if (!repo) return { ok: false, reason: 'the pull request URL did not name a repository' };
-    const dir = mkdtempSync(`${tmpdir()}/ocr-`);
-    try {
-      // **The two commits have to share a history, and the first version made sure they did not.**
-      //
-      // **What the tool said, once `firstFailure` was carrying a sentence rather than nothing**:
-      //
-      //     [ocr] Summary: 0 file(s) reviewed, 0 comment(s), ~0 token(s) used, 0s elapsed
-      //     Review failed (input): 0 finding(s); 0 of 0 selected item(s) failed.
-      //
-      // **`0 file(s) reviewed` and `0 of 0 selected item(s)` is a range it could not resolve** - because **two
-      // independent `--depth 1` fetches produce a repository with two root commits and no merge base**, so
-      // **`--from A --to B` had nothing between them.**
-      //
-      // **So the history is fetched without its blobs**, which is **the one shape that gives a merge base cheaply**:
-      // **`--filter=blob:none` downloads every commit and no file contents**, and **the checkout then fetches only the
-      // blobs that commit needs.** **A shallow fetch was cheaper and wrong; this is cheap and right.**
-      execFileSync(
-        'git',
-        [
-          'clone',
-          '-q',
-          '--filter=blob:none',
-          '--no-checkout',
-          `https://github.com/${repo}.git`,
-          dir,
-        ],
-        {
-          stdio: 'pipe',
-          timeout: 600_000,
-        },
-      );
-      execFileSync('git', ['-C', dir, 'fetch', '-q', 'origin', source, target], {
-        stdio: 'pipe',
-        timeout: 300_000,
-      });
-      execFileSync('git', ['-C', dir, 'checkout', '-q', target], {
-        stdio: 'pipe',
-        timeout: 300_000,
-      });
-      // **`--json` is for `scan` and not for `review`, and the field said so.**
-      //
-      // **`firstFailure` reported `Error: unknown flag: --json` on the first run after it was fixed** - **which is what
-      // a repaired reason field buys**: **the next iteration gets a sentence instead of a guess.** **`scan --json`
-      // works, because that is where this project already succeeded**; **`review` does not take it.**
-      //
-      // **And the default output is kept rather than parsed blind**, because **the shape of `review`'s output has not
-      // been seen yet** - **so the raw text travels in the artifact, and the next iteration reads the shape instead of
-      // assuming one**, which is **the fifth time in this stretch that a shape was learned rather than guessed.**
-      const stdout = execFileSync('ocr', ['review', '--from', source, '--to', target], {
-        cwd: dir,
-        encoding: 'utf8',
-        stdio: 'pipe',
-        timeout: 600_000,
-        env: { ...process.env, OCR_LLM_URL: endpoint, OCR_LLM_TOKEN: key },
-      });
-      // **And the output is spilled to a file, because its format has never been seen.**
-      //
-      // **Four extraction strategies were tried and all four failed**, and **the last one's error was the informative
-      // one**: `Unexpected token 'R', "Review com"…` - **the output is prose, and there is no JSON anywhere in it.**
-      // **`--json` is accepted by `scan` and rejected by `review`**, so **this subcommand has no machine-readable
-      // mode**, and **the only way to learn its format is to keep one whole** - **which is what
-      // `firstOutputHead`'s six hundred characters could not do.**
-      mkdirSync(OUTPUTS_DIR, { recursive: true });
-      const spilled = join(
-        OUTPUTS_DIR,
-        `open-code-review-review-${String(source).slice(0, 8)}.txt`,
-      );
-      writeFileSync(spilled, stdout);
-      return { ok: true, stdout, outputFile: spilled };
-    } catch (error) {
-      // **Both streams, because the reason can be in either.** **A tool that fails silently on stdout and explains
-      // itself on stderr is the common case**, and **the first version read only the first of the two.**
-      const out = String(error.stdout ?? '').trim();
-      const err = String(error.stderr ?? '').trim();
-      const message = String(error.message ?? '').trim();
-      const reason = out || err || message || '';
-      return {
-        ok: false,
-        reason: reason.slice(0, 600),
-        status: typeof error.status === 'number' ? error.status : null,
-        signal: error.signal ?? null,
-      };
-    }
-  };
+  /**
+   * Run the competitor over one labelled pull request and return its report.
+   *
+   * **The two-commit checkout, the merge base, the absent `--json` flag and the prose format all live in
+   * `scripts/lib/ocr-arm.mjs`** - one copy for two boards. **This function is the adapter**: it keeps the field names
+   * the call site below was written against (`ok`, `stdout`, `outputFile`, `reason`, `status`, `signal`), because a
+   * refactor that changed the caller as well as the callee would have been two changes wearing one commit message.
+   */
+  const reviewWithOcr = (endpoint, key, url, source, target) =>
+    reviewRange({
+      url,
+      source,
+      target,
+      endpoint,
+      key,
+      outputDir: resolve(process.cwd(), 'benchmarks', 'runnable-competitors-outputs'),
+    });
 
   const { LLMReviewEngine } =
     await import('../../packages/intelligence/dist/review/llm/llm-review-engine.js');
@@ -3081,6 +2928,10 @@ async function main() {
     // **A provider that refused for want of credit is a fact about the account, not about the reviewer** - and **it is
     // the one failure class that also explains a variance in this repository's own numbers.**
     creditExhausted: false,
+    // **Where each range came from**: the corpus (AACR names both commits) or the pull request resource (Martian names
+    // neither). A row built from the API's pair is not a different measurement, but it is a different *source*, and a
+    // reader comparing two boards is entitled to know which one this row rests on.
+    rangeSource,
   };
   let unanswered = 0;
   /**
@@ -3215,7 +3066,16 @@ async function main() {
           ...(token ? { authorization: `token ${token}` } : {}),
         },
       });
-      if (res.ok) return { ok: true, sha: String((await res.json())?.head?.sha ?? '') };
+      if (res.ok) {
+        const body = await res.json();
+        // **The base beside the head**, because a competitor's range review is `--from base --to head` and a corpus
+        // that names neither commit leaves the pair to be found rather than assumed. See `pullRange` below.
+        return {
+          ok: true,
+          sha: String(body?.head?.sha ?? ''),
+          baseSha: String(body?.base?.sha ?? ''),
+        };
+      }
       return { ok: false, reason: `the pull request request returned ${String(res.status)}` };
     } catch (error) {
       return {
@@ -3326,6 +3186,38 @@ async function main() {
    * **A clone that fails returns null rather than throwing**, because the arm must still run: the caller falls back to
    * the changed files the API already delivered, and the artifact records which of the two it used.
    */
+  // **The two imports the deleted parser block used to bring into this scope.** They sat beside `OUTPUTS_DIR`, which
+  // moved to the shared module with the parser - and the agent path below still needs them, which the first draft of
+  // that move did not check: **a binding that leaves with a deletion is a runtime error in the one path a green
+  // `--dry-run` never walks.** They are re-stated here, beside their only remaining users.
+  const { execFileSync } = await import('node:child_process');
+  const { mkdtempSync } = await import('node:fs');
+  const { tmpdir } = await import('node:os');
+
+  /**
+   * **The two commits a competitor's range review needs, and where they came from.**
+   *
+   * The AACR corpus names `source_commit` and `target_commit` on every row, so the competitor arm has always had its
+   * pair for free. **The Martian corpus does not**: its rows carry `githubPrUrl`, a title and the goldens, and nothing
+   * else - which is why every Martian run this repository has published records the competitor arm as
+   * `mode: "off"` with `"the competitor arm produced no row at all - 50 of 50 pull requests are missing"`.
+   *
+   * **So the pair is resolved from the pull request resource when the corpus is silent**, one request per pull request,
+   * and **the artifact records which source produced it** - because a comparison whose competitor row was built from
+   * commits the corpus named and one built from commits the API reported are the same measurement only if both are
+   * said out loud.
+   */
+  const rangeSource = { corpus: 0, pullRequest: 0 };
+  async function pullRange(pr) {
+    const named = { source: pr.source_commit, target: pr.target_commit };
+    if (named.source && named.target) return { ...named, from: 'corpus' };
+    const head = await fetchPullHead(pr.githubPrUrl);
+    if (!head.ok) return { ok: false, reason: head.reason };
+    if (!head.baseSha || !head.sha)
+      return { ok: false, reason: 'the pull request resource carried no base/head commit pair' };
+    return { source: head.baseSha, target: head.sha, from: 'pullRequest' };
+  }
+
   const checkouts = new Map();
   const checkoutAt = (url, sha) => {
     if (checkouts.has(sha)) return checkouts.get(sha);
@@ -3453,12 +3345,18 @@ async function main() {
         reason: 'the run was asked to record and no competitor credential is configured',
       });
     } else if (ocrKey) {
+      const range = await pullRange(pr);
+      if (range.ok === false) {
+        competitor.missing.push({ key: competitorKey, reason: range.reason });
+        continue;
+      }
+      rangeSource[range.from] = Number(rangeSource[range.from] ?? 0) + 1;
       const outcome = reviewWithOcr(
         process.env['OCR_LLM_URL'] ?? '',
         ocrKey,
         pr.githubPrUrl,
-        pr.source_commit,
-        pr.target_commit,
+        range.source,
+        range.target,
       );
       competitor.prsAttempted += 1;
       if (!outcome.ok) {
