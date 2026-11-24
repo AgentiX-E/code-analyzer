@@ -862,6 +862,22 @@ jobs:
           node scripts/aacr-selection-ceiling.mjs benchmarks/aacr-bench.json "$corpus" --json > benchmarks/aacr-selection-ceiling.json
           node -e "const c=require('./benchmarks/aacr-selection-ceiling.json'); console.log('reachable', (c.ceiling*100).toFixed(1)+'%', 'covered', c.covered, 'reachable-uncovered', c.reachableWithoutCoverage, 'unreachable', c.unreachable, 'unmeasurable', c.unmeasurable, 'of', c.referenceComments)"
 
+      # **What each term of the score is worth, measured by removing it.**
+      #
+      # The ceiling above says the emission is the limit; this says which part of the *ordering* decided what the twelve
+      # posted comments were. Eight terms are summed into one number and every argument about the ranking so far has been
+      # an argument about the sum, so each term is removed on its own, the cut is re-run, and the difference in F1 is that
+      # term's contribution - **with an interval, because a fifty-pull-request corpus has a resolution** and a move
+      # smaller than it cannot be reported as working however true it is.
+      #
+      # The step is not `continue-on-error`: an artifact whose published scores the weights cannot rebuild is a defect in
+      # the artifact, and a benchmark that skipped the check would publish the defect.
+      - name: score_terms
+        run: |
+          set -e
+          node scripts/aacr-score-ablation.mjs benchmarks/aacr-bench.json --json benchmarks/aacr-score-ablation.json
+          node -e "const c=require('./benchmarks/aacr-score-ablation.json'); const d=(t)=>[t.term.padEnd(15), String(t.without.truePositives).padStart(4), t.delta.toFixed(4).padStart(9), ('['+t.interval.lo.toFixed(4)+','+t.interval.hi.toFixed(4)+']').padStart(19), (t.onlyBase+'->'+t.onlyAlt).padStart(8), t.p.toFixed(4)].join(' '); console.log('baseline', c.baseline.truePositives+'/'+c.goldens, 'F1', c.baseline.f1.toFixed(4), 'resolution', c.resolution.mde.toFixed(4)); for (const t of c.terms) console.log(' ', d(t))"
+
       # **The ensemble dimension is in the name, and the first run of the merge is why.** That run published
       # `...-adjudicate-off-idioms-off-agent-on-ensemble-off-remarks-off`, the name an agent-only run uses - **two
       # devices, one artifact name**, and a paired comparison matching on names would have compared an arm with itself.
@@ -890,6 +906,7 @@ jobs:
             benchmarks/aacr-file-cut-table.json
             benchmarks/aacr-like-for-like.json
             benchmarks/aacr-selection-ceiling.json
+            benchmarks/aacr-score-ablation.json
             benchmarks/aacr/competitor-baseline.json
             benchmarks/runnable-competitors-outputs/
           if-no-files-found: warn

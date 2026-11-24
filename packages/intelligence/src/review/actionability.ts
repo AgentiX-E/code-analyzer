@@ -201,7 +201,7 @@ export const ACTIONABILITY_WEIGHTS = Object.freeze({
 });
 
 /** The severity prior, and the reason it is a table rather than a multiplier. */
-const SEVERITY_WEIGHT: Record<Severity, number> = {
+export const SEVERITY_WEIGHT: Record<Severity, number> = {
   critical: 1,
   high: 0.8,
   medium: 0.55,
@@ -210,7 +210,7 @@ const SEVERITY_WEIGHT: Record<Severity, number> = {
 };
 
 /** Lane priors, from the base rates the review protocol measured per lane. */
-const LANE_WEIGHT: Record<string, number> = {
+export const LANE_WEIGHT: Record<string, number> = {
   security: 1,
   performance: 0.7,
   architecture: 0.5,

@@ -31,6 +31,23 @@
  * requests both numbering their goldens from zero would share credit the corpus holds separately.
  */
 export function maximumMatchingByPullRequest(findings, creditOf) {
+  let total = 0;
+  for (const covered of matchingByPullRequest(findings, creditOf).values()) total += covered.size;
+  return total;
+}
+
+/**
+ * **Which reference comments a maximum matching actually paid for, keyed by pull request.**
+ *
+ * The count and the identities are the same computation, so they are one function: a caller that recomputed the pairing
+ * to learn *which* goldens were bought would be a second implementation of the same arithmetic, and the two would drift
+ * the first time one of them changed a tie-break.
+ *
+ * **The key is the pull request as well as the index**, because a golden is identified by where it sits in its own
+ * answer key - two pull requests both owning golden 3 are two different reference comments, and a set keyed on the index
+ * alone would silently merge them.
+ */
+export function matchingByPullRequest(findings, creditOf) {
   const byPullRequest = new Map();
   for (const [at, finding] of findings.entries()) {
     const key = pullRequestOf(finding);
@@ -39,8 +56,8 @@ export function maximumMatchingByPullRequest(findings, creditOf) {
     else bucket.push(at);
   }
 
-  let total = 0;
-  for (const positions of byPullRequest.values()) {
+  const matched = new Map();
+  for (const [key, positions] of byPullRequest) {
     /** golden index -> position of the finding that holds it. */
     const holder = new Map();
     const augment = (position, seen) => {
@@ -56,9 +73,9 @@ export function maximumMatchingByPullRequest(findings, creditOf) {
       return false;
     };
     for (const position of positions) augment(position, new Set());
-    total += holder.size;
+    matched.set(key, holder);
   }
-  return total;
+  return matched;
 }
 
 /** The pairing key. The corpus keys a golden by pull request plus its index within that pull request. */
