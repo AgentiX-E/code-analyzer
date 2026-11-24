@@ -89,6 +89,53 @@ describe('a path the revision does not have', () => {
     );
   });
 
+  it('hands the whole change to the judge when only the change is offered', () => {
+    // **The other half of §150's interface, and a branch a caller can reach**: a review of a diff alone has no files but
+    // does have the patch, so `change` arrives without `absent`. The name below occurs only in the change, which is the
+    // one place that arm is allowed to look.
+    const decision = decideGrounding(
+      [finding({ content: '`dispatchCount` is no longer recomputed' })],
+      new Map([['src/math.ts', FILE]]),
+      undefined,
+      { change: '-  this.dispatchCount = updateDispatchCount(count);' },
+    );
+
+    expect(decision.applied).toBe(true);
+    expect(decision.report.namesNowhere).toBe(0);
+  });
+
+  it('says nothing about names or postability when it has neither to report', () => {
+    // **A sentence with no note is the common case**, and the two empty-string arms are the ones a reader sees on every
+    // clean run: a report whose every run carried a note would be a report whose notes nobody reads.
+    const sentence = describeGrounding({
+      applied: true,
+      withheld: null,
+      // **An older report shape**: no `unpostable` field, which is the branch the `?? 0` is for.
+      coverage: { findings: 2, readable: 2 },
+      report: { keptRatio: 1, ungrounded: [] },
+    });
+
+    expect(sentence).toBe('grounding applied: 0 of 2 dropped, kept 1');
+  });
+
+  it('carries both notes when a finding names nothing and another cannot be posted', () => {
+    // **The sentence is the only place a reader meets these two facts**, so both notes have to reach it at once: a report
+    // that printed one and dropped the other would be a report where a counted finding and a dropped one read the same.
+    const decision = decideGrounding(
+      [
+        finding({ content: '`nowhere` is used before it is defined' }),
+        finding({ path: 'src/gone.ts', startLine: 1, endLine: 1, existingCode: '' }),
+      ],
+      new Map([['src/math.ts', FILE]]),
+      undefined,
+      { absent: new Set(['src/gone.ts']) },
+    );
+
+    const sentence = describeGrounding(decision);
+    expect(sentence).toContain('1 on a path this revision does not have, unpostable');
+    expect(sentence).toContain('1 named a symbol absent from the code, kept');
+  });
+
   it("reads the deleted paths out of git's own text", () => {
     const patch = [
       'diff --git a/src/kept.ts b/src/kept.ts',

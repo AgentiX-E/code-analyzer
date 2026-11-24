@@ -170,9 +170,10 @@ function rangeIsReal(comment: GroundableFinding, lines: string[]): boolean {
  * lookup(...)` is true of the file and present in none of it. A check that cannot decide keeps, and the count in the
  * report is what stops "cannot decide" from becoming a silent exemption.
  */
-function isVerbatimQuote(quote: string | undefined): boolean {
-  const text = (quote ?? '').trim();
-  return !text.includes('...') && !text.includes('…');
+function isVerbatimQuote(quote: string): boolean {
+  // **A `string`, not a `string | undefined`**: the caller trims the field once, so a `??` here would be a second default
+  // for a value that already has one - and a branch nothing can reach.
+  return !quote.includes('...') && !quote.includes('…');
 }
 
 /**
@@ -353,7 +354,12 @@ export function judgeGrounding<T extends GroundableFinding>(
       continue;
     }
 
-    if (!isVerbatimQuote(comment.existingCode) && (comment.existingCode ?? '').trim().length > 0) {
+    // **Read once, because the second half of the test was a branch nothing could reach**: `isVerbatimQuote` is true for
+    // an absent quotation, so `!isVerbatimQuote(x) && x.trim().length > 0` short-circuited before the `?? ''` whenever the
+    // field was missing - a defensive arm that looked like coverage and could never run. Reading the string first makes
+    // both halves reachable, which is what a coverage number is supposed to mean.
+    const quote = (comment.existingCode ?? '').trim();
+    if (!isVerbatimQuote(quote) && quote.length > 0) {
       // **Kept and counted**, so the reader can weigh a precision that rests on a paraphrased quotation.
       unverifiableQuotes += 1;
     } else if (!quoteIsPresent(comment, lines, sources.diffs?.get(comment.path))) {
