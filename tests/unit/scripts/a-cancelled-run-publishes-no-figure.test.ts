@@ -66,9 +66,7 @@ describe('the figure a run publishes', () => {
     // assertion below is on the pair, because `always()` alone would publish a stale tracked file, which is the defect
     // this case was written for.
     expect(head).toContain('always()');
-    expect(head).toContain(
-      "steps.replay.outcome == 'success' && steps.audit.outcome == 'success'",
-    );
+    expect(head).toContain("steps.replay.outcome == 'success' && steps.audit.outcome == 'success'");
     expect(head).not.toMatch(/if:\s*always\(\)\s*$/m);
     for (const proof of ['replay', 'audit']) {
       const step = WORKFLOW.slice(WORKFLOW.indexOf(`id: ${proof}`));
