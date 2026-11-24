@@ -71,6 +71,9 @@ export interface SideScore {
   } | null;
 }
 
+/** The cut this repository ships (`drop test`, drop the test path class, twelve per pull request), spelled once. */
+export const OUR_SHIPPED_CUT: string;
+
 export interface SharedRowSet {
   readonly rows: readonly {
     readonly pr: string;

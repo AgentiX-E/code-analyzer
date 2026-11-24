@@ -80,7 +80,12 @@ describe('a comparison is one row set, one denominator, one scorer', () => {
 
   it('scores each side at the cut that side shipped, not at the one that suits the comparison', () => {
     const comparison = likeForLike({
-      ourFindings: [ours('p1', 'a.ts', [0]), ours('p1', 'a.ts', [1], { actionable: false })],
+      // The second finding is a `test` comment, which is what the shipped policy drops - **`actionable: false` is not
+      // what makes an emission unshipped here**, because the artifact's own headline is the policy cut and not the gate.
+      ourFindings: [
+        ours('p1', 'a.ts', [0]),
+        ours('p1', 'tests/a.test.ts', [1], { category: 'test' }),
+      ],
       competitorBaseline: {
         pulls: {
           p1: theirs(4, [
@@ -97,6 +102,26 @@ describe('a comparison is one row set, one denominator, one scorer', () => {
     expect(comparison.sides.ours.protocol.tp).toBe(1);
     expect(comparison.sides.theirs.protocol.tp).toBe(1);
     expect(comparison.goldens).toBe(4);
+  });
+
+  it('takes the row set from the artifact and not from the cut, so a cut cannot shrink the corpus', () => {
+    // Every comment on p2 is one the shipped cut removes - it is a `test` finding - and p2 still contributes its two
+    // reference comments to the denominator. **A row set built from surviving comments would silently delete p2's
+    // goldens and raise the recall of whatever was left.**
+    const comparison = likeForLike({
+      ourFindings: [
+        ours('p1', 'src/a.ts', [0]),
+        ours('p2', 'tests/a.test.ts', [0], { category: 'test' }),
+      ],
+      competitorBaseline: {
+        pulls: { p1: theirs(2, [{ goldens: [0], path: 'src/a.ts' }]), p2: theirs(2, []) },
+      },
+    });
+
+    expect(comparison.pullRequests).toBe(2);
+    expect(comparison.goldens).toBe(4);
+    expect(comparison.sides.ours.emitted).toBe(1);
+    expect(comparison.sides.ours.protocol.recall).toBeCloseTo(0.25, 12);
   });
 
   it('refuses to compare artifacts that share no pull request, rather than printing two zeros', () => {

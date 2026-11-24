@@ -18,7 +18,17 @@
 //    reverse, is the other way this comparison can be made to say anything.
 
 import { scoreFileSemantic } from '../../.github/scripts/lib/file-semantic.mjs';
-import { maximumMatchingByPullRequest } from './operating-point.mjs';
+import { applyCut, maximumMatchingByPullRequest, parseCut } from './operating-point.mjs';
+
+/**
+ * **The cut this repository ships, spelled once.**
+ *
+ * `actionable` is the gate, not the policy: the shipped point also drops `test`, drops the test path class and keeps the
+ * twelve highest-scored comments per pull request, and the artifact's own headline is that point. **Comparing the gate
+ * against a competitor's shipped cut is comparing a larger emission against a smaller one** - two things at once, which
+ * is the failure this module exists to prevent.
+ */
+export const OUR_SHIPPED_CUT = 'drop:test+drop-path:test+budget:12';
 
 const pullOf = (row) => String(row?.['pr'] ?? '');
 
@@ -76,7 +86,7 @@ export function shippedCut(row) {
   }
   return {
     theirFindings: findings,
-    ourFindings: row.ours.filter((finding) => finding?.['actionable'] === true),
+    ourFindings: applyCut(row.ours, parseCut(OUR_SHIPPED_CUT)),
   };
 }
 

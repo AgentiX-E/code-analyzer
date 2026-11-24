@@ -15546,46 +15546,56 @@ predicate over their shape can either. **A device that changes the information t
 lever**, which is what the diff-only falsifier is and why §85's falsification does not apply to it: §85 removed findings
 from a pool the pairwise judge never asked about, and this instrument asks about every one of them.
 
-### 141. The head-to-head exists, and on the rows both artifacts hold this repository leads the protocol and ties the walk
+### 141. The head-to-head exists, and on the rows both artifacts hold this repository leads both arithmetics
 
 **§140.5's `+10.19` is withdrawn.** It was `31.44` on fifty pull requests minus `21.25` on forty-seven — two row sets, and
 therefore exactly the subtraction §121.2 refused to draw and §121.3 turned into a gate. **A bar cleared and a competitor
 beaten are two claims**, and until this section only the first had an instrument.
 
-**The instrument is `scripts/aacr-like-for-like.mjs` over `scripts/lib/like-for-like.mjs`**, with eight cases in
+**The instrument is `scripts/aacr-like-for-like.mjs` over `scripts/lib/like-for-like.mjs`**, with nine cases in
 `tests/unit/scripts/two-reviewers-on-one-row-set-are-scored-by-one-piece-of-code.test.ts`. It makes four decisions, none
 of them a modelling choice:
 
-| decision        | what it does                                                                              | why                                                                                 |
-| --------------- | ----------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------- |
-| the row set     | scores only pull requests both artifacts hold, and names the ones it left out             | an invisible exclusion is an exclusion that can be tuned                            |
-| the denominator | recall is over the row set's reference comments, for both sides                           | a denominator taken per side rises whenever a side finds less                       |
-| the cut         | each side is cut the way it shipped - ours by `actionable`, theirs by its own `keep` list | our full emission against their shipped cut measures two things and reports neither |
-| the refusal     | throws when the two artifacts share no pull request                                       | two `0.0000`s in one table invite a gap that is not there                           |
+| decision        | what it does                                                                                | why                                                                                   |
+| --------------- | ------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------- |
+| the row set     | scores only pull requests both artifacts hold, and names the ones it left out               | an invisible exclusion is an exclusion that can be tuned                              |
+| the denominator | recall is over the row set's reference comments, for both sides                             | a denominator taken per side rises whenever a side finds less                         |
+| the cut         | each side is cut the way it shipped - ours by the policy cut, theirs by its own `keep` list | our larger emission against their shipped cut measures two things and reports neither |
+| the refusal     | throws when the two artifacts share no pull request                                         | two `0.0000`s in one table invite a gap that is not there                             |
+
+**The first version of that third row was wrong, and the way it was wrong is worth keeping.** It cut our side by
+`actionable`, the gate, and the artifact's headline is the _policy_ — `drop test`, drop the test path class, twelve per
+pull request. **The gate posts 418 comments where the policy posts 297**, so the first comparison ran our larger emission
+against their shipped cut and reported `+2.64` where the fair figure is `+4.95`. Both numbers are true of their own cut;
+only one of them is the head-to-head, and a test now holds the row set to the artifact rather than to the cut, because a
+row set built from surviving comments silently deletes the reference comments of a pull request whose comments were all
+dropped.
 
 **The run this reads** is `45057608080`'s artifact (2026-11-22, 575 of 591 findings carrying a file-shaped verdict) and
 `benchmarks/aacr/competitor-baseline.json` (recorded 2026-11-12). **Forty-seven shared pull requests, 436 reference
-comments, three held only here and none only by them.** Both sides' verdicts come from `deepseek-chat`; the judge prompt
+comments**, three held only here and none only by them. Both sides' verdicts come from `deepseek-chat`; the judge prompt
 is `aacr-judge-v1` on their side and **is now recorded on ours as well**, imported from the same constant, because a
 head-to-head in which one artifact does not name the question cannot be shown to be one.
 
-| reading                                              |                                             this repository |                               the competitor |                gap |
-| ---------------------------------------------------- | ----------------------------------------------------------: | -------------------------------------------: | -----------------: |
-| protocol (`2·TP/(C+G)`), pairwise verdicts           | 418 comments · TP 102 · P 0.2440 · R 0.2339 · **F1 0.2389** |      110 · 58 · 0.5273 · 0.1330 · **0.2115** |          **+2.64** |
-| corpus (`file-level-semantic-v1`), pairwise verdicts |   418 · 89 new · 117 covered · 0.2129 / 0.2683 · **0.2374** | 110 · 51 · 77 · 0.4636 / 0.1766 · **0.2558** |              −1.83 |
-| corpus, **file-shaped verdicts**                     |               418 · 93 · 135 · 0.2225 / 0.3096 · **0.2589** |                                            — | **no counterpart** |
+| reading                                     |                      this repository |                          the competitor |                gap |
+| ------------------------------------------- | -----------------------------------: | --------------------------------------: | -----------------: |
+| protocol, **shipped policy** (297 comments) | TP 96 · 0.3232 / 0.2202 · **0.2619** | 110 · 58 · 0.5273 / 0.1330 · **0.2125** |          **+4.95** |
+| corpus walk, shipped policy                 |    84 new · 113 covered · **0.2705** |                    51 · 77 · **0.2558** |          **+1.47** |
+| corpus walk, file-shaped verdicts           |                92 · 135 · **0.3097** |                                       — | **no counterpart** |
+| protocol, actionability gate (418 comments) |    TP 102 · 0.2440 / 0.2339 · 0.2389 |                                  0.2125 |              +2.64 |
+
+**The fourth row is the one §116.2 can be compared with**, because that section also measured the gate: `0.1941` then,
+`0.2389` now, **+4.48 points of reviewer improvement with the scoring held fixed** — same baseline file, same matcher,
+same judge model. It is not the head-to-head and it is not presented as one.
 
 **The third row is printed and never subtracted, and the reason is structural rather than cautious.** The competitor's
 record carries `path`, `startLine`, `endLine`, `category`, `severity`, `score` and its verdicts — **and no comment text**,
 so a per-file judge cannot be asked about its findings at any price. A difference between that row and their `corpus` row
 would be a difference of instruments printed as a difference of reviewers.
 
-**The flip is the reviewer's, not the arithmetic's.** §116.2 recorded, on the same baseline and the 2026-11-10 artifact,
-378 comments and 79 matched reference comments: `0.1941` against their `0.2125`, **1.84 points behind**. Today's artifact
-emits 418 and matches 102, which is `0.2389`. **Nothing about the scoring changed between the two readings** — the same
-baseline file, the same matcher, the same judge model — so the +4.48 points are this repository's own work, and the
-margin is inside the corpus's 2.40-point resolution in the arithmetic that charges every comment and outside it in the one
-that does not.
+**+4.95 is outside the 2.40-point resolution; +1.47 is inside it.** So the sentence is: **ahead on the protocol the
+protocol defines, indistinguishable on the walk the corpus scores.** The gap between those two sentences is one
+instrument, and it is the reason the next section measures the walk instead of quoting the protocol.
 
 #### 141.1 §86.3's registered test, scored instead of argued
 
@@ -15594,39 +15604,39 @@ the field posts, and if precision at that volume is at least twice precision at 
 
 | reading                                         | comments |      P |      R |         F1 | precision against ours |
 | ----------------------------------------------- | -------: | -----: | -----: | ---------: | ---------------------: |
-| this repository, as shipped                     |      418 | 0.2440 | 0.2339 | **0.2389** |                      — |
-| this repository, cut to the competitor's volume |      110 | 0.3396 | 0.0708 |     0.1328 | **1.39×**, line **2×** |
+| this repository, as shipped                     |      297 | 0.3232 | 0.2202 | **0.2619** |                      — |
+| this repository, cut to the competitor's volume |      110 | 0.3396 | 0.0708 |     0.1328 | **1.05×**, line **2×** |
 
-**The ratio is 1.39 and the registered line was 2.00, so the gap is not volume** — and the cap costs **10.60 points** of
-F1, because precision rises 1.39× while recall falls 3.3×. **The same measurement refuses the `−131 emissions` plan the
+**The ratio is 1.05 and the registered line was 2.00, so the gap is not volume** — and the cap costs **12.91 points** of
+F1, because precision rises 1.05× while recall falls 3.1×. **The same measurement refuses the `−131 emissions` plan the
 Martian target has been carrying**: cutting our list to their volume makes this repository worse on both boards, and a
 target expressed as a cut is a target expressed as a loss.
 
 #### 141.2 What it takes to move the walk
 
-At the shipped emission, the corpus reading needs either of these, and the frontier between them is arithmetic rather
-than preference:
+At the shipped emission (297 comments, 84 of which buy something new, 113 reference comments covered), the corpus reading
+is 0.2705 against their 0.2558 — **ahead, and inside the resolution**. To be ahead _outside_ it, at 0.2798:
 
-| new comments that cover something | reference comments covered |                                                    F1 |
-| --------------------------------: | -------------------------: | ----------------------------------------------------: |
-|                                +8 |                         +7 |                                       0.2558 — parity |
-|                                +4 |                        +14 |                                       0.2558 — parity |
-|                               +24 |                        +10 | 0.2798 — parity **outside** the 2.40-point resolution |
-|                               +32 |                         +1 |       0.2798 — the same, bought entirely by precision |
+| new comments that cover something |        reference comments covered | move                                                         |
+| --------------------------------: | --------------------------------: | ------------------------------------------------------------ |
+|                                +4 |                              +2.6 | the frontier's cheap end                                     |
+|                            **+8** | −1.8 (i.e. 111, fewer than today) | **eight genuinely new comments, nothing else**               |
+|                                 0 |                              +7.7 | or nine more reference comments covered by the same comments |
 
-**+8 and +7 is the smallest move on the table, and it is a selection question and not an emission one**: 418 comments are
-already posted, 89 of them buy something, and the corpus charges the other 329 at full price. §140.3 measured the
-ranker's ability to tell those two groups apart at **AUC 0.5555**, which is why the next device has to change what the
-score knows rather than how it orders.
+**+8 is the move**, and it is a selection question and not an emission one: 297 comments are posted, 84 buy something,
+213 are charged at full price, and §140.3 measured the ranker's ability to tell those groups apart at **AUC 0.5555**.
+**A device that changes what the score knows is the only one that can move it**, which is what the diff-only falsifier is
+and why §85's falsification does not apply to it: §85 removed findings from a pool the pairwise judge never asked about,
+and this instrument asks about every one of them.
 
 #### 141.3 What this does not claim
 
 - **That 31.44 is wrong.** It is the bar, cleared on this repository's own fifty pull requests. §141 does not move it; it
   says the bar and the head-to-head are different rows.
-- **That +2.64 is a lock.** It is one row set, one judge model, and one baseline file — and the competitor's cut is frozen
+- **That +4.95 is a lock.** It is one row set, one judge model, and one baseline file — and the competitor's cut is frozen
   at 2026-11-12, so a tool that shipped since is not in this table.
-- **That the file-shaped reading is a lead.** It is 0.2589 on our side and unanswerable on theirs; it is published as a
-  reading, and the only comparison this section draws is the two that both artifacts can produce.
+- **That the file-shaped reading is a lead.** It is 0.3097 on our side and unanswerable on theirs; it is published as a
+  reading, and the only comparisons this section draws are the ones both artifacts can produce.
 
 ### 142. The volume test on the other board, where the gap is 2.4× in precision
 
@@ -15641,7 +15651,7 @@ requests, 173 reference comments) through `atVolume`, cut at the volumes the fie
 | cut to 200 (~4 per pull request)               |      188 | 0.2606 | 0.2832 |     0.2715 |
 
 **Qodo Extended is 67.1 / 64.6 / 65.8 at about 2.2 comments per pull request.** At that volume this repository reads
-**0.2778 / 0.1734 / 0.2135** — a precision ratio of **0.41** where §141.1's AACR measurement gave 1.39 and §86.3's line
+**0.2778 / 0.1734 / 0.2135** — a precision ratio of **0.41** where §141.1's AACR measurement gave 1.05 and §86.3's line
 was 2.00. **Two boards, one conclusion: volume is not the lever, and on Martian it is not close.** The gap there is a
 factor of **2.4 in precision at matched volume**, so the device that closes it is a reviewer whose comments are right at
 two or three per pull request — the same selection problem, one corpus further from the answer.
