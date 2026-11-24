@@ -58,8 +58,8 @@
   between components that each passed their own tests.</p>
   <ul class="tiles">
     <li><b>40</b><span>capabilities</span></li>
-    <li><b>32</b><span>done</span></li>
-    <li><b>6</b><span>partial</span></li>
+    <li><b>33</b><span>done</span></li>
+    <li><b>5</b><span>partial</span></li>
     <li><b>2</b><span>not built</span></li>
     <li><b>33</b><span>with an end-to-end case</span></li>
     <li><b>27</b><span>ours only</span></li>
@@ -69,8 +69,8 @@
 <nav>
   <button data-filter="all" aria-pressed="true">All <span style="opacity:.6">40</span></button>
   <button data-filter="NONE" aria-pressed="false">Not built <span style="opacity:.6">2</span></button>
-  <button data-filter="PART" aria-pressed="false">Partial <span style="opacity:.6">6</span></button>
-  <button data-filter="DONE" aria-pressed="false">Done <span style="opacity:.6">32</span></button>
+  <button data-filter="PART" aria-pressed="false">Partial <span style="opacity:.6">5</span></button>
+  <button data-filter="DONE" aria-pressed="false">Done <span style="opacity:.6">33</span></button>
   <button data-filter="C" aria-pressed="false">Competitor only <span style="opacity:.6">4</span></button>
   <button data-filter="no-e2e" aria-pressed="false">No end-to-end case <span style="opacity:.6">7</span></button>
   <input id="q" type="search" placeholder="filter by capability, file or surface" aria-label="filter">
@@ -135,14 +135,14 @@
         <td><span class="state DONE">DONE</span></td>
         <td class="why">DONE</td>
       </tr>
-      <tr data-state="PART" data-who="O" data-e2e="true">
+      <tr data-state="DONE" data-who="O" data-e2e="true">
         <td class="id">7</td>
-        <td class="cap">Quotations and names are checked against the file and the change before a comment survives<span class="surface">CLI</span></td>
+        <td class="cap">Nothing is posted that cannot be attached to this revision, and a comment that names a symbol it never saw is reported<span class="surface">CLI</span></td>
         <td><span class="tag O">ours only</span></td>
-        <td class="proof"><code>a-comment-about-a-deletion-names-a-symbol-the-head-file-no-longer-has</code></td>
-        <td class="proof"><code>review-tells-the-reviewer-what-not-to-report</code></td>
-        <td><span class="state PART">PART</span></td>
-        <td class="why">PART — applied where a report is built, priced at −0.0066 F1 and a 40 % removal pool (§149): kept as a safety check, not shipped as a global filter</td>
+        <td class="proof"><code>a-deleted-file-is-unpostable-not-unread, what-a-comment-names-is-counted-not-deleted</code></td>
+        <td class="proof"><code>pr-review.test.ts (the runPrReview story)</code></td>
+        <td><span class="state DONE">DONE</span></td>
+        <td class="why">DONE — the gate deletes 1 of 591 (a range past the end of its file) at ΔF1 0.0000, and counts the 6 comments that name nothing in the code (§150); the name check is no longer a filter because its pool is 40 % against a 33 % base rate</td>
       </tr>
       <tr data-state="DONE" data-who="P" data-e2e="true">
         <td class="id">8</td>

@@ -48,3 +48,31 @@ export function splitPatchByPath(patch: string): Map<string, string> {
 
   return chunks;
 }
+
+/**
+ * **The paths the change deletes**, which is the one thing a patch can say that file contents cannot.
+ *
+ * `+++ /dev/null` is git's way of writing *"the new revision has no such file"*. A finding on it is **unpostable** rather
+ * than unchecked: §149.5 measured the old rule making the gate inert for a whole pull request - **27 judgeable findings
+ * unjudged because one path was gone** - and the difference between *gone* and *not read* is exactly this line.
+ *
+ * **Derived from the header rather than the `+++` line's path**, because a deleted path has no right-hand side to key on:
+ * `diffHeaderPaths` gives the left one, which is the file that existed.
+ */
+export function deletedPaths(patch: string): Set<string> {
+  const gone = new Set<string>();
+  let current: { left: string; right: string } | null = null;
+  for (const line of patch.split('\n')) {
+    const header = diffHeaderPaths(line);
+    if (header !== null) {
+      current = header;
+      continue;
+    }
+    if (current === null) continue;
+    if (line.startsWith('+++ ') && line.slice(4).trim() === '/dev/null') {
+      gone.add(current.left);
+      current = null;
+    }
+  }
+  return gone;
+}

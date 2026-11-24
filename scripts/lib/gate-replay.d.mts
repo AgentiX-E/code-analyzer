@@ -50,10 +50,17 @@ export interface GroundableRow {
   readonly text?: string;
 }
 
-/** What the gate may read for one pull request. */
+/**
+ * What the gate may read for one pull request.
+ *
+ * **`change` and `absent` are §150's two additions** and both are optional: the whole change is a place a name can be
+ * found, and a path the revision does not have is unpostable rather than unread.
+ */
 export interface GroundingSources {
   readonly contents: ReadonlyMap<string, string>;
   readonly diffs?: ReadonlyMap<string, string>;
+  readonly change?: string;
+  readonly absent?: ReadonlySet<string>;
 }
 
 /** What the gate answers. Deliberately the part `decidePerPullRequest` reads and not the whole of `GroundingDecision`. */
@@ -61,9 +68,14 @@ export interface GateAnswer<T> {
   readonly kept: readonly T[];
   readonly applied: boolean;
   readonly withheld: string | null;
-  readonly coverage: { readonly findings: number; readonly readable: number };
+  readonly coverage: {
+    readonly findings: number;
+    readonly readable: number;
+    readonly unpostable?: number;
+  };
   readonly report: {
     readonly unverifiableQuotes?: number;
+    readonly namesNowhere?: number;
     readonly ungrounded: ReadonlyArray<{ readonly reason: string | null }>;
   };
 }
@@ -79,6 +91,7 @@ export type GateDecider = <T extends GroundableRow>(
   findings: readonly T[],
   contents: ReadonlyMap<string, string> | undefined,
   diffs?: ReadonlyMap<string, string>,
+  extra?: { readonly change?: string; readonly absent?: ReadonlySet<string> },
 ) => GateAnswer<T>;
 
 /** A point, with the four counts it came from. */
@@ -96,6 +109,7 @@ export interface ReplayPoint {
 export interface ReplayCoverage {
   readonly offered: number;
   readonly readable: number;
+  readonly unpostable: number;
 }
 
 /** One pull request's decision: applied, or withheld with the reason the product would give. */
@@ -103,7 +117,11 @@ export interface PullDecision {
   readonly pr: string;
   readonly applied: boolean;
   readonly withheld: string | null;
-  readonly coverage: { readonly findings: number; readonly readable: number };
+  readonly coverage: {
+    readonly findings: number;
+    readonly readable: number;
+    readonly unpostable?: number;
+  };
   readonly dropped: number;
 }
 
@@ -127,6 +145,7 @@ export interface GateAccounting {
   readonly dropped: number;
   readonly coverage: ReplayCoverage;
   readonly unverifiableQuotes: number;
+  readonly namesNowhere: number;
   readonly withheldPullRequests: number;
   readonly byReason: ReadonlyArray<{ readonly reason: string; readonly count: number }>;
   readonly decisions: readonly PullDecision[];
@@ -177,8 +196,36 @@ export interface DecideResult {
   readonly coverage: ReplayCoverage;
   readonly dropped: number;
   readonly unverifiableQuotes: number;
+  readonly namesNowhere: number;
   readonly byReason: Map<string, number>;
 }
+
+/**
+ * **Where the names a comment mentions live**, which is the distribution the retired name check was reading.
+ *
+ * `nowhere` is the only bucket the check could ever have been right about; `noName` and the three located buckets are the
+ * comments it could not have decided, and their relative sizes are the argument §150 published for demoting it.
+ */
+export interface AnchorTally {
+  readonly findings: number;
+  readonly readable: number;
+  readonly noName: number;
+  readonly inRange: number;
+  readonly inFile: number;
+  readonly inChange: number;
+  readonly nowhere: number;
+  readonly examples: ReadonlyArray<{
+    readonly pr: string;
+    readonly path: string;
+    readonly line: number;
+    readonly names: readonly string[];
+  }>;
+}
+
+export function anchorsOf(
+  findings: readonly ArtifactRow[],
+  sourcesFor: (pullRequest: string) => GroundingSources | undefined,
+): AnchorTally;
 
 export function decidePerPullRequest(
   findings: readonly ArtifactRow[],

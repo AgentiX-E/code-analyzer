@@ -59,11 +59,13 @@
   there.</p>
   <ul class="tiles">
     <li><b>0.2668</b><span>published F1</span><i>305 posted · 101 true</i></li>
-    <li><b>0.2603</b><span>with the gate</span><i>301 posted · 98 true</i></li>
-    <li><b>-0.0066</b><span>delta F1</span><i>resolution 0.0126 on this slice</i></li>
-    <li><b>10</b><span>removals</span><i>40.0% true</i></li>
-    <li><b>3</b><span>goldens lost</span><i>0 gained</i></li>
-    <li><b>1</b><span>withheld</span><i>of 50 pull requests</i></li>
+    <li><b>0.2668</b><span>with the gate</span><i>305 posted · 101 true</i></li>
+    <li><b>+0.0000</b><span>delta F1</span><i>resolution 0.0126 on this slice</i></li>
+    <li><b>0</b><span>removals</span><i>no pool</i></li>
+    <li><b>0</b><span>goldens lost</span><i>0 gained</i></li>
+    <li><b>0</b><span>withheld</span><i>of 50 pull requests</i></li>
+    <li><b>6</b><span>names absent</span><i>kept, and named in the sentence</i></li>
+    <li><b>0</b><span>unpostable</span><i>of 591 findings</i></li>
   </ul>
 </header>
 <nav>
@@ -81,9 +83,9 @@
       <tr><td>as published</td><td class="num">305</td><td class="num">101</td>
           <td class="num">0.3311</td><td class="num">0.2235</td>
           <td class="num">0.2668</td><td class="dim">true</td></tr>
-      <tr><td>+ grounding gate</td><td class="num">301</td><td class="num">98</td>
-          <td class="num">0.3256</td><td class="num">0.2168</td>
-          <td class="num">0.2603</td><td class="dim">—</td></tr>
+      <tr><td>+ grounding gate</td><td class="num">305</td><td class="num">101</td>
+          <td class="num">0.3311</td><td class="num">0.2235</td>
+          <td class="num">0.2668</td><td class="dim">—</td></tr>
     </tbody>
   </table>
 
@@ -91,8 +93,23 @@
   <table>
     <thead><tr><th>count</th><th>reason the judge gave</th></tr></thead>
     <tbody>
-      <tr><td class="num">14</td><td>the finding names an identifier that occurs nowhere in the file it is about, nor in the change it is about</td></tr>
       <tr><td class="num">1</td><td>lines 234-318 are not a range in a file of 237 lines</td></tr>
+
+    </tbody>
+  </table>
+
+  <h2>Where the names a comment mentions actually live</h2>
+  <p class="lede">The name check asked whether a backticked identifier occurs in the code its comment is about. This is the
+  answer for the whole corpus: <b>591</b> findings whose file was read, of which
+  <b>6</b> name something that is in none of the places the run could look.</p>
+  <table>
+    <thead><tr><th>findings</th><th>what the comment names</th><th>share</th></tr></thead>
+    <tbody>
+      <tr><td class="num">379</td><td>names nothing at all</td><td class="bar"><span style="width:64.12859560067682%"></span><b>64.1%</b></td></tr>
+      <tr><td class="num">157</td><td>names a symbol in the lines it cites</td><td class="bar"><span style="width:26.56514382402707%"></span><b>26.6%</b></td></tr>
+      <tr><td class="num">42</td><td>names a symbol elsewhere in the file</td><td class="bar"><span style="width:7.1065989847715745%"></span><b>7.1%</b></td></tr>
+      <tr><td class="num">7</td><td>names a symbol only the change contains</td><td class="bar"><span style="width:1.1844331641285957%"></span><b>1.2%</b></td></tr>
+      <tr><td class="num">6</td><td>names a symbol absent from all of it</td><td class="bar"><span style="width:1.015228426395939%"></span><b>1.0%</b></td></tr>
 
     </tbody>
   </table>
@@ -113,15 +130,15 @@
         <td class="dim">—</td>
         <td><span class="state applied">applied</span></td>
       </tr>
-      <tr data-state="applied" data-changed="true">
+      <tr data-state="applied" data-changed="false">
         <td class="pr"><a href="https://github.com/FreeCAD/FreeCAD/pull/21257">FreeCAD/FreeCAD/pull/21257</a></td>
         <td class="num">82</td>
         <td class="num">82</td>
-        <td class="num">2</td>
+        <td class="num">0</td>
         <td class="bar"><span style="width:100%"></span><b>12</b></td>
         <td class="bar after"><span style="width:100%"></span><b>12</b></td>
         <td class="num">7 → 7</td>
-        <td class="lost">−1</td>
+        <td class="dim">—</td>
         <td><span class="state applied">applied</span></td>
       </tr>
       <tr data-state="applied" data-changed="false">
@@ -234,24 +251,24 @@
         <td class="dim">—</td>
         <td><span class="state applied">applied</span></td>
       </tr>
-      <tr data-state="withheld" data-changed="false">
+      <tr data-state="applied" data-changed="false">
         <td class="pr"><a href="https://github.com/microsoft/typescript-go/pull/831">microsoft/typescript-go/pull/831</a></td>
         <td class="num">28</td>
-        <td class="num">27</td>
+        <td class="num">28</td>
         <td class="num">0</td>
         <td class="bar"><span style="width:100%"></span><b>12</b></td>
         <td class="bar after"><span style="width:100%"></span><b>12</b></td>
         <td class="num">7 → 7</td>
         <td class="dim">—</td>
-        <td><span class="state withheld">withheld</span> <code>no-readable-arm</code></td>
+        <td><span class="state applied">applied</span></td>
       </tr>
-      <tr data-state="applied" data-changed="true">
+      <tr data-state="applied" data-changed="false">
         <td class="pr"><a href="https://github.com/microsoft/typescript-go/pull/1446">microsoft/typescript-go/pull/1446</a></td>
         <td class="num">8</td>
         <td class="num">8</td>
-        <td class="num">1</td>
+        <td class="num">0</td>
         <td class="bar"><span style="width:100%"></span><b>6</b></td>
-        <td class="bar after"><span style="width:83.33333333333334%"></span><b>5</b></td>
+        <td class="bar after"><span style="width:100%"></span><b>6</b></td>
         <td class="num">1 → 1</td>
         <td class="dim">—</td>
         <td><span class="state applied">applied</span></td>
@@ -410,15 +427,15 @@
         <td class="dim">—</td>
         <td><span class="state applied">applied</span></td>
       </tr>
-      <tr data-state="applied" data-changed="true">
+      <tr data-state="applied" data-changed="false">
         <td class="pr"><a href="https://github.com/comfyanonymous/ComfyUI/pull/8446">comfyanonymous/ComfyUI/pull/8446</a></td>
         <td class="num">21</td>
         <td class="num">21</td>
-        <td class="num">4</td>
+        <td class="num">0</td>
         <td class="bar"><span style="width:100%"></span><b>12</b></td>
         <td class="bar after"><span style="width:100%"></span><b>12</b></td>
-        <td class="num">7 → 6</td>
-        <td class="lost">−1</td>
+        <td class="num">7 → 7</td>
+        <td class="dim">—</td>
         <td><span class="state applied">applied</span></td>
       </tr>
       <tr data-state="applied" data-changed="false">
@@ -454,24 +471,24 @@
         <td class="dim">—</td>
         <td><span class="state applied">applied</span></td>
       </tr>
-      <tr data-state="applied" data-changed="true">
+      <tr data-state="applied" data-changed="false">
         <td class="pr"><a href="https://github.com/mrdoob/three.js/pull/31402">mrdoob/three.js/pull/31402</a></td>
         <td class="num">13</td>
         <td class="num">13</td>
-        <td class="num">1</td>
+        <td class="num">0</td>
         <td class="bar"><span style="width:100%"></span><b>12</b></td>
         <td class="bar after"><span style="width:100%"></span><b>12</b></td>
         <td class="num">3 → 3</td>
         <td class="dim">—</td>
         <td><span class="state applied">applied</span></td>
       </tr>
-      <tr data-state="applied" data-changed="true">
+      <tr data-state="applied" data-changed="false">
         <td class="pr"><a href="https://github.com/mrdoob/three.js/pull/30076">mrdoob/three.js/pull/30076</a></td>
         <td class="num">11</td>
         <td class="num">11</td>
-        <td class="num">1</td>
+        <td class="num">0</td>
         <td class="bar"><span style="width:100%"></span><b>11</b></td>
-        <td class="bar after"><span style="width:90.9090909090909%"></span><b>10</b></td>
+        <td class="bar after"><span style="width:100%"></span><b>11</b></td>
         <td class="num">5 → 5</td>
         <td class="dim">—</td>
         <td><span class="state applied">applied</span></td>
@@ -531,24 +548,24 @@
         <td class="dim">—</td>
         <td><span class="state applied">applied</span></td>
       </tr>
-      <tr data-state="applied" data-changed="true">
+      <tr data-state="applied" data-changed="false">
         <td class="pr"><a href="https://github.com/opencv/opencv/pull/27284">opencv/opencv/pull/27284</a></td>
         <td class="num">19</td>
         <td class="num">19</td>
-        <td class="num">1</td>
+        <td class="num">0</td>
         <td class="bar"><span style="width:100%"></span><b>12</b></td>
         <td class="bar after"><span style="width:100%"></span><b>12</b></td>
         <td class="num">6 → 6</td>
         <td class="dim">—</td>
         <td><span class="state applied">applied</span></td>
       </tr>
-      <tr data-state="applied" data-changed="true">
+      <tr data-state="applied" data-changed="false">
         <td class="pr"><a href="https://github.com/nextcloud/server/pull/52846">nextcloud/server/pull/52846</a></td>
         <td class="num">12</td>
         <td class="num">12</td>
-        <td class="num">1</td>
+        <td class="num">0</td>
         <td class="bar"><span style="width:100%"></span><b>11</b></td>
-        <td class="bar after"><span style="width:90.9090909090909%"></span><b>10</b></td>
+        <td class="bar after"><span style="width:100%"></span><b>11</b></td>
         <td class="num">0 → 0</td>
         <td class="dim">—</td>
         <td><span class="state applied">applied</span></td>
@@ -575,11 +592,11 @@
         <td class="dim">—</td>
         <td><span class="state applied">applied</span></td>
       </tr>
-      <tr data-state="applied" data-changed="true">
+      <tr data-state="applied" data-changed="false">
         <td class="pr"><a href="https://github.com/lvgl/lvgl/pull/8689">lvgl/lvgl/pull/8689</a></td>
         <td class="num">48</td>
         <td class="num">48</td>
-        <td class="num">2</td>
+        <td class="num">0</td>
         <td class="bar"><span style="width:100%"></span><b>12</b></td>
         <td class="bar after"><span style="width:100%"></span><b>12</b></td>
         <td class="num">8 → 8</td>
@@ -619,15 +636,15 @@
         <td class="dim">—</td>
         <td><span class="state applied">applied</span></td>
       </tr>
-      <tr data-state="applied" data-changed="true">
+      <tr data-state="applied" data-changed="false">
         <td class="pr"><a href="https://github.com/cline/cline/pull/4676">cline/cline/pull/4676</a></td>
         <td class="num">3</td>
         <td class="num">3</td>
-        <td class="num">1</td>
+        <td class="num">0</td>
         <td class="bar"><span style="width:100%"></span><b>3</b></td>
-        <td class="bar after"><span style="width:66.66666666666666%"></span><b>2</b></td>
-        <td class="num">1 → 0</td>
-        <td class="lost">−1</td>
+        <td class="bar after"><span style="width:100%"></span><b>3</b></td>
+        <td class="num">1 → 1</td>
+        <td class="dim">—</td>
         <td><span class="state applied">applied</span></td>
       </tr>
       <tr data-state="applied" data-changed="false">

@@ -67,6 +67,19 @@ export interface GroundingReport<T extends GroundableFinding = ReviewComment> {
   grounded: Array<T & { filtered: boolean }>;
   /** Kept for reporting, and **not emitted** - the caller decides what to do with them. */
   ungrounded: Array<GroundingVerdict<T>>;
+  /**
+   * **Findings the revision cannot carry at all**, kept apart from `ungrounded` because they are a different fact.
+   *
+   * A comment on a file the pull request *deleted* is not a comment about something that does not exist - the code existed,
+   * the change removed it, and the finding is about the removal. **It cannot be posted**, because there is no line in the
+   * new revision to attach it to, and that is a limit of the medium rather than a verdict about the sentence.
+   *
+   * **Why the distinction is load-bearing.** §149.5 measured the old rule swallowing a whole pull request: one path absent
+   * at head out of 28 findings made the gate inert for all 28, so 27 judgeable findings went unjudged. **A deleted file is
+   * not a file the run failed to read**, and a rule that cannot tell them apart charges the gate with a failure it did not
+   * have.
+   */
+  unpostable: Array<GroundingVerdict<T>>;
   /** **The ratio that matters**, and it is reported even when nothing is dropped. */
   keptRatio: number;
   /**
@@ -81,6 +94,20 @@ export interface GroundingReport<T extends GroundableFinding = ReviewComment> {
    * run whose quotations are a third elided is a run whose precision was checked on two thirds of its evidence.
    */
   unverifiableQuotes: number;
+  /**
+   * **How many findings named an identifier that occurs nowhere in the evidence**, and were **kept** anyway.
+   *
+   * **Counted rather than dropped, and the reason is a measurement rather than a change of heart.** §150 priced the name
+   * check on the published artifact at every widening the repository can support: with the change read whole and literals
+   * excluded it still convicted **6** findings, of which **2 carried a golden** - a pool of one in three against a base
+   * rate of one in three among the comments that were posted. **A filter that selects wrong comments at the rate the list
+   * already contains them is a filter that selects nothing**, and a filter in front of a fixed budget cannot even buy
+   * precision by deleting wrong comments, because the budget refills the slot with the next one.
+   *
+   * So the verdict survives as a **number**: a review that names symbols it never saw is a review worth reading twice, and
+   * *"9 of 305 comments name nothing in the code they are about"* is a sentence a maintainer can act on.
+   */
+  namesNowhere: number;
 }
 
 /**
@@ -108,6 +135,22 @@ export interface GroundingSources {
    * aggressive filtering suppressed 22% of true vulnerabilities.
    */
   diffs?: ReadonlyMap<string, string>;
+  /**
+   * **The whole change as one text**, when the caller has it: every hunk of every file the pull request touched.
+   *
+   * A name a comment mentions may be declared in a file the finding is not on - `lv_event_free_user_data_cb` is imported
+   * from a header, and `tucker_weight_from_conv` lives in a sibling module the same pull request moves. **None of those
+   * have to be read as files to be evidence that the name exists**, because the change already quotes them.
+   */
+  change?: string;
+  /**
+   * **Paths the revision does not have**, as the caller learned them: a deletion, a rename's old side, a file the head
+   * commit removed. Findings on them are `unpostable` rather than unread.
+   *
+   * **Absence is information**, which is why it is passed rather than inferred: from the file contents alone, *"this path
+   * is not in the map"* cannot distinguish a file that was read and is gone from a file nobody read.
+   */
+  absent?: ReadonlySet<string>;
 }
 
 /** A line range that the file actually has. */
@@ -164,51 +207,108 @@ function quoteIsPresent(comment: GroundableFinding, lines: string[], diff?: stri
 }
 
 /**
- * Whether a name the comment mentions actually occurs in the quoted region.
+ * **Words that are syntax rather than names**, so a comment quoting `false` in backticks is not making a claim about a
+ * symbol.
  *
- * **The empirical gate the literature describes.** *Refute-or-Promote* (arXiv 2604.19049) reports that **ten dedicated
- * reviewers unanimously endorsed a non-existent Bleichenbacher oracle in OpenSSL's CMS module**, and that it was
- * **killed only by a single empirical test** - which is why their pipeline ends with a gate that requires concrete
- * evidence rather than agreement. **The same paper's summary is the thesis of this file**: *"no defect was discovered
- * autonomously; the contribution is external structure that filters LLM agents' persistent false positives."*
+ * **§149 counted the literals among the false convictions**: `?? false` was one of the six, and *"a literal in backticks"*
+ * was one of the four shapes. A keyword in backticks is a mention of the language, and **the check was written to ask about
+ * identifiers** - which is a fact about the vocabulary, not a judgement about the finding.
  *
- * **Here the empirical test is a symbol lookup.** When a comment names an identifier in backticks, **that identifier
- * has to appear in the code the comment is about.** A name that occurs nowhere in the region is a claim about
- * something that is not there - **and unlike a matter of judgement, it is decidable.**
- *
- * **Only backticked identifiers are checked**, so prose is not mistaken for code. **A comment that names nothing is
- * kept**, for the same reason a comment that quotes nothing is: **the evidence is required when it is offered.**
- *
- * **And the change counts as somewhere the name can be.** §149 priced the file-only version on the published artifact and
- * found it deleting true positives at **28.6 % of its pool** - seven times the §75.3 bar - because **every one of the
- * removals that cost a golden named something the head file legitimately cannot contain**: `dispatchCount`, a symbol the
- * change *removed* and the comment is about; `lv_event_free_user_data_cb`, a helper declared in another file and imported;
- * `NeedSubElement`, a name the comment proposes; `false` and `null`, literals in backticks. **A comment about a deletion
- * must name something that no longer exists** - that is the shape of the finding, not a defect in it, and a check that
- * cannot see the removed lines convicts it by construction.
+ * The list is the literals and the structural keywords of the eleven languages this repository reads first (JS/TS, Java,
+ * Python, Groovy, Kotlin, Swift, ArkTS, plus the C family, XML/YAML/JSON scalars). **A function named `new` would be
+ * skipped by this list and that is the correct trade**: a missed check costs one finding its note, and a false conviction
+ * costs the reader the finding.
  */
-function namesOccurInRegion(comment: GroundableFinding, lines: string[], diff?: string): boolean {
-  const body = `${comment.content ?? ''} ${comment.suggestionCode ?? ''}`;
-  const named = [...body.matchAll(/`([A-Za-z_$][\w$]{2,})`/g)].map((m) => m[1]!);
+const NOT_A_NAME = new Set([
+  'true',
+  'false',
+  'null',
+  'undefined',
+  'nil',
+  'None',
+  'True',
+  'False',
+  'NaN',
+  'Infinity',
+  'void',
+  'this',
+  'self',
+  'super',
+  'new',
+  'delete',
+  'typeof',
+  'instanceof',
+  'async',
+  'await',
+  'yield',
+  'return',
+  'break',
+  'continue',
+  'throw',
+  'catch',
+  'else',
+  'finally',
+  'var',
+  'let',
+  'const',
+  'def',
+  'fn',
+  'func',
+  'yes',
+  'no',
+  'on',
+  'off',
+]);
+
+/**
+ * **Whether the names a comment mentions occur anywhere in the evidence**, which is now a **note rather than a verdict**.
+ *
+ * §149.3 repaired the file-only premise by reading the change as well, and the repair was priced: **5 goldens spent became
+ * 3**, and the question that came out of the table was not *"how much narrower"* but *"what is left"*. §150 answered it on
+ * the published artifact: with the change read as a whole and literals excluded, **6 findings still name something absent,
+ * and 2 of the 6 carry a golden** - **one in three, against a base rate of one in three**. Nothing is left to select.
+ *
+ * > **The check is not wrong about the facts; it is uninformative about them.** A name that is missing from the region, the
+ * > file and the change is *usually* a name the reviewer invented, and *sometimes* a name the reviewer is proposing - and
+ * > the corpus does not let the two be told apart at a rate better than chance.
+ *
+ * **Three widenings, each with a reason the artifact gives.** The change whole, because a sibling module is a place a name
+ * exists (`tucker_weight_from_conv`); literals excluded, because `false` is syntax; and **the comment's own proposal
+ * excluded**, because `NeedSubElement` is what the finding asks for and **a proposal is by construction absent**.
+ *
+ * **A comment that names nothing is not counted**, for the same reason a comment that quotes nothing is kept: the evidence
+ * is required when it is offered.
+ */
+function namesOccurInEvidence(
+  comment: GroundableFinding,
+  lines: string[],
+  sources: GroundingSources,
+): boolean {
+  const proposal = comment.suggestionCode ?? '';
+  const body = `${comment.content ?? ''} ${proposal}`;
+  const named = [...body.matchAll(/`([A-Za-z_$][\w$]{2,})`/g)]
+    .map((match) => match[1]!)
+    .filter((name) => !NOT_A_NAME.has(name));
   if (named.length === 0) return true;
 
-  // **The region, plus the whole file as a fallback.** A comment may legitimately name a symbol declared elsewhere in
-  // the same file, so the region is where it must be *shown* and the file is where it must *exist*.
   const region = lines.slice(Math.max(0, comment.startLine - 1), comment.endLine).join('\n');
-  const file = lines.join('\n');
-  // **And the change**, because a removed line is a place a name exists: `?? false` alone would make a comment about a
-  // deletion unverifiable by construction, which is the failure §149 measured at 28.6 % true removals.
-  const change = diff ?? '';
+  const evidence = [
+    region,
+    lines.join('\n'),
+    sources.diffs?.get(comment.path) ?? '',
+    sources.change ?? '',
+  ];
   return named.every(
-    (name) => region.includes(name) || file.includes(name) || change.includes(name),
+    (name) => proposal.includes(name) || evidence.some((text) => text.includes(name)),
   );
 }
 
 /**
  * Splits findings into the ones about something that exists and the ones that are not.
  *
- * **The order of the checks is the order of their strength**: a path the review never read is unfixable by any
- * reading of the file, a range outside the file is provably wrong, and a quotation that is absent is evidence.
+ * **The order of the checks is the order of their strength**: a path the revision does not have cannot carry a comment at
+ * all, a path the review never read is unfixable by any reading, a range outside the file is provably wrong, and a
+ * quotation that is absent is evidence.
  */
 export function judgeGrounding<T extends GroundableFinding>(
   comments: readonly T[],
@@ -216,9 +316,22 @@ export function judgeGrounding<T extends GroundableFinding>(
 ): GroundingReport<T> {
   const grounded: Array<T & { filtered: boolean }> = [];
   const ungrounded: Array<GroundingVerdict<T>> = [];
+  const unpostable: Array<GroundingVerdict<T>> = [];
   let unverifiableQuotes = 0;
+  let namesNowhere = 0;
 
   for (const comment of comments) {
+    // **Before the file is even looked for**, because a revision that does not have the path cannot be read at it: a
+    // finding on a deleted file is a comment with nowhere to go, not a comment about nothing.
+    if (sources.absent?.has(comment.path) === true) {
+      unpostable.push({
+        comment,
+        grounded: false,
+        reason: `the revision this review read has no "${comment.path}", so a comment on it has no line to attach to`,
+      });
+      continue;
+    }
+
     const content = sources.contents.get(comment.path);
 
     if (content === undefined) {
@@ -252,15 +365,9 @@ export function judgeGrounding<T extends GroundableFinding>(
       continue;
     }
 
-    if (!namesOccurInRegion(comment, lines, sources.diffs?.get(comment.path))) {
-      ungrounded.push({
-        comment,
-        grounded: false,
-        reason:
-          'the finding names an identifier that occurs nowhere in the file it is about, nor in the change it is about',
-      });
-      continue;
-    }
+    // **Counted and kept**: §150 measured this check selecting wrong comments at the rate the list already contains them,
+    // so it is a sentence in the report rather than a deletion from it.
+    if (!namesOccurInEvidence(comment, lines, sources)) namesNowhere += 1;
 
     grounded.push({ ...comment, filtered: false });
   }
@@ -269,8 +376,10 @@ export function judgeGrounding<T extends GroundableFinding>(
   return {
     grounded,
     ungrounded,
+    unpostable,
     // **`1` when there was nothing to judge**, which is the honest reading: nothing was dropped.
     keptRatio: total === 0 ? 1 : Math.round((grounded.length / total) * 10000) / 10000,
     unverifiableQuotes,
+    namesNowhere,
   };
 }

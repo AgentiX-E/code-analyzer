@@ -106,6 +106,51 @@ describe('the page stands alone', () => {
   });
 });
 
+describe('the two counts §150 turned rules into', () => {
+  it('shows the names a comment could not anchor and the findings it could not post', () => {
+    const html = renderGateReplayPage(
+      report({
+        gate: {
+          withheldPullRequests: 0,
+          namesNowhere: 6,
+          coverage: { offered: 591, readable: 590, unpostable: 1 },
+          byReason: [],
+          perPullRequest: [row()],
+        },
+      }),
+    );
+
+    expect(html).toMatch(/<b>6<\/b><span>names absent<\/span>/u);
+    expect(html).toMatch(/<b>1<\/b><span>unpostable<\/span>/u);
+  });
+
+  it('draws where the names live when the replay measured it', () => {
+    const html = renderGateReplayPage(
+      report({
+        anchors: {
+          findings: 10,
+          readable: 10,
+          noName: 4,
+          inRange: 3,
+          inFile: 1,
+          inChange: 1,
+          nowhere: 1,
+        },
+      }),
+    );
+
+    expect(html).toContain('Where the names a comment mentions actually live');
+    expect(html).toContain('names a symbol absent from all of it');
+    expect(html).toContain('10</b> findings whose file was read');
+  });
+
+  it('says the artifact predates the measurement rather than drawing an empty table', () => {
+    const html = renderGateReplayPage(report());
+
+    expect(html).toContain('this artifact predates the measurement');
+  });
+});
+
 describe('a report with nothing behind it is refused rather than drawn', () => {
   it('throws when the replay carried no per-pull-request rows', () => {
     expect(() =>
