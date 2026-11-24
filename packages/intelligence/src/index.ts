@@ -522,6 +522,10 @@ export type {
   TopKPoint,
 } from './review/actionability.js';
 
+// Evidence anchoring — the lines a finding is about, resolved from the diff and traceable to a revision.
+export { EVIDENCE_EXTRACTOR, addedTextAt, attachEvidence, evidenceFor } from './review/evidence.js';
+export type { EvidenceOrigin, LocatedFindingLike } from './review/evidence.js';
+
 // Category prior — what a category of finding is worth, measured rather than assumed
 export {
   applyEmissionProfile,

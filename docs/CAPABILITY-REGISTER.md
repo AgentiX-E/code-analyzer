@@ -1,0 +1,130 @@
+# Capability register — what the product does, who else does it, and what proves it
+
+**A feature list organised by package is a list of the code, not of the product.** Everything below is grouped by the
+person who needs it and the promise it makes them, because **a capability nobody can describe as a user story is a
+capability nobody can accept or reject**.
+
+Three columns matter more than the rest, and each has a rule:
+
+| column   | rule                                                                                                                                                                                                                                           |
+| -------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| **Who**  | `P` public — every serious reviewer or analyser has it. `C` competitor-only — a named competitor ships it and this repository does not. `O` ours-only — this repository ships it and no competitor in `docs/INDUSTRY_COMPARISON.md` does.      |
+| **Unit** | the suite that fails when the rule breaks. A file name where it is one file, `—` where there is none.                                                                                                                                          |
+| **E2E**  | the end-to-end case that drives the public entry point. **A row with `—` here is not accepted, whatever its unit coverage** — the last three defects this repository found were all joins between components that each passed their own tests. |
+
+**Status vocabulary:** `DONE` — implemented, with an E2E case and no known unmet promise. `PART` — implemented and tested
+for some inputs, with the gap named. `NONE` — named in a plan and not built. **`NONE` is not a failure of this document;
+a register that only lists what exists cannot be used to decide what to build.**
+
+---
+
+## 1. As a developer opening a pull request, I want a review I can act on
+
+| #   | Capability                                                                                   | Surface         | Who                       | Unit                                           | E2E                                                          | Status                                                                                                                  |
+| --- | -------------------------------------------------------------------------------------------- | --------------- | ------------------------- | ---------------------------------------------- | ------------------------------------------------------------ | ----------------------------------------------------------------------------------------------------------------------- |
+| 1   | Five review lanes over one diff, each told what it is looking for                            | GitHub App, CLI | P                         | `tests/unit/review/review-engine.test.ts`      | `review-reads-in-the-order-a-developer-would`                | DONE                                                                                                                    |
+| 2   | Findings ranked so the first comment read is the most actionable                             | GitHub App, CLI | O                         | `a-score-term-is-worth-what-removing-it-costs` | `review-reads-in-the-order-a-developer-would`                | DONE                                                                                                                    |
+| 3   | **A comment quotes the code it is about, traceable to file, range and revision**             | GitHub App, CLI | **O**                     | `a-comment-carries-the-lines-it-is-about`      | `a-review-quotes-the-code-it-is-about`                       | DONE (§148)                                                                                                             |
+| 4   | A finding naming no file, or a file the call did not show, is dropped and counted separately | GitHub App      | O                         | `a-finding-is-located-by-the-code-it-quotes`   | `review-of-a-pull-request-names-the-file-that-has-to-change` | DONE                                                                                                                    |
+| 5   | The review is told what the change reaches, so a comment can name the caller it breaks       | CLI, MCP        | O                         | —                                              | `a-review-is-told-what-a-change-reaches`                     | DONE                                                                                                                    |
+| 6   | The review reads the function the change sits in, not only the hunk                          | CLI             | C (CodeRabbit, Greptile)  | `a-review-can-read-the-code-it-is-reviewing`   | `a-review-reads-the-function-the-change-sits-in`             | DONE                                                                                                                    |
+| 7   | Quotations are checked against the file **and** the change before a comment survives         | CLI             | O                         | `a-review-that-reads-before-it-accuses`        | `review-tells-the-reviewer-what-not-to-report`               | PART — the gate is applied where a report is built; **how much it is worth is `NOT_MEASURED`** (§147.5, replay pending) |
+| 8   | A review spends a stated budget and stops at a ceiling                                       | CLI, GitHub App | P                         | —                                              | `a-review-reports-what-it-spent-and-stops-at-the-ceiling`    | DONE                                                                                                                    |
+| 9   | The reviewer that reads the repository runs as a command                                     | CLI             | C (CodeRabbit agent mode) | —                                              | `the-reviewer-that-reads-runs-from-the-command`              | DONE                                                                                                                    |
+| 10  | A lane pays for its instructions once, not once per call                                     | — (cost)        | O                         | —                                              | `a-lane-pays-for-its-instructions-once`                      | DONE                                                                                                                    |
+
+## 2. As a maintainer, I want the review to be right about my language
+
+| #   | Capability                                                                                 | Surface  | Who | Unit                                           | E2E                                            | Status                                                                           |
+| --- | ------------------------------------------------------------------------------------------ | -------- | --- | ---------------------------------------------- | ---------------------------------------------- | -------------------------------------------------------------------------------- |
+| 11  | 33 language providers, 11 of them with a per-language defect checklist                     | all      | P   | `tests/unit/pipeline`                          | `a-name-in-a-type-position-java-python-kotlin` | DONE                                                                             |
+| 12  | A name in a type position is a dependency (Java, Python, Kotlin)                           | MCP, CLI | O   | —                                              | `a-name-in-a-type-position-java-python-kotlin` | DONE                                                                             |
+| 13  | A Kotlin parameter type resolves the call across files                                     | MCP      | O   | —                                              | `a-kotlin-parameter-type-resolves-the-call`    | DONE                                                                             |
+| 14  | A type mention is a dependency, not a call                                                 | MCP      | O   | —                                              | `a-type-mention-is-a-dependency`               | DONE                                                                             |
+| 15  | A question in Kotlin about a Java checkout is answered                                     | MCP      | O   | —                                              | `kotlin-question-in-a-java-checkout`           | DONE                                                                             |
+| 16  | ARKTS and the JVM/Python/TS families the brief prioritises are covered by a corpus in-repo | all      | O   | `the-arkts-corpus-the-repository-did-not-have` | —                                              | PART — **no E2E case yet**, which under §1's rule means this row is not accepted |
+
+## 3. As an agent, I want one answer from whichever surface I ask
+
+| #   | Capability                                                | Surface  | Who | Unit                                   | E2E                                                       | Status |
+| --- | --------------------------------------------------------- | -------- | --- | -------------------------------------- | --------------------------------------------------------- | ------ |
+| 17  | 51 MCP tools behind one registry and one context          | MCP      | P   | `tests/unit/mcp`                       | `mcp-e2e`                                                 | DONE   |
+| 18  | Index a checkout, then ask a question about it            | MCP      | P   | —                                      | `index-then-ask`                                          | DONE   |
+| 19  | A question asked on four retrieval arms is one answer     | MCP, CLI | O   | `a-search-engine-belongs-to-its-store` | `one-question-four-answers-is-one-answer`                 | DONE   |
+| 20  | Search in the CLI is the search that was measured         | CLI      | O   | —                                      | `a-search-in-the-cli-is-the-search-that-was-measured`     | DONE   |
+| 21  | An answer survives a checkout the tool may not read       | MCP      | O   | —                                      | `fused-localisation-on-a-refused-checkout`                | DONE   |
+| 22  | Ask with no index and be told where to start              | MCP      | O   | —                                      | `locate-without-index`                                    | DONE   |
+| 23  | An issue becomes ranked files, then an answer in the body | CLI, MCP | O   | —                                      | `issue-to-ranked-files`, `issue-answer-lives-in-the-body` | DONE   |
+| 24  | GraphQL and the web surfaces answer from the same store   | server   | P   | —                                      | `graphql-e2e`, `full-stack`                               | DONE   |
+| 25  | A hash space does not rank — similarity is not identity   | MCP      | O   | —                                      | `hash-space-does-not-rank`                                | DONE   |
+
+## 4. As a platform owner, I want several repositories and several languages
+
+| #   | Capability                                                        | Surface     | Who                                      | Unit | E2E                         | Status                                  |
+| --- | ----------------------------------------------------------------- | ----------- | ---------------------------------------- | ---- | --------------------------- | --------------------------------------- |
+| 26  | Cross-repository impact from a real workspace                     | MCP, CLI    | C (Sourcegraph) / O for review-bound use | —    | `cross-repo-real-workspace` | DONE                                    |
+| 27  | An agent's answer crosses a repository boundary                   | MCP         | O                                        | —    | `cross-repo-agent-impact`   | DONE                                    |
+| 28  | A multilingual, multi-repository question is answered in one pass | MCP         | O                                        | —    | `qa-multilingual-crossrepo` | DONE                                    |
+| 29  | Leiden communities over a real corpus                             | MCP         | O                                        | —    | `communities-real-corpus`   | DONE                                    |
+| 30  | **Incremental re-index: a push re-scans the files it changed**    | server, CLI | **P (every competitor)**                 | —    | —                           | **NONE — `C`-class gap, planned (S12)** |
+
+## 5. As a security owner, I want to know what the code exposes
+
+| #   | Capability                                            | Surface      | Who                   | Unit | E2E                  | Status                                             |
+| --- | ----------------------------------------------------- | ------------ | --------------------- | ---- | -------------------- | -------------------------------------------------- |
+| 31  | OWASP Benchmark measured, TPR and FPR reported        | CLI, harness | P                     | —    | `owasp-benchmark`    | PART — one tree; the second tree is the acceptance |
+| 32  | **Dead code and unreachable functions**               | MCP          | **C (Qodana, Sonar)** | —    | —                    | **PART — an engine, no E2E, no competitor corpus** |
+| 33  | Taint tracking across HTTP links                      | MCP          | C (Snyk, CodeQL)      | —    | `endpoint-inventory` | PART                                               |
+| 34  | A webhook is verified and answered inside ten seconds | server       | P                     | —    | `webhook-e2e`        | DONE                                               |
+
+## 6. As a researcher, I want every number to be reproducible and every difference to be real
+
+| #   | Capability                                                                                            | Surface | Who   | Unit                                                         | E2E                               | Status                                            |
+| --- | ----------------------------------------------------------------------------------------------------- | ------- | ----- | ------------------------------------------------------------ | --------------------------------- | ------------------------------------------------- |
+| 35  | The score is ablated term by term, and the artifact is rebuilt to the digit before a delta is printed | harness | **O** | `a-score-term-is-worth-what-removing-it-costs`               | — (harness, not product)          | DONE                                              |
+| 36  | A difference the corpus cannot resolve is recorded as indistinguishable                               | harness | **O** | `a-difference-the-corpus-cannot-resolve-is-not-a-difference` | —                                 | DONE                                              |
+| 37  | A board's denominator is part of the question (Martian Core = 158)                                    | harness | **O** | `a-denominator-is-part-of-the-question`                      | —                                 | DONE                                              |
+| 38  | A competitor run is bought once                                                                       | harness | O     | —                                                            | `a-competitor-run-is-bought-once` | DONE                                              |
+| 39  | Two engines agree on a state machine's reachable states (formal)                                      | harness | **O** | —                                                            | —                                 | **NONE — probed, not built**                      |
+| 40  | A single-file, clickable report with the evidence graph                                               | CLI     | O     | —                                                            | —                                 | **PART — the generator exists, the SPA does not** |
+
+---
+
+## 7. Coverage, counted
+
+|                             | rows |  share |
+| --------------------------- | ---: | -----: |
+| `DONE`                      |   32 |   80 % |
+| `PART`                      |    6 |   15 % |
+| `NONE`                      |    2 |    5 % |
+| **with an end-to-end case** |   33 | 82.5 % |
+| **with a unit case**        |   13 | 32.5 % |
+| **`O` ours-only**           |   26 |   65 % |
+| **`P` public**              |    9 | 22.5 % |
+| **`C` competitor-only**     |    5 | 12.5 % |
+
+**Counted, not estimated**: forty rows, and the arithmetic above is the register's own `grep -c` rather than a summary of
+it. **The interesting number is the last one**: 26 capabilities no competitor in this register ships, against 5 that only
+a competitor ships.
+
+**No `C` row is equal in cost, and only one is a defect rather than a narrowing.**
+
+#30 (incremental re-index) is the only one that makes the product unusable rather than merely narrower: **`ContentCache`
+and `ParseCache` have zero callers outside `packages/infra`**, so every push re-scans everything. #6 (function context)
+and #26 (cross-repository impact) are already `DONE` and are listed `C` only because the idea was a competitor's first.
+**#32 (dead code) and #33 (taint) have engines and no corpus** - an engine with no number is a feature nobody can rank.
+
+## 8. The optimisation path this register implies
+
+| priority | action                                                                        | removes                                    | why this order                                                |
+| -------- | ----------------------------------------------------------------------------- | ------------------------------------------ | ------------------------------------------------------------- |
+| P0       | Wire the parse and content caches into the review and index paths (S12)       | row 30 — the only `C` row that is a defect | every competing product re-scans incrementally; ours does not |
+| P0       | Give dead-code detection a competitor corpus and an E2E case (S22 §8)         | rows 32, 33                                | an engine without a corpus is a feature with no number        |
+| P1       | An E2E case for the ARKTS corpus and for the single-file report (rows 16, 40) | two `PART` rows with no acceptance         | §1's rule: no E2E, not accepted                               |
+| P1       | The grounding replay, to turn row 7's `NOT_MEASURED` into a number (S6)       | the only scoring device without a price    | §147.5                                                        |
+| P2       | A second OWASP tree (row 31)                                                  | `PART` → `DONE`                            | one tree is a demonstration, two is a measurement             |
+| P2       | Formal verification: two engines, one IR, one golden set (row 39)             | `NONE`                                     | no board exists for it; it is `O` by construction             |
+
+**The rule this register exists to enforce:** a capability may not be refused because a leaderboard does not score it,
+and may not be added because a competitor has it. **It is refused when its cheapest testable mechanism is more expensive
+than the promise it keeps, and accepted when a named user story fails without it.**

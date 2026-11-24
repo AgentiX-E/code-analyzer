@@ -297,7 +297,12 @@ export function weighFinding(located: LocatedFinding, facts: DiffFacts): Actiona
   const added = facts.added.get(path) ?? new Map<number, string>();
   const addedLines = [...added.values()];
   const narrative = `${finding.title} ${finding.description}`;
-  const quoted = `${finding.snippet ?? ''} ${narrative}`.trim();
+  // **Only the model's own words are evidence about the model.** `review/evidence.ts` fills `snippet` from the diff so
+  // a reader sees the code inline; a term that counted that text would answer "did we copy a line" instead of "did the
+  // review quote the change", and every finding would score as quoting it. Marked text is therefore excluded here, and
+  // an unmarked snippet - which is every snippet that existed before the distinction - reads exactly as it always did.
+  const authored = finding.snippetSource === 'diff' ? '' : (finding.snippet ?? '');
+  const quoted = `${authored} ${narrative}`.trim();
 
   // **Grounding is a range intersection, and an inverted range is grounded in nothing.**
   let grounded = false;

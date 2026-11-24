@@ -484,7 +484,10 @@ describe('every module a package compiles is reachable from an entry its manifes
       // to be read by the command, by the harness and by the report** - a gate applied in one and recorded in another is
       // the §130 defect, a score computed from a filter the product did not run - and because the refusal
       // (`withheld: no-readable-arm`) is a state a test can construct without a git checkout.
-      intelligence: 196,
+      // **197 since §148**, which added `review/evidence.ts`: the anchor a comment carries - the lines, the revision
+      // and the name of the rule that resolved them - plus the marker that keeps a derived quotation out of the
+      // scoring term that is supposed to measure the reviewer. (196 was §130.)
+      intelligence: 197,
       mcp: 39,
       server: 24,
       // **11 since iteration 121**, which added `utils/type-text.ts`: the depth-counted removal of type arguments and

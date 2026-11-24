@@ -16020,3 +16020,76 @@ the finding, where §147.5 says the money is; and the three-state status vocabul
 4. **Sigma can regenerate the artifact.** If the sentence a pull request receives can be derived deterministically from code
    facts alone, the premise holds and the whole design reopens. **This is the condition to watch, because it is the one that
    would also mean the product no longer needs a model.**
+
+## 148. The quotation was a description of where the code is
+
+**§145 found a gate that could not be replayed because `snippet` had no producer. Following that thread found a worse
+defect one layer up: the comment's quotation was never code.**
+
+`convertToReviewComments` filled a comment's `existingCode` from `extractRangeText`, whose entire body was:
+
+```text
+`[Lines ${range.oldStart}-${range.oldEnd} -> ${range.newStart}-${range.newEnd}] ${range.changeType}`
+```
+
+**No file in any repository contains that string**, so three consumers were wrong about the same field at once.
+
+| consumer                | what it asked                                                     | what the placeholder answered                                                                                                                  |
+| ----------------------- | ----------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------- |
+| `grounding-judge.ts`    | does this quotation appear at the lines it names                  | **never** - and its rule is that a comment which offers a quotation must have it verified, so the placeholder is a systematic false conviction |
+| `comment-positioner.ts` | does `existingCode` match the file at the claimed lines (`exact`) | never; then heuristically, `[Lines 10-12 -> 10-14] modified` is searched for in the source, which costs a scan and finds nothing               |
+| the reader              | what code is this comment about                                   | a sentence about line numbers where the code should be                                                                                         |
+
+**Why no test caught it.** Every existing test constructed its own `existingCode` and asserted what it put there. **An
+unasserted string is an unmeasured behaviour**, and this one was on the path from the engine to the comment a reviewer
+reads. The `grep` that would have found it is one line: `existingCode:` had exactly one producer in the package, and its
+value was a template literal with no source text in it.
+
+### 148.1 The repair, and the trap it had to avoid
+
+`review/evidence.ts` resolves a finding's own lines to the text the pull request added there, and the comment quotes
+that. **The obvious version of this fix would have made a scoring term circular**: `weighFinding` asks whether the review
+quoted the change, and a quotation copied out of the diff answers yes by construction - so every finding would have
+scored as quoting the change and the term would have stopped measuring the reviewer.
+
+**The trap is closed by marking the source rather than by trusting the field.** `LLMFinding.snippetSource` is `'diff'`
+when this engine wrote the snippet and `'model'` when the model did, and `weighFinding` reads model-authored text only.
+An unmarked snippet - which is every snippet that existed before the distinction - reads exactly as it always did, so
+**every published score is reproduced to the digit rather than approximately**. That is asserted as an equality on the
+whole `ActionabilityScore`, features included, in
+`tests/unit/review/a-snippet-from-the-diff-does-not-move-a-score.test.ts`.
+
+### 148.2 What the anchor is, and the four refusals it makes
+
+`FindingEvidence` is `{ file, startLine, endLine, text, commit, extractor }`: **the lines, the revision they were read at,
+and the name of the rule that resolved them.** A line number without a revision is a claim with no truth value - six
+months later "the comment was about line 42" can be neither confirmed nor refuted.
+
+| refusal                                                | why                                                                                                                                                         |
+| ------------------------------------------------------ | ----------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| a fractional, zero, negative, `NaN` or `Infinity` line | the ingest path already counts these as `invalidLine`; a resolver that repaired them would make two components disagree about how many findings were broken |
+| a range whose lines the change did not add             | quoting a context line lets a comment claim to be about a change it never touched; **the empty answer is the honest one**                                   |
+| an unknown path                                        | the diff does not contain that file, so there is nothing to quote                                                                                           |
+| guessing a revision from the diff                      | **a guessed revision is worse than an absent one** - it makes an audit look complete                                                                        |
+
+The range is **normalised, not rejected**, because `weighFinding` already normalises an inverted range before asking
+whether it is grounded, and a resolver that answered a different question than the grounding check would make the two
+disagree on exactly the malformed findings.
+
+### 148.3 What is claimed, and what is deferred to a measurement
+
+**Claimed:** a comment now quotes the code it is about when the change added those lines, the quotation is traceable to a
+file, a range, a revision and a rule, and the ranking is unchanged (proved by equality, 30 unit cases at
+100 % statement, branch, function and line coverage of the new module, plus 4 end-to-end cases driving the public entry
+point with a deterministic provider).
+
+**Not claimed:** that this raises F1. **The size of the grounding win is exactly what the replay in §147.5 is for**, and
+the rule stands - a delta smaller than the corpus resolution (0.0126 F1 on the 50-pull-request slice, 4.8 true
+positives) is recorded as indistinguishable rather than reported as progress. What can be said without a replay is the
+deductive part: **the placeholder could never be verified, so the gate's verdict on every comment that offered one was
+decided by a string that exists in no file.**
+
+**One consequence worth naming.** Removing the placeholder means a finding whose lines the change did not add now
+carries **no** quotation rather than a fabricated one. `grounding-judge.ts` keeps a comment that offers no quotation and
+drops one whose quotation fails, so this converts a class of false convictions into unchecked comments - which is the
+direction the device was designed to fail in.
