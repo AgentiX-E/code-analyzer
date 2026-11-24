@@ -35,8 +35,19 @@ export function parseSpec(spec) {
   const text = String(spec ?? '').trim();
   if (text.length === 0) return { ok: false, reason: 'the install spec is empty' };
   const at = text.lastIndexOf('@');
-  if (at <= 0) return { ok: true, name: text, version: 'latest' };
-  return { ok: true, name: text.slice(0, at), version: text.slice(at + 1) || 'latest' };
+  const name = at <= 0 ? text : text.slice(0, at);
+  const version = at <= 0 ? 'latest' : text.slice(at + 1) || 'latest';
+  // **The grammar is checked here rather than escaped later.** A name is `@scope/name` of the characters npm allows, and
+  // a version is a semver with the punctuation semver has; **anything else is refused**, because a name carrying `?` or
+  // `#` would be read by the URL parser as a query or a fragment and the request would go somewhere else entirely - the
+  // defect `js/incomplete-sanitization` reported on this function's first version, which replaced `/` and nothing more.
+  if (!/^(@[a-z0-9][a-z0-9._-]*\/)?[a-z0-9][a-z0-9._-]*$/i.test(name)) {
+    return { ok: false, reason: `"${name}" is not an npm package name` };
+  }
+  if (!/^[a-z0-9][a-z0-9._+-]*$/i.test(version)) {
+    return { ok: false, reason: `"${version}" is not a version` };
+  }
+  return { ok: true, name, version };
 }
 
 /**
@@ -94,7 +105,9 @@ export function verifyIntegrity(bytes, integrity) {
 export async function fetchPinned({ spec, registry = DEFAULT_REGISTRY, fetchImpl = fetch }) {
   const parsed = parseSpec(spec);
   if (parsed.ok === false) return parsed;
-  const url = `${registry.replace(/\/$/, '')}/${parsed.name.replace('/', '%2f')}/${parsed.version}`;
+  // **Both segments encoded, and neither of them trusted**: the grammar above already refused anything with a reserved
+  // character, and this is the second lock on the same door - the one that survives somebody loosening the first.
+  const url = `${registry.replace(/\/$/, '')}/${encodeURIComponent(parsed.name)}/${encodeURIComponent(parsed.version)}`;
   let meta;
   try {
     const res = await fetchImpl(url, { headers: { accept: 'application/json' } });
