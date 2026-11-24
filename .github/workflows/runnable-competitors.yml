@@ -81,7 +81,9 @@ jobs:
           # configuration**, and DeepSeek is a `model` line rather than a negotiation. **Pinned to the release the
           # recorded comparison was measured against**, for the same reason `open-code-review` is pinned: `--upgrade`
           # with no version reinstalls "the competitor" as whatever shipped this week.
-          python -m pip install --upgrade "pr-agent==0.50.0"
+          # **The pin is verified, not merely named**: pip resolves the file, this repository hashes it against the
+          # digest the index publishes for that filename, and the install reads only files somebody checked.
+          node scripts/install-pinned-pip.mjs pr-agent==0.50.0
           python -m pip show pr_agent | head -3
           # **`Kodus`: npm, with a documented bring-your-own-key path, under `@kodus/cli`.** The name this line used
           # to ask for, `@kodus/flow`, is not published at all - so the `|| echo` behind it was the only path ever
