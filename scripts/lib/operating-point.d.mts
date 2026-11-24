@@ -27,7 +27,9 @@ export type CutStep =
   | { readonly kind: 'keep-category'; readonly categories: readonly string[] }
   | { readonly kind: 'drop-path-class'; readonly classes: readonly string[] }
   | { readonly kind: 'gate' }
-  | { readonly kind: 'budget'; readonly k: number };
+  | { readonly kind: 'budget'; readonly k: number }
+  /** At most `k` comments of these categories **per pull request**, ranked by the score the budget ranks by. */
+  | { readonly kind: 'quota'; readonly categories: readonly string[]; readonly k: number };
 
 export interface Point {
   readonly emitted: number;

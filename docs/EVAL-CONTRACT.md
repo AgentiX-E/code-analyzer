@@ -15648,3 +15648,44 @@ two or three per pull request — the same selection problem, one corpus further
 
 **A cap is not neutral on this board either**: cutting 387 to 110 costs 6.51 points of F1 (0.2786 → 0.2135), which
 retires the `−131 emissions` arithmetic the Martian target has been carrying since §138.
+
+### 143. A category is capped, not judged, and both boards refuse the same cap
+
+**The registered cut set could say `drop architecture` or `budget 12` and never the two together**, so §140.2 priced the
+category at the no-budget point — where its comments displace nothing, 16 of them buy reference comments, and removing it
+costs 3.65 points. **At the shipped budget they do displace something**, and that is a different question. `quota` is the
+step that asks it: at most `k` comments of a category per pull request, ranked by the score the budget ranks by, with
+`k = 0` the same cut as `drop` (six cases in `tests/unit/scripts/a-quota-is-a-cut-and-not-a-search.test.ts`).
+
+**AACR, file-shaped arithmetic, 452 goldens, the quota applied before the budget** — which is the allocation question,
+since a post-budget quota can only delete what twelve slots already admitted:
+
+| architecture quota | emitted |      P |      R |         F1 |       dF1 |
+| -----------------: | ------: | -----: | -----: | ---------: | --------: |
+|               none |     305 | 0.3082 | 0.3208 | **0.3144** |         — |
+|                  3 |     288 | 0.3299 | 0.3208 |     0.3253 |     +1.09 |
+|              **2** |     281 | 0.3345 | 0.3186 | **0.3264** | **+1.20** |
+|                  1 |     269 | 0.3457 | 0.3075 |     0.3255 |     +1.11 |
+|                  0 |     246 | 0.3415 | 0.2588 |     0.2945 |     −1.99 |
+
+**Martian, protocol arithmetic, 173 goldens, the same step on the shipped `drop test` + `budget 10`:**
+
+| architecture quota | emitted |      P |      R |         F1 |       dF1 |
+| -----------------: | ------: | -----: | -----: | ---------: | --------: |
+|               none |     387 | 0.2016 | 0.4509 | **0.2786** |         — |
+|              **1** |     356 | 0.2163 | 0.4451 | **0.2911** | **+1.25** |
+|                  2 |     368 | 0.2120 | 0.4509 |     0.2884 |     +0.98 |
+|                  3 |     377 | 0.2042 | 0.4451 |     0.2800 |     +0.14 |
+|                  0 |     332 | 0.2199 | 0.4220 |     0.2891 |     +1.05 |
+
+**The two boards agree that capping beats both extremes and disagree about the cap**: AACR's optimum is 2, Martian's is
+1, and **neither gain clears its board's resolution** (AACR 2.40, and +1.20 is inside it). **So the step ships as a priced
+hypothesis and not as policy** — the same disposition `scripts/aacr-file-cut-table.mjs --gate` gives the six shape
+predicates, and for the same reason: **a rule whose optimum differs between the two corpora has been fitted to whichever
+corpus a person happened to run it on.**
+
+**What it does correct is the sentence §140.2 left standing.** `drop test + architecture` looked like a 3.65-point loss
+under the corpus's arithmetic and a 0.24-point gain under the deprecated one; **at the shipped budget the honest reading
+is neither.** Keeping the category is worth **+1.99** over deleting it (0.3144 against 0.2945), and capping it at two is
+worth **+1.20** over keeping all of it — **a small, positive, inside-the-resolution contribution, not a liability and not
+a device.**

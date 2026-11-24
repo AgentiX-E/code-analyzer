@@ -127,10 +127,7 @@ describe('a comparison is one row set, one denominator, one scorer', () => {
 
   it('reports the file-shaped reading beside the comparison and never as part of it', () => {
     const filed = scoreSide({
-      findings: [
-        { ...ours('p1', 'a.ts', [0]), fileLevelGoldens: [0, 1] },
-        ours('p1', 'a.ts', [2]),
-      ],
+      findings: [{ ...ours('p1', 'a.ts', [0]), fileLevelGoldens: [0, 1] }, ours('p1', 'a.ts', [2])],
       goldens: 4,
     });
     // The second instrument covered one more reference comment than the pairwise verdicts on the same finding did.

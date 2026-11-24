@@ -15,7 +15,10 @@ import { join } from 'node:path';
 
 import { describe, expect, it } from 'vitest';
 
-import { BASELINE_VERSION, JUDGE_PROMPT_VERSION } from '../../../.github/scripts/lib/competitor-baseline.mjs';
+import {
+  BASELINE_VERSION,
+  JUDGE_PROMPT_VERSION,
+} from '../../../.github/scripts/lib/competitor-baseline.mjs';
 
 const ROOT = join(import.meta.dirname, '..', '..', '..');
 const BENCH = readFileSync(join(ROOT, '.github', 'scripts', 'aacr-bench.mjs'), 'utf8');
@@ -26,7 +29,9 @@ const BASELINE = JSON.parse(
 describe('the head-to-head names the question both sides answered', () => {
   it('writes the judge prompt into our artifact from the constant and not from a literal', () => {
     expect(BENCH).toMatch(/JUDGE_PROMPT_VERSION,/u);
-    expect(BENCH).toMatch(/judge: \{ model: MODEL, endpoint: BASE, prompt: JUDGE_PROMPT_VERSION \}/u);
+    expect(BENCH).toMatch(
+      /judge: \{ model: MODEL, endpoint: BASE, prompt: JUDGE_PROMPT_VERSION \}/u,
+    );
     // A typed version is a second source of truth for the same fact, and the second one is the one that goes stale.
     expect(BENCH).not.toMatch(/prompt: 'aacr-judge-v1'/u);
   });

@@ -215,6 +215,30 @@ export function applyCut(findings, steps) {
       kept = kept.filter((finding) => wanted.has(String(finding?.['category'] ?? '')));
     } else if (step.kind === 'gate') {
       kept = kept.filter((finding) => finding?.['actionable'] === true);
+    } else if (step.kind === 'quota') {
+      // **A quota is per pull request, like the budget it competes with.** A run-wide quota would be a first-come
+      // allocation between repositories, which is a property of the order the corpus was read in and not of the
+      // reviewer. Ties keep the artifact's order for the same reason the budget does.
+      const capped = new Set(step.categories);
+      const held = new Map();
+      for (const [at, finding] of kept.entries()) {
+        const category = String(finding?.['category'] ?? '');
+        if (!capped.has(category)) continue;
+        const key = `${pullRequestOf(finding)}\u0000${category}`;
+        const bucket = held.get(key);
+        if (bucket === undefined) held.set(key, [{ finding, at }]);
+        else bucket.push({ finding, at });
+      }
+      const allowed = new Set();
+      for (const bucket of held.values()) {
+        const ordered = bucket
+          .map((entry) => ({ ...entry, score: scoreOf(entry.finding) }))
+          .sort((left, right) => right.score - left.score || left.at - right.at);
+        for (const entry of ordered.slice(0, step.k)) allowed.add(entry.finding);
+      }
+      kept = kept.filter(
+        (finding) => !capped.has(String(finding?.['category'] ?? '')) || allowed.has(finding),
+      );
     } else if (step.kind === 'budget') {
       const byPullRequest = new Map();
       for (const finding of kept) {
@@ -250,6 +274,7 @@ export function describeCut(steps) {
       if (step.kind === 'drop-path-class') return `drop path ${step.classes.join('+')}`;
       if (step.kind === 'gate') return 'actionability gate';
       if (step.kind === 'budget') return `budget ${step.k}`;
+      if (step.kind === 'quota') return `quota ${step.categories.join('+')} ${step.k}`;
       return String(step.kind);
     })
     .join(', ');
@@ -336,6 +361,21 @@ export function parseCut(text) {
         .filter((category) => category.length > 0);
       if (categories.length === 0) throw new Error(`"${token}" names no category`);
       return { kind, categories };
+    }
+    if (kind === 'quota') {
+      // `quota:<categories>=<k>`. **Zero is a legal quota and is not a `budget`**: it is the same cut as `drop`, and a
+      // parser that refused it would make the two spellings of one cut two cuts.
+      const [named, count] = argument.split('=');
+      const categories = String(named ?? '')
+        .split(',')
+        .map((category) => category.trim())
+        .filter((category) => category.length > 0);
+      if (categories.length === 0) throw new Error(`"${token}" names no category`);
+      // **An empty count is not zero**: `Number('')` is `0`, so a quota with nothing after the `=` would silently be a
+      // deletion - the one meaning a typo must never acquire.
+      const k = String(count ?? '').trim() === '' ? Number.NaN : Number(count);
+      if (!Number.isInteger(k) || k < 0) throw new Error(`"${token}" is not a quota`);
+      return { kind: 'quota', categories, k };
     }
     if (kind === 'budget') {
       const k = Number(argument);
