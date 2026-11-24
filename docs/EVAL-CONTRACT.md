@@ -16358,5 +16358,9 @@ node scripts/gate-replay.mjs <artifact> --sources <cache> --html docs/gate-repla
 new counts and the anchor table. Unit cases: `tests/unit/scripts/what-a-comment-names-is-counted-not-deleted.test.ts`
 (4), `tests/unit/scripts/a-grounding-gate-is-priced-on-the-files-it-read.test.ts` (13),
 `tests/unit/scripts/a-grounding-replay-page-shows-where-the-gate-acted.test.ts` (9),
-`packages/intelligence/src/__tests__/a-deleted-file-is-unpostable-not-unread.test.ts` (6),
-`packages/intelligence/src/__tests__/a-comment-about-a-deletion-names-a-symbol-the-head-file-no-longer-has.test.ts` (6).
+`packages/intelligence/src/__tests__/a-deleted-file-is-unpostable-not-unread.test.ts` (9),
+`packages/intelligence/src/__tests__/a-comment-about-a-deletion-names-a-symbol-the-head-file-no-longer-has.test.ts` (6),
+`packages/intelligence/src/__tests__/grounding-judge.test.ts` (16). **The three files this section changed are at 100 % on
+all four coverage dimensions**, and one of the four branches it started with was unreachable rather than untested: see
+`judgeGrounding`'s quotation read, where `!isVerbatimQuote(x) && (x ?? '').trim().length > 0` short-circuited before the
+default. **A branch nothing can reach is not a coverage gap; it is a default that lies about being needed.**
