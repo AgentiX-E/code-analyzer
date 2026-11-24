@@ -62,6 +62,12 @@ benchmarks/multirepo-qa*.json
 # Verified: the only difference Prettier finds in any of these files is array layout.
 benchmarks/aacr-*.json
 
+# **The replay's artifact, for the same reason and one more.** `benchmarks/gate-replay.json` is written by
+# `scripts/gate-replay.mjs` with `JSON.stringify(…, null, 2)`, and `--check` re-derives it and compares: **a formatter
+# that re-laid the arrays out would make the committed file differ from the one the tool produces**, so the check would
+# fail on a commit that changed nothing but formatting.
+benchmarks/gate-replay*.json
+
 # **A rendered module is not authored, and the byte comparison is the point.** `review-defaults.generated.ts` is written
 # by `aacr-review-defaults-codegen.mjs` from `review-defaults.json`, and the guard test asserts the committed file is
 # **byte-identical** to a fresh render - so a formatter that rewrote it (Prettier removes the quotes from object keys,
@@ -74,3 +80,9 @@ packages/intelligence/src/review/llm/review-defaults.generated.ts
 # formatter run here would be reverted by the next build, and a `--check` failure would be a formatter opinion about a
 # generated file rather than a defect in one. Excluded rather than reformatted, for the same reason the JSON artifact above is.
 docs/capability-register.html
+
+# **And the second rendered page, for the reason the first is excluded.** `docs/gate-replay.html` is emitted by
+# `scripts/gate-replay.mjs --html` from `benchmarks/gate-replay.json`, which is itself an artifact the harness wrote; a
+# formatter pass here would be reverted by the next replay, and a `--check` failure would be a formatter opinion about a
+# generated file rather than a defect in one.
+docs/gate-replay.html

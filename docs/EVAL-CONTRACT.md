@@ -16093,3 +16093,123 @@ decided by a string that exists in no file.**
 carries **no** quotation rather than a fabricated one. `grounding-judge.ts` keeps a comment that offers no quotation and
 drops one whose quotation fails, so this converts a class of false convictions into unchecked comments - which is the
 direction the device was designed to fail in.
+
+## 149. The grounding gate is a loss, and the check that decided it had a false premise
+
+**§147.5 registered the question and §148.3 deferred it**: _does the gate that drops findings it cannot ground buy
+precision or cost recall?_ §148 removed the obstacle by making a comment quote real code. This is the replay, and the
+answer is **no - and the reason is not a threshold.**
+
+**What was measured.** Artifact `45057608080` of `aacr-bench.yml`: 591 ranked findings, 452 goldens, published
+`305 / 101 / 0.3311 / 0.2235 / 0.2668`. The gate is `decideGrounding` - the shipped one, with its all-or-nothing coverage
+rule - run **in front of** the shipped cut (`drop test`, `drop path test`, `budget 12`) rather than after it, because a
+filter that removes a posted comment frees no budget and would be a different device. Its inputs are the artifact's own
+verdict matrix and the file each finding stands in, read at the head commit the run named. **Fifty pull requests, 329
+paths, 590 of 591 findings readable, and no model call: the bill is ¥0.** Every revision is recorded in
+`benchmarks/gate-replay.json` under `pinned`.
+
+### 149.1 The two points, and why the corpus's resolution cannot decide this
+
+| rule              | posted | true | precision |  recall |      F1 |
+| ----------------- | -----: | ---: | --------: | ------: | ------: |
+| as published      |    305 |  101 |    0.3311 |  0.2235 |  0.2668 |
+| \+ grounding gate |    301 |   98 |    0.3256 |  0.2168 |  0.2603 |
+| difference        |     −4 |   −3 |   −0.0056 | −0.0066 | −0.0066 |
+
+**The difference is smaller than the corpus can resolve** - 0.0066 of F1 against a 0.0126 minimum detectable effect on
+this slice, and three goldens against a resolution of 4.8 true positives - so **no claim is made about the F1 column, in
+either direction.** A run that reported `−0.0066` as a regression would be reading noise with a sign, which is the defect
+§76 was written about.
+
+**§75.3's criterion is the one that can decide it, and it does not need the resolution.** It is measured on the
+**removals** rather than on the figure they leave behind, so it does not move with the reviewer's generation:
+
+| quantity                     |  value | bar                                                |
+| ---------------------------- | -----: | -------------------------------------------------- |
+| comments removed from posted |     10 | —                                                  |
+| of those, true positives     |      4 | **≤ 4 % of the pool** (§75.3), i.e. ≤ 0.4 comments |
+| removal pool share           | 40.0 % | **10× the bar**                                    |
+
+**A gate that deletes forty true comments for every hundred it deletes is not a precision device.** The bar exists because
+a filter's whole value is its pool: at 4 % the device can be repeated, at 40 % it is a coin flip that costs recall.
+
+### 149.2 The premise was false, not the threshold: four shapes of name a file cannot contain
+
+Every removal that cost a golden named an identifier the head file legitimately does not contain. The six, with the
+sentence each was part of:
+
+| pull request   | finding                                | name it cited                    | why the file does not have it                      |
+| -------------- | -------------------------------------- | -------------------------------- | -------------------------------------------------- |
+| FreeCAD/21257  | `Part/App/MeasureClient.cpp:101-106`   | `getTopoShape`, `NeedSubElement` | the name the comment **proposes**                  |
+| FreeCAD/21257  | `Part/Gui/TaskSweep.cpp:83`            | `NoElement`                      | idem                                               |
+| ComfyUI/8446   | `weight_adapter/base.py:126-134`       | `tucker_weight_from_conv`        | declared in a **different file**                   |
+| three.js/31402 | `nodes/gpgpu/ComputeNode.js:100-115`   | `dispatchCount`                  | **removed by this change** - which is the finding  |
+| lvgl/8164      | `test_cases/widgets/test_animimg.c:48` | `false`                          | a **literal in backticks**, and a removed argument |
+| lvgl/8689      | `xml/parsers/lv_xml_label_parser.c:70` | `lv_event_free_user_data_cb`     | an **imported helper**, as the comment itself says |
+
+**Four shapes, and three of them are ordinary review language:** a name the change removed, a name declared elsewhere and
+imported, a name the comment proposes, and a literal written in backticks. **The fourth is the fatal one**: _"`dispatchCount`
+is no longer recomputed"_ is a sentence about a deletion, and **a sentence about a deletion must name something that no
+longer exists.** The file-only check convicts it by construction.
+
+> **A check can be empirical and still ask the wrong question.** "Does this name occur in this file" is decidable, which is
+> why it was written; "does this name occur in the code this comment is about" is the question whose answer is evidence,
+> and the change is part of that code.
+
+### 149.3 The repair: the change is a place a name can be found
+
+`sources.diffs` was already threaded into `judgeGrounding` for the quotation check (§148) and was not read by the name
+check. It is now read by both, and the search order is region → file → change. Five cases hold it
+(`packages/intelligence/src/__tests__/a-comment-about-a-deletion-names-a-symbol-the-head-file-no-longer-has.test.ts`): a
+name in the change is kept, a name in neither place is still refused, a name declared later in the file is still kept, and
+a caller with no diff behaves exactly as before - **an absent diff is an empty string, which occurs in nothing**, so the
+repair cannot move a caller that reviews a diff alone.
+
+### 149.4 What the repair bought, and what it did not
+
+Two arms, one corpus, one cut, one commit apart:
+
+| arm                                 | dropped of 591 | posted removed | of those true |   pool | goldens lost |     ΔF1 |
+| ----------------------------------- | -------------: | -------------: | ------------: | -----: | -----------: | ------: |
+| name check reads the file only      |             36 |             21 |             6 | 28.6 % |            5 | −0.0041 |
+| **name check reads the change too** |         **15** |         **10** |         **4** | 40.0 % |        **3** | −0.0066 |
+
+**Both arms fail the pool bar, and the repair makes the F1 slightly worse** - fewer drops means fewer false positives
+removed, which is the price of convicting fewer true findings. **It is kept anyway, and the reason is stated rather than
+argued**: the repair is about not deleting a true comment, goldens spent by the gate fell from 5 to 3, and the device is
+not shipped in either arm. **A repair whose benefit is "less wrong about the right thing" is not a device that starts
+paying.**
+
+### 149.5 The withholding rule costs a whole pull request, and that is a defect of its own
+
+One of fifty pull requests was withheld: `microsoft/typescript-go#831`, whose finding sits on
+`testdata/baselines/reference/submodule/conformance/importTag16.types`, a path the head revision does not have. Coverage
+27 of 28 made the gate inert for **all 28** findings of that pull request.
+
+**That is the all-or-nothing rule working as designed, and the design is wrong for this input.** A path absent at head is
+not a file the run failed to read - it is a **deleted file**, and a finding on it cannot be posted at all. The rule was
+written against the failure it has actually seen (§`grounding-gate.ts`: a caller holding half a checkout, which would have
+turned a gate into a report about which files were fetched), and a 404 is a different fact wearing the same name. The
+repair is registered, not built: **a path absent at head is its own bucket - unpostable - and it leaves coverage alone.**
+
+### 149.6 The verdict, and what the next device has to be
+
+**Do not ship the grounding gate as a global filter.** Its removal pool is 10× the bar, its sign on F1 is unresolvable,
+and its one deciding check cannot tell _"a name that does not exist"_ from _"a name that exists somewhere the check does
+not look"_.
+
+**What that names is the device's specification, not its abandonment.** Three of the four false-conviction shapes are
+answerable with text this repository already has: the change (§149.3, done), the repository index (`packages/review/index`
+resolves cross-file declarations, which is what `lv_event_free_user_data_cb` and `tucker_weight_from_conv` need), and a
+proposal-shaped name (`NeedSubElement` is introduced by "replaces … with" in the same sentence). **A version that reads all
+three is a different device and needs its own registration** - it is S28, and its acceptance criterion is the pool, not the
+F1.
+
+**Not claimed:** that any of these reach a pool inside 4 %. The measured facts are the two arms above and the four shapes;
+the rest is a hypothesis with a stated test.
+
+**Reproduce.** `node scripts/gate-replay.mjs <artifact> --sources <cache> --check benchmarks/gate-replay.json` exits `0`
+when the arithmetic still produces the recorded figure, and non-zero when it moves. `--html docs/gate-replay.html` draws
+the per-pull-request rows the totals hide. The run's 17 unit cases are
+`tests/unit/scripts/a-grounding-gate-is-priced-on-the-files-it-read.test.ts` and
+`tests/unit/scripts/a-grounding-replay-page-shows-where-the-gate-acted.test.ts`.
