@@ -15965,3 +15965,58 @@ current sentences do not contain.
 code it is about, which cannot catch a new defect and still moves F1 by 2.3 points. **That is exactly the gate §145 found
 unreplayable**, because `snippet` has no producer. The published number is the price of the defect: **+2.3 F1 points on
 Martian, above the AACR resolution and above every score re-weighting measured in §147.2.**
+
+#### 147.6 Why the architecture was refused, and the four conditions that would reopen it
+
+**The refusal is not a verdict on semantics.** It is four decisions, priced separately, and only one of them is closed.
+
+| decision                                          | what it would buy                                  | the path from it to a board figure                                       | verdict                            |
+| ------------------------------------------------- | -------------------------------------------------- | ------------------------------------------------------------------------ | ---------------------------------- |
+| RDF quad set as the single truth                  | one addressable fact per symbol, edge and document | **none that skips the mediator**: a board scores comment-against-comment | refused                            |
+| stratified Datalog closure + SHACL shapes         | consequences and constraints as data, not code     | none: neither board reads a shape                                        | refused                            |
+| five materialised projections                     | five keyings off one truth                         | indirect, through retrieval and grounding                                | deferred, see the fourth condition |
+| append-only log + PG notify + stateless instances | 4153x incremental, 16403x snapshot                 | **none: latency is not scored by either board**                          | refused                            |
+
+**The decisive objection is that the truth object is a sentence.** Sigma models code facts - `type`, `calls`, `implements`,
+`documentedBy`. Neither board asks about any of them: AACR and Martian ask whether a comment we emitted matches a reference
+comment a maintainer wrote about the same defect. **There is no predicate in that vocabulary for "the reviewer said this
+about line 42".** Sigma is therefore the truth of the _input_, and this repository already has a stronger truth of the
+_output_: an artifact whose every score is rebuilt to the digit before a delta may be printed (§147.2). Adding Sigma creates
+two truths, and Sigma cannot regenerate the artifact, because the text is produced by a model from facts the graph does not
+contain. **`projection = f(Sigma)` holds for the input side and fails on the only surface that is scored** - which is the
+surface the five projections exist to serve.
+
+**The mediator is already identified, and it is not an ontology.** There are exactly two routes from any code-fact layer to
+F1: a claim that can be verified against the code it is about, or context retrieval good enough to surface the defect. The
+first route's break is not missing semantics; it is that `snippet` is read by the score and written by nobody:
+`actionability.ts:300` composes `finding.snippet ?? ''`, while `llm-review-pipeline.ts:98` only falls back to
+`extractSnippet` on the posting-side comment and never writes the text back onto the finding. **The competitor's own
+ablation priced that exact break at +2.3 F1 (§147.5), which is 18 times the corpus resolution and 4.6 times the largest score
+term.** A 3 242-line store is not required to pay an invoice that a `DiffRange` carrying line text settles.
+
+**Two costs are properties of this repository, not opinions.** A 3 242-line engine admitted under this contract means at
+least as many lines of test, no mocks, every dimension at 95 %, no `continue-on-error`, and a new persistence failure mode
+in CI - and its own headline gains are latency, which nothing here scores. And SHACL moves rules from code into data, which
+is precisely the move the de-gamification refactor exists to reverse: a rule that lives in a quad asset cannot be asserted by
+vitest, cannot be ablated term by term the way §147.2 ablates the score, and is invisible to the coverage instrument. **An
+unmeasured rule is what this contract was written against.**
+
+**What was taken from the attachment, and it is not nothing:** the normalising vocabulary (21 labels to 11 classes, 15
+relations to 7 predicates, compression 2.1429) is worth having as a mapping table with tests, not as a substrate; the
+`asserted / derived / unknown` tri-state is already how unresolved edges are excluded, and its `ruleId` provenance belongs on
+the finding, where §147.5 says the money is; and the three-state status vocabulary was adopted wholesale (§141.3, §147.1).
+
+**The four conditions that would reopen the question**, each one a measurement rather than an argument:
+
+1. **The mediator pays and the substrate explains it.** After the `snippet` and gate-replay work lands (§147.5, 1.5 d + 0.5 d),
+   if the replayable gate is worth less than 0.005 F1 - below the resolution - while a context-retrieval device reaches more
+   than 0.0126 on a corpus of at least 150 pull requests and a shared graph is the only account of why, then build the graph.
+   **A plain in-process property graph, not RDF.** The quad algebra is not what would have paid.
+2. **Coherence becomes a latency defect.** If cross-repo query p95 breaches its budget and a profile points at the thirteen
+   intelligence modules re-parsing the same files, build the shared derived index - a cache with a dependency DAG, which is
+   the useful third of what the attachment called a truth.
+3. **Rules must change without a deploy.** Then declarative constraints earn their cost, because the alternative is a release
+   per rule. Until then, rule-as-code is what makes §147.2 possible.
+4. **Sigma can regenerate the artifact.** If the sentence a pull request receives can be derived deterministically from code
+   facts alone, the premise holds and the whole design reopens. **This is the condition to watch, because it is the one that
+   would also mean the product no longer needs a model.**
