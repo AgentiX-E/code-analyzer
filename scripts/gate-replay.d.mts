@@ -24,3 +24,11 @@ export function main(
   argv: readonly string[],
   log?: (line: string) => void,
 ): Promise<number | undefined>;
+
+/**
+ * Whether a cached file entry is a failed request rather than a 404 and rather than the file's own text.
+ *
+ * Exported because the three-way discriminator is the whole content of §150's bucket split, and a test that pinned it
+ * through `main`'s output would be pinning it through a corpus rather than through the shapes it reads.
+ */
+export function isFailedRead(value: unknown): boolean;
