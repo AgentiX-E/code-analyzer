@@ -111,3 +111,17 @@ describe('the corpus, read under a profile', () => {
     expect(CORPUS_PROFILE_VERSION).toMatch(/v\d+$/u);
   });
 });
+
+describe('the instrument is wired where the Martian arm runs', () => {
+  const workflow = readFileSync(join(root, '.github', 'workflows', 'aacr-bench.yml'), 'utf8');
+
+  it('publishes both profiles on every Martian dispatch, because a denominator nobody prints is a denominator nobody checks', () => {
+    expect(workflow).toContain('scripts/martian-profile.mjs benchmarks/aacr-bench.json');
+    expect(workflow).toContain("if: inputs.dataset == 'martian'");
+  });
+
+  it('uploads the reading beside the artifact', () => {
+    const upload = workflow.slice(workflow.indexOf('name: Upload the figure'));
+    expect(upload).toContain('benchmarks/martian-profile.json');
+  });
+});
