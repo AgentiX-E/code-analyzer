@@ -16364,3 +16364,154 @@ new counts and the anchor table. Unit cases: `tests/unit/scripts/what-a-comment-
 all four coverage dimensions**, and one of the four branches it started with was unreachable rather than untested: see
 `judgeGrounding`'s quotation read, where `!isVerbatimQuote(x) && (x ?? '').trim().length > 0` short-circuited before the
 default. **A branch nothing can reach is not a coverage gap; it is a default that lies about being needed.**
+
+---
+
+## 151. The competitor row Martian never had, and the reason it never had one
+
+**Every iteration has to answer the same fifth question: what does a competitor score on the board, given _our_ model?**
+On AACR that question has an answer produced here - `open-code-review` with `deepseek-chat`, judged by the same judge as
+our own arm (§62). **On Martian it has never had one.** Every Martian artifact this repository has published records the
+competitor arm as `mode: "off"` with `missing` listing **fifty of fifty pull requests**, and the field's own note in the
+artifact says why in its own words:
+
+> `"notComparableReason": "the competitor arm produced no row at all - 50 of 50 pull requests are missing"`
+
+**So the fifth question's answer for that board has been their published figure, produced with their vendor's model.**
+That is a comparison across two reviewers *and* two models, and the second difference is the one no argument in this
+document could remove. **This section is the repair, and the measurement it makes possible is the first of its kind
+here.**
+
+### 151.1 Why there was no row: the corpus names no commits, and the arm needed two
+
+The AACR corpus names `source_commit` and `target_commit` on every row, because the competitor's range review is
+`ocr review --from A --to B` and the corpus was built to supply the pair. **The Martian corpus does not.** Its rows carry
+`githubPrUrl`, `prTitle` and the golden comments, and nothing else:
+
+```json
+{ "githubPrUrl": "https://github.com/calcom/cal.com/pull/8087",
+  "prTitle": "Async import of the appStore packages",
+  "comments": [ { "note": "...", "category": "speculative", "severity": "Low" } ] }
+```
+
+**The arm passed `pr.source_commit` and `pr.target_commit` to the range runner, got two `undefined`s, and the runner
+refused the only way it can** - which is the correct behaviour of a range review without a range, and **is not a defect
+in the competitor**. **The defect is that a corpus written for one board's arm was assumed to be written for the other's**,
+and fifty refused rows is what that assumption looks like in an artifact.
+
+### 151.2 The repair, and the provenance it now carries
+
+`pullRange(pr)` resolves the pair from the pull request resource when the corpus is silent: one call per pull request,
+`base.sha` and `head.sha`, cached for the life of the run. **And the artifact counts which source produced each row**,
+because **a competitor row built from commits the corpus named and one built from commits the API reported are the same
+measurement only if both are said out loud**:
+
+```json
+"rangeSource": { "corpus": 0, "pullRequest": 50 }
+```
+
+**The count is a field of the `competitor` object rather than a binding beside it, and that is §151.5's lesson applied
+immediately**: it was declared below the literal that read it on the first attempt, which is a temporal dead zone.
+
+### 151.3 One parser for two boards
+
+The prose parser and the two-commit checkout lived inside `.github/scripts/aacr-bench.mjs`. A second arm on a second
+board reads the same report, and **a harness with its own copy of a device measures the copy** - so both moved to
+`scripts/lib/ocr-arm.mjs` (`parseProseReport`, `reviewRange`, `shortRepo`), and `aacr-bench.mjs` keeps a five-line
+delegate that preserves the field names its call site was written against. **The refactor changed no figure**: the same
+commit runs `aacr-bench.mjs --dry-run`, which recomputes the fixture's precision, recall, F1, curve and defect subset
+without a model - *full F1 0.6 · shipped 0.5714 · gate 0.5714 · curve 1,2,2,2,3,3* - before and after, to the digit.
+
+**And the Martian arm's own self-check failed twice on its first run, both times on its own fixture.** The separator it
+wrote was `---`; the tool writes three **U+2500** box-drawing characters. The tag it wrote was `[bug . high]`; the tool
+separates category from severity with **U+00B7**. **A fixture that agrees with a guess would have licensed a parser that
+cannot read the tool**, which is why `run-martian-competitor.mjs --self-check` runs in the job before the paid steps and
+needs neither network nor model: it proves the parser, the merge and the candidate merge, and it costs nothing.
+
+### 151.4 The second arm, and why it is a merge
+
+`run-martian-competitor.mjs` reviews the same fifty diffs with the competitor, on **the same `deepseek-chat` endpoint the
+judge uses**, and writes its comments into `results/benchmark_data.json` - the field's own file, which ships with **every
+tool's reviews for all fifty pull requests**. **That write is a merge or it is a deletion**, which is what the first
+version of the harness learned by deleting the field, so the merge, the golden reader and the diff fetch now live in
+`scripts/lib/martian-harness.mjs` and **neither arm can disagree about what replacing a row means**:
+
+| the rule                                         | why it is a rule rather than a preference                                     |
+| ------------------------------------------------ | ----------------------------------------------------------------------------- |
+| a rerun replaces one tool's reviews, no others   | a shipped tool dropped by a run that knows one arm is a table with one row     |
+| the golden comments are never rewritten          | they are the ground truth; an arm has no business editing the answer key       |
+| `candidates.json` merges per tool                | two arms produce two candidate sets for one pull request                       |
+| the competitor's tool name is its own            | so their shipped row for the same reviewer, with its vendor's model, survives  |
+
+**And their judge scores both**, in `step2_5` and `step3`, in the same job - **which is the one thing that turns two
+figures into a comparison.**
+
+### 151.5 A defect that cost nothing and could not be caught locally
+
+The first dispatch of this run (`45410143732`) failed in two minutes with **`Cannot access 'rangeSource' before
+initialization`**. It is worth recording precisely, because every local gate was green:
+
+| gate                      | what it said                                | why the defect survived it                                              |
+| ------------------------- | ------------------------------------------- | ----------------------------------------------------------------------- |
+| `node --check`            | syntax valid                                | a temporal dead zone is not a syntax error                               |
+| `aacr-bench.mjs --dry-run`| arithmetic unchanged                        | that mode returns **before** the artifact is built                      |
+| `pnpm lint:ratchet`       | no new findings                             | no rule in the config forbids use-before-declaration in this tree       |
+| `turbo typecheck`         | 16/16 packages                              | the file is `.mjs`, in no package's project                             |
+| unit suites (1 329)       | all pass                                    | nothing imports a script that runs `main()` on load                     |
+
+**The dispatch cost nothing**: it failed before the first model call - the credit probe was the only provider request in
+the log. **The repair is structural rather than a reordering**: the counter became a field of the object that publishes
+it, and **one binding cannot be in the wrong order relative to itself**. That is also the honest answer to "what gate
+would have caught it" - none of the five above, and the class is best removed rather than detected.
+
+### 151.6 The quality alert this iteration closed
+
+`js/comparison-between-incompatible-types` (alert **1706**) fired on `scripts/gate-replay.mjs`: `text === null`, where
+`text` is a value read back through `JSON.parse` and therefore typed as `date | object | regular expression` - none of
+which the analyser will compare with `null`. **The three shapes are unchanged and the bucket split §150 introduced is
+untouched**; the three-way answer is now a predicate (`isFailedRead`) whose whole content is *"is this the `{ error }`
+shape"*, and **the three shapes are pinned by a test of their own** rather than through a corpus and a stubbed network:
+
+| shape            | meaning                                    | bucket        |
+| ---------------- | ------------------------------------------ | ------------- |
+| a string         | the file's text at the head commit         | read          |
+| `null`           | a 404 - the path is absent at head         | `unpostable`  |
+| `{ error }`      | a request that did not complete            | `failedReads` |
+
+**Seven `PinnedDependenciesID` alerts remain open**, all of them `npm install`/`pip install` lines whose version is pinned
+and whose hash is not. They are one queue (S1) rather than seven incidents, and closing them means downloading each
+tarball, verifying its published integrity and installing from the file - **a change that must be made once, in one
+iteration, with the install steps of every job re-run afterwards**, because an install that silently stops working is a
+job that measures nothing.
+
+### 151.7 What this run will say, registered before it says it
+
+The dispatch is `dataset: martian`, `competitor: record`, `max_pull_requests: 50`, one arm, `pair: off` - the same
+configuration every published Martian figure of ours was measured under, so a paired difference is a difference and not
+a configuration.
+
+| field                    | value                                                                |
+| ------------------------ | -------------------------------------------------------------------- |
+| what is measured         | the competitor's precision, recall and F1 on 173 goldens, and on 158 |
+| what it is compared with | our arm, same job, same judge, same goldens, same matcher            |
+| instrument               | `scripts/aacr-bench.mjs` at `03adc4e`, run `45411086146`              |
+| resolution               | **MDE 0.0126 F1** on a paired difference at this corpus size (§147.3) |
+| ceiling                  | `AACR_MAX_USD=12`, so a retry storm stops at a stated number         |
+| what would falsify "ours is better" | our F1 at or below the competitor's, same job           |
+
+**No claim of superiority is made before the read.** A competitor row that lands above ours is the same kind of
+information as one that lands below, and the only dishonest outcome available here is to publish the second and not the
+first.
+
+### 151.8 Reproduce
+
+```
+node .github/scripts/run-martian-competitor.mjs --self-check     # no network, no model, no charge
+node .github/scripts/aacr-bench.mjs --dry-run                    # the arithmetic, before the money
+node scripts/martian-profile.mjs benchmarks/martian-bench.json benchmarks/martian/positive_samples.json
+```
+
+Unit cases added: `the-competitors-report-has-one-parser.test.ts` (10), `a-merge-is-not-a-deletion.test.ts` (6),
+`the-three-shapes-a-cached-file-entry-can-take.test.ts` (3). **The Martian arm is a dispatch input and not the schedule**,
+because the scheduled run already buys our own review of fifty diffs and a second reviewer on a weekly job nobody asked
+to grow would double a bill for a figure that changes when the corpus changes, not when the week does.

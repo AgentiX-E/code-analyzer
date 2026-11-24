@@ -68,6 +68,7 @@
     "docs:numbers": "node scripts/numbers-gate.js",
     "docs:register": "node scripts/capability-register.mjs",
     "docs:decomposition": "node scripts/martian-decomposition.mjs --check",
+    "docs:competitor-board": "node scripts/competitor-board.mjs --check",
     "docs:decomposition:aacr": "node scripts/aacr-decomposition.mjs --check",
     "docs:lca": "node scripts/lca-report.js --check",
     "docs:agentic": "TSX_TSCONFIG_PATH=tsconfig.tests.json tsx scripts/agentic-tools.ts --check && TSX_TSCONFIG_PATH=tsconfig.tests.json tsx scripts/agentic-tools.ts --self-test",

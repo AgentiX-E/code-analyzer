@@ -358,6 +358,17 @@ jobs:
       - name: Enforce that the rendered page is what the register says
         run: git diff --exit-code -- docs/capability-register.html
 
+      # **The two-arm page is generated from the artifacts, and this is the gate that keeps it generated.** A figure
+      # drawn by hand beside a figure computed by a script is two sources of truth for one number, which is the defect
+      # the register's renderer already exists to prevent; here it also has to fail when an artifact moves and the page
+      # does not, because the page's whole claim is that its numbers came from the run rather than from a sentence.
+      - name: Enforce that the two-arm page is what the artifacts say
+        run: |
+          set -e
+          npm run -s docs:competitor-board
+          node scripts/competitor-board.mjs
+          git diff --exit-code -- docs/competitor-board.html benchmarks/competitor-board.json
+
       # **A section that explains a score by quoting a corpus has to be re-derived from that corpus.** §132 attributes
       # our 27.57 and the leader's 65.8 to five named places, and every figure in it comes from
       # `benchmarks/martian-bench.json` by arithmetic - so the reading is reproducible for free, and it is checked here
