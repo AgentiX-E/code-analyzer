@@ -2931,7 +2931,13 @@ async function main() {
     // **Where each range came from**: the corpus (AACR names both commits) or the pull request resource (Martian names
     // neither). A row built from the API's pair is not a different measurement, but it is a different *source*, and a
     // reader comparing two boards is entitled to know which one this row rests on.
-    rangeSource,
+    //
+    // **It is a field rather than a binding beside the object, and that is the repair of a defect this dispatch paid for
+    // with a red job**: the counter was declared below the literal that read it, which is a temporal dead zone -
+    // syntactically valid, `node --check`-clean, invisible to `--dry-run` (which returns before the artifact is built),
+    // and fatal at run time with `Cannot access 'rangeSource' before initialization`. **One binding cannot be in the
+    // wrong order relative to itself.**
+    rangeSource: { corpus: 0, pullRequest: 0 },
   };
   let unanswered = 0;
   /**
@@ -3207,7 +3213,6 @@ async function main() {
    * commits the corpus named and one built from commits the API reported are the same measurement only if both are
    * said out loud.
    */
-  const rangeSource = { corpus: 0, pullRequest: 0 };
   async function pullRange(pr) {
     const named = { source: pr.source_commit, target: pr.target_commit };
     if (named.source && named.target) return { ...named, from: 'corpus' };
@@ -3350,7 +3355,9 @@ async function main() {
         competitor.missing.push({ key: competitorKey, reason: range.reason });
         continue;
       }
-      rangeSource[range.from] = Number(rangeSource[range.from] ?? 0) + 1;
+      // **The provenance counter is the artifact's own field**, so a reader can see how many of a board's rows rest on
+      // commits the corpus named and how many on commits the API reported.
+      competitor.rangeSource[range.from] = Number(competitor.rangeSource[range.from] ?? 0) + 1;
       const outcome = reviewWithOcr(
         process.env['OCR_LLM_URL'] ?? '',
         ocrKey,
