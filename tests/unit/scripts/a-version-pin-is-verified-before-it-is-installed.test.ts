@@ -73,6 +73,19 @@ describe('the spec names a package and a version', () => {
     expect(parseSpec('node-gyp')).toEqual({ ok: true, name: 'node-gyp', version: 'latest' });
     expect(parseSpec('  ').ok).toBe(false);
   });
+
+  it('refuses a name or version carrying a reserved character', () => {
+    // **`js/incomplete-sanitization` reported this function's first version**, which replaced `/` and nothing more: a
+    // name carrying `?` or `#` is read by the URL parser as a query or a fragment, so the request would go somewhere
+    // other than the registry path it looks like. The grammar is refused here and the segments are encoded below it.
+    expect(parseSpec('pkg?x=1@1.0.0').ok).toBe(false);
+    expect(parseSpec('pkg#frag@1.0.0').ok).toBe(false);
+    expect(parseSpec('pkg@1.0.0?x=1').ok).toBe(false);
+    expect(parseSpec('@scope/../etc@1.0.0').ok).toBe(false);
+    // **The grammar still admits what npm admits**: a scope, dots, dashes and underscores in the name, and a semver
+    // preface in the version.
+    expect(parseSpec('@scope-1/pkg_name.js@1.0.0-rc.1').ok).toBe(true);
+  });
 });
 
 describe('the bytes are checked against the published integrity', () => {
