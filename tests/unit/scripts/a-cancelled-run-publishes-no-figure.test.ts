@@ -56,16 +56,20 @@ describe('the figure a run publishes', () => {
     // figure upload is the line that published a cancelled run's predecessor.
     const upload = WORKFLOW.slice(WORKFLOW.indexOf('- name: Upload the figure'));
     const head = upload.slice(0, upload.indexOf('uses:'));
-    // **`always()` is still the line this case exists for**, and it is still absent.
-    expect(head).not.toContain('always()');
-    // **And the condition names the two proofs rather than `success()`.** That is stronger, not weaker: both proofs sit
-    // on steps that can only have run after the review wrote a file, so a run that died mid-review fails the condition
-    // twice over. What it adds is the one case `success()` got wrong in the other direction - a *derived* analysis that
-    // failed after the figure was sound took fifty pull requests of review with it, because `success()` read the step
-    // immediately before the upload instead of the artifact. §140 is where that was paid for.
+    // **`always()` is back, and the reason it left is the reason it returns.** Without it, a step whose `if` names no
+    // status function is implicitly `success() && …` - so a *derived* table that failed **after** the figure was sound
+    // suppressed the upload. That is not hypothetical: run 45411086146 reviewed fifty pull requests, passed both proofs,
+    // scored the competitor, failed `martian_profile`, and published nothing (§154.4).
+    //
+    // **What keeps a cancelled run out is the two proofs, not the absence of `always()`.** Both sit on steps that can
+    // only have run after the review wrote a file, so a run that died mid-review fails the condition twice over - and the
+    // assertion below is on the pair, because `always()` alone would publish a stale tracked file, which is the defect
+    // this case was written for.
+    expect(head).toContain('always()');
     expect(head).toContain(
-      "if: steps.replay.outcome == 'success' && steps.audit.outcome == 'success'",
+      "steps.replay.outcome == 'success' && steps.audit.outcome == 'success'",
     );
+    expect(head).not.toMatch(/if:\s*always\(\)\s*$/m);
     for (const proof of ['replay', 'audit']) {
       const step = WORKFLOW.slice(WORKFLOW.indexOf(`id: ${proof}`));
       expect(step.slice(0, step.indexOf('- name:', 10)), `${proof} runs no command`).toContain(
