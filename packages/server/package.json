@@ -59,7 +59,7 @@
     "@code-analyzer/mcp": "workspace:^",
     "@code-analyzer/shared": "workspace:*",
     "fastify": "^5.12.8",
-    "graphql": "^16.14.2",
+    "graphql": "^17.1.0",
     "graphql-yoga": "^6.1.0"
   },
   "devDependencies": {
