@@ -20,6 +20,22 @@ name: Martian Harness
 
 on:
   workflow_dispatch:
+    inputs:
+      # **The competitor arm is a dispatch and not a schedule.** The scheduled run already buys our own review of fifty
+      # diffs; adding a second reviewer to it would double a weekly bill on a job nobody asked to grow. A dispatch is a
+      # person deciding to spend, which is the rule this file's trigger section already states.
+      competitor:
+        description: 'Buy the competitor arm (open-code-review with our model) or run ours alone'
+        required: false
+        type: choice
+        default: 'off'
+        options: ['off', 'record']
+      # **The corpus slice**, so a calibration and the run it calibrates never share a row.
+      max_pull_requests:
+        description: 'How many of the fifty pull requests to review (a calibration is cheaper than a confirmation)'
+        required: false
+        type: string
+        default: '12'
   schedule:
     # **Off-peak on purpose.** The vendor halves every price outside 01:00-04:00 and 06:00-10:00 UTC on weekdays,
     # so a weekly run at this hour costs half what the same run costs at 08:00 - and this workflow's own artifact
@@ -97,6 +113,40 @@ jobs:
           MARTIAN_DIR: /tmp/martian
         run: node .github/scripts/run-martian-harness.mjs
 
+      # **The competitor's arm, on the same fifty diffs, with the same model - the row no leaderboard can show.**
+      #
+      # Every published figure on this board was produced with its vendor's own model, so a comparison against one is a
+      # comparison across two models as well as two reviewers. `open-code-review` accepts our endpoint, so this arm
+      # removes the model from the difference - and **their own judge scores it beside ours in the steps below**, which
+      # is what makes the pair a measurement rather than two recollections.
+      - name: Prove the competitor arm's arithmetic without a model
+        run: node .github/scripts/run-martian-competitor.mjs --self-check
+
+      - name: Install the competitor, pinned
+        if: inputs.competitor == 'record'
+        run: |
+          set -e
+          # **Pinned to the version the AACR head-to-head was measured against**, so the two boards compare the same
+          # program and a bump is a visible change to both rather than a silent one.
+          npm install -g @alibaba-group/open-code-review@1.13.8
+          command -v ocr
+          ocr --version
+
+      - name: Review the fifty pull requests with the competitor and our model
+        if: inputs.competitor == 'record'
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          MARTIAN_DIR: /tmp/martian
+          MARTIAN_MODEL: deepseek-chat
+          # **The same endpoint the judge uses**, which is the whole point: a difference between the two rows is then a
+          # difference between two review systems given one model.
+          OCR_LLM_URL: https://api.deepseek.com/anthropic
+          OCR_LLM_TOKEN: ${{ secrets.DEEPSEEK_API_KEY }}
+          OCR_LLM_MODEL: deepseek-chat
+          OCR_VERSION: '1.13.8'
+          MAX_PRS: ${{ inputs.max_pull_requests || '12' }}
+        run: node .github/scripts/run-martian-competitor.mjs
+
       # **Their judge, with our model behind it - which is their design working as documented.**
       #
       # **The first run of this job failed here and reported success**, because the steps carried `|| true` - and
@@ -118,7 +168,16 @@ jobs:
           MARTIAN_BASE_URL: https://api.deepseek.com/v1
           MARTIAN_MODEL: deepseek-chat
         run: |
-          uv run python -m code_review_benchmark.step2_5_dedup_candidates --tool agentix-e
+          set -e
+          # **Every arm that produced candidates is deduped and judged, and one that did not is skipped in a sentence.**
+          # A competitor arm that scored nothing is a fact its own artifact records; failing the job on it would make
+          # the honest outcome of an optional purchase look like a broken pipeline.
+          for tool in agentix-e open-code-review-deepseek; do
+            has=$(node -e "const c=require('/tmp/martian/offline/results/deepseek-chat/candidates.json');const n=Object.values(c).filter((b)=>Array.isArray(b?.['${tool}'])&&b['${tool}'].length>0).length;process.stdout.write(String(n))" 2>/dev/null || echo 0)
+            echo "${tool}: ${has} pull requests with candidates"
+            if [ "${has}" = "0" ]; then echo "skipping ${tool}: no candidates"; continue; fi
+            uv run python -m code_review_benchmark.step2_5_dedup_candidates --tool "${tool}"
+          done
           ls -la results/
 
       - name: Their judge step
@@ -129,7 +188,12 @@ jobs:
           MARTIAN_BASE_URL: https://api.deepseek.com/v1
           MARTIAN_MODEL: deepseek-chat
         run: |
-          uv run python -m code_review_benchmark.step3_judge_comments --tool agentix-e
+          set -e
+          for tool in agentix-e open-code-review-deepseek; do
+            has=$(node -e "const c=require('/tmp/martian/offline/results/deepseek-chat/candidates.json');const n=Object.values(c).filter((b)=>Array.isArray(b?.['${tool}'])&&b['${tool}'].length>0).length;process.stdout.write(String(n))" 2>/dev/null || echo 0)
+            if [ "${has}" = "0" ]; then echo "skipping ${tool}: no candidates to judge"; continue; fi
+            uv run python -m code_review_benchmark.step3_judge_comments --tool "${tool}"
+          done
           find results -name 'evaluations*.json' -maxdepth 3 | head -5
           ls -la results/
 
