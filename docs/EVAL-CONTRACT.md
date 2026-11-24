@@ -16378,7 +16378,7 @@ artifact says why in its own words:
 > `"notComparableReason": "the competitor arm produced no row at all - 50 of 50 pull requests are missing"`
 
 **So the fifth question's answer for that board has been their published figure, produced with their vendor's model.**
-That is a comparison across two reviewers *and* two models, and the second difference is the one no argument in this
+That is a comparison across two reviewers _and_ two models, and the second difference is the one no argument in this
 document could remove. **This section is the repair, and the measurement it makes possible is the first of its kind
 here.**
 
@@ -16389,9 +16389,11 @@ The AACR corpus names `source_commit` and `target_commit` on every row, because 
 `githubPrUrl`, `prTitle` and the golden comments, and nothing else:
 
 ```json
-{ "githubPrUrl": "https://github.com/calcom/cal.com/pull/8087",
+{
+  "githubPrUrl": "https://github.com/calcom/cal.com/pull/8087",
   "prTitle": "Async import of the appStore packages",
-  "comments": [ { "note": "...", "category": "speculative", "severity": "Low" } ] }
+  "comments": [{ "note": "...", "category": "speculative", "severity": "Low" }]
+}
 ```
 
 **The arm passed `pr.source_commit` and `pr.target_commit` to the range runner, got two `undefined`s, and the runner
@@ -16420,7 +16422,7 @@ board reads the same report, and **a harness with its own copy of a device measu
 `scripts/lib/ocr-arm.mjs` (`parseProseReport`, `reviewRange`, `shortRepo`), and `aacr-bench.mjs` keeps a five-line
 delegate that preserves the field names its call site was written against. **The refactor changed no figure**: the same
 commit runs `aacr-bench.mjs --dry-run`, which recomputes the fixture's precision, recall, F1, curve and defect subset
-without a model - *full F1 0.6 · shipped 0.5714 · gate 0.5714 · curve 1,2,2,2,3,3* - before and after, to the digit.
+without a model - _full F1 0.6 · shipped 0.5714 · gate 0.5714 · curve 1,2,2,2,3,3_ - before and after, to the digit.
 
 **And the Martian arm's own self-check failed twice on its first run, both times on its own fixture.** The separator it
 wrote was `---`; the tool writes three **U+2500** box-drawing characters. The tag it wrote was `[bug . high]`; the tool
@@ -16436,12 +16438,12 @@ tool's reviews for all fifty pull requests**. **That write is a merge or it is a
 version of the harness learned by deleting the field, so the merge, the golden reader and the diff fetch now live in
 `scripts/lib/martian-harness.mjs` and **neither arm can disagree about what replacing a row means**:
 
-| the rule                                         | why it is a rule rather than a preference                                     |
-| ------------------------------------------------ | ----------------------------------------------------------------------------- |
-| a rerun replaces one tool's reviews, no others   | a shipped tool dropped by a run that knows one arm is a table with one row     |
-| the golden comments are never rewritten          | they are the ground truth; an arm has no business editing the answer key       |
-| `candidates.json` merges per tool                | two arms produce two candidate sets for one pull request                       |
-| the competitor's tool name is its own            | so their shipped row for the same reviewer, with its vendor's model, survives  |
+| the rule                                       | why it is a rule rather than a preference                                     |
+| ---------------------------------------------- | ----------------------------------------------------------------------------- |
+| a rerun replaces one tool's reviews, no others | a shipped tool dropped by a run that knows one arm is a table with one row    |
+| the golden comments are never rewritten        | they are the ground truth; an arm has no business editing the answer key      |
+| `candidates.json` merges per tool              | two arms produce two candidate sets for one pull request                      |
+| the competitor's tool name is its own          | so their shipped row for the same reviewer, with its vendor's model, survives |
 
 **And their judge scores both**, in `step2_5` and `step3`, in the same job - **which is the one thing that turns two
 figures into a comparison.**
@@ -16451,13 +16453,13 @@ figures into a comparison.**
 The first dispatch of this run (`45410143732`) failed in two minutes with **`Cannot access 'rangeSource' before
 initialization`**. It is worth recording precisely, because every local gate was green:
 
-| gate                      | what it said                                | why the defect survived it                                              |
-| ------------------------- | ------------------------------------------- | ----------------------------------------------------------------------- |
-| `node --check`            | syntax valid                                | a temporal dead zone is not a syntax error                               |
-| `aacr-bench.mjs --dry-run`| arithmetic unchanged                        | that mode returns **before** the artifact is built                      |
-| `pnpm lint:ratchet`       | no new findings                             | no rule in the config forbids use-before-declaration in this tree       |
-| `turbo typecheck`         | 16/16 packages                              | the file is `.mjs`, in no package's project                             |
-| unit suites (1 329)       | all pass                                    | nothing imports a script that runs `main()` on load                     |
+| gate                       | what it said         | why the defect survived it                                        |
+| -------------------------- | -------------------- | ----------------------------------------------------------------- |
+| `node --check`             | syntax valid         | a temporal dead zone is not a syntax error                        |
+| `aacr-bench.mjs --dry-run` | arithmetic unchanged | that mode returns **before** the artifact is built                |
+| `pnpm lint:ratchet`        | no new findings      | no rule in the config forbids use-before-declaration in this tree |
+| `turbo typecheck`          | 16/16 packages       | the file is `.mjs`, in no package's project                       |
+| unit suites (1 329)        | all pass             | nothing imports a script that runs `main()` on load               |
 
 **The dispatch cost nothing**: it failed before the first model call - the credit probe was the only provider request in
 the log. **The repair is structural rather than a reordering**: the counter became a field of the object that publishes
@@ -16469,14 +16471,14 @@ would have caught it" - none of the five above, and the class is best removed ra
 `js/comparison-between-incompatible-types` (alert **1706**) fired on `scripts/gate-replay.mjs`: `text === null`, where
 `text` is a value read back through `JSON.parse` and therefore typed as `date | object | regular expression` - none of
 which the analyser will compare with `null`. **The three shapes are unchanged and the bucket split §150 introduced is
-untouched**; the three-way answer is now a predicate (`isFailedRead`) whose whole content is *"is this the `{ error }`
-shape"*, and **the three shapes are pinned by a test of their own** rather than through a corpus and a stubbed network:
+untouched**; the three-way answer is now a predicate (`isFailedRead`) whose whole content is _"is this the `{ error }`
+shape"_, and **the three shapes are pinned by a test of their own** rather than through a corpus and a stubbed network:
 
-| shape            | meaning                                    | bucket        |
-| ---------------- | ------------------------------------------ | ------------- |
-| a string         | the file's text at the head commit         | read          |
-| `null`           | a 404 - the path is absent at head         | `unpostable`  |
-| `{ error }`      | a request that did not complete            | `failedReads` |
+| shape       | meaning                            | bucket        |
+| ----------- | ---------------------------------- | ------------- |
+| a string    | the file's text at the head commit | read          |
+| `null`      | a 404 - the path is absent at head | `unpostable`  |
+| `{ error }` | a request that did not complete    | `failedReads` |
 
 **Seven `PinnedDependenciesID` alerts remain open**, all of them `npm install`/`pip install` lines whose version is pinned
 and whose hash is not. They are one queue (S1) rather than seven incidents, and closing them means downloading each
@@ -16490,14 +16492,14 @@ The dispatch is `dataset: martian`, `competitor: record`, `max_pull_requests: 50
 configuration every published Martian figure of ours was measured under, so a paired difference is a difference and not
 a configuration.
 
-| field                    | value                                                                |
-| ------------------------ | -------------------------------------------------------------------- |
-| what is measured         | the competitor's precision, recall and F1 on 173 goldens, and on 158 |
-| what it is compared with | our arm, same job, same judge, same goldens, same matcher            |
-| instrument               | `scripts/aacr-bench.mjs` at `03adc4e`, run `45411086146`              |
-| resolution               | **MDE 0.0126 F1** on a paired difference at this corpus size (§147.3) |
-| ceiling                  | `AACR_MAX_USD=12`, so a retry storm stops at a stated number         |
-| what would falsify "ours is better" | our F1 at or below the competitor's, same job           |
+| field                               | value                                                                 |
+| ----------------------------------- | --------------------------------------------------------------------- |
+| what is measured                    | the competitor's precision, recall and F1 on 173 goldens, and on 158  |
+| what it is compared with            | our arm, same job, same judge, same goldens, same matcher             |
+| instrument                          | `scripts/aacr-bench.mjs` at `03adc4e`, run `45411086146`              |
+| resolution                          | **MDE 0.0126 F1** on a paired difference at this corpus size (§147.3) |
+| ceiling                             | `AACR_MAX_USD=12`, so a retry storm stops at a stated number          |
+| what would falsify "ours is better" | our F1 at or below the competitor's, same job                         |
 
 **No claim of superiority is made before the read.** A competitor row that lands above ours is the same kind of
 information as one that lands below, and the only dishonest outcome available here is to publish the second and not the
