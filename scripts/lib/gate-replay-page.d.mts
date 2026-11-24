@@ -21,25 +21,38 @@ export interface GateReplayRow {
   readonly goldensAfter: number;
 }
 
-/** The report the page is drawn from. Only the fields the page reads are named, so a wider report still renders. */
+/**
+ * **The report the page is drawn from, every field optional except the rows.**
+ *
+ * The renderer's one guard is that it refuses a report with no rows, and **a declaration that required the totals would
+ * make that guard unexpressible in a test**: the case worth asserting is a report a damaged artifact produces, and a type
+ * that forbids building one is a type that forbids the test. The optionality is the semantic - anything may arrive, and
+ * `renderGateReplayPage` throws when the per-pull-request rows are not there.
+ */
 export interface GateReplayForPage {
-  readonly cut: { readonly label: string };
-  readonly baseline: {
+  readonly cut?: { readonly label: string };
+  readonly baseline?: {
     readonly emitted: number;
     readonly truePositives: number;
     readonly precision: number;
     readonly recall: number;
     readonly f1: number;
   };
-  readonly gated: GateReplayForPage['baseline'];
-  readonly reproduced: boolean | null;
-  readonly delta: { readonly f1: number };
-  readonly removals: { readonly posted: number; readonly share: number | null };
-  readonly goldens: { readonly lost: readonly string[]; readonly gained: readonly string[] };
-  readonly gate: {
-    readonly withheldPullRequests: number;
-    readonly byReason: ReadonlyArray<{ readonly reason: string; readonly count: number }>;
-    readonly perPullRequest: readonly GateReplayRow[];
+  readonly gated?: {
+    readonly emitted: number;
+    readonly truePositives: number;
+    readonly precision: number;
+    readonly recall: number;
+    readonly f1: number;
+  };
+  readonly reproduced?: boolean | null;
+  readonly delta?: { readonly f1: number };
+  readonly removals?: { readonly posted: number; readonly share: number | null };
+  readonly goldens?: { readonly lost: readonly string[]; readonly gained: readonly string[] };
+  readonly gate?: {
+    readonly withheldPullRequests?: number;
+    readonly byReason?: ReadonlyArray<{ readonly reason: string; readonly count: number }>;
+    readonly perPullRequest?: readonly GateReplayRow[];
   };
 }
 

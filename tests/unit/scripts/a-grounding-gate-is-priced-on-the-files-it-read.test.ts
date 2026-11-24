@@ -62,7 +62,14 @@ const STEPS = [{ kind: 'gate' }, { kind: 'budget', k: 12 }];
 describe('the gate is priced on the removals it made from what was posted', () => {
   it('counts a dropped false positive as a precision gain with no golden lost', () => {
     const findings = [
-      row({ pr: PR_A, path: 'a.ts', startLine: 1, text: 'names `alpha`', score: 0.9, matchedGoldens: [0] }),
+      row({
+        pr: PR_A,
+        path: 'a.ts',
+        startLine: 1,
+        text: 'names `alpha`',
+        score: 0.9,
+        matchedGoldens: [0],
+      }),
       // **The identifier is not in the file**, which is the one check the gate can decide without a model and the one
       // §147.5 exists to price: a finding about a name that occurs nowhere is a finding about nothing.
       row({ pr: PR_A, path: 'a.ts', startLine: 4, text: 'names `zeta`', score: 0.8 }),
@@ -116,8 +123,22 @@ describe('the gate is priced on the removals it made from what was posted', () =
   it('admits a finding the budget refused when the gate removes one ranked above it', () => {
     const findings = [
       // **Out of range for a four-line file**, so the gate drops it and the budget's single slot moves down the ranking.
-      row({ pr: PR_A, path: 'a.ts', startLine: 9, text: 'names `alpha`', score: 0.9, matchedGoldens: [0] }),
-      row({ pr: PR_A, path: 'a.ts', startLine: 4, text: 'names `delta`', score: 0.8, matchedGoldens: [1] }),
+      row({
+        pr: PR_A,
+        path: 'a.ts',
+        startLine: 9,
+        text: 'names `alpha`',
+        score: 0.9,
+        matchedGoldens: [0],
+      }),
+      row({
+        pr: PR_A,
+        path: 'a.ts',
+        startLine: 4,
+        text: 'names `delta`',
+        score: 0.8,
+        matchedGoldens: [1],
+      }),
     ];
     const replay = replayGroundingGate({
       findings,
@@ -234,10 +255,22 @@ describe('the figure the replay starts from is the figure the artifact published
 describe('the quotation is read when it is offered and its absence is not evidence', () => {
   it('keeps a finding that offers no quotation and drops one whose quotation is absent', () => {
     const withQuote = groundableRow(
-      row({ pr: PR_A, path: 'a.ts', startLine: 1, text: 'about nothing', existingCode: 'const alpha = 1;' }),
+      row({
+        pr: PR_A,
+        path: 'a.ts',
+        startLine: 1,
+        text: 'about nothing',
+        existingCode: 'const alpha = 1;',
+      }),
     );
     const withFabricatedQuote = groundableRow(
-      row({ pr: PR_A, path: 'a.ts', startLine: 1, text: 'about nothing', existingCode: 'const omega = 5;' }),
+      row({
+        pr: PR_A,
+        path: 'a.ts',
+        startLine: 1,
+        text: 'about nothing',
+        existingCode: 'const omega = 5;',
+      }),
     );
     const withoutQuote = groundableRow(
       row({ pr: PR_A, path: 'a.ts', startLine: 1, text: 'about nothing' }),
@@ -251,7 +284,9 @@ describe('the quotation is read when it is offered and its absence is not eviden
     const sources = { contents: new Map([['a.ts', ALPHA]]) };
     expect(decideGrounding([withQuote], sources.contents).applied).toBe(true);
     expect(decideGrounding([withQuote], sources.contents).report.ungrounded).toEqual([]);
-    expect(decideGrounding([withFabricatedQuote], sources.contents).report.ungrounded).toHaveLength(1);
+    expect(decideGrounding([withFabricatedQuote], sources.contents).report.ungrounded).toHaveLength(
+      1,
+    );
     expect(decideGrounding([withoutQuote], sources.contents).report.ungrounded).toEqual([]);
   });
 
@@ -281,8 +316,8 @@ describe('the fetch list is one set per pull request', () => {
       row({ pr: PR_B, path: 'other.ts', startLine: 1, text: '' }),
     ]);
 
-    expect([...required.get(PR_A) ?? []]).toEqual(['src/a.ts']);
-    expect([...required.get(PR_B) ?? []].sort()).toEqual(['other.ts', 'src/a.ts']);
+    expect([...(required.get(PR_A) ?? [])]).toEqual(['src/a.ts']);
+    expect([...(required.get(PR_B) ?? [])].sort()).toEqual(['other.ts', 'src/a.ts']);
   });
 });
 

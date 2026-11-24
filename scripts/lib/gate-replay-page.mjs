@@ -43,16 +43,36 @@ export function renderGateReplayPage(report, { title = 'Grounding gate replay' }
   const delta = report.delta;
 
   const tiles = [
-    ['published F1', fixed4(baseline.f1), `${String(baseline.emitted)} posted · ${String(baseline.truePositives)} true`],
-    ['with the gate', fixed4(gated.f1), `${String(gated.emitted)} posted · ${String(gated.truePositives)} true`],
-    ['delta F1', `${delta.f1 >= 0 ? '+' : ''}${fixed4(delta.f1)}`, `resolution 0.0126 on this slice`],
+    [
+      'published F1',
+      fixed4(baseline.f1),
+      `${String(baseline.emitted)} posted · ${String(baseline.truePositives)} true`,
+    ],
+    [
+      'with the gate',
+      fixed4(gated.f1),
+      `${String(gated.emitted)} posted · ${String(gated.truePositives)} true`,
+    ],
+    [
+      'delta F1',
+      `${delta.f1 >= 0 ? '+' : ''}${fixed4(delta.f1)}`,
+      `resolution 0.0126 on this slice`,
+    ],
     [
       'removals',
       String(pool.posted),
       pool.share === null ? 'no pool' : `${percent(pool.share)} true`,
     ],
-    ['goldens lost', String(report.goldens.lost.length), `${String(report.goldens.gained.length)} gained`],
-    ['withheld', String(report.gate.withheldPullRequests), `of ${String(rows.length)} pull requests`],
+    [
+      'goldens lost',
+      String(report.goldens.lost.length),
+      `${String(report.goldens.gained.length)} gained`,
+    ],
+    [
+      'withheld',
+      String(report.gate.withheldPullRequests),
+      `of ${String(rows.length)} pull requests`,
+    ],
   ];
 
   const rowHtml = rows.map((row) => {
