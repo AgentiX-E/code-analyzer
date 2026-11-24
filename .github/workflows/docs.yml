@@ -94,6 +94,12 @@ jobs:
       # would have grown a silent allow-list one outage at a time, so the request carries the job's own read-only token
       # and the 504 disappears for the reason it appeared: **the checker was measuring github.com's tolerance for
       # anonymous traffic, not this repository's documentation.**
+      # **A `403` is a refusal of the client, not an absence of the page**, and Zenodo is the case that made the
+      # distinction necessary: every automated request to a record page is answered `403 Forbidden`, and a browser is
+      # answered `200`. The excluded route is the DOI landing page a citation names, so **it cannot be a typo**, and a
+      # checker that fails on it reports the site's bot policy as this repository's defect - the same shape as the
+      # `504` above, one layer down: **an answer about the client read as an answer about the document.** The pattern
+      # is the route rather than the one URL, because a citation added next month lands on the same answer.
       - name: Check all links in markdown files
         uses: lycheeverse/lychee-action@e7477775783ea5526144ba13e8db5eec57747ce8 # v2
         env:
@@ -123,6 +129,8 @@ jobs:
             --exclude '^https://api\.securityscorecards\.dev/.*'
             --exclude '^https://spec\.modelcontextprotocol\.io/.*'
             --exclude '^https://github\.com/AgentiX-E/code-analyzer/actions'
+            --exclude '^https://zenodo\.org/records/\d+$'
+
             './**/*.md'
           failIfEmpty: false
           format: markdown
