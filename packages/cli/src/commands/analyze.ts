@@ -240,6 +240,42 @@ export async function analyzeRepository(options: AnalyzeOptions): Promise<Analyz
 /**
  * Format analyze output as human-readable text.
  */
+/**
+ * What the scan phase could not read, as lines a person reads.
+ *
+ * **Empty when the index is the repository**, which is the case the other phases were written for; a warning that
+ * appears on every run teaches its reader to skip the block that matters on the run where it does. An artifact
+ * written before the walk carried these counts has no `walk` field at all and gets an empty list rather than a
+ * coverage block full of zeroes it cannot vouch for.
+ */
+interface WalkShape {
+  stoppedAtLimit?: boolean;
+  skippedOverSize?: number;
+  skippedUnreadable?: number;
+}
+
+function coverageLines(result: AnalyzeOutput): string[] {
+  const scan = result.phases.find((phase) => phase.id === 'scan');
+  const output = scan?.output as { filesDiscovered?: number; walk?: WalkShape } | undefined;
+  const walk = output?.walk;
+  if (!walk) return [];
+  const lines: string[] = [];
+  if (walk.stoppedAtLimit === true) {
+    lines.push(
+      `  ! Discovery stopped at the file ceiling: this index is a prefix of the tree, not the tree`,
+    );
+    // **The number the old report gave alone**, printed here where it is qualified rather than in the graph block
+    // where it read as the size of the repository.
+    lines.push(
+      `  discovered: ${String(output?.filesDiscovered ?? 0)} (the rest of the tree was not walked)`,
+    );
+  }
+  if ((walk.skippedOverSize ?? 0) > 0) lines.push(`  too large: ${String(walk.skippedOverSize)}`);
+  if ((walk.skippedUnreadable ?? 0) > 0)
+    lines.push(`  unreadable: ${String(walk.skippedUnreadable)}`);
+  return lines;
+}
+
 export function formatAnalyzeResult(
   result: AnalyzeOutput,
   format: 'text' | 'json' | 'summary',
@@ -278,6 +314,18 @@ export function formatAnalyzeResult(
   lines.push(`  Edges:     ${result.graph.edgeCount}`);
   lines.push(`  Files:     ${result.graph.fileCount}`);
   lines.push(` `);
+  // **The count that describes the index carries the count that describes what it did not see.** Printed before the
+  // phase list rather than after it, because it qualifies every figure below: `fileCount` is the files in the index,
+  // and a reader who takes it for the files in the repository is the defect this block exists to prevent.
+  const coverage = coverageLines(result);
+  if (coverage.length > 0) {
+    lines.push(`${'─'.repeat(40)}`);
+    lines.push(`Index Coverage`);
+    lines.push(`${'─'.repeat(40)}`);
+    lines.push(...coverage);
+    lines.push(` `);
+  }
+
   lines.push(`${'─'.repeat(40)}`);
   lines.push(`Pipeline Phases (${result.graph.phaseCount})`);
   lines.push(`${'─'.repeat(40)}`);

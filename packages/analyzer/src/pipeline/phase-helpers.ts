@@ -226,6 +226,37 @@ export interface WalkOptions {
    * it. Applied before the read, for the same reason the include list is.
    */
   readonly excludePatterns?: readonly string[];
+  /**
+   * Where to write what the walk could not read. **A caller-owned record rather than a return value**, because the
+   * walk is recursive and the counts belong to the whole traversal, not to the deepest call that happened to return
+   * last. A caller that passes nothing gets the old behaviour exactly: the walk still stops at the ceiling, still skips
+   * a file it cannot stat, and simply reports none of it.
+   */
+  readonly report?: WalkReport;
+}
+
+/**
+ * The three ways one walk can end with a repository that is not fully indexed.
+ *
+ * **`filesDiscovered` was the only number a caller could see, and it cannot distinguish a small checkout from a large
+ * one that was read partway.** That matters where it is read: a question answered "no such symbol" is a statement
+ * about an index, and an index built from the first two thousand of forty thousand files supports the statement about
+ * those two thousand only. The counts here are what let a caller say which of the two it is holding.
+ */
+export interface WalkReport {
+  /**
+   * True when the walk returned with directory entries still unvisited because `maxFiles` was reached.
+   *
+   * **It does not claim those entries are source files.** It claims the tree was not enumerated to the end, which is
+   * exactly what the code knows: the loop is abandoned mid-directory with at least one entry left in it. Narrowing it
+   * further would mean walking the rest of the tree to decide whether to say so, which is the work the ceiling exists
+   * to avoid.
+   */
+  stoppedAtLimit: boolean;
+  /** Files the walk found, sized, and refused because they are larger than `maxFileSize`. */
+  skippedOverSize: number;
+  /** Files the walk found and could not read: a stat failure, an unreadable byte stream, a decoder that threw. */
+  skippedUnreadable: number;
 }
 
 export async function walkDirectory(
@@ -240,12 +271,18 @@ export async function walkDirectory(
   const readSource = options.readSource ?? readSourceFromDisk;
   const includePatterns = options.includePatterns ?? [];
   const excludePatterns = options.excludePatterns ?? [];
+  const report = options.report;
   if (results.length >= maxFiles) return;
 
   const entries = await readdir(currentPath, { withFileTypes: true });
 
   for (const entry of entries) {
-    if (results.length >= maxFiles) return;
+    // **Reached mid-directory, so at least one entry is left unvisited** - which is exactly what
+    // `stoppedAtLimit` claims and no more than that.
+    if (results.length >= maxFiles) {
+      if (report) report.stoppedAtLimit = true;
+      return;
+    }
 
     const fullPath = join(currentPath, entry.name);
     const relPath = relative(rootPath, fullPath);
@@ -281,13 +318,24 @@ export async function walkDirectory(
 
       try {
         const fileStat = await stat(fullPath);
-        if (fileStat.size > maxFileSize) continue;
+        if (fileStat.size > maxFileSize) {
+          // **A refusal with a reason is not the same fact as a file that is not there**, and the size cap is the one
+          // the field notes call out by name: on Long Code Arena a quarter of the corpus was refused for size, and
+          // every one of those refusals used to look like a small corpus.
+          if (report) report.skippedOverSize += 1;
+          continue;
+        }
 
         // **A PDF is read as bytes and decoded, not read as text**, and that dispatch lives behind `readSource`
         // so a caller that cannot read from this filesystem at all (a test, an archive) still exercises the
         // same code path. See `pdf-text.ts` and `2026-10-09-deliberate-omissions-audited.md`.
         const content = await readSource(fullPath, language);
-        if (language === 'pdf' && content.length === 0) continue;
+        if (language === 'pdf' && content.length === 0) {
+          // A decoder that produced nothing is a file the index does not hold, which is the same fact as a file it
+          // could not open - so it is counted rather than passed over.
+          if (report) report.skippedUnreadable += 1;
+          continue;
+        }
         const hash = computeHash(content);
 
         results.push({
@@ -298,7 +346,10 @@ export async function walkDirectory(
           size: fileStat.size,
         });
       } catch {
-        // Skip files that can't be read
+        // **The empty catch that read as "no problem here."** A stat that threw, a byte stream the process may not
+        // read, a decoder that threw on a malformed document: three different files, one silence, and a caller who
+        // could not tell any of them from a file that does not exist.
+        if (report) report.skippedUnreadable += 1;
       }
     }
   }
