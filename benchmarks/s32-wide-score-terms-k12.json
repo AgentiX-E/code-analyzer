@@ -1,0 +1,265 @@
+{
+  "artifact": "/tmp/s32/aacr-bench.json",
+  "version": "score-term-ablation-v1",
+  "weightsVersion": "actionability-weights-v1",
+  "cut": "drop:test+drop-path:test+budget:12",
+  "rows": 984,
+  "goldens": 173,
+  "pullRequests": 50,
+  "baseline": {
+    "goldens": 173,
+    "emitted": 402,
+    "truePositives": 80,
+    "falsePositives": 322,
+    "falseNegatives": 93,
+    "precision": 0.19900497512437812,
+    "recall": 0.4624277456647399,
+    "f1": 0.2782608695652174
+  },
+  "resolution": {
+    "sd": 0.0040435,
+    "mde": 0.011328000000000001
+  },
+  "terms": [
+    {
+      "term": "grounded",
+      "weight": 0.3,
+      "firedOn": 929,
+      "dead": false,
+      "without": {
+        "goldens": 173,
+        "emitted": 402,
+        "truePositives": 80,
+        "falsePositives": 322,
+        "falseNegatives": 93,
+        "precision": 0.19900497512437812,
+        "recall": 0.4624277456647399,
+        "f1": 0.2782608695652174
+      },
+      "delta": 0,
+      "interval": {
+        "rounds": 2000,
+        "seed": 20261124,
+        "observed": 0,
+        "mean": 0,
+        "lo": 0,
+        "hi": 0,
+        "sd": 0,
+        "mde": 0
+      },
+      "onlyBase": 0,
+      "onlyAlt": 0,
+      "p": 1
+    },
+    {
+      "term": "proposesChange",
+      "weight": 0.2,
+      "firedOn": 828,
+      "dead": false,
+      "without": {
+        "goldens": 173,
+        "emitted": 402,
+        "truePositives": 82,
+        "falsePositives": 320,
+        "falseNegatives": 91,
+        "precision": 0.20398009950248755,
+        "recall": 0.47398843930635837,
+        "f1": 0.2852173913043478
+      },
+      "delta": 0.006957,
+      "interval": {
+        "rounds": 2000,
+        "seed": 20261124,
+        "observed": 0.006957,
+        "mean": 0.006891,
+        "lo": 0,
+        "hi": 0.017241,
+        "sd": 0.004665,
+        "mde": 0.01307
+      },
+      "onlyBase": 0,
+      "onlyAlt": 2,
+      "p": 0.5
+    },
+    {
+      "term": "quotesDiff",
+      "weight": 0.14,
+      "firedOn": 104,
+      "dead": false,
+      "without": {
+        "goldens": 173,
+        "emitted": 402,
+        "truePositives": 78,
+        "falsePositives": 324,
+        "falseNegatives": 95,
+        "precision": 0.19402985074626866,
+        "recall": 0.4508670520231214,
+        "f1": 0.271304347826087
+      },
+      "delta": -0.006957,
+      "interval": {
+        "rounds": 2000,
+        "seed": 20261124,
+        "observed": -0.006957,
+        "mean": -0.006868,
+        "lo": -0.017212,
+        "hi": 0,
+        "sd": 0.00461,
+        "mde": 0.012916
+      },
+      "onlyBase": 2,
+      "onlyAlt": 0,
+      "p": 0.5
+    },
+    {
+      "term": "namesSymbol",
+      "weight": 0.08,
+      "firedOn": 951,
+      "dead": false,
+      "without": {
+        "goldens": 173,
+        "emitted": 402,
+        "truePositives": 80,
+        "falsePositives": 322,
+        "falseNegatives": 93,
+        "precision": 0.19900497512437812,
+        "recall": 0.4624277456647399,
+        "f1": 0.2782608695652174
+      },
+      "delta": 0,
+      "interval": {
+        "rounds": 2000,
+        "seed": 20261124,
+        "observed": 0,
+        "mean": 0,
+        "lo": 0,
+        "hi": 0,
+        "sd": 0,
+        "mde": 0
+      },
+      "onlyBase": 0,
+      "onlyAlt": 0,
+      "p": 1
+    },
+    {
+      "term": "agreement",
+      "weight": 0.1,
+      "firedOn": 984,
+      "dead": false,
+      "without": {
+        "goldens": 173,
+        "emitted": 402,
+        "truePositives": 79,
+        "falsePositives": 323,
+        "falseNegatives": 94,
+        "precision": 0.19651741293532338,
+        "recall": 0.45664739884393063,
+        "f1": 0.2747826086956522
+      },
+      "delta": -0.003478,
+      "interval": {
+        "rounds": 2000,
+        "seed": 20261124,
+        "observed": -0.003478,
+        "mean": -0.003519,
+        "lo": -0.01107,
+        "hi": 0,
+        "sd": 0.003407,
+        "mde": 0.009545
+      },
+      "onlyBase": 1,
+      "onlyAlt": 0,
+      "p": 1
+    },
+    {
+      "term": "severity",
+      "weight": 0.12,
+      "firedOn": 984,
+      "dead": false,
+      "without": {
+        "goldens": 173,
+        "emitted": 402,
+        "truePositives": 80,
+        "falsePositives": 322,
+        "falseNegatives": 93,
+        "precision": 0.19900497512437812,
+        "recall": 0.4624277456647399,
+        "f1": 0.2782608695652174
+      },
+      "delta": 0,
+      "interval": {
+        "rounds": 2000,
+        "seed": 20261124,
+        "observed": 0,
+        "mean": -0.000112,
+        "lo": -0.010101,
+        "hi": 0.010239,
+        "sd": 0.004989,
+        "mde": 0.013977
+      },
+      "onlyBase": 1,
+      "onlyAlt": 1,
+      "p": 1
+    },
+    {
+      "term": "lane",
+      "weight": 0.06,
+      "firedOn": 984,
+      "dead": false,
+      "without": {
+        "goldens": 173,
+        "emitted": 402,
+        "truePositives": 81,
+        "falsePositives": 321,
+        "falseNegatives": 92,
+        "precision": 0.20149253731343283,
+        "recall": 0.4682080924855491,
+        "f1": 0.2817391304347826
+      },
+      "delta": 0.003478,
+      "interval": {
+        "rounds": 2000,
+        "seed": 20261124,
+        "observed": 0.003478,
+        "mean": 0.003407,
+        "lo": 0,
+        "hi": 0.011029,
+        "sd": 0.003477,
+        "mde": 0.00974
+      },
+      "onlyBase": 0,
+      "onlyAlt": 1,
+      "p": 1
+    },
+    {
+      "term": "hedgePenalty",
+      "weight": 0.1,
+      "firedOn": 178,
+      "dead": false,
+      "without": {
+        "goldens": 173,
+        "emitted": 402,
+        "truePositives": 86,
+        "falsePositives": 316,
+        "falseNegatives": 87,
+        "precision": 0.21393034825870647,
+        "recall": 0.49710982658959535,
+        "f1": 0.2991304347826087
+      },
+      "delta": 0.02087,
+      "interval": {
+        "rounds": 2000,
+        "seed": 20261124,
+        "observed": 0.02087,
+        "mean": 0.020933,
+        "lo": 0.006441,
+        "hi": 0.03937,
+        "sd": 0.008788,
+        "mde": 0.024619
+      },
+      "onlyBase": 0,
+      "onlyAlt": 6,
+      "p": 0.03125
+    }
+  ]
+}

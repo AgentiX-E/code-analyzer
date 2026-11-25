@@ -1,0 +1,56 @@
+{
+  "artifact": "/tmp/s32/aacr-bench.json",
+  "corpus": "benchmarks/martian/positive_samples.json",
+  "version": "martian-core-profile-v1",
+  "cut": "drop:test+drop-path:test+budget:12",
+  "readings": {
+    "all": {
+      "profile": "all",
+      "goldens": 173,
+      "shipped": {
+        "goldens": 173,
+        "emitted": 402,
+        "truePositives": 80,
+        "falsePositives": 322,
+        "falseNegatives": 93,
+        "precision": 0.19900497512437812,
+        "recall": 0.4624277456647399,
+        "f1": 0.2782608695652174
+      },
+      "full": {
+        "goldens": 173,
+        "emitted": 984,
+        "truePositives": 104,
+        "falsePositives": 880,
+        "falseNegatives": 69,
+        "precision": 0.10569105691056911,
+        "recall": 0.6011560693641619,
+        "f1": 0.1797752808988764
+      }
+    },
+    "core": {
+      "profile": "core",
+      "goldens": 158,
+      "shipped": {
+        "goldens": 158,
+        "emitted": 402,
+        "truePositives": 76,
+        "falsePositives": 326,
+        "falseNegatives": 82,
+        "precision": 0.1890547263681592,
+        "recall": 0.4810126582278481,
+        "f1": 0.2714285714285714
+      },
+      "full": {
+        "goldens": 158,
+        "emitted": 984,
+        "truePositives": 97,
+        "falsePositives": 887,
+        "falseNegatives": 61,
+        "precision": 0.09857723577235772,
+        "recall": 0.6139240506329114,
+        "f1": 0.16987740805604204
+      }
+    }
+  }
+}
