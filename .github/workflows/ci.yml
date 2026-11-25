@@ -370,6 +370,15 @@ jobs:
           node scripts/competitor-board.mjs
           git diff --exit-code -- docs/competitor-board.html benchmarks/competitor-board.json
 
+      # **The cut curves are drawn from what the instrument wrote, and this keeps them drawn.** §158's three readings
+      # are three files `scripts/cut-curve.mjs` produced; the page is a second thing that could disagree with them, so it
+      # is regenerated here and a difference fails. It also fails when a curve is replaced and the page is not.
+      - name: Render the cut curves as one page
+        run: npm run docs:cut-curve
+
+      - name: Enforce that the cut page is what the curves say
+        run: git diff --exit-code -- docs/cut-curve.html
+
       # **A section that explains a score by quoting a corpus has to be re-derived from that corpus.** §132 attributes
       # our 27.57 and the leader's 65.8 to five named places, and every figure in it comes from
       # `benchmarks/martian-bench.json` by arithmetic - so the reading is reproducible for free, and it is checked here
