@@ -17391,6 +17391,12 @@ cut**: their `0.2991` is their best of three _readings_, at whatever emission th
 has not been priced (S40). If their emission also prefers a different cut, the comparison moves — and that is a
 zero-cost reading of an artifact we have already paid for, which is why it is the next thing rather than a footnote.
 
+> **Two figures in the table above were corrected in §160.2, both in our favour.** The competitor's `0.2991` is divided by
+> Martian's **173** goldens and not by the **158** the board scores; on the board's own denominator their shipped point is
+> **`0.2817`**, so the margin is `+0.0404` and not `+0.0230`. And the pricing S40 bought says their pipeline has no cut to
+> prefer — `keep` in the record is _our_ gate's verdict on their findings — so "their best cut" is their only point. The
+> third reading, `0.3551`, is our gate applied to their output and is discussed where it belongs, in §160.3.
+
 ### 159.5 Two terms the ablation says are costing true positives, and why neither was retired here
 
 The score is a sum of eight terms, and the wide artifact was re-priced term by term at its own cut. Two terms came out
@@ -17435,3 +17441,99 @@ dispatch never asked: `competitor: off`.
   difference is one more lane and therefore one more drawing from the same engine.
 - **Not that the six-lane arm is better on every board.** AACR has not been re-read with it, and §158.3's AACR curves
   belong to the five-lane emission. Until S11 lands, the AACR column describes the shipped arm.
+
+## 160. The competitor's cut is a point, and reading it moved the claim
+
+§159.4 said the thing it does not establish in one sentence: _their `0.2991` is their best of three readings, at whatever
+emission their pipeline produces, and their curve has not been priced_ (**S40**). It is priced here, from verdicts the
+record already holds, and the reading changes two figures in the section above it.
+
+### 160.1 What the instrument reads
+
+`scripts/competitor-cut.mjs` applies **the corpus's own arithmetic** to the competitor's rows: `F1 = 2·TP/(emitted +
+goldens)`, one verdict per pair, a maximum bipartite matching per pull request, and the denominator from the corpus
+rather than from the rows. On the Martian board with the run of 2026-11-25's selection:
+
+| reading                                           | emitted |  TP | goldens |      P |      R |         F1 |
+| ------------------------------------------------- | ------: | --: | ------: | -----: | -----: | ---------: |
+| their pipeline, as shipped (`all`)                |     616 | 118 |     173 | 0.1916 | 0.6821 |     0.2991 |
+| their pipeline, as shipped (`core`)               |     616 | 109 |     158 | 0.1769 | 0.6899 |     0.2817 |
+| their emission through **our actionability gate** |     210 |  68 |     173 | 0.3238 | 0.3931 |     0.3551 |
+| the same, on the board's 158 (`core`)             |     210 |  63 |     158 | 0.3000 | 0.3987 | **0.3424** |
+| our wide arm at its best cut (`k = 5`, `core`)    |     227 |  62 |     158 | 0.2731 | 0.3924 | **0.3221** |
+| our wide arm at the size they gate to (`core`)    |    ~210 | ~59 |     158 | 0.2786 | 0.3703 |     0.3185 |
+
+**The first row is a replay, not a claim**: `--guard-from` rebuilds `P 0.1916 / R 0.6821 / F1 0.2991` from the 95 rows in
+`benchmarks/aacr/competitor-baseline.json` to four decimal places, which is the evidence that the rows are the rows those
+figures came from. The second row is the same emission divided by the number the board actually scores - **and it is
+`0.2817`, not `0.2991`.**
+
+### 160.2 Two corrections to the section above
+
+- **`0.2991` is a 173-denominator figure and §159.4's table labels it `core`.** The label is wrong in the direction that
+  flatters us: on the board's own 158 the competitor's shipped point is **`0.2817`**, so the claim `0.3221 > 0.2991`
+  understates the margin rather than overstating it. **The correct statement is `+0.0404` (3.2 MDE), not `+0.0230`.**
+  The fifth question's floor - what the competitor reaches with our LLM, on the denominator we are scored on - is
+  therefore **`0.2817`**, and the target to claim is `0.2943` rather than `0.3117`.
+- **The competitor has no cut to prefer, so "their best cut" is their only point.** `keep` in the record is **our** gate's
+  verdict on their findings, not their selection: their pipeline emits 616 comments and that is what it ships. **The
+  `0.3424` row is our gate's achievement, not theirs** - it is the same gate that turns our 984 into 227, applied to their
+  616, and it is worth `+0.0607` on their output and `+0.1522` on ours.
+
+**Both corrections are in the same direction, and neither of them closes the gap that matters**, which is 160.3.
+
+### 160.3 The gap is the pool, not the selection
+
+Three quantities separate the two arms, and only one of them is about choosing:
+
+| quantity                              |       theirs |         ours |               |
+| ------------------------------------- | -----------: | -----------: | ------------- |
+| findings emitted at full emission     |          616 |          984 | ×1.60         |
+| goldens matched in that pool (`core`) |          109 |           97 | −11           |
+| **density of the pool**               | **`0.1769`** | **`0.0986`** | they are 1.8× |
+| **selection efficiency at the gate**  | **`0.5780`** | **`0.6392`** | we are 1.1×   |
+| comments kept by the same gate        |          210 |          227 | +17           |
+| goldens those comments buy            |           63 |           62 | −1            |
+
+**Our ranker is not the deficit; our generator is.** The gate keeps 64 % of the goldens our pool contains and 58 % of
+theirs, so on the same rule our selection is the better one - but our pool holds **97** matched goldens where theirs holds
+**109**, and it holds them among **984** comments rather than **616**. Every device this repository has shipped in the
+last month moved the second column: the wide arm added one lane and bought `+0.0127` of recall at `k = 8`. **The next
+device has to move the first column, and the arithmetic says what it is worth**: at the gate's own efficiency, 13 more
+goldens in the pool is `+0.0432` of F1 at `k = 5` with nothing else changed.
+
+**And the pool is nearly twice as dilute.** `0.0986` against `0.1769` is not a ranking difference - both arms are ranked
+by the same ranker and gated by the same rule - it is 887 comments of ours that no golden names against 507 of theirs.
+That is the sentence to work on next, and §159.5 already has the first two candidates in it: `hedgePenalty` and
+`proposesChange` are terms the ablation says are costing true positives on both Martian arms.
+
+### 160.4 Three defects that one record holding two corpora exposed
+
+Merging the Martian rows into the AACR baseline was a **`$0`** operation - both corpora's verdicts had been paid for, the
+AACR 47 rows' fingerprints matched the artifact's copies exactly, and the 48 Martian rows were sitting in an artifact
+that expires in 2027 - and it found three places where the code assumed a file holds one corpus:
+
+- **`refreshProvenance` rebuilt `knownAbsences` from the current selection alone**, so recording the Martian board erased
+  the AACR slice's three holes from the header while the rows those holes describe were still missing. It is a **union**
+  now: what the file has ever called missing, minus what has a row. This is the one defect of the three that could lose
+  information no later run can recover, because a hole is only visible where it is written down.
+- **`filter-ceiling` read every row in the baseline**, so `theirs.goldens` moved from 266 to 605 and their generator
+  recall became a rate over two corpora at once. It is scoped to our own artifact's pull requests now - **a ceiling is a
+  statement about one corpus**, and a second corpus filed beside it is not a corpus the question was asked about.
+- **A test asserted a run's true and false positives over every recorded row in the file**, which was true only while
+  the file held one run. It reads its selection from the artifact that run published (`benchmarks/aacr-bench.json`,
+  `coverage.byPullRequest`) rather than from a hand-kept list of 47 urls - **an answer key typed into a test is the
+  second copy of an answer key this repository has already paid for.**
+
+### 160.5 What this round does not claim
+
+- **Not that `0.3424` is a competitor figure to beat.** It is our gate on their output. **A gate applied to another
+  reviewer's comments is a statement about the gate**, and the sentence it supports is the one in 160.3: on identical
+  rules their pool yields one more golden from seventeen fewer comments.
+- **Not that the pool's density is a prompt defect.** Density is a rate over comments, and the 984 include six lanes'
+  worth of overlap; **the same 97 goldens at 616 comments would read `0.1575`**, which is close enough to theirs that the
+  next measurement has to separate _more lanes_ from _more comments per lane_ before either is called the cause.
+- **Not that S40 is closed for AACR.** The AACR baseline's 47 rows price the same way, but the AACR run of 2026-11-10
+  published `P 0.3289 / R 0.2941 / F1 0.3106` on a 50-pull-request selection whose 196 goldens are not in this
+  repository, so the guard has nothing to rebuild it against. **S11 buys that corpus; until then the AACR column is the
+  same one §158 published.**
