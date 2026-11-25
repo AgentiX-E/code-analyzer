@@ -9,7 +9,7 @@ import { PhaseLogger, createNoopPhaseLogger, EDGE_CONTAINS } from '@code-analyze
 import { GraphBuilder } from '../../graph/graph-builder.js';
 import { parseGitignore, toPhaseFailure, walkDirectory } from '../phase-helpers.js';
 
-import type { ExecutablePhase, PhaseExecutionResult } from '../phase-helpers.js';
+import type { ExecutablePhase, PhaseExecutionResult, WalkReport } from '../phase-helpers.js';
 import type { PipelinePhaseId, PipelineContext, DiscoveredFile } from '@code-analyzer/shared';
 
 // ---------------------------------------------------------------------------
@@ -29,11 +29,23 @@ export class ScanPhase implements ExecutablePhase {
 
       // Handle non-existent directories gracefully
       if (!existsSync(ctx.rootPath)) {
-        ctx.phaseData.set('scan', { files: [], discoveredFiles: [] });
-        return { phaseId: this.id, status: 'success', output: { filesDiscovered: 0 } };
+        // **A root that does not exist is an index of nothing, not an index of everything** - and it is reported with
+        // the same shape as a walk that stopped, so a caller has one field to read rather than two cases.
+        const empty: WalkReport = { stoppedAtLimit: false, skippedOverSize: 0, skippedUnreadable: 0 };
+        ctx.phaseData.set('scan', { files: [], discoveredFiles: [], walk: empty });
+        return { phaseId: this.id, status: 'success', output: { filesDiscovered: 0, walk: empty } };
       }
 
       const gitignorePatterns = parseGitignore(ctx.rootPath);
+
+      /**
+       * **What the walk could not read, kept with the count of what it could.**
+       *
+       * The phase has always reported `filesDiscovered`, and that number is the whole truth only when the walk reached
+       * the end of the tree and every file in it was readable. Otherwise it describes the part that was read, and a
+       * reader who takes it for the repository is making an inference the data does not support.
+       */
+      const walk: WalkReport = { stoppedAtLimit: false, skippedOverSize: 0, skippedUnreadable: 0 };
 
       await walkDirectory(
         ctx.rootPath,
@@ -49,6 +61,7 @@ export class ScanPhase implements ExecutablePhase {
         {
           includePatterns: ctx.config.includePatterns,
           excludePatterns: ctx.config.excludePatterns,
+          report: walk,
         },
       );
 
@@ -56,6 +69,7 @@ export class ScanPhase implements ExecutablePhase {
       ctx.phaseData.set('scan', {
         files: discoveredFiles,
         discoveredFiles,
+        walk,
       });
 
       // Populate ctx.graph with Folder and File nodes if graph is present
@@ -138,7 +152,7 @@ export class ScanPhase implements ExecutablePhase {
       return {
         phaseId: this.id,
         status: 'success',
-        output: { filesDiscovered: discoveredFiles.length },
+        output: { filesDiscovered: discoveredFiles.length, walk },
       };
     } catch (err) {
       return toPhaseFailure(err, this.id, this.logger, ctx?.rootPath);
