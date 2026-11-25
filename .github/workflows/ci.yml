@@ -395,6 +395,23 @@ jobs:
       - name: Enforce that the density page is what the readings say
         run: git diff --exit-code -- docs/pool-density.html
 
+      # **The one comparison that is about the reviewer rather than about the policy.** §162's table puts our six-lane
+      # arm and the competitor's rows on the same budget axis, both read out of files the repository already holds - so it
+      # is free to reproduce and it is worth a gate: **the moment either curve moves, the gap in the document is wrong**,
+      # and the target derived from it (`0.3735` on the board's 158) moves with it. A reading nobody re-runs is a number
+      # in a paragraph.
+      - name: Re-read the two arms at the same cut
+        run: npm run bench:same-cut
+
+      - name: Enforce that the same-cut readings are what the two curves say
+        run: git diff --exit-code -- benchmarks/same-cut-core.json benchmarks/same-cut-all.json
+
+      - name: Render the two arms as one page
+        run: npm run docs:same-cut
+
+      - name: Enforce that the same-cut page is what the readings say
+        run: git diff --exit-code -- docs/same-cut.html
+
       # **A section that explains a score by quoting a corpus has to be re-derived from that corpus.** §132 attributes
       # our 27.57 and the leader's 65.8 to five named places, and every figure in it comes from
       # `benchmarks/martian-bench.json` by arithmetic - so the reading is reproducible for free, and it is checked here
