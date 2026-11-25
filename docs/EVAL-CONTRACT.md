@@ -17484,28 +17484,32 @@ figures came from. The second row is the same emission divided by the number the
 
 ### 160.3 The gap is the pool, not the selection
 
+**Corrected in §161.1: the two densities in this table were rates over two different stages of two different pipelines.**
+The paragraph below is kept, and the numbers it rests on are replaced there, because the _thesis_ survives the correction
+and the arithmetic does not.
+
 Three quantities separate the two arms, and only one of them is about choosing:
 
-| quantity                              |       theirs |         ours |               |
-| ------------------------------------- | -----------: | -----------: | ------------- |
-| findings emitted at full emission     |          616 |          984 | ×1.60         |
-| goldens matched in that pool (`core`) |          109 |           97 | −11           |
-| **density of the pool**               | **`0.1769`** | **`0.0986`** | they are 1.8× |
-| **selection efficiency at the gate**  | **`0.5780`** | **`0.6392`** | we are 1.1×   |
-| comments kept by the same gate        |          210 |          227 | +17           |
-| goldens those comments buy            |           63 |           62 | −1            |
+| quantity                                  |       theirs |         ours |               |
+| ----------------------------------------- | -----------: | -----------: | ------------- |
+| findings emitted at full emission         |          616 |          984 | ×1.60         |
+| goldens matched in that emission (`core`) |          109 |           97 | −12           |
+| **density of the emission**               | **`0.1769`** | **`0.0986`** | they are 1.8× |
+| **selection efficiency at the gate**      | **`0.5780`** | **`0.6392`** | we are 1.1×   |
+| comments kept by the same gate            |          210 |          227 | +17           |
+| goldens those comments buy                |           63 |           62 | −1            |
 
 **Our ranker is not the deficit; our generator is.** The gate keeps 64 % of the goldens our pool contains and 58 % of
 theirs, so on the same rule our selection is the better one - but our pool holds **97** matched goldens where theirs holds
 **109**, and it holds them among **984** comments rather than **616**. Every device this repository has shipped in the
 last month moved the second column: the wide arm added one lane and bought `+0.0127` of recall at `k = 8`. **The next
-device has to move the first column, and the arithmetic says what it is worth**: at the gate's own efficiency, 13 more
-goldens in the pool is `+0.0432` of F1 at `k = 5` with nothing else changed.
+device has to move the first column.**
 
-**And the pool is nearly twice as dilute.** `0.0986` against `0.1769` is not a ranking difference - both arms are ranked
-by the same ranker and gated by the same rule - it is 887 comments of ours that no golden names against 507 of theirs.
-That is the sentence to work on next, and §159.5 already has the first two candidates in it: `hedgePenalty` and
-`proposesChange` are terms the ablation says are costing true positives on both Martian arms.
+**The comparison is not like for like and §161.1 is the correction.** `0.0986` divides our **full emission** - the comments
+before the product's own rule refuses any - and `0.1769` divides the competitor's **shipped emission**, which is every
+comment their pipeline produces because their pipeline has no rule to apply. On the stage the two share, the pool that
+reaches the budget, the figures are `0.1157` and `0.1238` for our two arms against their `0.1769`. **The gap is real, it
+is 1.4× rather than 1.8×, and it is 21 credited goldens rather than 12.**
 
 ### 160.4 Three defects that one record holding two corpora exposed
 
@@ -17537,3 +17541,128 @@ that expires in 2027 - and it found three places where the code assumed a file h
   published `P 0.3289 / R 0.2941 / F1 0.3106` on a 50-pull-request selection whose 196 goldens are not in this
   repository, so the guard has nothing to rebuild it against. **S11 buys that corpus; until then the AACR column is the
   same one §158 published.**
+
+## 161. The pool is a stage, and half of it is one lane
+
+§160.3 reached the campaign's most useful sentence - _our ranker is not the deficit; our generator is_ - and reached it by
+dividing two numbers that were rates over two different stages. The sentence survives; the numbers do not, and this section
+replaces them, then asks the question the corrected numbers make askable: **which comments are diluting the pool, and can
+any of them be removed for free?**
+
+### 161.1 The stage both sides share, and the two figures it corrects
+
+`scripts/pool-density.mjs` rebuilds the pool through **the artifact's own steps, minus the budget** - every comment the
+product's rule keeps and the slot contest has not yet touched - and refuses to print anything unless the rebuild at the
+artifact's own budget reproduces the counts that artifact published. On the Martian board:
+
+| reading                                         | emitted | after our rule | credited (`core`) | density |
+| ----------------------------------------------- | ------: | -------------: | ----------------: | ------: |
+| the competitor's pipeline, as shipped           |     616 |            616 |               109 |  0.1769 |
+| our shipped arm (`rule drop test`)              |     943 |            743 |                86 |  0.1157 |
+| our wide arm (`rule drop test, drop path test`) |     984 |            711 |                88 |  0.1238 |
+
+**Three corrections follow from the middle column, and all three are against us rather than for us.**
+
+- **`0.0986` was our full emission and `0.1769` is their shipped emission.** §160.3 called the gap 1.8×; on the stage both
+  pipelines share it is **1.43×** (wide arm) or **1.53×** (shipped arm). The deficit is real and it is smaller than the
+  section claimed.
+- **Twelve credited goldens was the wrong count; it is twenty-one.** Against their 109, the wide arm's pool credits 88 and
+  the shipped arm's 86. **The worth of closing that gap is arithmetic this repository can state exactly**: `F1 =
+2·TP/(C+G)`, so one more credited golden is worth `2/(227+158) = 0.00519` of F1 at `k = 5` before selection, and
+  `0.00519 × 0.7045 = 0.0037` after it at the gate's own efficiency - **21 goldens is `+0.0770`, an upper bound** that
+  assumes the comments that find them cost nothing.
+- **The two arms' pools are not measured through the same rule, and the artifact says so.** The Martian artifact of
+  2026-11-18 predates §106's path-class step, so its rule is `drop test` alone and its pool is 743; the wide arm's artifact
+  carries all three steps and its pool is 711. **The instrument prints the rule it applied** (`rule drop test, drop path
+test`) and records it in the JSON, because a reader comparing two densities has to be able to see that the pools were
+  drawn at different widths rather than infer it from a 32-comment discrepancy.
+
+**The AACR column has no reading at all.** The `benchmarks/aacr-bench.json` in this tree carries `rankedFindings` without a
+`lane` field and no shipped cut, so the instrument groups 569 comments under `unnamed` and has no budget to contest: **a
+density reading needs a run that labelled its lanes and published its rule**, and the AACR slice in the tree is older than
+both. S11 buys that run; until then the AACR board is not in this section.
+
+### 161.2 Where the pool's comments are
+
+The same pool, grouped two ways - **the grouping matters, because a lane is a reviewer with a prompt and a category is a
+label one lane can wear for one comment**, and `architecture` wears both.
+
+| lane (shipped arm) | comments | share of pool | credited | density | ΔF1 at `k = 5` |
+| ------------------ | -------: | ------------: | -------: | ------: | -------------: |
+| architecture       |      414 |         55.7% |       48 |  0.1159 |  **`−0.0134`** |
+| maintainability    |      146 |         19.7% |        9 |  0.0616 |      `+0.0058` |
+| security           |      132 |         17.8% |       33 |  0.2500 |  **`−0.0338`** |
+| performance        |       35 |          4.7% |       10 |  0.2857 |      `+0.0066` |
+| testing            |       16 |          2.2% |        5 |  0.3125 |      `−0.0103` |
+
+**One lane writes more than half the pool, and the lane that pays is a sixth of it.** `security` credits 0.2500 of what it
+writes and `architecture` 0.1159, and the two together are 73.5 % of every comment the product emits.
+
+| category (shipped arm) | comments | share | credited | density | ΔF1 at `k = 5` |
+| ---------------------- | -------: | ----: | -------: | ------: | -------------: |
+| bug                    |      358 | 48.2% |       63 |  0.1760 |  **`−0.1515`** |
+| architecture           |      190 | 25.6% |       10 |  0.0526 |      `+0.0140` |
+| maintainability        |       83 | 11.2% |        2 |  0.0241 |      `+0.0095` |
+| security               |       70 |  9.4% |       16 |  0.2286 |      `−0.0055` |
+| performance            |       17 |  2.3% |        3 |  0.1765 |      `−0.0045` |
+
+**The cross-tabulation is the finding, and neither grouping shows it alone.** `architecture`'s 414 comments are **205
+labelled `bug` and 190 labelled `architecture`** - and the `architecture` _category_ credits 10 of its 190, which is where
+95 of the pool's least productive comments sit. **The lane is not the problem and the category is not the problem; the
+pairing is**: a lane that describes structure writes comments the corpus files as `bug` half the time and pays for them,
+and comments it files as `architecture` the other half and does not.
+
+### 161.3 What the split-half refused, which is the round's result
+
+Every marginal in 161.2 is computed on the pool that chose it. **The instrument therefore draws the corpus in half by
+position in the sorted pull-request list, measures the removal on the half that chose it and on the half that did not see
+it, and calls a group resolved only when the two agree in sign and the held-out magnitude clears 0.0126:**
+
+| lane            | chosen half | held-out half | verdict      |
+| --------------- | ----------: | ------------: | ------------ |
+| security        |   `−0.0168` |     `−0.0494` | load-bearing |
+| architecture    |   `+0.0028` |     `−0.0292` | unresolved   |
+| maintainability |   `+0.0036` |     `+0.0083` | unresolved   |
+| performance     |   `+0.0238` |     `−0.0101` | unresolved   |
+| testing         |   `−0.0212` |      `0.0000` | unresolved   |
+
+**No lane, and no category, is resolvably free to remove.** `security` is load-bearing in both halves and by four times the
+resolution on the held-out one; the four other lanes reverse sign or fall under it, and the category reading repeats the
+pattern - `bug` load-bearing in both halves at `−0.0928 / −0.2073`, and the other six unresolved, including the
+`architecture` category whose whole-pool `+0.0140` looked like a gain and reads `−0.0036 / +0.0307` when the halves are
+separated.
+
+**This is the answer to S39, and it is a refusal.** The campaign registered "retire `hedgePenalty`" on the strength of a
+term whose ablation moved the wide arm by `+0.0209` and the shipped arm by `+0.0069` - the same shape this table shows:
+one arm over resolution, the other under it. **A board on which no lane's removal clears the resolution cannot resolve a
+term's removal either**, and the two independent readings S39 asks for are not two readings of this board. They are a
+reading of a board with more goldens, which is S21.
+
+### 161.4 What the density says the next device is
+
+The pool's problem is not spread across five lanes; it is **190 comments in one lane labelled with a category the corpus
+files under structure**. Three devices follow from the arithmetic, in ascending cost:
+
+1. **`$0`, a cut**: drop the `architecture` category. Whole-pool `+0.0140`, held out `+0.0307`, chosen `−0.0036` - **the
+   halves disagree, so this is not a decision this board can make**, and shipping it would be the §19 mistake (a device
+   that buys precision by spending coverage, significantly, without moving F1 past the noise).
+2. **`$0`, a prompt change**: the `architecture` lane's output contract, so that a structural observation is either filed
+   where the corpus credits it or not filed. **This is the device the density column actually points at**, and it is the
+   one no cut can reach.
+3. **One run, `$0.21` on 50 pull requests**: the same six lanes with that contract, so the change is measured on the pool
+   it is meant to move rather than on the cut of the pool it inherited.
+
+**What this section does not claim is that device 2 works.** Density is a rate over comments, and a lane that writes fewer
+better comments and a lane that writes the same comments with a better label both raise it. **The next run has to separate
+_volume_ from _labelling_, and the cross-tabulation in 161.2 is the reason to expect the second**: 205 of the lane's
+comments already carry the category the corpus credits.
+
+### 161.5 What the instrument cannot see
+
+- **A golden no comment named.** Density is over comments that exist; a lane that missed a defect entirely contributes
+  nothing to the numerator and nothing to the denominator, and reads as absent rather than as wrong.
+- **A lane's potential.** Removing a group prices what it wrote, not what it could write - which is why 161.4's second
+  device is a prompt change and why this instrument can only tell it where to look.
+- **The AACR board**, for the reason 161.1 states, and **the wide arm's pool from a committed file**: the wide artifact is
+  a run artifact that expires, so its 711/88/0.1238 is reproducible only while that artifact is downloadable. The shipped
+  arm's reading is regenerated by CI from `benchmarks/martian-bench.json` on every push and cannot drift.
