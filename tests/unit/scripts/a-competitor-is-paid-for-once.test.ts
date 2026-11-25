@@ -537,6 +537,30 @@ describe('a record that grows describes itself from its own rows', () => {
     expect(refreshed.provenance?.knownAbsences?.pulls).toEqual(['https://github.com/a/b/pull/9']);
   });
 
+  it('keeps a hole from a corpus this run did not ask about', () => {
+    // **One file holds the rows of two corpora**, because `resolveCompetitor` looks a row up by pull request and a
+    // second corpus's rows do not invalidate the first's. The header has to survive the same distinction: the run of
+    // 2026-11-25 scored the Martian board and recorded nothing about the AACR slice's three holes, so a header rebuilt
+    // from that run's selection alone dropped them - **and the holes are the one list in this file a reader consults
+    // precisely because they are absent from everywhere else.** The union is over what the file has ever said was
+    // missing, minus what now has a row.
+    const withAnEarlierHole = {
+      ...grown(),
+      provenance: {
+        ...grown().provenance,
+        knownAbsences: { pulls: ['https://github.com/a/b/pull/8'], reason: 'holes' },
+      },
+    };
+    const refreshed = refreshProvenance(withAnEarlierHole, {
+      selection: ['https://github.com/a/b/pull/9'],
+      run: '2026-11-25',
+    });
+    expect(refreshed.provenance?.knownAbsences?.pulls).toEqual([
+      'https://github.com/a/b/pull/8',
+      'https://github.com/a/b/pull/9',
+    ]);
+  });
+
   it('states a span rather than a list of dates, and covers the run that just wrote the file', () => {
     const refreshed = refreshProvenance(grown(), { selection: [], run: '2026-11-12' });
     expect(refreshed.provenance?.measuredAt).toBe('2026-11-09 and 2026-11-12');

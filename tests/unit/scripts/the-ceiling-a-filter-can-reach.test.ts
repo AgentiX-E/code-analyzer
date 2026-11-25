@@ -37,7 +37,7 @@ function bench(rows: Array<{ goldens: number[]; kept: boolean }>, goldens: numbe
     scoring: {
       registeredRule: `exceeds the competitor figure of ${target.toFixed(4)} F1 on the same corpus`,
     },
-    coverage: { byPullRequest: [{ goldens }] },
+    coverage: { byPullRequest: [{ pr: 'pr', goldens }] },
     rankedFindings: rows.map((row, at) => ({
       pr: 'pr',
       actionable: row.kept,
@@ -59,6 +59,28 @@ const theirBench = (rows: Array<{ goldens: number[]; kept: boolean }>, goldens: 
   }) as Parameters<typeof buildCeiling>[1];
 
 describe('the ceiling a filter can reach', () => {
+  it('reads the baseline rows of this corpus and not another corpus filed in the same record', () => {
+    // **One baseline file now holds two corpora's rows**, because a row is found by pull request and recording the
+    // Martian board did not invalidate the AACR slice's rows. A ceiling is a statement about *one* corpus: the moment
+    // the other corpus's rows enter `theirs.goldens`, their generator recall is a rate over two corpora and the verdict
+    // below it is about neither. **The first version of this function read every row in the file**, and the merged
+    // record moved `theirs.goldens` from 266 to 605 without a single figure having changed.
+    const ours = bench([{ goldens: [0], kept: true }], 2);
+    const theirs = {
+      pulls: {
+        pr: { goldens: 2, keep: [true], matches: [[0]] },
+        'https://elsewhere.test/other/pull/9': {
+          goldens: 40,
+          keep: [true],
+          matches: [[0, 1, 2, 3, 4, 5, 6, 7]],
+        },
+      },
+    } as unknown as Parameters<typeof buildCeiling>[1];
+    const ceiling = buildCeiling(ours, theirs);
+    expect(ceiling.theirs.goldens).toBe(2);
+    expect(ceiling.theirs.generatorMatched).toBe(1);
+  });
+
   it('counts the goldens the run matched anywhere, not the findings it kept', () => {
     // Four findings, three of them matched, two kept. A filter that dropped the matched-but-unkept one would be a
     // better filter, so the ceiling has to be computed over all four.

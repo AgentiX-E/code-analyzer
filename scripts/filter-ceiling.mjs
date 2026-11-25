@@ -262,7 +262,23 @@ export function buildCeiling(bench, baseline) {
   const target = registeredTarget(bench);
 
   const read = readOurs(bench);
-  const readTheir = readTheirs(baseline);
+  /**
+   * **The baseline rows of this corpus, and no others.**
+   *
+   * One record holds the rows of more than one corpus - a row is found by pull request, so recording the Martian board
+   * left the AACR slice's forty-seven rows in place - and **a ceiling is a statement about one corpus**. Reading every
+   * row in the file moved `theirs.goldens` from 266 to 605 and `theirs.generatorRecall` to a rate over two corpora at
+   * once, while every figure in this file is about the 50 pull requests `bench` scored. **The scoping is by our own
+   * artifact's pull requests**, because that is the corpus the comparison is on; a second corpus filed beside it is not
+   * a corpus this question was asked about.
+   */
+  const scoped = {
+    ...baseline,
+    pulls: Object.fromEntries(
+      Object.entries(baseline?.pulls ?? {}).filter(([pr]) => read.prGoldens.has(pr)),
+    ),
+  };
+  const readTheir = readTheirs(scoped);
   const ours = score(read);
   const theirs = score(readTheir);
   /** **The intersection**, because a rate over 50 pull requests and a rate over 47 are two measurements, not a pair. */
