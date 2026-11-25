@@ -63,7 +63,7 @@
     <li><b>2</b><span>not built</span></li>
     <li><b>35</b><span>with an end-to-end case</span></li>
     <li><b>31</b><span>ours only</span></li>
-    <li><b>4</b><span>competitor only</span></li>
+    <li><b>2</b><span>competitor only</span></li>
   </ul>
 </header>
 <nav>
@@ -71,7 +71,7 @@
   <button data-filter="NONE" aria-pressed="false">Not built <span style="opacity:.6">2</span></button>
   <button data-filter="PART" aria-pressed="false">Partial <span style="opacity:.6">5</span></button>
   <button data-filter="DONE" aria-pressed="false">Done <span style="opacity:.6">37</span></button>
-  <button data-filter="C" aria-pressed="false">Competitor only <span style="opacity:.6">4</span></button>
+  <button data-filter="C" aria-pressed="false">Competitor only <span style="opacity:.6">2</span></button>
   <button data-filter="no-e2e" aria-pressed="false">No end-to-end case <span style="opacity:.6">9</span></button>
   <input id="q" type="search" placeholder="filter by capability, file or surface" aria-label="filter">
 </nav>
@@ -126,10 +126,10 @@
         <td><span class="state DONE">DONE</span></td>
         <td class="why">DONE</td>
       </tr>
-      <tr data-state="DONE" data-who="C" data-e2e="true">
+      <tr data-state="DONE" data-who="P" data-e2e="true">
         <td class="id">6</td>
         <td class="cap">The review reads the function the change sits in, not only the hunk<span class="surface">CLI</span></td>
-        <td><span class="tag C">competitor only</span></td>
+        <td><span class="tag P">public</span></td>
         <td class="proof"><code>a-review-can-read-the-code-it-is-reviewing</code></td>
         <td class="proof"><code>a-review-reads-the-function-the-change-sits-in</code></td>
         <td><span class="state DONE">DONE</span></td>
@@ -153,10 +153,10 @@
         <td><span class="state DONE">DONE</span></td>
         <td class="why">DONE</td>
       </tr>
-      <tr data-state="DONE" data-who="C" data-e2e="true">
+      <tr data-state="DONE" data-who="P" data-e2e="true">
         <td class="id">9</td>
         <td class="cap">The reviewer that reads the repository runs as a command<span class="surface">CLI</span></td>
-        <td><span class="tag C">competitor only</span></td>
+        <td><span class="tag P">public</span></td>
         <td class="proof"><span class="none">no unit case</span></td>
         <td class="proof"><code>the-reviewer-that-reads-runs-from-the-command</code></td>
         <td><span class="state DONE">DONE</span></td>
