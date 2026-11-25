@@ -194,7 +194,10 @@ jobs:
 
       - name: Publish to VS Code Marketplace
         run: |
-          pnpm add -g @vscode/vsce
+          # **Pinned, because an unpinned global install is a build whose publisher can change under it** - and because
+          # `Pinned-Dependencies` reads `pnpm add -g` with no version as exactly that. 4.1.1 is the version the
+          # unpinned line resolves to today, so this is the same publish with a nameable artifact.
+          pnpm add -g @vscode/vsce@4.1.1
           pnpm exec vsce publish \
             --packagePath dist/code-analyzer.vsix \
             --pat ${{ secrets.VSCE_PAT }}
