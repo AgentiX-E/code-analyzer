@@ -1,0 +1,167 @@
+{
+  "version": "pool-density-v1",
+  "artifact": "benchmarks/martian-bench.json",
+  "corpus": "benchmarks/martian/positive_samples.json",
+  "profile": "core",
+  "group": "category",
+  "laneSet": "shipped",
+  "emissionSteps": [
+    {
+      "kind": "drop",
+      "categories": [
+        "test"
+      ]
+    }
+  ],
+  "budget": 5,
+  "shippedBudget": 12,
+  "goldens": 158,
+  "fullEmission": 943,
+  "pool": 743,
+  "poolPoint": {
+    "emitted": 743,
+    "truePositives": 86,
+    "falsePositives": 657,
+    "falseNegatives": 72,
+    "precision": 0.11574697173620457,
+    "recall": 0.5443037974683544,
+    "f1": 0.19089900110987792
+  },
+  "point": {
+    "emitted": 230,
+    "truePositives": 53,
+    "falsePositives": 177,
+    "falseNegatives": 105,
+    "precision": 0.23043478260869565,
+    "recall": 0.33544303797468356,
+    "f1": 0.27319587628865977
+  },
+  "groups": [
+    {
+      "group": "architecture",
+      "comments": 190,
+      "share": 0.2557200538358008,
+      "truePositives": 10,
+      "density": 0.05263157894736842,
+      "withoutF1": 0.2872340425531915,
+      "delta": 0.014038166264531748,
+      "emittedWithout": 218,
+      "truePositivesWithout": 54
+    },
+    {
+      "group": "bug",
+      "comments": 358,
+      "share": 0.48183041722745623,
+      "truePositives": 63,
+      "density": 0.17597765363128492,
+      "withoutF1": 0.12173913043478261,
+      "delta": -0.15145674585387714,
+      "emittedWithout": 187,
+      "truePositivesWithout": 21
+    },
+    {
+      "group": "documentation",
+      "comments": 11,
+      "share": 0.014804845222072678,
+      "truePositives": 0,
+      "density": 0,
+      "withoutF1": 0.27461139896373055,
+      "delta": 0.0014155226750707794,
+      "emittedWithout": 228,
+      "truePositivesWithout": 53
+    },
+    {
+      "group": "maintainability",
+      "comments": 83,
+      "share": 0.1117092866756393,
+      "truePositives": 2,
+      "density": 0.024096385542168676,
+      "withoutF1": 0.28272251308900526,
+      "delta": 0.00952663680034549,
+      "emittedWithout": 224,
+      "truePositivesWithout": 54
+    },
+    {
+      "group": "performance",
+      "comments": 17,
+      "share": 0.02288021534320323,
+      "truePositives": 3,
+      "density": 0.17647058823529413,
+      "withoutF1": 0.268733850129199,
+      "delta": -0.004462026159460786,
+      "emittedWithout": 229,
+      "truePositivesWithout": 52
+    },
+    {
+      "group": "security",
+      "comments": 70,
+      "share": 0.09421265141318977,
+      "truePositives": 16,
+      "density": 0.22857142857142856,
+      "withoutF1": 0.2677165354330709,
+      "delta": -0.005479340855588877,
+      "emittedWithout": 223,
+      "truePositivesWithout": 51
+    },
+    {
+      "group": "style",
+      "comments": 14,
+      "share": 0.018842530282637954,
+      "truePositives": 0,
+      "density": 0,
+      "withoutF1": 0.27319587628865977,
+      "delta": 0,
+      "emittedWithout": 230,
+      "truePositivesWithout": 53
+    }
+  ],
+  "splitHalf": {
+    "budget": 5,
+    "chosenGoldens": 74,
+    "heldOutGoldens": 84,
+    "groups": [
+      {
+        "group": "architecture",
+        "chosenDelta": -0.0036429872495446214,
+        "heldOutDelta": 0.030723566016611525,
+        "verdict": "unresolved"
+      },
+      {
+        "group": "bug",
+        "chosenDelta": -0.09281045751633984,
+        "heldOutDelta": -0.20732232591529076,
+        "verdict": "load-bearing"
+      },
+      {
+        "group": "documentation",
+        "chosenDelta": 0.0011820330969267157,
+        "heldOutDelta": 0.00162428303131823,
+        "verdict": "unresolved"
+      },
+      {
+        "group": "maintainability",
+        "chosenDelta": 0.011820330969267157,
+        "heldOutDelta": 0.00828886701548981,
+        "verdict": "unresolved"
+      },
+      {
+        "group": "performance",
+        "chosenDelta": -0.009456264775413697,
+        "heldOutDelta": 0,
+        "verdict": "unresolved"
+      },
+      {
+        "group": "security",
+        "chosenDelta": -0.017921146953404993,
+        "heldOutDelta": 0.006597088004123175,
+        "verdict": "unresolved"
+      },
+      {
+        "group": "style",
+        "chosenDelta": 0,
+        "heldOutDelta": 0,
+        "verdict": "unresolved"
+      }
+    ]
+  }
+}

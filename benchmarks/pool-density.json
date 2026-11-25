@@ -1,0 +1,133 @@
+{
+  "version": "pool-density-v1",
+  "artifact": "benchmarks/martian-bench.json",
+  "corpus": "benchmarks/martian/positive_samples.json",
+  "profile": "core",
+  "group": "lane",
+  "laneSet": "shipped",
+  "emissionSteps": [
+    {
+      "kind": "drop",
+      "categories": [
+        "test"
+      ]
+    }
+  ],
+  "budget": 5,
+  "shippedBudget": 12,
+  "goldens": 158,
+  "fullEmission": 943,
+  "pool": 743,
+  "poolPoint": {
+    "emitted": 743,
+    "truePositives": 86,
+    "falsePositives": 657,
+    "falseNegatives": 72,
+    "precision": 0.11574697173620457,
+    "recall": 0.5443037974683544,
+    "f1": 0.19089900110987792
+  },
+  "point": {
+    "emitted": 230,
+    "truePositives": 53,
+    "falsePositives": 177,
+    "falseNegatives": 105,
+    "precision": 0.23043478260869565,
+    "recall": 0.33544303797468356,
+    "f1": 0.27319587628865977
+  },
+  "groups": [
+    {
+      "group": "architecture",
+      "comments": 414,
+      "share": 0.5572005383580081,
+      "truePositives": 48,
+      "density": 0.11594202898550725,
+      "withoutF1": 0.2598187311178248,
+      "delta": -0.013377145170834992,
+      "emittedWithout": 173,
+      "truePositivesWithout": 43
+    },
+    {
+      "group": "maintainability",
+      "comments": 146,
+      "share": 0.19650067294751009,
+      "truePositives": 9,
+      "density": 0.06164383561643835,
+      "withoutF1": 0.2789473684210526,
+      "delta": 0.005751492132392844,
+      "emittedWithout": 222,
+      "truePositivesWithout": 53
+    },
+    {
+      "group": "performance",
+      "comments": 35,
+      "share": 0.047106325706594884,
+      "truePositives": 10,
+      "density": 0.2857142857142857,
+      "withoutF1": 0.27979274611398963,
+      "delta": 0.006596869825329865,
+      "emittedWithout": 228,
+      "truePositivesWithout": 54
+    },
+    {
+      "group": "security",
+      "comments": 132,
+      "share": 0.17765814266487215,
+      "truePositives": 33,
+      "density": 0.25,
+      "withoutF1": 0.2393617021276596,
+      "delta": -0.03383417416100018,
+      "emittedWithout": 218,
+      "truePositivesWithout": 45
+    },
+    {
+      "group": "testing",
+      "comments": 16,
+      "share": 0.021534320323014805,
+      "truePositives": 5,
+      "density": 0.3125,
+      "withoutF1": 0.26288659793814434,
+      "delta": -0.010309278350515427,
+      "emittedWithout": 230,
+      "truePositivesWithout": 51
+    }
+  ],
+  "splitHalf": {
+    "budget": 5,
+    "chosenGoldens": 74,
+    "heldOutGoldens": 84,
+    "groups": [
+      {
+        "group": "architecture",
+        "chosenDelta": 0.0027777777777777957,
+        "heldOutDelta": -0.029210379382291596,
+        "verdict": "unresolved"
+      },
+      {
+        "group": "maintainability",
+        "chosenDelta": 0.0035842293906810097,
+        "heldOutDelta": 0.00828886701548981,
+        "verdict": "unresolved"
+      },
+      {
+        "group": "performance",
+        "chosenDelta": 0.023767082590612026,
+        "heldOutDelta": -0.010050251256281395,
+        "verdict": "unresolved"
+      },
+      {
+        "group": "security",
+        "chosenDelta": -0.016816816816816793,
+        "heldOutDelta": -0.04935673130048146,
+        "verdict": "load-bearing"
+      },
+      {
+        "group": "testing",
+        "chosenDelta": -0.021164021164021163,
+        "heldOutDelta": 0,
+        "verdict": "unresolved"
+      }
+    ]
+  }
+}
