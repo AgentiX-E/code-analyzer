@@ -105,6 +105,6 @@ benchmarks/cut-curve-martian.json
 benchmarks/cut-curve-martian-core.json
 # **The same instrument's output for the wide arm** (§159): written by `cut-curve.mjs`, and Prettier's only disagreement
 # is again that it collapses `budgets` onto one line.
-benchmarks/s32-wide-cut-curve-173.json
-benchmarks/s32-wide-cut-curve-core.json
+benchmarks/cut-curve-wide-martian.json
+benchmarks/cut-curve-wide-martian-core.json
 docs/cut-curve.html

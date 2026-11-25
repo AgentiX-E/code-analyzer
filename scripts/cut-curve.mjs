@@ -165,6 +165,10 @@ for (const artifactPath of options.artifacts) {
   const record = {
     artifact: artifactPath,
     corpus: options.corpus,
+    // **The arm this curve is about, carried because the artifact's file name does not carry it.** Both boards are
+    // written to `benchmarks/aacr-bench.json` on the runner, so a reader with two curves in front of them cannot tell
+    // which lane set produced which - and a page that guesses from a file name files a Martian curve under `AACR-Bench`.
+    laneSet: artifact?.configuration?.laneSet?.name ?? null,
     cut,
     profile: options.profile,
     budgets: options.budgets,
