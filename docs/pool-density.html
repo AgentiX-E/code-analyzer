@@ -1,0 +1,114 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Where the pool's comments come from, and which of them the budget can pay for</title>
+<style>
+  :root { color-scheme: light; }
+  body { margin: 0 auto; max-width: 1000px; padding: 32px 20px 64px; font: 15px/1.55 -apple-system, "Segoe UI", Roboto, sans-serif; color: #2e3440; }
+  h1 { font-size: 24px; margin: 0 0 4px; }
+  h2 { font-size: 17px; margin: 24px 0 6px; }
+  .lede { color: #4c566a; margin: 0 0 20px; }
+  .meta { color: #4c566a; font-size: 13px; margin: 0 0 10px; }
+  input[type="radio"] { position: absolute; opacity: 0; pointer-events: none; }
+  nav { display: flex; flex-wrap: wrap; gap: 8px; margin: 16px 0 8px; }
+  nav label { border: 1px solid #d8dee9; border-radius: 999px; padding: 5px 13px; cursor: pointer; font-size: 13px; background: #fff; }
+  #view-0:checked ~ nav label[for="view-0"],
+  #view-1:checked ~ nav label[for="view-1"] { background: #2e3440; color: #fff; border-color: #2e3440; }
+  input:focus-visible ~ nav label { outline: 2px solid #5e81ac; outline-offset: 2px; }
+  .panel { display: none; }
+  #view-0:checked ~ .panel[data-view="0"],
+  #view-1:checked ~ .panel[data-view="1"] { display: block; }
+  table { border-collapse: collapse; width: 100%; font: 13px/1.45 ui-monospace, SFMono-Regular, Menlo, monospace; margin-top: 12px; }
+  th, td { text-align: right; padding: 4px 8px; border-bottom: 1px solid #eceff4; }
+  th:first-child, td:first-child { text-align: left; }
+  thead th { border-bottom: 1px solid #d8dee9; color: #4c566a; font-weight: 600; }
+  .chip { border-radius: 999px; padding: 1px 9px; font-size: 11px; }
+  .chip.load-bearing { background: #eef6f0; color: #2f6f4f; }
+  .chip.removal-gains { background: #fbf0f0; color: #8a3b3b; }
+  .chip.unresolved { background: #f4f4f6; color: #6b7280; }
+  footer { margin-top: 40px; color: #4c566a; font-size: 12px; }
+  code { font: 12px ui-monospace, SFMono-Regular, Menlo, monospace; }
+</style>
+</head>
+<body>
+<h1>Where the pool's comments come from, and which of them the budget can pay for</h1>
+<p class="lede">Read over verdicts the run already paid for. <strong>Density</strong> is a group's credited goldens over its own
+comments, matched inside the group; <strong>dF1</strong> is the cut at the budget with the whole group removed, minus the cut
+without. The bars are densities against the group list's own maximum, the columns beside them are the group's share of the pool
+and its marginal, and the last two columns are the same removal measured on the half that chose it and on the half that
+did not see it.</p>
+<input type="radio" name="view" id="view-0" checked />
+<input type="radio" name="view" id="view-1" />
+<nav>
+<label for="view-0">grouped by lane</label>
+<label for="view-1">grouped by category</label>
+</nav>
+<h2>What the readings say</h2>
+<table>
+  <thead><tr><th>reading</th><th>pool</th><th>density</th><th>largest group</th><th>densest group</th><th>dF1 over resolution</th><th>resolved by both halves</th></tr></thead>
+  <tbody><tr><td>grouped by lane</td><td>743</td><td>0.1157</td><td>architecture (55.7%)</td><td>testing (0.3125)</td><td>0</td><td>1 of 5</td></tr>
+<tr><td>grouped by category</td><td>743</td><td>0.1157</td><td>bug (48.2%)</td><td>security (0.2286)</td><td>1</td><td>1 of 7</td></tr></tbody>
+</table>
+<section class="panel" data-view="0">
+  <h2>The pool, grouped by lane &middot; budget 5 (shipped 12)</h2>
+  <p class="meta">artifact <code>benchmarks/martian-bench.json</code> &middot; profile <code>core</code> &middot; goldens 158 &middot; full emission 943 &rarr; pool 743 with 86 credited</p>
+  <svg viewBox="0 0 780 158" role="img" aria-label="density by lane">
+  <style>
+    .name { font: 12px ui-monospace, SFMono-Regular, Menlo, monospace; fill: #2e3440; }
+    .value { font: 12px ui-monospace, SFMono-Regular, Menlo, monospace; fill: #4c566a; }
+    .gain { font: 12px ui-monospace, SFMono-Regular, Menlo, monospace; fill: #2f6f4f; }
+    .cost { font: 12px ui-monospace, SFMono-Regular, Menlo, monospace; fill: #8a3b3b; }
+    .track { fill: #eceff4; }
+    .bar { fill: #5e81ac; }
+  </style>
+  <text x="0" y="150" class="value">lane</text>
+  <text x="442" y="150" class="value">density</text>
+  <text x="684" y="150" text-anchor="end" class="value">share</text>
+  <text x="772" y="150" text-anchor="end" class="value">dF1</text>
+  <g transform="translate(0,0)"><text x="0" y="16" class="name">architecture</text><rect x="150" y="4" width="280" height="14" class="track" /><rect x="150" y="4" width="103.9" height="14" class="bar" /><text x="442" y="16" class="value">0.1159</text><text x="684" y="16" text-anchor="end" class="value">55.7%</text><text x="772" y="16" text-anchor="end" class="cost">-0.0134</text></g>
+  <g transform="translate(0,26)"><text x="0" y="16" class="name">maintainability</text><rect x="150" y="4" width="280" height="14" class="track" /><rect x="150" y="4" width="55.2" height="14" class="bar" /><text x="442" y="16" class="value">0.0616</text><text x="684" y="16" text-anchor="end" class="value">19.7%</text><text x="772" y="16" text-anchor="end" class="gain">+0.0058</text></g>
+  <g transform="translate(0,52)"><text x="0" y="16" class="name">performance</text><rect x="150" y="4" width="280" height="14" class="track" /><rect x="150" y="4" width="256.0" height="14" class="bar" /><text x="442" y="16" class="value">0.2857</text><text x="684" y="16" text-anchor="end" class="value">4.7%</text><text x="772" y="16" text-anchor="end" class="gain">+0.0066</text></g>
+  <g transform="translate(0,78)"><text x="0" y="16" class="name">security</text><rect x="150" y="4" width="280" height="14" class="track" /><rect x="150" y="4" width="224.0" height="14" class="bar" /><text x="442" y="16" class="value">0.2500</text><text x="684" y="16" text-anchor="end" class="value">17.8%</text><text x="772" y="16" text-anchor="end" class="cost">-0.0338</text></g>
+  <g transform="translate(0,104)"><text x="0" y="16" class="name">testing</text><rect x="150" y="4" width="280" height="14" class="track" /><rect x="150" y="4" width="280.0" height="14" class="bar" /><text x="442" y="16" class="value">0.3125</text><text x="684" y="16" text-anchor="end" class="value">2.2%</text><text x="772" y="16" text-anchor="end" class="cost">-0.0103</text></g>
+</svg>
+  <table>
+  <thead><tr><th>lane</th><th>comments</th><th>share</th><th>TP</th><th>density</th><th>dF1</th><th>chosen half</th><th>held-out half</th><th>verdict</th></tr></thead>
+  <tbody><tr><td>architecture</td><td>414</td><td>55.7%</td><td>48</td><td>0.1159</td><td>-0.0134</td><td>+0.0028</td><td>-0.0292</td><td><span class="chip unresolved">unresolved</span></td></tr><tr><td>maintainability</td><td>146</td><td>19.7%</td><td>9</td><td>0.0616</td><td>+0.0058</td><td>+0.0036</td><td>+0.0083</td><td><span class="chip unresolved">unresolved</span></td></tr><tr><td>performance</td><td>35</td><td>4.7%</td><td>10</td><td>0.2857</td><td>+0.0066</td><td>+0.0238</td><td>-0.0101</td><td><span class="chip unresolved">unresolved</span></td></tr><tr><td>security</td><td>132</td><td>17.8%</td><td>33</td><td>0.2500</td><td>-0.0338</td><td>-0.0168</td><td>-0.0494</td><td><span class="chip load-bearing">load-bearing</span></td></tr><tr><td>testing</td><td>16</td><td>2.2%</td><td>5</td><td>0.3125</td><td>-0.0103</td><td>-0.0212</td><td>0.0000</td><td><span class="chip unresolved">unresolved</span></td></tr></tbody>
+</table>
+</section>
+<section class="panel" data-view="1">
+  <h2>The pool, grouped by category &middot; budget 5 (shipped 12)</h2>
+  <p class="meta">artifact <code>benchmarks/martian-bench.json</code> &middot; profile <code>core</code> &middot; goldens 158 &middot; full emission 943 &rarr; pool 743 with 86 credited</p>
+  <svg viewBox="0 0 780 210" role="img" aria-label="density by category">
+  <style>
+    .name { font: 12px ui-monospace, SFMono-Regular, Menlo, monospace; fill: #2e3440; }
+    .value { font: 12px ui-monospace, SFMono-Regular, Menlo, monospace; fill: #4c566a; }
+    .gain { font: 12px ui-monospace, SFMono-Regular, Menlo, monospace; fill: #2f6f4f; }
+    .cost { font: 12px ui-monospace, SFMono-Regular, Menlo, monospace; fill: #8a3b3b; }
+    .track { fill: #eceff4; }
+    .bar { fill: #5e81ac; }
+  </style>
+  <text x="0" y="202" class="value">category</text>
+  <text x="442" y="202" class="value">density</text>
+  <text x="684" y="202" text-anchor="end" class="value">share</text>
+  <text x="772" y="202" text-anchor="end" class="value">dF1</text>
+  <g transform="translate(0,0)"><text x="0" y="16" class="name">architecture</text><rect x="150" y="4" width="280" height="14" class="track" /><rect x="150" y="4" width="64.5" height="14" class="bar" /><text x="442" y="16" class="value">0.0526</text><text x="684" y="16" text-anchor="end" class="value">25.6%</text><text x="772" y="16" text-anchor="end" class="gain">+0.0140</text></g>
+  <g transform="translate(0,26)"><text x="0" y="16" class="name">bug</text><rect x="150" y="4" width="280" height="14" class="track" /><rect x="150" y="4" width="215.6" height="14" class="bar" /><text x="442" y="16" class="value">0.1760</text><text x="684" y="16" text-anchor="end" class="value">48.2%</text><text x="772" y="16" text-anchor="end" class="cost">-0.1515</text></g>
+  <g transform="translate(0,52)"><text x="0" y="16" class="name">documentation</text><rect x="150" y="4" width="280" height="14" class="track" /><rect x="150" y="4" width="0.0" height="14" class="bar" /><text x="442" y="16" class="value">0.0000</text><text x="684" y="16" text-anchor="end" class="value">1.5%</text><text x="772" y="16" text-anchor="end" class="gain">+0.0014</text></g>
+  <g transform="translate(0,78)"><text x="0" y="16" class="name">maintainability</text><rect x="150" y="4" width="280" height="14" class="track" /><rect x="150" y="4" width="29.5" height="14" class="bar" /><text x="442" y="16" class="value">0.0241</text><text x="684" y="16" text-anchor="end" class="value">11.2%</text><text x="772" y="16" text-anchor="end" class="gain">+0.0095</text></g>
+  <g transform="translate(0,104)"><text x="0" y="16" class="name">performance</text><rect x="150" y="4" width="280" height="14" class="track" /><rect x="150" y="4" width="216.2" height="14" class="bar" /><text x="442" y="16" class="value">0.1765</text><text x="684" y="16" text-anchor="end" class="value">2.3%</text><text x="772" y="16" text-anchor="end" class="cost">-0.0045</text></g>
+  <g transform="translate(0,130)"><text x="0" y="16" class="name">security</text><rect x="150" y="4" width="280" height="14" class="track" /><rect x="150" y="4" width="280.0" height="14" class="bar" /><text x="442" y="16" class="value">0.2286</text><text x="684" y="16" text-anchor="end" class="value">9.4%</text><text x="772" y="16" text-anchor="end" class="cost">-0.0055</text></g>
+  <g transform="translate(0,156)"><text x="0" y="16" class="name">style</text><rect x="150" y="4" width="280" height="14" class="track" /><rect x="150" y="4" width="0.0" height="14" class="bar" /><text x="442" y="16" class="value">0.0000</text><text x="684" y="16" text-anchor="end" class="value">1.9%</text><text x="772" y="16" text-anchor="end" class="cost">0.0000</text></g>
+</svg>
+  <table>
+  <thead><tr><th>category</th><th>comments</th><th>share</th><th>TP</th><th>density</th><th>dF1</th><th>chosen half</th><th>held-out half</th><th>verdict</th></tr></thead>
+  <tbody><tr><td>architecture</td><td>190</td><td>25.6%</td><td>10</td><td>0.0526</td><td>+0.0140</td><td>-0.0036</td><td>+0.0307</td><td><span class="chip unresolved">unresolved</span></td></tr><tr><td>bug</td><td>358</td><td>48.2%</td><td>63</td><td>0.1760</td><td>-0.1515</td><td>-0.0928</td><td>-0.2073</td><td><span class="chip load-bearing">load-bearing</span></td></tr><tr><td>documentation</td><td>11</td><td>1.5%</td><td>0</td><td>0.0000</td><td>+0.0014</td><td>+0.0012</td><td>+0.0016</td><td><span class="chip unresolved">unresolved</span></td></tr><tr><td>maintainability</td><td>83</td><td>11.2%</td><td>2</td><td>0.0241</td><td>+0.0095</td><td>+0.0118</td><td>+0.0083</td><td><span class="chip unresolved">unresolved</span></td></tr><tr><td>performance</td><td>17</td><td>2.3%</td><td>3</td><td>0.1765</td><td>-0.0045</td><td>-0.0095</td><td>0.0000</td><td><span class="chip unresolved">unresolved</span></td></tr><tr><td>security</td><td>70</td><td>9.4%</td><td>16</td><td>0.2286</td><td>-0.0055</td><td>-0.0179</td><td>+0.0066</td><td><span class="chip unresolved">unresolved</span></td></tr><tr><td>style</td><td>14</td><td>1.9%</td><td>0</td><td>0.0000</td><td>0.0000</td><td>0.0000</td><td>0.0000</td><td><span class="chip unresolved">unresolved</span></td></tr></tbody>
+</table>
+</section>
+<footer>Rendered from <code>benchmarks/pool-density*.json</code> by <code>scripts/pool-density-page.mjs</code>, which writes
+nothing it did not read. The instrument is <code>scripts/pool-density.mjs</code>; the argument is
+<code>docs/EVAL-CONTRACT.md</code> §161. No external request is made by this page.</footer>
+</body>
+</html>

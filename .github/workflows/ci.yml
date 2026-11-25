@@ -379,6 +379,22 @@ jobs:
       - name: Enforce that the cut page is what the curves say
         run: git diff --exit-code -- docs/cut-curve.html
 
+      # **The pool's density is a reading of the committed artifact, so it is re-read here rather than trusted.** §161's
+      # numbers come from `benchmarks/martian-bench.json` and the corpus beside it by arithmetic, which makes them free to
+      # reproduce and worth a gate: **a section that quotes a rate over a pool is wrong the moment the pool is replaced**,
+      # and this fails on that rather than on the day someone notices.
+      - name: Re-read the pool the board holds
+        run: npm run bench:density
+
+      - name: Enforce that the density readings are what the artifact says
+        run: git diff --exit-code -- benchmarks/pool-density.json benchmarks/pool-density-category.json
+
+      - name: Render the pool's readings as one page
+        run: npm run docs:density
+
+      - name: Enforce that the density page is what the readings say
+        run: git diff --exit-code -- docs/pool-density.html
+
       # **A section that explains a score by quoting a corpus has to be re-derived from that corpus.** §132 attributes
       # our 27.57 and the leader's 65.8 to five named places, and every figure in it comes from
       # `benchmarks/martian-bench.json` by arithmetic - so the reading is reproducible for free, and it is checked here

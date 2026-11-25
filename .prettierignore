@@ -108,3 +108,11 @@ benchmarks/cut-curve-martian-core.json
 benchmarks/cut-curve-wide-martian.json
 benchmarks/cut-curve-wide-martian-core.json
 docs/cut-curve.html
+
+# **The pool-density readings and the page drawn from them, by the rule every artifact above states.** Both JSON files
+# are written by `scripts/pool-density.mjs` with `JSON.stringify(…, null, 2)`; the page is emitted by
+# `scripts/pool-density-page.mjs`, and a formatter that re-indented its inline SVG would make it differ from what the
+# renderer produces at the next CI run - which is the whole of the check that compares them.
+benchmarks/pool-density.json
+benchmarks/pool-density-category.json
+docs/pool-density.html
