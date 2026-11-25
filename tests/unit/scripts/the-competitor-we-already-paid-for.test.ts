@@ -69,9 +69,9 @@ const baseline = JSON.parse(
  * every numeric claim below is about a run. **The selection is read from the artifact that run published**, because a
  * hand-kept list of forty-seven urls in a test is the second copy of an answer key this repository has already paid for.
  */
-const AACR_BENCH = JSON.parse(
-  readFileSync(join(ROOT, 'benchmarks/aacr-bench.json'), 'utf8'),
-) as { coverage: { byPullRequest: Array<{ pr: string }> } };
+const AACR_BENCH = JSON.parse(readFileSync(join(ROOT, 'benchmarks/aacr-bench.json'), 'utf8')) as {
+  coverage: { byPullRequest: Array<{ pr: string }> };
+};
 const SELECTED = new Set(AACR_BENCH.coverage.byPullRequest.map((row) => row.pr));
 
 const fileKeys = Object.keys(baseline.pulls);
