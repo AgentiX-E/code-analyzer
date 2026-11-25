@@ -891,6 +891,18 @@ jobs:
       # detail layers add up has produced something worth keeping, and whether a *derived* table was written after that
       # is a question about the table. Reading `success()` here made the table able to delete the run.
       #
+      # **The cut is a device, and this prices it on verdicts the run has already paid for.** `F1 = 2·TP/(emitted +
+      # goldens)`, so the budget is a term in the figure; §157.4 found the shipped `12` exactly right on AACR and
+      # 0.015-0.032 wrong on two Martian artifacts. **The step prints the curve and, with `--split-half`, the budget
+      # chosen on one half of the rows and reported on the other** - because a maximum read off the whole curve is a
+      # fitted parameter. It runs before the upload and cannot withhold it: the upload's condition is `always()` and the
+      # replay proof, so a red curve still leaves the figure published.
+      - name: Price the cut this board's curve prefers
+        if: always() && steps.replay.outcome == 'success'
+        run: |
+          corpus="${{ inputs.dataset == 'martian' && format('{0}/benchmarks/martian/positive_samples.json', github.workspace) || '/tmp/aacr-bench/dataset/v1/positive_samples.json' }}"
+          node scripts/cut-curve.mjs benchmarks/aacr-bench.json --corpus "$corpus" --split-half --json benchmarks/cut-curve.json
+
       # **And `always()` is not decoration on that condition.** A step whose `if` contains no status function is
       # implicitly `success() && …`, so a red step *after* the two proofs still skipped the upload - which is exactly what
       # happened on run 45411086146: the review, both proofs and the competitor comparison all succeeded, the derived
@@ -921,6 +933,7 @@ jobs:
             benchmarks/aacr-selection-ceiling.json
             benchmarks/aacr-score-ablation.json
             benchmarks/martian-profile.json
+            benchmarks/cut-curve.json
             benchmarks/aacr/competitor-baseline.json
             benchmarks/runnable-competitors-outputs/
           if-no-files-found: warn
