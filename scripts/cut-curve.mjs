@@ -4,11 +4,19 @@
  *
  * ```
  * node scripts/cut-curve.mjs benchmarks/aacr-bench.json --split-half
+ * node scripts/cut-curve.mjs benchmarks/martian-bench.json --corpus benchmarks/martian/positive_samples.json \
+ *   --split-half --profile core
  * ```
  *
  * `F1 = 2·TP/(emitted + goldens)`, so the budget is a term in the figure and not a setting outside it. **The shipped
  * `budget: 12` is a constant somebody chose on one board**, and §157.4 found it costs 0.015-0.032 on Martian while being
  * exactly right on AACR - which is a property of a constant rather than of either corpus.
+ *
+ * **`--profile` moves the denominator to the one the board publishes.** Martian's board scores 158 of its 173 goldens
+ * (the eight Core categories), so a curve divided by 173 answers a question nobody ranks tools on (§140.5, one level
+ * down). The profile re-indexes verdicts already paid for and never re-judges, re-ranks or emits; **the denominator
+ * counts the pull requests this artifact emitted on rather than every corpus row**, because a run that covered 50 of
+ * 196 rows is scored against its own 50.
  *
  * **Two guards, because a curve is easy to draw and easy to misdraw.**
  *
@@ -24,14 +32,22 @@
 
 import { readFileSync, writeFileSync } from 'node:fs';
 
-import { profileMaps } from './lib/corpus-profile.mjs';
+import { PROFILES, profileMaps, restrictFindings } from './lib/corpus-profile.mjs';
 import { applyCut, cutFromSteps, pullRequestOf, score } from './lib/operating-point.mjs';
 
 function parseArgs(argv) {
-  const options = { artifacts: [], budgets: [], splitHalf: false, json: null, corpus: null };
+  const options = {
+    artifacts: [],
+    budgets: [],
+    splitHalf: false,
+    json: null,
+    corpus: null,
+    profile: 'all',
+  };
   for (let i = 0; i < argv.length; i += 1) {
     const arg = argv[i];
     if (arg === '--split-half') options.splitHalf = true;
+    else if (arg === '--profile') options.profile = argv[(i += 1)];
     else if (arg === '--json') options.json = argv[(i += 1)];
     else if (arg === '--corpus') options.corpus = argv[(i += 1)];
     else if (arg === '--budgets')
@@ -57,6 +73,22 @@ if (options.artifacts.length === 0) {
 const credit = (finding) => finding.matchedGoldens ?? [];
 const results = [];
 
+/**
+ * **The denominator is part of the question, so a profile is read before anything is scored.**
+ *
+ * The board publishes its bar on 158 of Martian's 173 goldens; a curve divided by 173 is a curve about a corpus nobody
+ * ranks tools on. The re-index is arithmetic over verdicts already paid for - it never re-judges, re-ranks or emits.
+ *
+ * **The denominator counts the pull requests this artifact emitted on**, not every row the corpus holds: a run that
+ * covered 50 of 196 rows is scored against its own 50, which is the same rule `score` applies to a cut.
+ */
+function profileOf(corpus, profileName, pullRequests) {
+  const { maps } = profileMaps(corpus, profileName);
+  let goldens = 0;
+  for (const pullRequest of pullRequests) goldens += maps.get(pullRequest)?.size ?? 0;
+  return { maps, goldens };
+}
+
 for (const artifactPath of options.artifacts) {
   const artifact = JSON.parse(readFileSync(artifactPath, 'utf8'));
   const findings = artifact.rankedFindings ?? [];
@@ -80,9 +112,9 @@ for (const artifactPath of options.artifacts) {
   }
   const fixed = steps.filter((step) => step?.kind !== 'budget');
   const shippedBudget = steps.find((step) => step?.kind === 'budget')?.k ?? null;
-  const at = (budget) => applyCut(findings, [...fixed, { kind: 'budget', k: budget }]);
+  const raw = (budget) => applyCut(findings, [...fixed, { kind: 'budget', k: budget }]);
   if (shippedBudget !== null) {
-    const point = score(at(shippedBudget), credit, goldens);
+    const point = score(raw(shippedBudget), credit, goldens);
     const published = shipped.point ?? {};
     if (point.emitted !== published.k || point.truePositives !== published.truePositives) {
       process.stderr.write(
@@ -92,19 +124,53 @@ for (const artifactPath of options.artifacts) {
     }
   }
 
+  // **The profile is applied after the guard, because the guard is about the run and the profile is about the corpus.**
+  let scored = findings;
+  let creditOf = credit;
+  let denominator = goldens;
+  let profileNote = '';
+  let scoredMaps = null;
+  if (options.profile !== 'all') {
+    if (options.corpus === null) {
+      process.stderr.write(
+        '--profile needs --corpus <positive_samples.json>, because a profile is a denominator kept in the corpus\n',
+      );
+      process.exit(2);
+    }
+    if (!(options.profile in PROFILES)) {
+      process.stderr.write(
+        `profile ${JSON.stringify(options.profile)} is not registered; known profiles are ${Object.keys(PROFILES).join(', ')}\n`,
+      );
+      process.exit(2);
+    }
+    const corpus = JSON.parse(readFileSync(options.corpus, 'utf8'));
+    const pullRequests = new Set(findings.map(pullRequestOf));
+    const { maps, goldens: profileGoldens } = profileOf(corpus, options.profile, pullRequests);
+    scored = restrictFindings(findings, { maps });
+    scoredMaps = maps;
+    creditOf = (finding) => finding.profileGoldens ?? [];
+    denominator = profileGoldens;
+    profileNote = ` (profile ${options.profile})`;
+  }
+  const at = (budget) => applyCut(scored, [...fixed, { kind: 'budget', k: budget }]);
+
   const curve = options.budgets.map((budget) => ({
     budget,
-    ...score(at(budget), credit, goldens),
+    ...score(at(budget), creditOf, denominator),
   }));
   const best = curve.reduce((left, right) => (right.f1 > left.f1 ? right : left));
-  const shippedPoint = shippedBudget === null ? null : score(at(shippedBudget), credit, goldens);
+  const shippedPoint =
+    shippedBudget === null ? null : score(at(shippedBudget), creditOf, denominator);
 
   const record = {
     artifact: artifactPath,
+    corpus: options.corpus,
     cut,
+    profile: options.profile,
+    budgets: options.budgets,
     shippedBudget,
     shipped: shippedPoint,
-    goldens,
+    goldens: denominator,
     curve,
     best: { budget: best.budget, f1: best.f1 },
     costAtBest: shippedPoint === null ? null : best.f1 - shippedPoint.f1,
@@ -121,8 +187,10 @@ for (const artifactPath of options.artifacts) {
       process.exit(2);
     }
     const corpus = JSON.parse(readFileSync(options.corpus, 'utf8'));
-    const { maps } = profileMaps(corpus, 'all');
-    const pullRequests = [...new Set(findings.map(pullRequestOf))].sort();
+    // **The half is drawn from the run's own pull requests and divided by the same profile the curve used**, so a
+    // held-out figure is on the same denominator as the figure it is held out from.
+    const maps = scoredMaps ?? profileMaps(corpus, 'all').maps;
+    const pullRequests = [...new Set(scored.map(pullRequestOf))].sort();
     const even = new Set(pullRequests.filter((_, index) => index % 2 === 0));
     const odd = new Set(pullRequests.filter((_, index) => index % 2 === 1));
     const goldensOf = (which) => {
@@ -134,16 +202,16 @@ for (const artifactPath of options.artifacts) {
     };
     const chosenHalf = {
       name: 'chosen',
-      rows: findings.filter((f) => even.has(pullRequestOf(f))),
+      rows: scored.filter((f) => even.has(pullRequestOf(f))),
       goldens: goldensOf(even),
     };
     const heldOut = {
       name: 'held-out',
-      rows: findings.filter((f) => !even.has(pullRequestOf(f))),
+      rows: scored.filter((f) => !even.has(pullRequestOf(f))),
       goldens: goldensOf(odd),
     };
     const on = (half, budget) =>
-      score(applyCut(half.rows, [...fixed, { kind: 'budget', k: budget }]), credit, half.goldens);
+      score(applyCut(half.rows, [...fixed, { kind: 'budget', k: budget }]), creditOf, half.goldens);
     let pick = null;
     for (const budget of options.budgets) {
       const point = on(chosenHalf, budget);
@@ -158,14 +226,19 @@ for (const artifactPath of options.artifacts) {
       heldOut: on(heldOut, pick.budget),
       heldOutAtShipped: shippedBudget === null ? null : on(heldOut, shippedBudget),
     };
-    record.splitHalf.gain = record.splitHalf.heldOut.f1 - record.splitHalf.heldOutAtShipped.f1;
+    // **An artifact that published no cut has no shipped point to hold the chosen one against**, and a null
+    // dereference here was how the first version of this instrument died on the AACR artifact.
+    record.splitHalf.gain =
+      record.splitHalf.heldOutAtShipped === null
+        ? null
+        : record.splitHalf.heldOut.f1 - record.splitHalf.heldOutAtShipped.f1;
   }
 
   results.push(record);
 
   const pad = (value, width) => String(value).padStart(width);
   process.stdout.write(
-    `${artifactPath}\ncut ${cut}   shipped budget ${String(shippedBudget)}   goldens ${String(goldens)}\n` +
+    `${artifactPath}\ncut ${cut}   shipped budget ${String(shippedBudget)}   goldens ${String(denominator)}${profileNote}\n` +
       `budget  emitted    tp       P       R      F1\n` +
       curve
         .map(
@@ -177,10 +250,15 @@ for (const artifactPath of options.artifacts) {
         .join(''),
   );
   if (record.splitHalf !== undefined) {
+    const half = record.splitHalf;
+    const shipped =
+      half.heldOutAtShipped === null
+        ? 'and the artifact publishes no cut, so there is no gain to report'
+        : `against ${half.heldOutAtShipped.f1.toFixed(4)} at the shipped budget ` +
+          `(${half.gain >= 0 ? '+' : ''}${half.gain.toFixed(4)})`;
     process.stdout.write(
-      `split-half  chosen k=${String(record.splitHalf.budget)} on ${record.splitHalf.chosenOn} (F1 ${record.splitHalf.chosenF1.toFixed(4)}), ` +
-        `held out F1 ${record.splitHalf.heldOut.f1.toFixed(4)} against ${record.splitHalf.heldOutAtShipped.f1.toFixed(4)} at the shipped budget ` +
-        `(${record.splitHalf.gain >= 0 ? '+' : ''}${record.splitHalf.gain.toFixed(4)})\n`,
+      `split-half  chosen k=${String(half.budget)} on ${half.chosenOn} (F1 ${half.chosenF1.toFixed(4)}), ` +
+        `held out F1 ${half.heldOut.f1.toFixed(4)} ${shipped}\n`,
     );
   }
   process.stdout.write('\n');

@@ -22,7 +22,9 @@ interface Finding {
 }
 
 /** A two-pull-request artifact where the score order is the array order, so every expected figure is arithmetic. */
-function artifact(options: { emitted?: number; truePositives?: number } = {}): string {
+function artifact(
+  options: { emitted?: number; truePositives?: number; publish?: boolean } = {},
+): string {
   const findings: Finding[] = [];
   // Twelve findings on the first pull request, twelve on the second: the first four of each are true positives.
   for (const pr of ['https://example.test/a/pull/1', 'https://example.test/b/pull/2']) {
@@ -39,11 +41,15 @@ function artifact(options: { emitted?: number; truePositives?: number } = {}): s
     options.truePositives ??
     findings.reduce((total, finding) => total + (finding.matchedGoldens ?? []).length, 0);
   const emitted = options.emitted ?? findings.length;
-  return JSON.stringify({
+  const point = JSON.stringify({
     measuredAt: '2026-11-25',
     rankedFindings: findings,
     truePositives,
     falseNegatives: 8 - truePositives,
+  });
+  if (options.publish === false) return point;
+  return JSON.stringify({
+    ...JSON.parse(point),
     emissionRules: {
       shipped: {
         steps: [
@@ -56,17 +62,17 @@ function artifact(options: { emitted?: number; truePositives?: number } = {}): s
   });
 }
 
-/** A corpus whose golden counts are known: one pull request holds two, the other one. */
+/** A corpus whose golden counts are known: four on each pull request, eight in all. */
 function corpus(): string {
   return JSON.stringify([
     {
-      pr_url: 'https://example.test/a/pull/1',
-      comments: [
-        { note: 'one', path: 'src/a.ts' },
-        { note: 'two', path: 'src/b.ts' },
-      ],
+      githubPrUrl: 'https://example.test/a/pull/1',
+      comments: [{ note: 'one' }, { note: 'two' }, { note: 'three' }, { note: 'four' }],
     },
-    { pr_url: 'https://example.test/b/pull/2', comments: [{ note: 'three', path: 'src/c.ts' }] },
+    {
+      githubPrUrl: 'https://example.test/b/pull/2',
+      comments: [{ note: 'five' }, { note: 'six' }, { note: 'seven' }, { note: 'eight' }],
+    },
   ]);
 }
 
@@ -122,8 +128,22 @@ describe('the cut curve', () => {
       '2,4,6',
     ]);
     expect(code).toBe(0);
-    expect(out).toMatch(/split-half {2}chosen k=\d on chosen/);
-    // The two halves hold two and one goldens: the held-out half is one reference comment, not three.
-    expect(out).toContain('held out F1');
+    // Chosen on the first pull request (four goldens, F1 1.0000 at four comments) and read on the second, which holds
+    // four of its own: 1.0000 at the chosen budget against 0.5000 at the shipped one.
+    expect(out).toContain('chosen k=4 on chosen');
+    expect(out).toContain('held out F1 1.0000 against 0.5000 at the shipped budget (+0.5000)');
+  });
+
+  it('reports a held-out figure for an artifact that published no cut, and invents no gain', () => {
+    // **The AACR artifact is this shape**: it predates `emissionRules`, so there is no shipped budget to hold the chosen
+    // one against - and the first version of this instrument dereferenced the missing point and died with a stack trace.
+    const { code, out } = run({ artifact: artifact({ publish: false }), corpus: corpus() }, [
+      '--split-half',
+      '--budgets',
+      '2,4',
+    ]);
+    expect(code).toBe(0);
+    expect(out).toContain('held out F1 1.0000');
+    expect(out).toContain('publishes no cut, so there is no gain to report');
   });
 });

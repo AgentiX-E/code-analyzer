@@ -1,0 +1,195 @@
+{
+  "version": "cut-curve-v1",
+  "results": [
+    {
+      "artifact": "benchmarks/aacr-bench.json",
+      "corpus": "/tmp/aacr/dataset/v1/positive_samples.json",
+      "cut": "no rule",
+      "profile": "all",
+      "budgets": [
+        1,
+        2,
+        3,
+        4,
+        5,
+        6,
+        7,
+        8,
+        10,
+        12,
+        14,
+        16,
+        20,
+        24
+      ],
+      "shippedBudget": null,
+      "shipped": null,
+      "goldens": 452,
+      "curve": [
+        {
+          "budget": 1,
+          "emitted": 49,
+          "truePositives": 16,
+          "falsePositives": 33,
+          "falseNegatives": 436,
+          "precision": 0.32653061224489793,
+          "recall": 0.035398230088495575,
+          "f1": 0.06387225548902195
+        },
+        {
+          "budget": 2,
+          "emitted": 96,
+          "truePositives": 27,
+          "falsePositives": 69,
+          "falseNegatives": 425,
+          "precision": 0.28125,
+          "recall": 0.059734513274336286,
+          "f1": 0.09854014598540146
+        },
+        {
+          "budget": 3,
+          "emitted": 138,
+          "truePositives": 44,
+          "falsePositives": 94,
+          "falseNegatives": 408,
+          "precision": 0.3188405797101449,
+          "recall": 0.09734513274336283,
+          "f1": 0.14915254237288136
+        },
+        {
+          "budget": 4,
+          "emitted": 175,
+          "truePositives": 54,
+          "falsePositives": 121,
+          "falseNegatives": 398,
+          "precision": 0.30857142857142855,
+          "recall": 0.11946902654867257,
+          "f1": 0.1722488038277512
+        },
+        {
+          "budget": 5,
+          "emitted": 206,
+          "truePositives": 62,
+          "falsePositives": 144,
+          "falseNegatives": 390,
+          "precision": 0.30097087378640774,
+          "recall": 0.13716814159292035,
+          "f1": 0.1884498480243161
+        },
+        {
+          "budget": 6,
+          "emitted": 234,
+          "truePositives": 73,
+          "falsePositives": 161,
+          "falseNegatives": 379,
+          "precision": 0.31196581196581197,
+          "recall": 0.16150442477876106,
+          "f1": 0.21282798833819241
+        },
+        {
+          "budget": 7,
+          "emitted": 256,
+          "truePositives": 77,
+          "falsePositives": 179,
+          "falseNegatives": 375,
+          "precision": 0.30078125,
+          "recall": 0.17035398230088494,
+          "f1": 0.2175141242937853
+        },
+        {
+          "budget": 8,
+          "emitted": 275,
+          "truePositives": 81,
+          "falsePositives": 194,
+          "falseNegatives": 371,
+          "precision": 0.29454545454545455,
+          "recall": 0.17920353982300885,
+          "f1": 0.22283356258596973
+        },
+        {
+          "budget": 10,
+          "emitted": 309,
+          "truePositives": 85,
+          "falsePositives": 224,
+          "falseNegatives": 367,
+          "precision": 0.2750809061488673,
+          "recall": 0.18805309734513273,
+          "f1": 0.2233902759526938
+        },
+        {
+          "budget": 12,
+          "emitted": 338,
+          "truePositives": 90,
+          "falsePositives": 248,
+          "falseNegatives": 362,
+          "precision": 0.26627218934911245,
+          "recall": 0.19911504424778761,
+          "f1": 0.22784810126582278
+        },
+        {
+          "budget": 14,
+          "emitted": 363,
+          "truePositives": 92,
+          "falsePositives": 271,
+          "falseNegatives": 360,
+          "precision": 0.2534435261707989,
+          "recall": 0.20353982300884957,
+          "f1": 0.22576687116564417
+        },
+        {
+          "budget": 16,
+          "emitted": 383,
+          "truePositives": 93,
+          "falsePositives": 290,
+          "falseNegatives": 359,
+          "precision": 0.24281984334203655,
+          "recall": 0.20575221238938052,
+          "f1": 0.22275449101796407
+        },
+        {
+          "budget": 20,
+          "emitted": 413,
+          "truePositives": 96,
+          "falsePositives": 317,
+          "falseNegatives": 356,
+          "precision": 0.2324455205811138,
+          "recall": 0.21238938053097345,
+          "f1": 0.22196531791907514
+        },
+        {
+          "budget": 24,
+          "emitted": 439,
+          "truePositives": 97,
+          "falsePositives": 342,
+          "falseNegatives": 355,
+          "precision": 0.22095671981776766,
+          "recall": 0.21460176991150443,
+          "f1": 0.21773288439955107
+        }
+      ],
+      "best": {
+        "budget": 12,
+        "f1": 0.22784810126582278
+      },
+      "costAtBest": null,
+      "splitHalf": {
+        "chosenOn": "chosen",
+        "chosenGoldens": 220,
+        "heldOutGoldens": 226,
+        "budget": 12,
+        "chosenF1": 0.20512820512820512,
+        "heldOut": {
+          "emitted": 168,
+          "truePositives": 50,
+          "falsePositives": 118,
+          "falseNegatives": 176,
+          "precision": 0.2976190476190476,
+          "recall": 0.22123893805309736,
+          "f1": 0.25380710659898476
+        },
+        "heldOutAtShipped": null,
+        "gain": null
+      }
+    }
+  ]
+}
