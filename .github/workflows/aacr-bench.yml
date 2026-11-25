@@ -900,8 +900,15 @@ jobs:
       - name: Price the cut this board's curve prefers
         if: always() && steps.replay.outcome == 'success'
         run: |
+          set -e
           corpus="${{ inputs.dataset == 'martian' && format('{0}/benchmarks/martian/positive_samples.json', github.workspace) || '/tmp/aacr-bench/dataset/v1/positive_samples.json' }}"
           node scripts/cut-curve.mjs benchmarks/aacr-bench.json --corpus "$corpus" --split-half --json benchmarks/cut-curve.json
+          # **The board scores 158 of Martian's 173 comments, so the same verdicts are read on both denominators** (§158.2).
+          # One file per basis rather than one file with two bases in it, because each is a single command a reader can
+          # re-run, and a page that draws them must not have to guess which denominator a curve was divided by.
+          if [ "${{ inputs.dataset }}" = "martian" ]; then
+            node scripts/cut-curve.mjs benchmarks/aacr-bench.json --corpus "$corpus" --split-half --profile core --json benchmarks/cut-curve-core.json
+          fi
 
       # **And `always()` is not decoration on that condition.** A step whose `if` contains no status function is
       # implicitly `success() && …`, so a red step *after* the two proofs still skipped the upload - which is exactly what
@@ -934,6 +941,7 @@ jobs:
             benchmarks/aacr-score-ablation.json
             benchmarks/martian-profile.json
             benchmarks/cut-curve.json
+            benchmarks/cut-curve-core.json
             benchmarks/aacr/competitor-baseline.json
             benchmarks/runnable-competitors-outputs/
           if-no-files-found: warn
