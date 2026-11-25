@@ -822,9 +822,15 @@ jobs:
       # **The baseline is a precondition and not a failure**: the competitor replay is a separate arm, and a run without
       # it has nothing to be compared with. `hashFiles` asks before the step starts, so an absent file cannot turn into a
       # red run that says nothing about the review.
+      #
+      # **`hashFiles` alone was the defect.** That path is a tracked file, so it is present in every checkout and the
+      # condition was true for a dispatch that bought no competitor arm at all: run 45629019118 reviewed fifty pull
+      # requests, reached this step with fifty rows and no baseline rows, and the script refused with `the two artifacts
+      # share no pull request` - correctly, about a question the dispatch never asked. **The arm's own switch is the only
+      # statement about this run**, so it is asked first.
       - name: Score this run against the competitor on the rows both of them hold
         id: like_for_like
-        if: hashFiles('benchmarks/aacr/competitor-baseline.json') != ''
+        if: inputs.competitor != 'off' && hashFiles('benchmarks/aacr/competitor-baseline.json') != ''
         run: |
           set -e
           node scripts/aacr-like-for-like.mjs benchmarks/aacr-bench.json benchmarks/aacr/competitor-baseline.json --volume --json > benchmarks/aacr-like-for-like.json
@@ -841,8 +847,14 @@ jobs:
       #
       # **It is computed here rather than in a report** so that every dispatch republishes it against its own emission,
       # and so that the next device is aimed at the part of the answer key that is reachable at all.
+      #
+      # **No status function was here, so GitHub read `success() && …`** - and on run 45629019118 a red *comparison*
+      # above it skipped this reading, which asks our artifact about our artifact and needs no competitor to exist. The
+      # same `always()` plus the replay proof that the upload and the cut curve carry, for the same reason: **evidence
+      # is read before any verdict is pronounced on it.**
       - name: Say how much of the answer key a better selector could still reach
         id: selection_ceiling
+        if: always() && steps.replay.outcome == 'success'
         run: |
           set -e
           corpus="${{ inputs.dataset == 'martian' && format('{0}/benchmarks/martian/positive_samples.json', github.workspace) || '/tmp/aacr-bench/dataset/v1/positive_samples.json' }}"
@@ -860,6 +872,7 @@ jobs:
       # The step is not `continue-on-error`: an artifact whose published scores the weights cannot rebuild is a defect in
       # the artifact, and a benchmark that skipped the check would publish the defect.
       - name: score_terms
+        if: always() && steps.replay.outcome == 'success'
         run: |
           set -e
           node scripts/aacr-score-ablation.mjs benchmarks/aacr-bench.json --json benchmarks/aacr-score-ablation.json
@@ -873,7 +886,9 @@ jobs:
       # rebuilds the artifact's own shipped point first and refuses to print a profile it cannot reconcile, then prints
       # both, so a reader can see which denominator they are reading.
       - name: martian_profile
-        if: inputs.dataset == 'martian'
+        # **The board is still the condition**, and it is no longer the only one: a profile is a reading of our own
+        # artifact on this board's denominator, and run 45629019118 lost it to a step it has no dependency on.
+        if: always() && inputs.dataset == 'martian' && steps.replay.outcome == 'success'
         run: |
           set -e
           node scripts/martian-profile.mjs benchmarks/aacr-bench.json benchmarks/martian/positive_samples.json --json benchmarks/martian-profile.json
