@@ -17028,3 +17028,54 @@ is higher than the ones shipping. That is a different device, and it would need 
 
 **What this registration refuses to do**: read the result as a statement about AACR. Two boards, two resolutions, two
 mechanisms; §156.3 exists because a figure from one was used to aim work at the other.
+
+### 156.7 What the bar costs, and the three cheaper designs this section refuses
+
+**The registered figure is about ¥16 - not ¥116 - and it is already the discounted one.** Three designs below come in
+under ¥10 and every one of them buys a number that cannot carry a claim. The arithmetic is here so the next person who
+asks for a cheaper run does not have to re-derive it.
+
+**The anatomy, from the meter rather than from a budget.** One arm is `$0.81` at forty-nine pull requests and five
+lanes - `3550` calls, measured on `45449046424`. The AACR artifact decomposes the same shape into its three priced
+components, and the split is not where intuition puts it:
+
+| component             | tokens  | off-peak price | share of the arm |
+| --------------------- | ------- | -------------- | ---------------- |
+| **completion**        | 0.766 M | `$0.46`        | **50.8 %**       |
+| **cache-miss prompt** | 2.889 M | `$0.43`        | **48.0 %**       |
+| cache-hit prompt      | 3.806 M | `$0.01`        | 1.3 %            |
+
+Two arms are therefore `$1.78`, one judge pass over both is `$0.28` at `$0.00031` a finding, and the run is `$2.06` -
+**¥15 to ¥17 depending on the day's rate**. The registered ¥16 is that number.
+
+**And the 48 % is not a setting someone forgot to change.** `prompt_order` is a dispatch input because it is a
+measured variable: the workflow's own note records `boilerplate-first` taking prefix reuse from 61 % to 91.7 % and the
+reviewer's bill from `1.41` to `0.29` USD, and the artifact these tokens are decomposed from records
+`promptOrder: boilerplate-first`. **The miss share above is what the cheapest ordering leaves**, which is why the answer
+to "can it be cheaper" is not another ordering.
+
+**Off-peak is not a lever left unpulled, it is the reason the figure is not ¥32.** `isPeakHour` in
+`packages/intelligence/src/review/llm/cost.ts` prices `deepseek-chat` at half outside 01:00-04:00 and 06:00-10:00 UTC on
+weekdays, and **every benchmark run this repository has made was dispatched off-peak** - `45411086146` at 14:10,
+`45449046424` at 17:28, `45514219220` at 23:57 UTC. A dispatch inside the peak window doubles the bill for the same
+experiment, which makes the hour of the day the largest lever available and the one already set correctly.
+
+**The three designs under ¥10, and the number each one gives up:**
+
+| design                                          | cost   | what it gives up                                                                                                                                                                                                                                                                                                                                      |
+| ----------------------------------------------- | ------ | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| **one arm, cross-run control**                  | ≈ ¥8   | **the pairing.** `MDE` is a same-run property, and what a cross-dispatch control is worth is already written down twice in this repository: _"two dispatches of the same configuration have reported 0.1691 and 0.2405, a spread larger than every effect `EVAL-CONTRACT.md` has registered"_. A control from another dispatch cannot sign `+0.0155`. |
+| **both arms, thirty pull requests**             | ≈ ¥9.6 | **the resolution.** Thirty rows carry 101 goldens against 169, and the smallest signable difference scales as the inverse root - `0.0126 × √(50/30) = 0.0163`, **above the `+0.0155` the device is registered for**. It buys a direction, not a claim; if it lands ambiguous the escalation makes the total ¥26.                                      |
+| **one `wide` run, the five-lane arm by subset** | ≈ ¥6.6 | **the control.** The merge is a sequential absorb over a severity-sorted list, and `absorbed` becomes the `agreement` feature the ranker reads - so a five-lane subset of a six-lane run is **not** the five-lane arm, and the difference being measured would include the merge.                                                                     |
+
+**What is left is two lossless levers, and both need code rather than a smaller dispatch**: reusing a judge verdict for
+a finding that both arms emit identically (≈ `$0.07`), and running the arms in sequence so the five duplicated lane
+prompts of the `wide` arm are near-total cache hits (≈ `$0.20`). **Together they put the floor at ≈ ¥11-13**, at the
+price of a matrix change that would also change the artifact pair every other registered experiment is compared under.
+
+**Decision.** S32 runs at ¥16, in the off-peak window, as registered. The two levers are registered as S34 with **no
+claim attached**: a saving that is not measured is not a saving, and the run that would measure it costs more than it
+saves.
+
+**And the number is written down because it was asked for as ¥116.** A figure two orders of magnitude wrong is not a
+rounding error, it is a reader who could not find the row - so the row is now here, with the tokens it is made of.
