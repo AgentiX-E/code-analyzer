@@ -16,12 +16,16 @@
   nav label { border: 1px solid #d8dee9; border-radius: 999px; padding: 5px 13px; cursor: pointer; font-size: 13px; background: #fff; }
   #view-0:checked ~ nav label[for="view-0"],
   #view-1:checked ~ nav label[for="view-1"],
-  #view-2:checked ~ nav label[for="view-2"] { background: #2e3440; color: #fff; border-color: #2e3440; }
+  #view-2:checked ~ nav label[for="view-2"],
+  #view-3:checked ~ nav label[for="view-3"],
+  #view-4:checked ~ nav label[for="view-4"] { background: #2e3440; color: #fff; border-color: #2e3440; }
   input:focus-visible ~ nav label { outline: 2px solid #5e81ac; outline-offset: 2px; }
   .panel { display: none; }
   #view-0:checked ~ .panel[data-view="0"],
   #view-1:checked ~ .panel[data-view="1"],
-  #view-2:checked ~ .panel[data-view="2"] { display: block; }
+  #view-2:checked ~ .panel[data-view="2"],
+  #view-3:checked ~ .panel[data-view="3"],
+  #view-4:checked ~ .panel[data-view="4"] { display: block; }
   table { border-collapse: collapse; width: 100%; font: 13px/1.45 ui-monospace, SFMono-Regular, Menlo, monospace; }
   th, td { text-align: right; padding: 4px 8px; border-bottom: 1px solid #eceff4; }
   th:first-child, td:first-child { text-align: left; }
@@ -44,18 +48,23 @@
 </head>
 <body>
 <h1>The cut is a device, priced on both boards</h1>
-<p class="lede">Three curves over verdicts the runs already paid for. <strong>F1 = 2&middot;TP/(emitted + goldens)</strong>, so the
+<p class="lede">Curves over verdicts the runs already paid for. <strong>F1 = 2&middot;TP/(emitted + goldens)</strong>, so the
 per-pull-request budget is a term in the figure and not a setting outside it. The shipped <code>budget: 12</code> was chosen on
-AACR; these pages show what it is worth on the board it was fitted to and on the board it was not.</p>
+AACR; these pages show what it is worth on the board it was fitted to, on the board it was not, and on the six-lane arm
+S32 accepted - which prefers <code>5</code> where the shipped arm prefers <code>8</code>.</p>
 <input type="radio" name="view" id="view-0" checked />
 <input type="radio" name="view" id="view-1" />
 <input type="radio" name="view" id="view-2" />
+<input type="radio" name="view" id="view-3" />
+<input type="radio" name="view" id="view-4" />
 <nav>
 <label for="view-0">AACR-Bench &middot; all goldens</label>
 <label for="view-1">Martian Code Review Bench &middot; all goldens</label>
 <label for="view-2">Martian Code Review Bench &middot; profile core</label>
+<label for="view-3">Martian Code Review Bench (six lanes) &middot; all goldens</label>
+<label for="view-4">Martian Code Review Bench (six lanes) &middot; profile core</label>
 </nav>
-<h2>What the three curves say</h2>
+<h2>What the curves say</h2>
 <table class="summary">
   <thead><tr><th>board</th><th>basis</th><th>goldens</th><th>shipped 12</th><th>best k</th><th>best F1</th><th>gain</th><th>held out, chosen vs shipped</th></tr></thead>
   <tbody><tr>
@@ -87,6 +96,26 @@ AACR; these pages show what it is worth on the board it was fitted to and on the
   <td>0.2851</td>
   <td>+0.0194</td>
   <td>0.3306 against 0.2966 (+0.0341)</td>
+</tr>
+<tr>
+  <td><label class="jump" for="view-3">Martian Code Review Bench (six lanes)</label></td>
+  <td>all goldens</td>
+  <td>173</td>
+  <td>0.2783</td>
+  <td>5</td>
+  <td>0.3150</td>
+  <td>+0.0367</td>
+  <td>0.2977 against 0.2909 (+0.0068)</td>
+</tr>
+<tr>
+  <td><label class="jump" for="view-4">Martian Code Review Bench (six lanes)</label></td>
+  <td>profile core</td>
+  <td>158</td>
+  <td>0.2714</td>
+  <td>5</td>
+  <td>0.3221</td>
+  <td>+0.0506</td>
+  <td>0.3265 against 0.2815 (+0.0450)</td>
 </tr></tbody>
 </table>
 <section class="panel" data-view="0">
@@ -165,6 +194,58 @@ AACR; these pages show what it is worth on the board it was fitted to and on the
   <table>
   <thead><tr><th>budget</th><th>emitted</th><th>TP</th><th>P</th><th>R</th><th>F1</th><th></th></tr></thead>
   <tbody><tr><td>1</td><td>50</td><td>18</td><td>0.3600</td><td>0.1139</td><td>0.1731</td><td></td></tr><tr><td>2</td><td>98</td><td>27</td><td>0.2755</td><td>0.1709</td><td>0.2109</td><td></td></tr><tr><td>3</td><td>144</td><td>36</td><td>0.2500</td><td>0.2278</td><td>0.2384</td><td></td></tr><tr><td>4</td><td>188</td><td>46</td><td>0.2447</td><td>0.2911</td><td>0.2659</td><td></td></tr><tr><td>5</td><td>230</td><td>53</td><td>0.2304</td><td>0.3354</td><td>0.2732</td><td></td></tr><tr><td>6</td><td>269</td><td>57</td><td>0.2119</td><td>0.3608</td><td>0.2670</td><td></td></tr><tr><td>7</td><td>302</td><td>65</td><td>0.2152</td><td>0.4114</td><td>0.2826</td><td></td></tr><tr class="best"><td>8</td><td>333</td><td>70</td><td>0.2102</td><td>0.4430</td><td>0.2851</td><td> best</td></tr><tr><td>10</td><td>387</td><td>73</td><td>0.1886</td><td>0.4620</td><td>0.2679</td><td></td></tr><tr><td>12</td><td>429</td><td>78</td><td>0.1818</td><td>0.4937</td><td>0.2658</td><td>shipped</td></tr><tr><td>14</td><td>466</td><td>78</td><td>0.1674</td><td>0.4937</td><td>0.2500</td><td></td></tr><tr><td>16</td><td>500</td><td>78</td><td>0.1560</td><td>0.4937</td><td>0.2371</td><td></td></tr><tr><td>20</td><td>564</td><td>81</td><td>0.1436</td><td>0.5127</td><td>0.2244</td><td></td></tr><tr><td>24</td><td>606</td><td>84</td><td>0.1386</td><td>0.5316</td><td>0.2199</td><td></td></tr></tbody>
+</table>
+</section>
+<section class="panel" data-view="3">
+  <h2>Martian Code Review Bench (six lanes) &middot; all goldens</h2>
+  <p class="meta">artifact <code>/tmp/run-45629019118/aacr-bench.json</code> &middot; cut <code>drop:test+drop-path:test+budget:12</code> &middot; goldens 173</p>
+  <svg viewBox="0 0 720 240" role="img" aria-label="F1 against the per-pull-request budget">
+  <style>
+    .grid { stroke: #d8dee9; stroke-width: 1; }
+    .tick { font: 11px ui-monospace, SFMono-Regular, Menlo, monospace; fill: #4c566a; }
+    .best { font: 600 12px ui-monospace, SFMono-Regular, Menlo, monospace; fill: #2f6f4f; }
+    .shipped { font: 12px ui-monospace, SFMono-Regular, Menlo, monospace; fill: #8a3b3b; }
+    .curve { fill: none; stroke: #2e3440; stroke-width: 2; }
+  </style>
+  <text x="46" y="190.0" text-anchor="end" class="tick">0.1794</text><line x1="56" y1="186.0" x2="624" y2="186.0" class="grid" /><text x="46" y="112.0" text-anchor="end" class="tick">0.2472</text><line x1="56" y1="108.0" x2="624" y2="108.0" class="grid" /><text x="46" y="34.0" text-anchor="end" class="tick">0.3150</text><line x1="56" y1="30.0" x2="624" y2="30.0" class="grid" />
+  <text x="56.0" y="208" text-anchor="middle" class="tick">1</text><text x="99.7" y="208" text-anchor="middle" class="tick">2</text><text x="143.4" y="208" text-anchor="middle" class="tick">3</text><text x="187.1" y="208" text-anchor="middle" class="tick">4</text><text x="230.8" y="208" text-anchor="middle" class="tick">5</text><text x="274.5" y="208" text-anchor="middle" class="tick">6</text><text x="318.2" y="208" text-anchor="middle" class="tick">7</text><text x="361.8" y="208" text-anchor="middle" class="tick">8</text><text x="405.5" y="208" text-anchor="middle" class="tick">10</text><text x="449.2" y="208" text-anchor="middle" class="tick">12</text><text x="492.9" y="208" text-anchor="middle" class="tick">14</text><text x="536.6" y="208" text-anchor="middle" class="tick">16</text><text x="580.3" y="208" text-anchor="middle" class="tick">20</text><text x="624.0" y="208" text-anchor="middle" class="tick">24</text>
+  <polyline class="curve" points="56.0,186.0 99.7,94.1 143.4,41.8 187.1,40.9 230.8,30.0 274.5,37.2 318.2,46.8 361.8,41.6 405.5,47.7 449.2,72.3 492.9,84.6 536.6,96.8 580.3,110.9 624.0,117.1" />
+  <circle cx="449.2" cy="72.3" r="4" fill="#8a3b3b" />
+  <circle cx="230.8" cy="30.0" r="5" fill="#2f6f4f" />
+  <text x="230.8" y="20.0" text-anchor="middle" class="best">0.3150</text>
+  <text x="449.2" y="92.3" text-anchor="middle" class="shipped">shipped 12</text>
+  <text x="56" y="20" class="tick">F1</text>
+  <text x="340.0" y="232" text-anchor="middle" class="tick">comments per pull request</text>
+</svg>
+  <table>
+  <thead><tr><th>budget</th><th>emitted</th><th>TP</th><th>P</th><th>R</th><th>F1</th><th></th></tr></thead>
+  <tbody><tr><td>1</td><td>50</td><td>20</td><td>0.4000</td><td>0.1156</td><td>0.1794</td><td></td></tr><tr><td>2</td><td>97</td><td>35</td><td>0.3608</td><td>0.2023</td><td>0.2593</td><td></td></tr><tr><td>3</td><td>142</td><td>48</td><td>0.3380</td><td>0.2775</td><td>0.3048</td><td></td></tr><tr><td>4</td><td>187</td><td>55</td><td>0.2941</td><td>0.3179</td><td>0.3056</td><td></td></tr><tr class="best"><td>5</td><td>227</td><td>63</td><td>0.2775</td><td>0.3642</td><td>0.3150</td><td> best</td></tr><tr><td>6</td><td>261</td><td>67</td><td>0.2567</td><td>0.3873</td><td>0.3088</td><td></td></tr><tr><td>7</td><td>293</td><td>70</td><td>0.2389</td><td>0.4046</td><td>0.3004</td><td></td></tr><tr><td>8</td><td>319</td><td>75</td><td>0.2351</td><td>0.4335</td><td>0.3049</td><td></td></tr><tr><td>10</td><td>361</td><td>80</td><td>0.2216</td><td>0.4624</td><td>0.2996</td><td></td></tr><tr><td>12</td><td>402</td><td>80</td><td>0.1990</td><td>0.4624</td><td>0.2783</td><td>shipped</td></tr><tr><td>14</td><td>440</td><td>82</td><td>0.1864</td><td>0.4740</td><td>0.2675</td><td></td></tr><tr><td>16</td><td>473</td><td>83</td><td>0.1755</td><td>0.4798</td><td>0.2570</td><td></td></tr><tr><td>20</td><td>530</td><td>86</td><td>0.1623</td><td>0.4971</td><td>0.2447</td><td></td></tr><tr><td>24</td><td>571</td><td>89</td><td>0.1559</td><td>0.5145</td><td>0.2392</td><td></td></tr></tbody>
+</table>
+</section>
+<section class="panel" data-view="4">
+  <h2>Martian Code Review Bench (six lanes) &middot; profile core</h2>
+  <p class="meta">artifact <code>/tmp/run-45629019118/aacr-bench.json</code> &middot; cut <code>drop:test+drop-path:test+budget:12</code> &middot; goldens 158</p>
+  <svg viewBox="0 0 720 240" role="img" aria-label="F1 against the per-pull-request budget">
+  <style>
+    .grid { stroke: #d8dee9; stroke-width: 1; }
+    .tick { font: 11px ui-monospace, SFMono-Regular, Menlo, monospace; fill: #4c566a; }
+    .best { font: 600 12px ui-monospace, SFMono-Regular, Menlo, monospace; fill: #2f6f4f; }
+    .shipped { font: 12px ui-monospace, SFMono-Regular, Menlo, monospace; fill: #8a3b3b; }
+    .curve { fill: none; stroke: #2e3440; stroke-width: 2; }
+  </style>
+  <text x="46" y="190.0" text-anchor="end" class="tick">0.1827</text><line x1="56" y1="186.0" x2="624" y2="186.0" class="grid" /><text x="46" y="112.0" text-anchor="end" class="tick">0.2524</text><line x1="56" y1="108.0" x2="624" y2="108.0" class="grid" /><text x="46" y="34.0" text-anchor="end" class="tick">0.3221</text><line x1="56" y1="30.0" x2="624" y2="30.0" class="grid" />
+  <text x="56.0" y="208" text-anchor="middle" class="tick">1</text><text x="99.7" y="208" text-anchor="middle" class="tick">2</text><text x="143.4" y="208" text-anchor="middle" class="tick">3</text><text x="187.1" y="208" text-anchor="middle" class="tick">4</text><text x="230.8" y="208" text-anchor="middle" class="tick">5</text><text x="274.5" y="208" text-anchor="middle" class="tick">6</text><text x="318.2" y="208" text-anchor="middle" class="tick">7</text><text x="361.8" y="208" text-anchor="middle" class="tick">8</text><text x="405.5" y="208" text-anchor="middle" class="tick">10</text><text x="449.2" y="208" text-anchor="middle" class="tick">12</text><text x="492.9" y="208" text-anchor="middle" class="tick">14</text><text x="536.6" y="208" text-anchor="middle" class="tick">16</text><text x="580.3" y="208" text-anchor="middle" class="tick">20</text><text x="624.0" y="208" text-anchor="middle" class="tick">24</text>
+  <polyline class="curve" points="56.0,186.0 99.7,92.0 143.4,39.8 187.1,40.1 230.8,30.0 274.5,43.2 318.2,53.0 361.8,52.6 405.5,62.7 449.2,86.7 492.9,102.2 536.6,113.8 580.3,126.9 624.0,132.5" />
+  <circle cx="449.2" cy="86.7" r="4" fill="#8a3b3b" />
+  <circle cx="230.8" cy="30.0" r="5" fill="#2f6f4f" />
+  <text x="230.8" y="20.0" text-anchor="middle" class="best">0.3221</text>
+  <text x="449.2" y="106.7" text-anchor="middle" class="shipped">shipped 12</text>
+  <text x="56" y="20" class="tick">F1</text>
+  <text x="340.0" y="232" text-anchor="middle" class="tick">comments per pull request</text>
+</svg>
+  <table>
+  <thead><tr><th>budget</th><th>emitted</th><th>TP</th><th>P</th><th>R</th><th>F1</th><th></th></tr></thead>
+  <tbody><tr><td>1</td><td>50</td><td>19</td><td>0.3800</td><td>0.1203</td><td>0.1827</td><td></td></tr><tr><td>2</td><td>97</td><td>34</td><td>0.3505</td><td>0.2152</td><td>0.2667</td><td></td></tr><tr><td>3</td><td>142</td><td>47</td><td>0.3310</td><td>0.2975</td><td>0.3133</td><td></td></tr><tr><td>4</td><td>187</td><td>54</td><td>0.2888</td><td>0.3418</td><td>0.3130</td><td></td></tr><tr class="best"><td>5</td><td>227</td><td>62</td><td>0.2731</td><td>0.3924</td><td>0.3221</td><td> best</td></tr><tr><td>6</td><td>261</td><td>65</td><td>0.2490</td><td>0.4114</td><td>0.3103</td><td></td></tr><tr><td>7</td><td>293</td><td>68</td><td>0.2321</td><td>0.4304</td><td>0.3016</td><td></td></tr><tr><td>8</td><td>319</td><td>72</td><td>0.2257</td><td>0.4557</td><td>0.3019</td><td></td></tr><tr><td>10</td><td>361</td><td>76</td><td>0.2105</td><td>0.4810</td><td>0.2929</td><td></td></tr><tr><td>12</td><td>402</td><td>76</td><td>0.1891</td><td>0.4810</td><td>0.2714</td><td>shipped</td></tr><tr><td>14</td><td>440</td><td>77</td><td>0.1750</td><td>0.4873</td><td>0.2575</td><td></td></tr><tr><td>16</td><td>473</td><td>78</td><td>0.1649</td><td>0.4937</td><td>0.2472</td><td></td></tr><tr><td>20</td><td>530</td><td>81</td><td>0.1528</td><td>0.5127</td><td>0.2355</td><td></td></tr><tr><td>24</td><td>571</td><td>84</td><td>0.1471</td><td>0.5316</td><td>0.2305</td><td></td></tr></tbody>
 </table>
 </section>
 <footer>Rendered from <code>benchmarks/cut-curve-*.json</code> by <code>scripts/cut-curve-page.mjs</code>, which writes

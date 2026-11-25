@@ -23,11 +23,17 @@ import { fileURLToPath, pathToFileURL } from 'node:url';
 const ROOT = join(dirname(fileURLToPath(import.meta.url)), '..');
 const TARGET = join(ROOT, 'docs', 'cut-curve.html');
 
-/** The three readings S35 produced, in the order the page should show them. */
+/**
+ * The readings this page draws, in the order it shows them: the two boards on the shipped five lanes, then the same
+ * board on the six-lane arm S32 accepted (§159.2) - **the pair per board is the point**, because the device is only
+ * visible as a difference between two curves divided by the same denominator.
+ */
 export const SOURCES = [
   'benchmarks/cut-curve-aacr.json',
   'benchmarks/cut-curve-martian.json',
   'benchmarks/cut-curve-martian-core.json',
+  'benchmarks/cut-curve-wide-martian.json',
+  'benchmarks/cut-curve-wide-martian-core.json',
 ];
 
 /** Raised for input this renderer will not draw, rather than drawing an empty panel over it. */
@@ -47,15 +53,32 @@ const escape = (text) =>
 
 const fixed = (value) => Number(value).toFixed(4);
 
-/** A board name from the artifact it was measured on, because the file name is the only identity a curve carries. */
+/**
+ * A board name from the corpus the curve was divided by.
+ *
+ * **Not from the artifact's file name, which is the same name on both boards.** The runner writes every run to
+ * `benchmarks/aacr-bench.json` - the corpus is an input, not a filename - so the first version of this function, which
+ * asked whether the artifact started with `aacr`, labelled the six-lane Martian curves `AACR-Bench` and put two boards
+ * in one tab strip. The corpus path is the identity; the artifact name only distinguishes the arm.
+ */
 export function boardOf(record) {
-  const name =
-    String(record?.artifact ?? '')
-      .split('/')
-      .pop() ?? '';
-  if (name.startsWith('aacr')) return 'AACR-Bench';
-  if (name.startsWith('martian')) return 'Martian Code Review Bench';
-  return name;
+  const artifact = String(record?.artifact ?? '');
+  const corpus = String(record?.corpus ?? '');
+  // **The arm is part of the board's name**, because two runs of one corpus through two lane sets are two curves and a
+  // tab strip that called both "Martian Code Review Bench" would ask its reader to open them to find out which is which.
+  // It is read from the record, and a record written before `laneSet` existed reads as the shipped arm it was.
+  const laneSet = typeof record?.laneSet === 'string' ? record.laneSet : null;
+  // **`wide` is six lanes and `shipped` is the five the product runs**, so the arm reads as a fact about the run rather
+  // than as the identifier it is stored under.
+  const arm =
+    laneSet === 'wide' ? ' (six lanes)' : laneSet && laneSet !== 'shipped' ? ` (${laneSet})` : '';
+  // **The corpus is asked first and the artifact only as a fallback**, because the artifact's name says `aacr-bench` on
+  // every run of every board - which is how the first version filed two Martian curves under `AACR-Bench`.
+  if (corpus.includes('martian')) return `Martian Code Review Bench${arm}`;
+  if (corpus.includes('aacr')) return `AACR-Bench${arm}`;
+  if (artifact.includes('martian')) return `Martian Code Review Bench${arm}`;
+  if (artifact.includes('aacr')) return `AACR-Bench${arm}`;
+  return artifact.split('/').pop() ?? artifact;
 }
 
 /** A basis name, because `all` and `core` are denominators and not labels. */
@@ -267,14 +290,15 @@ export function page(records) {
 </head>
 <body>
 <h1>The cut is a device, priced on both boards</h1>
-<p class="lede">Three curves over verdicts the runs already paid for. <strong>F1 = 2&middot;TP/(emitted + goldens)</strong>, so the
+<p class="lede">Curves over verdicts the runs already paid for. <strong>F1 = 2&middot;TP/(emitted + goldens)</strong>, so the
 per-pull-request budget is a term in the figure and not a setting outside it. The shipped <code>budget: 12</code> was chosen on
-AACR; these pages show what it is worth on the board it was fitted to and on the board it was not.</p>
+AACR; these pages show what it is worth on the board it was fitted to, on the board it was not, and on the six-lane arm
+S32 accepted - which prefers <code>5</code> where the shipped arm prefers <code>8</code>.</p>
 ${inputs}
 <nav>
 ${tabs}
 </nav>
-<h2>What the three curves say</h2>
+<h2>What the curves say</h2>
 <table class="summary">
   <thead><tr><th>board</th><th>basis</th><th>goldens</th><th>shipped 12</th><th>best k</th><th>best F1</th><th>gain</th><th>held out, chosen vs shipped</th></tr></thead>
   <tbody>${records.map(summary).join('\n')}</tbody>

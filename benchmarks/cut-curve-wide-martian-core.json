@@ -2,8 +2,9 @@
   "version": "cut-curve-v1",
   "results": [
     {
-      "artifact": "benchmarks/aacr-bench.json",
-      "corpus": "/home/runner/work/code-analyzer/code-analyzer/benchmarks/martian/positive_samples.json",
+      "artifact": "/tmp/run-45629019118/aacr-bench.json",
+      "corpus": "benchmarks/martian/positive_samples.json",
+      "laneSet": "wide",
       "cut": "drop:test+drop-path:test+budget:12",
       "profile": "core",
       "budgets": [
