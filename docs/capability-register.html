@@ -57,20 +57,20 @@
   point — a row without one is not accepted, whatever its unit coverage, because the last three defects here were joins
   between components that each passed their own tests.</p>
   <ul class="tiles">
-    <li><b>47</b><span>capabilities</span></li>
-    <li><b>40</b><span>done</span></li>
+    <li><b>48</b><span>capabilities</span></li>
+    <li><b>41</b><span>done</span></li>
     <li><b>5</b><span>partial</span></li>
     <li><b>2</b><span>not built</span></li>
-    <li><b>38</b><span>with an end-to-end case</span></li>
-    <li><b>34</b><span>ours only</span></li>
+    <li><b>39</b><span>with an end-to-end case</span></li>
+    <li><b>35</b><span>ours only</span></li>
     <li><b>2</b><span>competitor only</span></li>
   </ul>
 </header>
 <nav>
-  <button data-filter="all" aria-pressed="true">All <span style="opacity:.6">47</span></button>
+  <button data-filter="all" aria-pressed="true">All <span style="opacity:.6">48</span></button>
   <button data-filter="NONE" aria-pressed="false">Not built <span style="opacity:.6">2</span></button>
   <button data-filter="PART" aria-pressed="false">Partial <span style="opacity:.6">5</span></button>
-  <button data-filter="DONE" aria-pressed="false">Done <span style="opacity:.6">40</span></button>
+  <button data-filter="DONE" aria-pressed="false">Done <span style="opacity:.6">41</span></button>
   <button data-filter="C" aria-pressed="false">Competitor only <span style="opacity:.6">2</span></button>
   <button data-filter="no-e2e" aria-pressed="false">No end-to-end case <span style="opacity:.6">9</span></button>
   <input id="q" type="search" placeholder="filter by capability, file or surface" aria-label="filter">
@@ -423,7 +423,7 @@
     </table>
   </section>
   <section>
-    <h2>researcher, I want every number to be reproducible and every difference to be real<span class="count">13</span></h2>
+    <h2>researcher, I want every number to be reproducible and every difference to be real<span class="count">14</span></h2>
     <table>
       <thead><tr><th>#</th><th>Capability</th><th>Ships at</th><th>Unit</th><th>End-to-end</th><th>State</th><th>What the state means</th></tr></thead>
       <tbody>
@@ -543,6 +543,15 @@
         <td class="proof"><code>the-comparison-is-at-the-same-cut-on-both-sides</code></td>
         <td><span class="state DONE">DONE</span></td>
         <td class="why">DONE (§162) — the competitor's own rows carry score, category, path and matchedGoldens in rank order, so a budget can be applied to its emission as ours is; the table rebuilds 616 / 109 / 0.2817 and the gated 0.3424 before printing, keeps the two pull requests it has no rows for in the denominator, and reads 0 of 14 cuts led with a gap of −0.0514 at each arm's own optimum</td>
+      </tr>
+      <tr data-state="DONE" data-who="O" data-e2e="true">
+        <td class="id">48</td>
+        <td class="cap">A score floor is priced on one half of the board and accepted or refused on the half that did not choose it<span class="surface">harness</span></td>
+        <td><span class="tag O">ours only</span></td>
+        <td class="proof"><code>— (the end-to-end case drives the instrument's guard, verdict and split)</code></td>
+        <td class="proof"><code>the-comparison-is-at-the-same-cut-on-both-sides</code></td>
+        <td><span class="state DONE">DONE</span></td>
+        <td class="why">DONE (§162.6) — the floor pays for neither arm at k = 5 and for only one at k = 12, and the one it pays for is theirs (+0.0254 on the held-out half, twice the resolution, removing 57 of 194 comments for 5 credited goldens); ours moves +0.0026 and changes nothing, so the deficit is the ranker's separation and not the threshold</td>
       </tr>
       </tbody>
     </table>

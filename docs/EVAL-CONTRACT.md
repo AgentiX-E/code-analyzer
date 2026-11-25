@@ -17771,6 +17771,11 @@ pull request) their emission scores `0.3424` and ours scores about `0.3185`, and
   `+0.0563` on our own shipped point and `0.0000` on the claim**, because the claim is at `0.3735`.
   The lane-set half is refused on evidence too: wide alone is `+0.0056` at `k = 12` on the board's 158, below the
   `0.0126` MDE, and unmeasured on AACR. **A promotion needs a resolvable gain somewhere; this one does not have one.**
+- **S48 (registered here, `$0`): the ordering, not the threshold.** 162.6 shows our score stops separating hits from misses
+  past the first five comments per pull request while theirs does not. **Re-weighting the score's own terms is a re-rank of
+  an artifact this repository already holds** — the per-finding `features` and `scoreTerms` are in every row — so it is
+  measurable for nothing, on the chosen half, and accepted on the held-out half. **It is a fit, and a fit is reported on
+  the half that did not make it or it is not reported.**
 - **S42 and S43 stand, and their target is unchanged** (`architecture` lane contract, pool density ≥ `0.1400`). This
   section adds the reason they are the right devices rather than the cut: the deficit is discovery and density.
 - **S46 (registered here, not run): a lane that reads what a human reviewer read.** Twenty credited goldens are outside
@@ -17778,12 +17783,40 @@ pull request) their emission scores `0.3424` and ours scores about `0.3185`, and
   files one comment where it sees one problem; our six lanes each ask a _category_ question over the same window. **A
   category question cannot find a comment about how two call sites disagree**, and that is the shape of what we miss.
   Cost: one run, about `¥1.5`.
-- **S47 (registered here, `$0`): the top of the curve is a precision device.** At `k = 4`..`5` we match their credited
-  goldens and spend `30 %` more comments to do it. A score floor calibrated on the chosen half of the board and applied to
-  the held-out half is a cut this repository can price for nothing, and `operating-point.mjs` already carries the
-  break-even arithmetic it needs (`a comment earns its place exactly when its precision exceeds half the F1 it joins`).
+- **S47 (taken here and refused): the top of the curve is a precision device, and a floor is not it.** At `k = 4`..`5` we
+  match their credited goldens and spend `30 %` more comments to do it, so a score floor calibrated on one half and applied
+  to the other was the cheapest thing to ask. **It pays for neither arm at `k = 5` and for only one at `k = 12`, and the one
+  it pays for is theirs** (162.6). The device is refused; what it cost is in that table and what it revealed is S48.
 
-### 162.6 What this section does not establish
+### 162.6 The one device that could be priced for nothing, and what it says about our ranker
+
+The precision half of 162.3 looks like it should be cheap: **a reviewer that is confident about its top comments can
+simply not post the rest.** `scripts/score-floor.mjs` prices that device the only way this repository allows a fitted
+parameter to be priced — **the floor is chosen on one half of the board and applied, unchanged, to the half that did not
+choose it** — and the verdict is `transfers` only when the held-out half gains at least the board's `0.0126`.
+
+| budget | arm    | floor chosen |  held-out Δ | verdict         |
+| -----: | ------ | -----------: | ----------: | --------------- |
+|      5 | ours   |         0.40 |     +0.0017 | `refused`       |
+|      5 | theirs |         0.38 |     +0.0011 | `refused`       |
+|     12 | ours   |         0.40 |     +0.0026 | `refused`       |
+|     12 | theirs |         0.48 | **+0.0254** | **`transfers`** |
+
+**At the top of the list neither arm's floor pays**, which is the expected shape: five comments per pull request is
+already an admission decision and there is nothing left to prune. **At twelve the two arms separate**, and they separate
+in the direction 162.3 measured from the other end: their score still knows which of its comments are misses — a floor of
+`0.48` removes `57` of `194` comments, loses `5` credited goldens and gains `+0.0254` — while ours removes four comments
+and changes nothing. **The same comments with a third more noise is not a deduplication problem, it is a ranker whose
+score does not separate hits from misses once past the first five per pull request.**
+
+**A monotone recalibration of our score cannot fix this**, and it is worth saying because it is the obvious next idea: a
+monotone map changes which threshold corresponds to a policy and nothing about which comments sit above it, so every
+floor it could express is a floor this table already tried. **What has to change is the ordering** — the terms and their
+weights — and that is a `$0` measurement too, on the chosen half, with the same held-out acceptance. It is registered as
+S48 and it is not taken here, because re-weighting is fitting and a fit reported on the half that chose it is the one
+thing this repository's split-half rule exists to refuse.
+
+### 162.7 What this section does not establish
 
 - **Not that the competitor is better at reviewing.** Both arms were driven and judged by the same instrument on the same
   fifty pull requests; what is measured is what that instrument credits, and `matchedGoldens` is a judge's opinion.
