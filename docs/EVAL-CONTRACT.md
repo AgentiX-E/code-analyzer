@@ -17324,3 +17324,114 @@ this one's.
   harness's own core reading; ours is the profile re-index of a run whose verdicts were paid for once.
 - **Not that the AACR curve's flatness is noise.** The curve is flat from eight to twenty (0.2228, 0.2234, 0.2278,
   0.2258, 0.2228) - a plateau ±0.005 wide, which is why **the constant on this board was never the thing that mattered**.
+
+## 159. The wide arm: the sixth lane moves volume, and volume is what the gap was
+
+S32 was pre-registered in §156.6 as one device: `lane_set: wide`, the six-lane union, everything else unchanged. Its
+acceptance was fixed before the run: **`ΔF1 ≥ +0.0126` with recall up, read at the budget §158.4 named** (`k = 8`, core
+158). Run `45629019118` bought it — fifty pull requests, one arm, no competitor — and this section is the reading.
+
+### 159.1 What it bought, and what it cost against its estimate
+
+| quantity        | §156.7 estimate |         measured |
+| --------------- | --------------: | ---------------: |
+| calls           |           4,300 |        **4,338** |
+| cache-hit share |            52 % |       **84.3 %** |
+| spend           |          ¥15–17 | **$1.04 ≈ ¥7.4** |
+
+**The estimate was 2.2× the invoice, and the reason is one line of the artifact**: `cacheHitRatio: 0.8435`. The
+six lanes are one prompt and five additions, `prompt_order: boilerplate-first` was already in place, and each lane's
+prompt is the same 91 % prefix — so per-lane cost fell to `$0.0987`–`$0.2140` instead of the `$0.34` the ceiling
+assumed. **A six-lane review is cheaper than the five-lane estimate because the lanes share their instructions**, which
+is the same lever §10.2 measured and the reason the budget did not have to move.
+
+### 159.2 The pre-registered test, read at the budget it was registered against
+
+| reading, core 158           | shipped (5 lanes) |  **wide (6 lanes)** |           Δ |
+| --------------------------- | ----------------: | ------------------: | ----------: |
+| F1 at `k = 8` — the test    |            0.2851 |          **0.3019** | **+0.0168** |
+| recall at `k = 8`           |   0.4430 (70/158) | **0.4557 (72/158)** | **+0.0127** |
+| comments emitted at `k = 8` |               333 |             **319** |         −14 |
+| F1 at `k = 12` (what ships) |            0.2658 |              0.2714 |     +0.0056 |
+| F1 at `k = 5`               |            0.2732 |          **0.3221** | **+0.0489** |
+
+**Accepted**: `+0.0168` is 1.3 MDE and recall rose, so the device does what it was registered to do — it moves volume
+without spending precision to do it. At the same volume the difference is starker than at the same budget: **227
+comments buy 62 reference comments where 230 bought 53**, which is `+17 %` relative recall for four fewer comments.
+
+**And at the budget the product ships it is invisible** (`+0.0056`, half a MDE). That is not the device failing; it is
+§158.5's prediction arriving on schedule: _a cut fitted to the emission of a run that is about to change is a fitted
+parameter for a run that no longer exists._ The wide arm emits 402 comments at `k = 12` where the shipped arm emitted
+429 — **the same budget on a wider emission is a different point on a different curve.**
+
+### 159.3 Where the curve prefers to sit, and a split-half that chose the same place
+
+| basis    | shipped arm: best `k` | best F1 | wide arm: best `k` |    best F1 |           Δ |
+| -------- | --------------------: | ------: | -----------------: | ---------: | ----------: |
+| core 158 |                     8 |  0.2851 |              **5** | **0.3221** | **+0.0370** |
+| all 173  |                     8 |  0.2925 |              **5** | **0.3150** |     +0.0225 |
+
+**The split-half on the core basis chose `k = 5` without seeing the full curve and held out `0.3265`** against `0.2815`
+at the shipped twelve — `+0.0450`, which is the largest held-out figure this board has produced. On the 173 basis the
+same procedure chose `k = 6` and gained only `+0.0068`, **which is why the basis is stated before the number**: the
+board scores 158, and a curve divided by 173 is a curve about a corpus nobody ranks tools on (§158.2).
+
+### 159.4 The bar, cleared — with the operating point stated
+
+| quantity                                 |      value | what it is                                          |
+| ---------------------------------------- | ---------: | --------------------------------------------------- |
+| competitor, best of three readings, core | **0.2991** | the fifth question's floor, from a run with our LLM |
+| ours, wide, core, best cut `k = 5`       | **0.3221** | whole corpus                                        |
+| ours, wide, core, `k = 5` held out       | **0.3265** | chosen on one half, reported on the other           |
+| claim threshold (bar + 1 MDE)            |     0.3117 | cleared by `+0.0104` (whole), `+0.0148` (held out)  |
+
+**This is the first reading in this repository that is above the competitor's best on the board's own denominator**, and
+it is above it by 1.8 MDE rather than by a rounding. **What it does not establish is that our best cut beats their best
+cut**: their `0.2991` is their best of three _readings_, at whatever emission their pipeline produces, and their curve
+has not been priced (S40). If their emission also prefers a different cut, the comparison moves — and that is a
+zero-cost reading of an artifact we have already paid for, which is why it is the next thing rather than a footnote.
+
+### 159.5 Two terms the ablation says are costing true positives, and why neither was retired here
+
+The score is a sum of eight terms, and the wide artifact was re-priced term by term at its own cut. Two terms came out
+with a positive delta on **both** Martian artifacts — positive meaning _removing the term gains true positives_:
+
+| term             | weight |       wide, `k = 12` | shipped arm, `k = 12` |             AACR |
+| ---------------- | -----: | -------------------: | --------------------: | ---------------: |
+| `hedgePenalty`   |   0.10 | `+0.0209` (p 0.0313) |  `+0.0069` (p 0.6250) | `0.0000` (p 1.0) |
+| `proposesChange` |   0.20 | `+0.0070` (p 0.5000) |  `+0.0104` (p 0.4531) |        `−0.0081` |
+
+**The sign agrees on both Martian arms and the term does nothing on AACR**, where it fires on two findings in the whole
+emission. **One reading is above its own resolution and one is not** (`0.0113` and `0.0114`), so by §147.5's rule this
+is a direction and not a difference: `hedgePenalty` is not retired today. It is **S39**, pre-registered as: retire the
+term if two independent readings are each above their resolution with the sign agreeing — the same standard the wide arm
+had to meet, applied to a change that costs nothing to test and would be a silent regression to ship untested.
+
+### 159.6 The dispatch failed a step it should never have run, and took three readings with it
+
+Run `45629019118` is red, and **the review did not fail**. Step 11 reviewed fifty pull requests, step 12 replayed the
+artifact to its own figure, and the artifact was published — then _`Score this run against the competitor on the rows
+both of them hold`_ failed with `the two artifacts share no pull request`, which was true and was a question this
+dispatch never asked: `competitor: off`.
+
+- **The condition was `hashFiles('benchmarks/aacr/competitor-baseline.json') != ''`.** That path is a tracked file, so
+  the condition was true in every checkout, including the ones that bought nothing. **A file's presence is not a
+  statement about this run.** It now asks the arm's own switch first.
+- **Three steps carried no status function**, so GitHub read them as `success() && …` and the red comparison skipped
+  them: `score_terms`, the selection ceiling, and `martian_profile`. This is §155's defect in a second place — _a red
+  step that is not about the artifact still took the artifact's readings down_ — and the three now carry
+  `always() && steps.replay.outcome == 'success'`, the same shape the upload and the cut curve already had.
+- **The readings were recovered without buying them again**: all four are functions of the artifact, and this section's
+  tables come from running the four scripts against the published artifact on the runner's own inputs. The evidence was
+  never lost; only the steps that read it were skipped.
+
+### 159.7 What this round does not claim
+
+- **Not that the wide arm is shipped.** Promotion is a product change with its own tests and its own cost line (`+20 %`
+  calls per review, `$0.21` on a fifty-pull-request board), and it must move with the cut: §159.2 says the arm alone
+  gains `+0.0056` at `k = 12`, which is not a gain a user can see. **S41** is that change, and it is registered with the
+  trade rather than taken here.
+- **Not that `0.3221` is a different device's number.** Same corpus, same judge, same ranker, same cut rule; the only
+  difference is one more lane and therefore one more drawing from the same engine.
+- **Not that the six-lane arm is better on every board.** AACR has not been re-read with it, and §158.3's AACR curves
+  belong to the five-lane emission. Until S11 lands, the AACR column describes the shipped arm.

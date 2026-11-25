@@ -1,0 +1,265 @@
+{
+  "artifact": "/tmp/s32/aacr-bench.json",
+  "version": "score-term-ablation-v1",
+  "weightsVersion": "actionability-weights-v1",
+  "cut": "drop:test+drop-path:test+budget:5",
+  "rows": 984,
+  "goldens": 173,
+  "pullRequests": 50,
+  "baseline": {
+    "goldens": 173,
+    "emitted": 227,
+    "truePositives": 63,
+    "falsePositives": 164,
+    "falseNegatives": 110,
+    "precision": 0.2775330396475771,
+    "recall": 0.36416184971098264,
+    "f1": 0.315
+  },
+  "resolution": {
+    "sd": 0.0083365,
+    "mde": 0.023354
+  },
+  "terms": [
+    {
+      "term": "grounded",
+      "weight": 0.3,
+      "firedOn": 929,
+      "dead": false,
+      "without": {
+        "goldens": 173,
+        "emitted": 227,
+        "truePositives": 63,
+        "falsePositives": 164,
+        "falseNegatives": 110,
+        "precision": 0.2775330396475771,
+        "recall": 0.36416184971098264,
+        "f1": 0.315
+      },
+      "delta": 0,
+      "interval": {
+        "rounds": 2000,
+        "seed": 20261124,
+        "observed": 0,
+        "mean": 0,
+        "lo": 0,
+        "hi": 0,
+        "sd": 0,
+        "mde": 0
+      },
+      "onlyBase": 1,
+      "onlyAlt": 1,
+      "p": 1
+    },
+    {
+      "term": "proposesChange",
+      "weight": 0.2,
+      "firedOn": 828,
+      "dead": false,
+      "without": {
+        "goldens": 173,
+        "emitted": 227,
+        "truePositives": 65,
+        "falsePositives": 162,
+        "falseNegatives": 108,
+        "precision": 0.28634361233480177,
+        "recall": 0.37572254335260113,
+        "f1": 0.325
+      },
+      "delta": 0.01,
+      "interval": {
+        "rounds": 2000,
+        "seed": 20261124,
+        "observed": 0.01,
+        "mean": 0.00997,
+        "lo": 0,
+        "hi": 0.025707,
+        "sd": 0.007108,
+        "mde": 0.019915
+      },
+      "onlyBase": 0,
+      "onlyAlt": 2,
+      "p": 0.5
+    },
+    {
+      "term": "quotesDiff",
+      "weight": 0.14,
+      "firedOn": 104,
+      "dead": false,
+      "without": {
+        "goldens": 173,
+        "emitted": 227,
+        "truePositives": 65,
+        "falsePositives": 162,
+        "falseNegatives": 108,
+        "precision": 0.28634361233480177,
+        "recall": 0.37572254335260113,
+        "f1": 0.325
+      },
+      "delta": 0.01,
+      "interval": {
+        "rounds": 2000,
+        "seed": 20261124,
+        "observed": 0.01,
+        "mean": 0.01022,
+        "lo": -0.019512,
+        "hi": 0.046154,
+        "sd": 0.017209,
+        "mde": 0.048212
+      },
+      "onlyBase": 3,
+      "onlyAlt": 5,
+      "p": 0.7265625
+    },
+    {
+      "term": "namesSymbol",
+      "weight": 0.08,
+      "firedOn": 951,
+      "dead": false,
+      "without": {
+        "goldens": 173,
+        "emitted": 227,
+        "truePositives": 64,
+        "falsePositives": 163,
+        "falseNegatives": 109,
+        "precision": 0.28193832599118945,
+        "recall": 0.3699421965317919,
+        "f1": 0.32
+      },
+      "delta": 0.005,
+      "interval": {
+        "rounds": 2000,
+        "seed": 20261124,
+        "observed": 0.005,
+        "mean": 0.004939,
+        "lo": 0,
+        "hi": 0.015625,
+        "sd": 0.004877,
+        "mde": 0.013665
+      },
+      "onlyBase": 0,
+      "onlyAlt": 1,
+      "p": 1
+    },
+    {
+      "term": "agreement",
+      "weight": 0.1,
+      "firedOn": 984,
+      "dead": false,
+      "without": {
+        "goldens": 173,
+        "emitted": 227,
+        "truePositives": 62,
+        "falsePositives": 165,
+        "falseNegatives": 111,
+        "precision": 0.27312775330396477,
+        "recall": 0.3583815028901734,
+        "f1": 0.31
+      },
+      "delta": -0.005,
+      "interval": {
+        "rounds": 2000,
+        "seed": 20261124,
+        "observed": -0.005,
+        "mean": -0.004961,
+        "lo": -0.020513,
+        "hi": 0.010417,
+        "sd": 0.008424,
+        "mde": 0.023599
+      },
+      "onlyBase": 2,
+      "onlyAlt": 1,
+      "p": 1
+    },
+    {
+      "term": "severity",
+      "weight": 0.12,
+      "firedOn": 984,
+      "dead": false,
+      "without": {
+        "goldens": 173,
+        "emitted": 227,
+        "truePositives": 60,
+        "falsePositives": 167,
+        "falseNegatives": 113,
+        "precision": 0.2643171806167401,
+        "recall": 0.3468208092485549,
+        "f1": 0.3
+      },
+      "delta": -0.015,
+      "interval": {
+        "rounds": 2000,
+        "seed": 20261124,
+        "observed": -0.015,
+        "mean": -0.015105,
+        "lo": -0.033097,
+        "hi": 0,
+        "sd": 0.008249,
+        "mde": 0.023109
+      },
+      "onlyBase": 3,
+      "onlyAlt": 0,
+      "p": 0.25
+    },
+    {
+      "term": "lane",
+      "weight": 0.06,
+      "firedOn": 984,
+      "dead": false,
+      "without": {
+        "goldens": 173,
+        "emitted": 227,
+        "truePositives": 59,
+        "falsePositives": 168,
+        "falseNegatives": 114,
+        "precision": 0.2599118942731278,
+        "recall": 0.34104046242774566,
+        "f1": 0.295
+      },
+      "delta": -0.02,
+      "interval": {
+        "rounds": 2000,
+        "seed": 20261124,
+        "observed": -0.02,
+        "mean": -0.019843,
+        "lo": -0.038647,
+        "hi": -0.004878,
+        "sd": 0.009145,
+        "mde": 0.025622
+      },
+      "onlyBase": 5,
+      "onlyAlt": 1,
+      "p": 0.21875
+    },
+    {
+      "term": "hedgePenalty",
+      "weight": 0.1,
+      "firedOn": 178,
+      "dead": false,
+      "without": {
+        "goldens": 173,
+        "emitted": 227,
+        "truePositives": 68,
+        "falsePositives": 159,
+        "falseNegatives": 105,
+        "precision": 0.29955947136563876,
+        "recall": 0.3930635838150289,
+        "f1": 0.34
+      },
+      "delta": 0.025,
+      "interval": {
+        "rounds": 2000,
+        "seed": 20261124,
+        "observed": 0.025,
+        "mean": 0.024912,
+        "lo": 0,
+        "hi": 0.049383,
+        "sd": 0.012534,
+        "mde": 0.035114
+      },
+      "onlyBase": 1,
+      "onlyAlt": 6,
+      "p": 0.125
+    }
+  ]
+}
