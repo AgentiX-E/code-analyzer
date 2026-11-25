@@ -17192,10 +17192,24 @@ twelve** (`0.2327` at 12 against `0.2199` at 7). So the constant is right for on
 a property of a constant rather than of either corpus - and **the sign of the error is not noise: it replicates on two runs
 of the same board.**
 
-**A split-half check, because a maximum chosen after seeing the curve is a fitted parameter.** Choosing the budget on every
-even-numbered pull request (25 rows, 74 goldens) and evaluating on the odd-numbered half (25 rows, 84 goldens): the choice
-is `k = 7`, and on rows it never saw it reads **0.2857 against the shipped 0.2637 - +0.0220**, above the `0.0178` a
-half-corpus resolves. **The gain is not the fitting.**
+**A split-half check, because a maximum chosen after seeing the curve is a fitted parameter.** Choosing the budget on
+every even-numbered pull request and evaluating on the odd-numbered half picks `k = 7`, and on rows it never saw:
+
+| basis    | held-out at `k = 7` | held-out at the shipped `12` |        gain | resolves a half-corpus? |
+| -------- | ------------------: | ---------------------------: | ----------: | ----------------------- |
+| **core** |              0.2857 |                       0.2637 | **+0.0220** | yes (0.0178)            |
+| all 173  |              0.2882 |                       0.2806 | **+0.0076** | no (0.0126)             |
+
+**The direction agrees and the magnitude is denominator-dependent**, because the fifteen comments the board does not score
+are ones we did not buy: removing them lowers the shipped cut's held-out figure by more than the optimal cut's. **The
+whole-corpus gain is the number to quote** - `+0.0323` on core and `+0.0253` on all 173, both above the MDE - and the
+held-out half **confirms the direction while resolving it on one basis and not the other.** A held-out number that
+resolves only on the basis a claim would prefer is a number to state with its basis attached, not to round up.
+
+**The instrument is `scripts/cut-curve.mjs`**, and it refuses the two ways this table can lie: a curve over an emission
+the artifact never published (§157.3's guard, one level down), and a held-out figure divided by the corpus rather than by
+the half. It runs in the benchmark job and writes `benchmarks/cut-curve.json` into the artifact, so the next reader does
+not have to reconstruct any of this by hand.
 
 **And the obvious repair is worse than the constant.** A global score threshold is the per-comment version of the same
 idea, and on this artifact it peaks at `0.2362` (score `>= 0.80`, 225 comments): the ranker's scores are **not comparable
@@ -17215,3 +17229,98 @@ board's best, both boards, both arms of the running campaign - costs **0 CNY** a
   and that finding stands.
 - **Not that `0.2496` is a competitor's number.** It is ours on the board's denominator; the like-for-like row is the paired
   subset in `aacr-like-for-like.json`.
+
+## 158. The cut, priced on both boards and on both denominators
+
+§157.4 priced the budget on one Martian artifact, on the 173-comment denominator, and left three things unread: **the
+board publishes 158** (§147.4), **the AACR artifact in the tree publishes no cut at all**, and the arithmetic that makes
+the constant right on one board and wrong on the other had never been run on both boards by one instrument. S35 is a
+re-cut over verdicts the runs already paid for - **zero model calls** - and running it turned up two defects in the
+instrument before it produced a single number.
+
+### 158.1 The AACR artifact has no shipped cut, and the instrument died on that
+
+`benchmarks/aacr-bench.json` predates `emissionRules`. `cut-curve.mjs` read `shippedBudget` as `null`, computed no
+shipped point, and then dereferenced it when reporting the held-out gain:
+
+```
+TypeError: Cannot read properties of null (reading 'f1')
+    at scripts/cut-curve.mjs:161
+```
+
+**A crash is not a refusal.** The three guards this instrument has are refusals with sentences; this was a fourth path
+nobody had written, and it only exists for artifacts that do not carry a policy cut - which is every artifact older than
+§106. The instrument now reports the held-out figure and says **`the artifact publishes no cut, so there is no gain to
+report`**, and two cases hold it: one with a published cut (the gain is the difference), one without (the figure still
+prints, the gain does not).
+
+**And the case that should have caught it did not.** The split-half fixture wrote its corpus rows as `pr_url` while
+`profileMaps` reads `githubPrUrl`, so the fixture's denominator was **zero** and the assertion it made was a substring
+match on a line whose numbers were all zero. That is a green test proving that a string appears. The fixture now writes
+the board's own shape and asserts the arithmetic: `held out F1 1.0000 against 0.5000 at the shipped budget (+0.5000)`.
+
+### 158.2 `--profile`: the denominator is part of the question, one level below the cut
+
+The board scores 158 of Martian's 173 comments, and §140.5 already paid for that correction on the shipped point. **A
+curve divided by 173 is a curve about a corpus nobody ranks tools on**, so the instrument now takes `--profile`:
+
+- it re-indexes verdicts already adjudicated (`restrictFindings`), never re-judges, re-ranks or emits;
+- **the emission guard stays on the artifact's own basis**, because the guard asks whether the curve is about the run the
+  artifact published - a question about 173 - and re-basing it to 158 would reject an artifact for a difference the
+  profile introduced;
+- the denominator counts **the pull requests this artifact emitted on**, not every corpus row: a run that covered 50 of
+  196 rows is scored against its own 50, the same rule `score` applies to a cut.
+
+Five cases hold it: one emission read on both bases, the guard unchanged under a profile, a profile refused without its
+corpus, an unregistered profile refused by name, and a held-out half divided by that half's profile goldens.
+
+### 158.3 Three readings, one instrument, no model calls
+
+| board                   | basis    | shipped `12` | best `k` | best F1    |        gain | split-half: chosen | held out vs shipped            |
+| ----------------------- | -------- | -----------: | -------: | ---------- | ----------: | -----------------: | ------------------------------ |
+| **AACR-Bench** (49 PRs) | all 452  |     _no cut_ |   **12** | **0.2278** |           — |             `k=12` | 0.2538, no shipped point       |
+| **Martian** (50 PRs)    | all 173  |       0.2757 |    **8** | **0.2925** | **+0.0167** |              `k=8` | 0.3399 vs 0.3119 (**+0.0281**) |
+| **Martian** (50 PRs)    | core 158 |       0.2658 |    **8** | **0.2851** | **+0.0194** |              `k=8` | 0.3306 vs 0.2966 (**+0.0341**) |
+
+**The constant is not arbitrary, and that is the finding.** On AACR the curve's maximum is exactly the shipped twelve, and
+**the split-half - which never saw the full curve - chooses twelve as well** (its held-out reading is `0.2538`). The
+twelve was fitted to this board and is right on it. The cost is entirely on the other board, and the two-denominator
+reading says the same thing twice: `+0.0167` on 173 and `+0.0194` on 158, `+0.0281` and `+0.0341` on halves that were
+never fitted. **Both held-out gains resolve a half-corpus, which §157.4's 173-only split-half did not** - the profile is
+what made the direction resolvable, not a larger sample.
+
+**What the cut at twelve buys on AACR, stated because it is the same term.** Posting everything scores `0.2026` (569
+comments, 85 credited); the shipped twelve scores `0.2278` (338 comments, 90) - **`+0.0252` for 231 comments not posted**,
+which is the precision the cut is worth on the board it was fitted to.
+
+**One number, two boards, and the arithmetic of moving it.** At `k = 8`: AACR reads `0.2228` (`-0.0050`), Martian core
+reads `0.2851` (`+0.0194`). **The product ships one budget, so this is a decision and not a bug** - and it is not taken
+here, because the number that decides it is S32's, on a device that changes how many comments exist in the first place.
+A cut chosen against the emission of a run that is about to change is a fitted parameter for a run that no longer exists.
+
+### 158.4 The bar, one MDE away, on the basis the bar is published on
+
+The competitor's best of three readings is `0.2991` on the harness's own denominator; ours at the best cut on the board's
+is `0.2851`. **`0.0140` short - `0.0014` more than one MDE** (`0.0126`), so the gap is resolvable and not closed.
+
+| quantity                        |      value | what it means                                     |
+| ------------------------------- | ---------: | ------------------------------------------------- |
+| ours, best cut, core            | **0.2851** | the figure a claim would be made on               |
+| competitor, best of three, core | **0.2991** | the target the fifth question forbids going below |
+| target to meet                  | **0.2991** | unchanged by this round                           |
+| target to claim                 | **0.3117** | one MDE above the bar                             |
+| remaining gap at best cut       | **0.0140** | one MDE and a rounding                            |
+
+**And the cut cannot close it**, for §147.5's reason restated exactly: the leaders buy **105 of 158** reference comments
+at three per pull request, and at `k = 8` we buy **70**. Cutting harder costs recall faster than it buys precision - the
+curve has said so at every budget above eight - so the remaining gap is a **volume** gap, which is S32's device and not
+this one's.
+
+### 158.5 What this round does not claim
+
+- **Not that the shipped budget should move.** The arithmetic is printed, the decision is registered, and it waits for
+  S32 because a cut fitted to the current emission is a fitted parameter for a device that changes it.
+- **Not that `0.2851` is comparable to a competitor's published 29.9 without its denominator.** Their `0.2991` is the
+  harness's own core reading; ours is the profile re-index of a run whose verdicts were paid for once.
+- **Not that the AACR curve's flatness is noise.** The curve is flat from eight to twenty (0.2228, 0.2234, 0.2278,
+  0.2258, 0.2228) - a plateau ±0.005 wide, which is why **the constant on this board was never the thing that mattered**.
