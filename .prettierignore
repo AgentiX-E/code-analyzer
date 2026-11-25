@@ -92,3 +92,15 @@ docs/gate-replay.html
 # formatter opinion about a file the generator owns.
 docs/competitor-board.html
 benchmarks/competitor-board.json
+
+# **The cut curve's readings, and the page drawn from them.** `benchmarks/cut-curve-*.json` is written by
+# `scripts/cut-curve.mjs` with `JSON.stringify(…, null, 2)`, and Prettier's only disagreement is that it collapses the
+# `budgets` array onto one line - so `--write` would make the committed file differ from the one the benchmark job
+# uploads, which is the rule the four artifacts above state. **`docs/cut-curve.html` is rendered from those files by
+# `scripts/cut-curve-page.mjs`**, and a formatter that re-indented the inline SVG would make the page differ from what the
+# renderer produces at the next run - the page's determinism is checked by a test that compares two renders, not by a
+# formatter.
+benchmarks/cut-curve-aacr.json
+benchmarks/cut-curve-martian.json
+benchmarks/cut-curve-martian-core.json
+docs/cut-curve.html
