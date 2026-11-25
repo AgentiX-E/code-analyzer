@@ -116,3 +116,11 @@ docs/cut-curve.html
 benchmarks/pool-density.json
 benchmarks/pool-density-category.json
 docs/pool-density.html
+
+# **The two-arm comparison and the page drawn from it, by the rule every artifact above states.** Both JSON files are
+# written by `scripts/same-cut.mjs` with `JSON.stringify(…, null, 2)`; the page is emitted by `scripts/same-cut-page.mjs`,
+# and CI regenerates all three and fails on a difference - so a formatter pass here would be reverted by the next run, and
+# a `--check` failure would be a formatter opinion about a measurement rather than a defect in one.
+benchmarks/same-cut-core.json
+benchmarks/same-cut-all.json
+docs/same-cut.html
