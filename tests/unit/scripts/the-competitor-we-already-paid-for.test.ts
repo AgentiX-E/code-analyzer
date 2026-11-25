@@ -60,7 +60,22 @@ const baseline = JSON.parse(
   readFileSync(join(ROOT, 'benchmarks/aacr/competitor-baseline.json'), 'utf8'),
 ) as Baseline;
 
-const keys = Object.keys(baseline.pulls);
+/**
+ * **The file, and the run inside it.**
+ *
+ * One record holds the rows of more than one corpus - a row is looked up by pull request, so recording the Martian board
+ * did not invalidate the AACR slice's rows - and the two levels answer different questions. *The file* states how many
+ * rows it holds and how it came by them; *the run* is the selection the figures in this file were published for, and
+ * every numeric claim below is about a run. **The selection is read from the artifact that run published**, because a
+ * hand-kept list of forty-seven urls in a test is the second copy of an answer key this repository has already paid for.
+ */
+const AACR_BENCH = JSON.parse(
+  readFileSync(join(ROOT, 'benchmarks/aacr-bench.json'), 'utf8'),
+) as { coverage: { byPullRequest: Array<{ pr: string }> } };
+const SELECTED = new Set(AACR_BENCH.coverage.byPullRequest.map((row) => row.pr));
+
+const fileKeys = Object.keys(baseline.pulls);
+const keys = fileKeys.filter((key) => SELECTED.has(key));
 const recorded = keys.filter((key) => typeof baseline.pulls[key]?.fingerprint === 'string');
 const transcribed = keys.filter((key) => typeof baseline.pulls[key]?.fingerprint !== 'string');
 
@@ -140,7 +155,7 @@ describe('the recorded competitor result replays to the figures the recording ru
 });
 
 describe('the record states its own two origins rather than the flattering one', () => {
-  it('splits forty-six rows into thirty-two recorded and fourteen transcribed, and says how to tell them apart', () => {
+  it('splits the run’s forty-seven rows into thirty-three recorded and fourteen transcribed, and says how to tell them apart', () => {
     // **Forty-seven rows, not forty-six**: the run of 2026-11-12 closed one of the four holes by buying exactly that
     // pull request, which is the mechanism's own claim tested on the corpus it was built for.
     expect(keys).toHaveLength(47);
@@ -152,13 +167,24 @@ describe('the record states its own two origins rather than the flattering one',
     const origins = baseline.provenance.origins;
     expect(origins).toHaveLength(2);
     expect(origins.map((origin) => origin.how).sort()).toEqual(['recorded', 'transcribed']);
-    expect(origins.find((origin) => origin.how === 'recorded')?.pulls).toBe(recorded.length);
-    expect(origins.find((origin) => origin.how === 'transcribed')?.pulls).toBe(transcribed.length);
+    // **The header counts the file, and the file now holds two corpora's rows.** It is a statement about the 95 rows a
+    // reader can turn to, not about the 47 this run scored - the alternative is a header that shrinks when another
+    // corpus is recorded, which is the defect the union in `refreshProvenance` was written for.
+    const fileRecorded = fileKeys.filter(
+      (key) => typeof baseline.pulls[key]?.fingerprint === 'string',
+    );
+    expect(origins.find((origin) => origin.how === 'recorded')?.pulls).toBe(fileRecorded.length);
+    expect(origins.find((origin) => origin.how === 'transcribed')?.pulls).toBe(
+      fileKeys.length - fileRecorded.length,
+    );
     // **Both runs are dated, as a span between the first and the last**, because a list of three dates joined by "and"
-    // is a sentence nobody reads to the end.
+    // is a sentence nobody reads to the end. **The last date is the run that wrote the file**, which is the only one a
+    // reader can check against `recordedAt`: the middle dates of a span are deliberately not claimed.
     expect(baseline.provenance.measuredAt).toMatch(/^\d{4}-\d{2}-\d{2}( and \d{4}-\d{2}-\d{2})?$/);
     expect(baseline.provenance.measuredAt).toContain('2026-11-09');
-    expect(baseline.provenance.measuredAt).toContain('2026-11-12');
+    expect(baseline.provenance.measuredAt.split(' and ').at(-1)).toBe(
+      baseline.recordedAt.slice(0, 10),
+    );
     // **And each origin names what checked it**, because "recorded" and "transcribed" are claims about provenance, not
     // about correctness. **Neither sentence carries a count**, because the count in it went stale the first time the
     // file grew - the numbers are in the rows.
@@ -168,12 +194,18 @@ describe('the record states its own two origins rather than the flattering one',
     }
   });
 
-  it('names the four pull requests it does not cover, so the holes are a list rather than a silence', () => {
-    // **Three, down from four**: the run of 2026-11-12 recorded `PowerShell/24910`, and the two ComfyUI pull requests
-    // and `gofr/1395` are the ones its competitor still produced nothing usable on.
+  it('names the pull requests it does not cover, so the holes are a list rather than a silence', () => {
+    // **Three for this run, five in the file.** `PowerShell/24910` was bought by the run of 2026-11-12 and the two
+    // ComfyUI pull requests are the ones its competitor still produced nothing usable on; the Martian board's two holes
+    // were recorded beside them, and a run that scores one corpus must not erase another's.
     const absences = baseline.provenance.knownAbsences.pulls;
-    expect(absences).toHaveLength(3);
+    expect(absences).toHaveLength(5);
     for (const key of absences) expect(baseline.pulls[key]).toBeUndefined();
+    // **Every hole this run's selection could have covered is named**, which is the property that makes the list usable:
+    // a reader who selects all fifty AACR pull requests knows in advance which two they will not get a row for.
+    const uncovered = [...SELECTED].filter((key) => !(key in baseline.pulls));
+    expect(uncovered).toHaveLength(3);
+    for (const key of uncovered) expect(absences).toContain(key);
     // **A hole in the pairing, not a zero**: the competitor produced nothing usable, which is the distinction the
     // scoring draws between `missing` and a failed row scored as nothing found.
     expect(baseline.provenance.knownAbsences.reason).toContain('holes');
@@ -294,6 +326,12 @@ describe('every row is geometrically valid, because a shifted index is a wrong s
     expect(baseline.corpus.fingerprint).toMatch(/^sha256:[0-9a-f]{32}$/);
     expect(baseline.corpus.judge).toEqual({ model: 'deepseek-chat', prompt: 'aacr-judge-v1' });
     expect(baseline.competitor.tool).toBe('open-code-review');
-    expect(baseline.recordedAt).toBe('2026-11-12T01:54:36.426Z');
+    // **The timestamp is the run that last wrote the file**, so it moves with the record rather than being a date
+    // somebody typed once - and the header's span ends on the same day, which is the check a reader can make.
+    const runs = baseline.provenance.origins
+      .map((origin) => origin.run)
+      .filter((run): run is string => typeof run === 'string' && run !== '')
+      .sort();
+    expect(baseline.recordedAt.slice(0, 10)).toBe(runs.at(-1));
   });
 });

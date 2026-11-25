@@ -283,7 +283,19 @@ export function refreshProvenance(
         'a per-pull golden fingerprint, and the replay of these rows to the figures the run that bought them published',
     };
   });
-  const absent = (selection ?? []).map(String).filter((key) => key !== '' && !(key in pulls));
+  // **A hole is worth more than the run that found it.** This file holds the rows of more than one corpus - a row is
+  // found by pull request, and a second corpus's rows do not invalidate the first's - so a header rebuilt from *this*
+  // run's selection alone silently dropped the holes of every other corpus. The run of 2026-11-25 scored the Martian
+  // board and said nothing about the AACR slice's three, and the three were gone from the file that had recorded them.
+  // **The list is therefore a union of what the file has ever called missing, minus what now has a row** - which keeps
+  // the one property that matters, that a hole is closed exactly when a row is present, and adds the one it was
+  // missing, that a corpus this run did not ask about is not a corpus whose holes are untrue.
+  const earlierAbsences = Array.isArray(baseline?.provenance?.knownAbsences?.pulls)
+    ? baseline.provenance.knownAbsences.pulls.map(String)
+    : [];
+  const absent = [...new Set([...earlierAbsences, ...(selection ?? []).map(String)])].filter(
+    (key) => key !== '' && !(key in pulls),
+  );
   const earlier = String(baseline?.provenance?.measuredAt ?? '')
     .split(' and ')
     .map((part) => part.trim())
