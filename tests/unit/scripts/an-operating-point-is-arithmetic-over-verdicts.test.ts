@@ -20,6 +20,7 @@ import { describe, expect, it } from 'vitest';
 import type { CutStep } from '../../../scripts/lib/operating-point.mjs';
 import {
   applyCut,
+  cutFromSteps,
   describeCut,
   formatRow,
   maximumMatchingByPullRequest,
@@ -324,5 +325,59 @@ describe('the artifact carries the table, not only the cut it was dispatched at'
     expect(source).toMatch(
       /operatingPointTable\(\s*rankedDetail,\s*gated\.truePositives \+ gated\.falseNegatives,?\s*\)/,
     );
+  });
+});
+
+/**
+ * **The cut an artifact records has to survive the trip back through the parser.**
+ *
+ * Run `45514219220` ended red at `martian_profile` with *"the artifact does not record a cut this instrument can rebuild"*
+ * - and the artifact did record one: `drop test, drop path test, budget 12`. What failed was the reader, which
+ * whitelisted `drop` and `budget` and returned `null` on the third step the shipped policy has carried since §106. **The
+ * message blamed the artifact for a gap in the instrument**, and it did so on the run whose whole purpose was to publish a
+ * figure.
+ *
+ * A whitelist is the defect rather than the missing entry: `parseCut` already accepts six kinds, and the third kind will
+ * not be the last - so the reader below is exhaustive over `CutStep` and the round-trip is asserted for each kind. A new
+ * kind on the union without a spelling here is a type error in this test rather than a red job in fourteen minutes.
+ */
+describe('a cut read off the steps an artifact records', () => {
+  it('spells the policy the run that failed actually shipped, and parses back to the same steps', () => {
+    // The three steps are copied out of `45514219220`'s `emissionRules.shipped.steps`, not invented for the test.
+    const steps: readonly CutStep[] = [
+      { kind: 'drop', categories: ['test'] },
+      { kind: 'drop-path-class', classes: ['test'] },
+      { kind: 'budget', k: 12 },
+    ];
+    const cut = cutFromSteps(steps);
+    expect(cut).toBe('drop:test+drop-path:test+budget:12');
+    expect(parseCut(cut ?? '')).toEqual(steps);
+  });
+
+  it('round-trips every kind the parser accepts, one at a time', () => {
+    const each: readonly CutStep[] = [
+      { kind: 'gate' },
+      { kind: 'drop', categories: ['test', 'style'] },
+      { kind: 'keep-category', categories: ['bug'] },
+      { kind: 'drop-path-class', classes: ['test', 'docs'] },
+      { kind: 'budget', k: 6 },
+      { kind: 'quota', categories: ['bug'], k: 0 },
+    ];
+    for (const step of each) {
+      const cut = cutFromSteps([step]);
+      expect(cut, `${step.kind} has no spelling`).not.toBeNull();
+      expect(parseCut(cut ?? ''), `${step.kind} does not survive the trip`).toEqual([step]);
+    }
+  });
+
+  it('returns null for a kind it cannot spell, rather than spelling the rest and dropping one', () => {
+    // A reader that skipped the unknown step would rebuild a *different* cut and then report it as this artifact's.
+    expect(
+      cutFromSteps([{ kind: 'budget', k: 3 }, { kind: 'cap', k: 1 } as unknown as CutStep]),
+    ).toBeNull();
+  });
+
+  it('reads an empty policy as no cut rather than as no artifact', () => {
+    expect(cutFromSteps([])).toBe('no rule');
   });
 });

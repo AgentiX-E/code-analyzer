@@ -18,7 +18,14 @@
 import { readFileSync, writeFileSync } from 'node:fs';
 
 import { CORPUS_PROFILE_VERSION, profileMaps, restrictFindings } from './lib/corpus-profile.mjs';
-import { applyCut, maximumMatchingByPullRequest, parseCut, score } from './lib/operating-point.mjs';
+import {
+  SPELLABLE_CUT_KINDS,
+  applyCut,
+  cutFromSteps,
+  maximumMatchingByPullRequest,
+  parseCut,
+  score,
+} from './lib/operating-point.mjs';
 
 function parseArgs(argv) {
   const options = { artifact: null, corpus: null, cut: null, json: null };
@@ -58,25 +65,18 @@ const shipped = artifact.emissionRules?.shipped ?? {};
  * budget, an extra dropped category - is priced against the cut it actually shipped, instead of being refused or, worse,
  * silently priced against the default one.
  */
-function cutFromSteps(steps) {
-  if (!Array.isArray(steps) || steps.length === 0) return null;
-  const parts = [];
-  for (const step of steps) {
-    if (step?.kind === 'drop' && Array.isArray(step.categories) && step.categories.length > 0) {
-      parts.push(`drop:${step.categories.join('+')}`);
-    } else if (step?.kind === 'budget' && Number.isFinite(step.k)) {
-      parts.push(`budget:${step.k}`);
-    } else {
-      return null;
-    }
-  }
-  return parts.length > 0 ? parts.join('+') : null;
-}
-
 const cut = options.cut ?? cutFromSteps(shipped.steps);
 if (cut === null) {
+  // **Which step, not "the artifact does not record a cut".** The artifact records one; if this instrument cannot spell
+  // a step, saying so names the gap on the right side of it. `45514219220` was refused with the old sentence while its
+  // `emissionRules.shipped.steps` held `drop-path-class`, which `parseCut` had accepted since §106.
+  const unspellable = (Array.isArray(shipped.steps) ? shipped.steps : [])
+    .map((step) => String(step?.kind))
+    .filter((kind) => !SPELLABLE_CUT_KINDS.includes(kind));
   process.stderr.write(
-    'the artifact does not record a cut this instrument can rebuild; pass --cut\n',
+    unspellable.length > 0
+      ? `the artifact's shipped cut carries a step this instrument cannot spell: ${unspellable.join(', ')}; pass --cut\n`
+      : 'the artifact records no cut steps, so this instrument cannot rebuild its emission; pass --cut\n',
   );
   process.exit(2);
 }

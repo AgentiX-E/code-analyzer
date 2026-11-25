@@ -298,6 +298,66 @@ export function describeCut(steps) {
 }
 
 /**
+ * **The inverse of `parseCut`, because an artifact's policy has to survive the trip back through the parser.**
+ *
+ * **The failure this exists for.** Run `45514219220` shipped `drop test, drop path test, budget 12` and the Martian
+ * profile step refused it with *"the artifact does not record a cut this instrument can rebuild"*: the reader in that
+ * script whitelisted `drop` and `budget` and returned `null` on the third step, so **it blamed the artifact for a gap in
+ * itself** on the one run whose purpose was to publish a figure. A whitelist is the defect rather than the missing entry -
+ * `parseCut` accepts six kinds and the third kind will not be the last.
+ *
+ * **`null` rather than a partial spelling.** A reader that spelled the steps it knew and skipped the rest would rebuild a
+ * different cut and then label it with this artifact's name, which is worse than refusing: the caller can print the kind it
+ * could not spell and a person can decide, but a silently shortened cut is a number nobody can trace.
+ */
+export function cutFromSteps(steps) {
+  if (!Array.isArray(steps)) return null;
+  if (steps.length === 0) return 'no rule';
+  const tokens = [];
+  for (const step of steps) {
+    const kind = step?.kind;
+    if (kind === 'gate') {
+      tokens.push('gate');
+    } else if (kind === 'drop' || kind === 'keep-category') {
+      const categories = (Array.isArray(step.categories) ? step.categories : [])
+        .map((category) => String(category).trim())
+        .filter((category) => category.length > 0);
+      // **An empty list is not a spelling of "drop nothing"**, it is a list the artifact failed to write.
+      if (categories.length === 0) return null;
+      tokens.push(`${kind}:${categories.join(',')}`);
+    } else if (kind === 'drop-path-class') {
+      const classes = (Array.isArray(step.classes) ? step.classes : [])
+        .map((entry) => String(entry).trim())
+        .filter((entry) => entry.length > 0);
+      if (classes.length === 0) return null;
+      tokens.push(`drop-path:${classes.join(',')}`);
+    } else if (kind === 'budget') {
+      if (!Number.isInteger(step.k) || step.k < 1) return null;
+      tokens.push(`budget:${step.k}`);
+    } else if (kind === 'quota') {
+      const categories = (Array.isArray(step.categories) ? step.categories : [])
+        .map((category) => String(category).trim())
+        .filter((category) => category.length > 0);
+      if (categories.length === 0 || !Number.isInteger(step.k) || step.k < 0) return null;
+      tokens.push(`quota:${categories.join(',')}=${step.k}`);
+    } else {
+      return null;
+    }
+  }
+  return tokens.join('+');
+}
+
+/** The step kinds `cutFromSteps` can spell, for the caller that has to name the one it could not. */
+export const SPELLABLE_CUT_KINDS = Object.freeze([
+  'gate',
+  'drop',
+  'keep-category',
+  'drop-path-class',
+  'budget',
+  'quota',
+]);
+
+/**
  * **The cuts the campaign has a hypothesis about, in the order a reader should meet them.**
  *
  * `as shipped` first because it is the figure in every published table, and `no rule` second because **a cut that has

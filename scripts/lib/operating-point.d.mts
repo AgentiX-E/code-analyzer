@@ -86,6 +86,15 @@ export function applyCut(
   steps: readonly CutStep[],
 ): EmittedFinding[];
 
+/**
+ * The inverse of `parseCut`: `null` when a step's kind has no spelling, **never a partial one** - a shortened cut
+ * relabelled as this artifact's would be a figure nobody can trace back to a policy.
+ */
+export function cutFromSteps(steps: readonly CutStep[] | undefined): string | null;
+
+/** The kinds `cutFromSteps` can spell, so a caller can name the one it could not. */
+export const SPELLABLE_CUT_KINDS: readonly string[];
+
 export function describeCut(steps: readonly CutStep[]): string;
 
 /** The class a path belongs to, from the path alone - the analysis side's copy of the product's classifier. */
