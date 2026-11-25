@@ -101,6 +101,7 @@
     "bench:polyglot:scale": "tsx scripts/polyglot-scale.ts",
     "bench:cross-file": "node scripts/cross-file-report.mjs --json",
     "bench:ceiling": "node scripts/filter-ceiling.mjs",
+    "bench:competitor-cut": "node scripts/competitor-cut.mjs",
     "bench:imports": "TSX_TSCONFIG_PATH=tsconfig.tests.json tsx scripts/import-oracle.ts",
     "bench:budget": "node scripts/budget-frontier.mjs"
   },

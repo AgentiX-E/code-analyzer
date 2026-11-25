@@ -925,6 +925,43 @@ jobs:
             node scripts/cut-curve.mjs benchmarks/aacr-bench.json --corpus "$corpus" --split-half --profile core --json benchmarks/cut-curve-core.json
           fi
 
+      # **And the competitor's own cut, which is a point rather than a curve.**
+      #
+      # §159.4 claimed the first reading above the bar and named what that claim does not establish: *their `0.2991` is
+      # their best of three readings, at whatever emission their pipeline produces, and their curve has not been priced*.
+      # It is priced here, from verdicts the baseline already holds, and **it is two points rather than one**: what their
+      # pipeline ships (`616` findings, `F1 0.2991` on 173) and what the `actionable` gate this project applies to its own
+      # comments would keep of it (`210`, `F1 0.3551`). **The second was published in every artifact since §147 as
+      # `secondReviewer.withTheSameRanker` and no section read it beside our own gated point** - which is the comparison
+      # the claim rested on and did not make.
+      #
+      # **`--guard-from` reads the figures out of this run's own artifact** rather than accepting three numbers typed
+      # into a workflow, so the check cannot be about a different emission than the artifact beside it. **The corpus's
+      # denominator, not the rows'**: two pull requests have no row on the Martian board and their four goldens stay in
+      # the denominator, because a hole in the pairing is not a zero and dividing by the rows that exist flatters the arm
+      # that stopped early. The step cannot withhold the upload: the upload's condition is `always()` and the replay proof.
+      - name: Price the competitor's own cut, from the rows it already sold
+        if: always() && steps.replay.outcome == 'success' && inputs.competitor != 'off'
+        run: |
+          set -e
+          corpus="${{ inputs.dataset == 'martian' && format('{0}/benchmarks/martian/positive_samples.json', github.workspace) || '/tmp/aacr-bench/dataset/v1/positive_samples.json' }}"
+          node scripts/competitor-cut.mjs \
+            --baseline benchmarks/aacr/competitor-baseline.json \
+            --corpus "$corpus" \
+            --selection benchmarks/aacr-bench.json \
+            --guard-from benchmarks/aacr-bench.json \
+            --json benchmarks/competitor-cut.json
+          # **The board scores 158 of Martian's 173 goldens**, so the same rows are read on both denominators: a pricing
+          # divided by 173 is a pricing of a corpus nobody ranks tools on (§158.2).
+          if [ "${{ inputs.dataset }}" = "martian" ]; then
+            node scripts/competitor-cut.mjs \
+              --baseline benchmarks/aacr/competitor-baseline.json \
+              --corpus "$corpus" \
+              --selection benchmarks/aacr-bench.json \
+              --profile core \
+              --json benchmarks/competitor-cut-core.json
+          fi
+
       # **And `always()` is not decoration on that condition.** A step whose `if` contains no status function is
       # implicitly `success() && …`, so a red step *after* the two proofs still skipped the upload - which is exactly what
       # happened on run 45411086146: the review, both proofs and the competitor comparison all succeeded, the derived
@@ -957,6 +994,8 @@ jobs:
             benchmarks/martian-profile.json
             benchmarks/cut-curve.json
             benchmarks/cut-curve-core.json
+            benchmarks/competitor-cut.json
+            benchmarks/competitor-cut-core.json
             benchmarks/aacr/competitor-baseline.json
             benchmarks/runnable-competitors-outputs/
           if-no-files-found: warn
