@@ -35,6 +35,8 @@ export interface SplitHalf {
 export interface Curve {
   readonly artifact: string;
   readonly corpus?: string | null;
+  /** The arm the curve is about: `shipped`, `wide`, or `null` for a record written before the field existed. */
+  readonly laneSet?: string | null;
   readonly cut: string;
   readonly profile: string;
   readonly budgets?: readonly number[];
@@ -61,8 +63,21 @@ export declare class UnreadableCurveError extends Error {}
  */
 export declare function read(source: string, text: string): Curve;
 
-/** A board name from the artifact the curve was measured on. */
-export declare function boardOf(record: { readonly artifact?: string } | undefined): string;
+/**
+ * A board name from the corpus the curve was divided by, and the arm from the lane set it carries.
+ *
+ * **Both fields are optional because a record may predate them**, and a caller that hands over only an artifact gets the
+ * fallback path - which is what the shipped five-lane records rely on.
+ */
+export declare function boardOf(
+  record:
+    | {
+        readonly artifact?: string;
+        readonly corpus?: string | null;
+        readonly laneSet?: string | null;
+      }
+    | undefined,
+): string;
 
 /** A denominator name, because `all` and `core` are denominators and not labels. */
 export declare function basisOf(record: { readonly profile?: string } | undefined): string;

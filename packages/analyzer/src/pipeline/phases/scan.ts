@@ -31,7 +31,11 @@ export class ScanPhase implements ExecutablePhase {
       if (!existsSync(ctx.rootPath)) {
         // **A root that does not exist is an index of nothing, not an index of everything** - and it is reported with
         // the same shape as a walk that stopped, so a caller has one field to read rather than two cases.
-        const empty: WalkReport = { stoppedAtLimit: false, skippedOverSize: 0, skippedUnreadable: 0 };
+        const empty: WalkReport = {
+          stoppedAtLimit: false,
+          skippedOverSize: 0,
+          skippedUnreadable: 0,
+        };
         ctx.phaseData.set('scan', { files: [], discoveredFiles: [], walk: empty });
         return { phaseId: this.id, status: 'success', output: { filesDiscovered: 0, walk: empty } };
       }
