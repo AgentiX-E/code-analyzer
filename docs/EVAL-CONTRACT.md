@@ -17079,3 +17079,139 @@ saves.
 
 **And the number is written down because it was asked for as ¥116.** A figure two orders of magnitude wrong is not a
 rounding error, it is a reader who could not find the row - so the row is now here, with the tokens it is made of.
+
+## 157. The first Martian artifact that was published, and the cut nobody could rebuild
+
+Run `45514219220` (`dataset: martian`, `competitor: record`, 50 pull requests, dispatched 23:57 UTC on 2026-11-24)
+finished at 02:44 UTC on the 25th. **It is the first Martian run whose artifact survived**, and both repairs from §156 are
+what made it survive: `Upload the figure` ran **before** `Prove the artifact's detail layers add up`, and the audit read
+membership rather than two totals - `secondReviewer.coveredKeys` holds **48** rows and the check passed on a run with one
+pull request our own review never reached.
+
+One step still failed - `martian_profile`, for the second time - and §157.3 is why, and why that one was not the
+artifact's fault either.
+
+```
+AACR-BENCH reviewed 50 PRs · gate tp 75 fp 328 fn 98 · P 0.1861 R 0.4335 F1 0.2604
+AACR-BENCH competitor open-code-review · record · replayed 0 · recorded 48 · missing 0 · findings 616 ·
+  P 0.1916 R 0.6821 F1 0.2991 · same ranker F1 0.3551
+AACR-BENCH comparison not significant at 0.05 · ours-only 39 · theirs-only 32 · p 0.4767 · coverage 50/50
+AACR-BENCH spend · calls 3615 · prompt 7762052 · cache 7065222 · usd 1.3166 · ceiling 12
+AACR-BENCH judge · calls 8220 · unanswered 0 · usd 0.6475
+```
+
+### 157.1 The third reading, and the competitor's spread is the wider one
+
+| run           | PRs | our P  | our R  | our F1     | their P | their R | their F1   | same ranker | p      |
+| ------------- | --- | ------ | ------ | ---------- | ------- | ------- | ---------- | ----------- | ------ |
+| `45411086146` | 50  | 0.1854 | 0.4393 | 0.2607     | 0.1599  | 0.6821  | 0.2591     | 0.3488      | 0.8126 |
+| `45449046424` | 49  | 0.1922 | 0.4379 | 0.2671     | 0.1775  | 0.7101  | 0.2840     | 0.3560      | 0.8957 |
+| `45514219220` | 50  | 0.1861 | 0.4335 | **0.2604** | 0.1916  | 0.6821  | **0.2991** | 0.3551      | 0.4767 |
+
+**Three readings of one configuration, and the arm that ties is the stable one.** Ours spans `0.0067` (0.2604-0.2671);
+theirs spans **`0.0400`** (0.2591-0.2991) - six times wider, on an arm that posts 616-738 comments against our 403. None
+of the three differences is significant, and **the target has to move with the best of theirs**, because the fifth question
+forbids a target below what the competitor reaches with our LLM: **0.2991 to meet, 0.3117 to claim** (one MDE above it,
+0.0126).
+
+**What this does not say is that we are closer than §156 did.** It says the competitor is noisier than we assumed, and a
+target keyed on the maximum of a noisy arm is a target that moves when the arm is re-sampled. It is still the only target
+the rule allows.
+
+### 157.2 Our figure on the board's own denominator: 0.2496
+
+The board scores **Core**, 158 of the 173 comments (§147.4), and the profile instrument re-indexes verdicts the judge has
+already given. On this run, after rebuilding the shipped point exactly (`403` comments, `75` true positives, as published):
+
+| profile  | emitted |     TP | goldens |  precision |     recall |         F1 |
+| -------- | ------: | -----: | ------: | ---------: | ---------: | ---------: |
+| all      |     403 |     75 |     173 |     0.1861 |     0.4335 |     0.2604 |
+| **core** | **403** | **70** | **158** | **0.1737** | **0.4430** | **0.2496** |
+
+**Five of the seventy-five reference comments we bought are ones the board does not score**, so the correction is `-0.0108`
+on this run against `-0.0099` on the run §147.4 recorded. **Ours to read, and not a competitor's**: their `0.2991` is on the
+harness's own denominator, so the like-for-like row is §157.4's, not this one.
+
+### 157.3 The instrument was one step behind the policy, and it blamed the artifact
+
+`martian_profile` refused this artifact with
+
+```
+the artifact does not record a cut this instrument can rebuild; pass --cut
+```
+
+and **the artifact did record one**:
+
+```json
+[
+  { "kind": "drop", "categories": ["test"] },
+  { "kind": "drop-path-class", "classes": ["test"] },
+  { "kind": "budget", "k": 12 }
+]
+```
+
+That is `drop test, drop path test, budget 12` - the policy this repository has shipped since §106. The reader in
+`scripts/martian-profile.mjs` whitelisted `drop` and `budget` and returned `null` on the third step, **so a gap in the
+instrument was reported as a gap in the artifact**, on the one run whose purpose was to publish a figure. The step has now
+failed twice (§156.2 was the first time) and this is the reason both times.
+
+**The repair is not the missing case.** `parseCut` accepts six kinds and `applyCut` implements all six, so a hand-written
+whitelist is the defect: `cutFromSteps` now lives in `scripts/lib/operating-point.mjs` beside the parser it inverts, and
+returns **the spelling of every kind or `null`** - never a partial cut, because a cut with a step skipped rebuilds a
+different emission and would then be labelled with this artifact's name. Four tests hold it: the exact policy above
+round-trips through `parseCut`, every kind round-trips one at a time, an unknown kind returns `null`, and an empty policy
+reads as `no rule`.
+
+**And the step now names the gap on the right side of it**: `the artifact's shipped cut carries a step this instrument
+cannot spell: <kind>`. Verified against this artifact, which now prints rather than refusing:
+
+```
+cut      drop:test+drop-path:test+budget:12   (rebuilt 403 / 75, as published)
+core  shipped       403    70      158     0.1737   0.4430   0.2496
+```
+
+### 157.4 The cut is fitted to AACR, and on Martian it costs 0.015 to 0.030
+
+`F1 = 2·TP/(emitted + goldens)`, so the budget is a term in the figure and **the shipped `12` is a constant somebody chose
+on one board**. The artifacts already hold the verdicts, which makes the curve free - and on **two independent Martian
+artifacts** the optimum is seven or eight, not twelve:
+
+| budget | `martian-bench.json` (429 shipped) | `45514219220` (403 shipped) |
+| -----: | ---------------------------------: | --------------------------: |
+|      4 |                             0.2715 |                      0.2618 |
+|      5 |                             0.2779 |                      0.2663 |
+|      6 |                             0.2715 |                      0.2837 |
+|  **7** |                         **0.2905** |                  **0.2857** |
+|  **8** |                         **0.2925** |                      0.2770 |
+|     10 |                             0.2786 |                      0.2724 |
+| **12** |                         **0.2757** |                  **0.2604** |
+|     16 |                             0.2526 |                      0.2446 |
+
+**Both artifacts peak at seven or eight and both lose 0.015-0.032 at the shipped twelve**, and **AACR peaks at exactly
+twelve** (`0.2327` at 12 against `0.2199` at 7). So the constant is right for one board and wrong for the other, which is
+a property of a constant rather than of either corpus - and **the sign of the error is not noise: it replicates on two runs
+of the same board.**
+
+**A split-half check, because a maximum chosen after seeing the curve is a fitted parameter.** Choosing the budget on every
+even-numbered pull request (25 rows, 74 goldens) and evaluating on the odd-numbered half (25 rows, 84 goldens): the choice
+is `k = 7`, and on rows it never saw it reads **0.2857 against the shipped 0.2637 - +0.0220**, above the `0.0178` a
+half-corpus resolves. **The gain is not the fitting.**
+
+**And the obvious repair is worse than the constant.** A global score threshold is the per-comment version of the same
+idea, and on this artifact it peaks at `0.2362` (score `>= 0.80`, 225 comments): the ranker's scores are **not comparable
+across pull requests**, which is exactly why a per-pull-request count beats a global threshold, and why the count is not
+the thing to delete without replacing it with something per-pull-request.
+
+**What this registers (S35, no model calls):** the cut is a **device**, measured on verdicts already paid for, and the
+shipped one has never been compared against its own curve on either board. A registered re-cut - `12` against the
+board's best, both boards, both arms of the running campaign - costs **0 CNY** and is the next thing to read.
+
+### 157.5 What is not claimed here
+
+- **Not that we are within reach of 0.2991.** At our best cut on this run we would read `0.2857`, which is `0.0134` short -
+  one MDE. **Close enough that S32's device is worth running at the better cut, and not close enough to call it.**
+- **Not that the cut explains the gap.** §147.5's published leaderboard says the leaders buy 105 of 158 reference comments
+  at **three comments per pull request**; at that budget we buy 34. **Cutting harder cannot buy what was never written**,
+  and that finding stands.
+- **Not that `0.2496` is a competitor's number.** It is ours on the board's denominator; the like-for-like row is the paired
+  subset in `aacr-like-for-like.json`.
