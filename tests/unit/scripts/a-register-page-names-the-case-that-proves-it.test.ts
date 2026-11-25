@@ -44,8 +44,15 @@ afterAll(() => rmSync(scratch, { recursive: true, force: true }));
 
 describe('the register is read, not assumed', () => {
   it('finds every row of the committed register', () => {
-    expect(ROWS.length).toBe(44);
-    expect(new Set(ROWS.map((row) => row.id)).size).toBe(44);
+    // **The number of rows is the document's, not this file's.** A literal here goes red every time a capability is
+    // registered - which is the event the register exists for - and the repair is always to retype the literal, so the
+    // assertion stops being about the parser the moment it is convenient to change it. **The independent count is a
+    // regex over the same text**: a parser that drops a row is then a difference between two readings of one file
+    // rather than a difference between a file and a number somebody remembered.
+    const numbered = MARKDOWN.match(/^\s*\|\s*\d+\s*\|/gm) ?? [];
+    expect(ROWS.length).toBe(numbered.length);
+    expect(ROWS.length).toBeGreaterThan(40);
+    expect(new Set(ROWS.map((row) => row.id)).size).toBe(ROWS.length);
   });
 
   it('keeps the section each row belongs to, so the page can group them by user story', () => {
