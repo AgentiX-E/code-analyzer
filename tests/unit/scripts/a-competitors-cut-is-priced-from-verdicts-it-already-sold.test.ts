@@ -67,12 +67,19 @@ function baseline(overrides: Record<string, unknown> = {}): string {
   return JSON.stringify({
     version: 1,
     recordedAt: '2026-11-25',
-    corpus: { fingerprint: 'sha256:fixture', judge: { model: 'deepseek-chat', prompt: 'aacr-judge-v1' } },
+    corpus: {
+      fingerprint: 'sha256:fixture',
+      judge: { model: 'deepseek-chat', prompt: 'aacr-judge-v1' },
+    },
     competitor: { tool: 'open-code-review' },
     pulls: Object.fromEntries(
       Object.entries(PULLS).map(([key, row]) => [
         key,
-        { ...row, detail: row.matches.map((matched) => ({ matchedGoldens: matched })), findings: row.matches.length },
+        {
+          ...row,
+          detail: row.matches.map((matched) => ({ matchedGoldens: matched })),
+          findings: row.matches.length,
+        },
       ]),
     ),
     ...overrides,
@@ -85,23 +92,37 @@ interface Run {
   board: Record<string, unknown> | null;
 }
 
-function run(
-  files: { baseline?: string; corpus?: string } = {},
-  args: string[] = [],
-): Run {
+function run(files: { baseline?: string; corpus?: string } = {}, args: string[] = []): Run {
   const directory = mkdtempSync(join(tmpdir(), 'competitor-cut-'));
   const baselinePath = join(directory, 'baseline.json');
   writeFileSync(baselinePath, files.baseline ?? baseline());
   const corpusPath = join(directory, 'corpus.json');
   writeFileSync(corpusPath, files.corpus ?? JSON.stringify(CORPUS));
   const jsonPath = join(directory, 'out.json');
-  const argv = [SCRIPT, '--baseline', baselinePath, '--corpus', corpusPath, '--json', jsonPath, ...args];
+  const argv = [
+    SCRIPT,
+    '--baseline',
+    baselinePath,
+    '--corpus',
+    corpusPath,
+    '--json',
+    jsonPath,
+    ...args,
+  ];
   try {
     const out = execFileSync('node', argv, { encoding: 'utf8' });
-    return { code: 0, out, board: JSON.parse(readFileSync(jsonPath, 'utf8')) as Record<string, unknown> };
+    return {
+      code: 0,
+      out,
+      board: JSON.parse(readFileSync(jsonPath, 'utf8')) as Record<string, unknown>,
+    };
   } catch (error) {
     const failed = error as { status?: number; stdout?: string; stderr?: string };
-    return { code: failed.status ?? 1, out: `${failed.stdout ?? ''}${failed.stderr ?? ''}`, board: null };
+    return {
+      code: failed.status ?? 1,
+      out: `${failed.stdout ?? ''}${failed.stderr ?? ''}`,
+      board: null,
+    };
   }
 }
 

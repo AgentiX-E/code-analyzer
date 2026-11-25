@@ -27,7 +27,13 @@ interface Board {
   profile: string;
   goldens: number;
   pullRequests: { withARow: number; inCorpus: number };
-  asShipped: { emitted: number; truePositives: number; precision: number; recall: number; f1: number };
+  asShipped: {
+    emitted: number;
+    truePositives: number;
+    precision: number;
+    recall: number;
+    f1: number;
+  };
   atOurGate: { emitted: number; truePositives: number; f1: number } | null;
   guard: boolean | null;
 }
@@ -36,7 +42,16 @@ function price(args: string[]): { out: string; board: Board } {
   const json = join(mkdtempSync(join(tmpdir(), 'competitor-cut-e2e-')), 'board.json');
   const out = execFileSync(
     'node',
-    ['scripts/competitor-cut.mjs', '--baseline', BASELINE, '--corpus', CORPUS, '--json', json, ...args],
+    [
+      'scripts/competitor-cut.mjs',
+      '--baseline',
+      BASELINE,
+      '--corpus',
+      CORPUS,
+      '--json',
+      json,
+      ...args,
+    ],
     { cwd: REPO, encoding: 'utf8' },
   );
   return { out, board: JSON.parse(readFileSync(json, 'utf8')) as Board };
