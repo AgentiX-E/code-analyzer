@@ -412,6 +412,15 @@ jobs:
       - name: Enforce that the same-cut page is what the readings say
         run: git diff --exit-code -- docs/same-cut.html
 
+      # **The one device §162.4 proposed that can be refused for nothing.** A score floor calibrated on one half of the
+      # board and applied to the other is a cut, so it is priced from the committed artifact rather than bought; the
+      # reading is a verdict per arm, and it is regenerated here so the section cannot outlive it.
+      - name: Re-read the score floor on both halves
+        run: npm run bench:score-floor
+
+      - name: Enforce that the floor readings are what the artifact says
+        run: git diff --exit-code -- benchmarks/score-floor-k5.json benchmarks/score-floor-k12.json
+
       # **A section that explains a score by quoting a corpus has to be re-derived from that corpus.** §132 attributes
       # our 27.57 and the leader's 65.8 to five named places, and every figure in it comes from
       # `benchmarks/martian-bench.json` by arithmetic - so the reading is reproducible for free, and it is checked here

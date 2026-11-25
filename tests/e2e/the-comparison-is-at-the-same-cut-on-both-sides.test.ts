@@ -66,6 +66,41 @@ function read(profile: 'core' | 'all'): Comparison {
   return JSON.parse(readFileSync(json, 'utf8')) as Comparison;
 }
 
+interface FloorReading {
+  profile: string;
+  k: number;
+  resolution: number;
+  split: { chosen: { goldens: number }; heldOut: { goldens: number } };
+  readings: Record<
+    'ours' | 'theirs',
+    { calibration: { floor: number }; heldOut: { delta: number }; verdict: string }
+  >;
+}
+
+function floor(k: 5 | 12): FloorReading {
+  const json = join(mkdtempSync(join(tmpdir(), 'score-floor-e2e-')), 'out.json');
+  execFileSync(
+    'node',
+    [
+      'scripts/score-floor.mjs',
+      '--artifact',
+      'benchmarks/martian-bench.json',
+      '--baseline',
+      THEIRS,
+      '--corpus',
+      CORPUS,
+      '--profile',
+      'core',
+      '--k',
+      String(k),
+      '--json',
+      json,
+    ],
+    { encoding: 'utf8' },
+  );
+  return JSON.parse(readFileSync(json, 'utf8')) as FloorReading;
+}
+
 describe('the comparison is at the same cut on both sides', () => {
   const core = read('core');
 
@@ -109,6 +144,25 @@ describe('the comparison is at the same cut on both sides', () => {
     expect(all.best.ours.f1).toBeCloseTo(0.315, 4);
     expect(all.best.theirs.f1).toBeCloseTo(0.3858, 4);
     expect(all.lead).toBe(0);
+  });
+
+  it('prices the score floor on one half and accepts it or refuses it on the other', () => {
+    // **The device §162.5 proposed, measured instead of argued.** A floor is a cut, so it costs nothing to price; what
+    // it costs is a claim, and the claim is only allowed when the half that did not choose the floor gains by the
+    // board's own resolution. The reading is asymmetric, and the asymmetry is the diagnosis: their score separates hits
+    // from misses in the tail of the list and ours does not.
+    const five = floor(5);
+    expect(five.readings.ours.calibration.floor).toBeCloseTo(0.4, 2);
+    expect(five.readings.ours.heldOut.delta).toBeCloseTo(0.0017, 4);
+    expect(five.readings.ours.verdict).toBe('refused');
+    const twelve = floor(12);
+    expect(twelve.readings.ours.heldOut.delta).toBeCloseTo(0.0026, 4);
+    expect(twelve.readings.ours.verdict).toBe('refused');
+    expect(twelve.readings.theirs.calibration.floor).toBeCloseTo(0.48, 2);
+    expect(twelve.readings.theirs.heldOut.delta).toBeCloseTo(0.0254, 4);
+    expect(twelve.readings.theirs.verdict).toBe('transfers');
+    // **And the split is the corpus's, counted rather than assumed**: two halves of the board's 158.
+    expect(twelve.split.chosen.goldens + twelve.split.heldOut.goldens).toBe(158);
   });
 
   it('draws the committed page from the committed readings', () => {

@@ -1,0 +1,891 @@
+{
+  "version": "score-floor-v1",
+  "artifact": "benchmarks/martian-bench.json",
+  "baseline": "benchmarks/aacr/competitor-baseline.json",
+  "corpus": "benchmarks/martian/positive_samples.json",
+  "profile": "core",
+  "k": 5,
+  "resolution": 0.0126,
+  "split": {
+    "chosen": {
+      "pullRequests": 25,
+      "goldens": 74
+    },
+    "heldOut": {
+      "pullRequests": 25,
+      "goldens": 84
+    }
+  },
+  "readings": {
+    "ours": {
+      "calibration": {
+        "floor": 0.4,
+        "chosenF1": 0.15441176470588236
+      },
+      "heldOut": {
+        "base": {
+          "goldens": 84,
+          "emitted": 115,
+          "truePositives": 32,
+          "falsePositives": 83,
+          "falseNegatives": 126,
+          "precision": 0.2782608695652174,
+          "recall": 0.20253164556962025,
+          "f1": 0.23443223443223443
+        },
+        "atFloor": {
+          "goldens": 84,
+          "emitted": 113,
+          "truePositives": 32,
+          "falsePositives": 81,
+          "falseNegatives": 126,
+          "precision": 0.2831858407079646,
+          "recall": 0.20253164556962025,
+          "f1": 0.23616236162361623
+        },
+        "delta": 0.0017301271913817973
+      },
+      "verdict": "refused",
+      "curve": [
+        {
+          "floor": 0.3,
+          "chosen": {
+            "goldens": 74,
+            "emitted": 115,
+            "truePositives": 21,
+            "falsePositives": 94,
+            "falseNegatives": 137,
+            "precision": 0.1826086956521739,
+            "recall": 0.13291139240506328,
+            "f1": 0.15384615384615385
+          }
+        },
+        {
+          "floor": 0.32,
+          "chosen": {
+            "goldens": 74,
+            "emitted": 115,
+            "truePositives": 21,
+            "falsePositives": 94,
+            "falseNegatives": 137,
+            "precision": 0.1826086956521739,
+            "recall": 0.13291139240506328,
+            "f1": 0.15384615384615385
+          }
+        },
+        {
+          "floor": 0.34,
+          "chosen": {
+            "goldens": 74,
+            "emitted": 115,
+            "truePositives": 21,
+            "falsePositives": 94,
+            "falseNegatives": 137,
+            "precision": 0.1826086956521739,
+            "recall": 0.13291139240506328,
+            "f1": 0.15384615384615385
+          }
+        },
+        {
+          "floor": 0.36,
+          "chosen": {
+            "goldens": 74,
+            "emitted": 115,
+            "truePositives": 21,
+            "falsePositives": 94,
+            "falseNegatives": 137,
+            "precision": 0.1826086956521739,
+            "recall": 0.13291139240506328,
+            "f1": 0.15384615384615385
+          }
+        },
+        {
+          "floor": 0.38,
+          "chosen": {
+            "goldens": 74,
+            "emitted": 115,
+            "truePositives": 21,
+            "falsePositives": 94,
+            "falseNegatives": 137,
+            "precision": 0.1826086956521739,
+            "recall": 0.13291139240506328,
+            "f1": 0.15384615384615385
+          }
+        },
+        {
+          "floor": 0.4,
+          "chosen": {
+            "goldens": 74,
+            "emitted": 114,
+            "truePositives": 21,
+            "falsePositives": 93,
+            "falseNegatives": 137,
+            "precision": 0.18421052631578946,
+            "recall": 0.13291139240506328,
+            "f1": 0.15441176470588236
+          }
+        },
+        {
+          "floor": 0.42,
+          "chosen": {
+            "goldens": 74,
+            "emitted": 114,
+            "truePositives": 21,
+            "falsePositives": 93,
+            "falseNegatives": 137,
+            "precision": 0.18421052631578946,
+            "recall": 0.13291139240506328,
+            "f1": 0.15441176470588236
+          }
+        },
+        {
+          "floor": 0.44,
+          "chosen": {
+            "goldens": 74,
+            "emitted": 114,
+            "truePositives": 21,
+            "falsePositives": 93,
+            "falseNegatives": 137,
+            "precision": 0.18421052631578946,
+            "recall": 0.13291139240506328,
+            "f1": 0.15441176470588236
+          }
+        },
+        {
+          "floor": 0.46,
+          "chosen": {
+            "goldens": 74,
+            "emitted": 114,
+            "truePositives": 21,
+            "falsePositives": 93,
+            "falseNegatives": 137,
+            "precision": 0.18421052631578946,
+            "recall": 0.13291139240506328,
+            "f1": 0.15441176470588236
+          }
+        },
+        {
+          "floor": 0.48,
+          "chosen": {
+            "goldens": 74,
+            "emitted": 114,
+            "truePositives": 21,
+            "falsePositives": 93,
+            "falseNegatives": 137,
+            "precision": 0.18421052631578946,
+            "recall": 0.13291139240506328,
+            "f1": 0.15441176470588236
+          }
+        },
+        {
+          "floor": 0.5,
+          "chosen": {
+            "goldens": 74,
+            "emitted": 114,
+            "truePositives": 21,
+            "falsePositives": 93,
+            "falseNegatives": 137,
+            "precision": 0.18421052631578946,
+            "recall": 0.13291139240506328,
+            "f1": 0.15441176470588236
+          }
+        },
+        {
+          "floor": 0.52,
+          "chosen": {
+            "goldens": 74,
+            "emitted": 113,
+            "truePositives": 20,
+            "falsePositives": 93,
+            "falseNegatives": 138,
+            "precision": 0.17699115044247787,
+            "recall": 0.12658227848101267,
+            "f1": 0.14760147601476015
+          }
+        },
+        {
+          "floor": 0.54,
+          "chosen": {
+            "goldens": 74,
+            "emitted": 113,
+            "truePositives": 20,
+            "falsePositives": 93,
+            "falseNegatives": 138,
+            "precision": 0.17699115044247787,
+            "recall": 0.12658227848101267,
+            "f1": 0.14760147601476015
+          }
+        },
+        {
+          "floor": 0.56,
+          "chosen": {
+            "goldens": 74,
+            "emitted": 112,
+            "truePositives": 20,
+            "falsePositives": 92,
+            "falseNegatives": 138,
+            "precision": 0.17857142857142858,
+            "recall": 0.12658227848101267,
+            "f1": 0.14814814814814814
+          }
+        },
+        {
+          "floor": 0.58,
+          "chosen": {
+            "goldens": 74,
+            "emitted": 111,
+            "truePositives": 19,
+            "falsePositives": 92,
+            "falseNegatives": 139,
+            "precision": 0.17117117117117117,
+            "recall": 0.12025316455696203,
+            "f1": 0.1412639405204461
+          }
+        },
+        {
+          "floor": 0.6,
+          "chosen": {
+            "goldens": 74,
+            "emitted": 111,
+            "truePositives": 19,
+            "falsePositives": 92,
+            "falseNegatives": 139,
+            "precision": 0.17117117117117117,
+            "recall": 0.12025316455696203,
+            "f1": 0.1412639405204461
+          }
+        },
+        {
+          "floor": 0.62,
+          "chosen": {
+            "goldens": 74,
+            "emitted": 108,
+            "truePositives": 18,
+            "falsePositives": 90,
+            "falseNegatives": 140,
+            "precision": 0.16666666666666666,
+            "recall": 0.11392405063291139,
+            "f1": 0.13533834586466165
+          }
+        },
+        {
+          "floor": 0.64,
+          "chosen": {
+            "goldens": 74,
+            "emitted": 107,
+            "truePositives": 18,
+            "falsePositives": 89,
+            "falseNegatives": 140,
+            "precision": 0.16822429906542055,
+            "recall": 0.11392405063291139,
+            "f1": 0.13584905660377358
+          }
+        },
+        {
+          "floor": 0.66,
+          "chosen": {
+            "goldens": 74,
+            "emitted": 107,
+            "truePositives": 18,
+            "falsePositives": 89,
+            "falseNegatives": 140,
+            "precision": 0.16822429906542055,
+            "recall": 0.11392405063291139,
+            "f1": 0.13584905660377358
+          }
+        },
+        {
+          "floor": 0.68,
+          "chosen": {
+            "goldens": 74,
+            "emitted": 105,
+            "truePositives": 18,
+            "falsePositives": 87,
+            "falseNegatives": 140,
+            "precision": 0.17142857142857143,
+            "recall": 0.11392405063291139,
+            "f1": 0.13688212927756654
+          }
+        },
+        {
+          "floor": 0.7,
+          "chosen": {
+            "goldens": 74,
+            "emitted": 103,
+            "truePositives": 17,
+            "falsePositives": 86,
+            "falseNegatives": 141,
+            "precision": 0.1650485436893204,
+            "recall": 0.10759493670886076,
+            "f1": 0.13026819923371646
+          }
+        },
+        {
+          "floor": 0.72,
+          "chosen": {
+            "goldens": 74,
+            "emitted": 97,
+            "truePositives": 16,
+            "falsePositives": 81,
+            "falseNegatives": 142,
+            "precision": 0.16494845360824742,
+            "recall": 0.10126582278481013,
+            "f1": 0.12549019607843137
+          }
+        },
+        {
+          "floor": 0.74,
+          "chosen": {
+            "goldens": 74,
+            "emitted": 93,
+            "truePositives": 16,
+            "falsePositives": 77,
+            "falseNegatives": 142,
+            "precision": 0.17204301075268819,
+            "recall": 0.10126582278481013,
+            "f1": 0.12749003984063745
+          }
+        },
+        {
+          "floor": 0.76,
+          "chosen": {
+            "goldens": 74,
+            "emitted": 91,
+            "truePositives": 16,
+            "falsePositives": 75,
+            "falseNegatives": 142,
+            "precision": 0.17582417582417584,
+            "recall": 0.10126582278481013,
+            "f1": 0.1285140562248996
+          }
+        },
+        {
+          "floor": 0.78,
+          "chosen": {
+            "goldens": 74,
+            "emitted": 79,
+            "truePositives": 15,
+            "falsePositives": 64,
+            "falseNegatives": 143,
+            "precision": 0.189873417721519,
+            "recall": 0.0949367088607595,
+            "f1": 0.12658227848101267
+          }
+        },
+        {
+          "floor": 0.8,
+          "chosen": {
+            "goldens": 74,
+            "emitted": 78,
+            "truePositives": 15,
+            "falsePositives": 63,
+            "falseNegatives": 143,
+            "precision": 0.19230769230769232,
+            "recall": 0.0949367088607595,
+            "f1": 0.1271186440677966
+          }
+        },
+        {
+          "floor": 0.82,
+          "chosen": {
+            "goldens": 74,
+            "emitted": 46,
+            "truePositives": 10,
+            "falsePositives": 36,
+            "falseNegatives": 148,
+            "precision": 0.21739130434782608,
+            "recall": 0.06329113924050633,
+            "f1": 0.09803921568627451
+          }
+        },
+        {
+          "floor": 0.84,
+          "chosen": {
+            "goldens": 74,
+            "emitted": 25,
+            "truePositives": 5,
+            "falsePositives": 20,
+            "falseNegatives": 153,
+            "precision": 0.2,
+            "recall": 0.03164556962025317,
+            "f1": 0.0546448087431694
+          }
+        },
+        {
+          "floor": 0.86,
+          "chosen": {
+            "goldens": 74,
+            "emitted": 20,
+            "truePositives": 5,
+            "falsePositives": 15,
+            "falseNegatives": 153,
+            "precision": 0.25,
+            "recall": 0.03164556962025317,
+            "f1": 0.056179775280898875
+          }
+        },
+        {
+          "floor": 0.88,
+          "chosen": {
+            "goldens": 74,
+            "emitted": 16,
+            "truePositives": 3,
+            "falsePositives": 13,
+            "falseNegatives": 155,
+            "precision": 0.1875,
+            "recall": 0.0189873417721519,
+            "f1": 0.034482758620689655
+          }
+        },
+        {
+          "floor": 0.9,
+          "chosen": {
+            "goldens": 74,
+            "emitted": 15,
+            "truePositives": 3,
+            "falsePositives": 12,
+            "falseNegatives": 155,
+            "precision": 0.2,
+            "recall": 0.0189873417721519,
+            "f1": 0.03468208092485549
+          }
+        }
+      ]
+    },
+    "theirs": {
+      "calibration": {
+        "floor": 0.38,
+        "chosenF1": 0.21621621621621623
+      },
+      "heldOut": {
+        "base": {
+          "goldens": 84,
+          "emitted": 108,
+          "truePositives": 39,
+          "falsePositives": 69,
+          "falseNegatives": 119,
+          "precision": 0.3611111111111111,
+          "recall": 0.2468354430379747,
+          "f1": 0.2932330827067669
+        },
+        "atFloor": {
+          "goldens": 84,
+          "emitted": 107,
+          "truePositives": 39,
+          "falsePositives": 68,
+          "falseNegatives": 119,
+          "precision": 0.3644859813084112,
+          "recall": 0.2468354430379747,
+          "f1": 0.2943396226415094
+        },
+        "delta": 0.001106539934742523
+      },
+      "verdict": "refused",
+      "curve": [
+        {
+          "floor": 0.3,
+          "chosen": {
+            "goldens": 74,
+            "emitted": 103,
+            "truePositives": 28,
+            "falsePositives": 75,
+            "falseNegatives": 130,
+            "precision": 0.27184466019417475,
+            "recall": 0.17721518987341772,
+            "f1": 0.21455938697318008
+          }
+        },
+        {
+          "floor": 0.32,
+          "chosen": {
+            "goldens": 74,
+            "emitted": 103,
+            "truePositives": 28,
+            "falsePositives": 75,
+            "falseNegatives": 130,
+            "precision": 0.27184466019417475,
+            "recall": 0.17721518987341772,
+            "f1": 0.21455938697318008
+          }
+        },
+        {
+          "floor": 0.34,
+          "chosen": {
+            "goldens": 74,
+            "emitted": 103,
+            "truePositives": 28,
+            "falsePositives": 75,
+            "falseNegatives": 130,
+            "precision": 0.27184466019417475,
+            "recall": 0.17721518987341772,
+            "f1": 0.21455938697318008
+          }
+        },
+        {
+          "floor": 0.36,
+          "chosen": {
+            "goldens": 74,
+            "emitted": 103,
+            "truePositives": 28,
+            "falsePositives": 75,
+            "falseNegatives": 130,
+            "precision": 0.27184466019417475,
+            "recall": 0.17721518987341772,
+            "f1": 0.21455938697318008
+          }
+        },
+        {
+          "floor": 0.38,
+          "chosen": {
+            "goldens": 74,
+            "emitted": 101,
+            "truePositives": 28,
+            "falsePositives": 73,
+            "falseNegatives": 130,
+            "precision": 0.27722772277227725,
+            "recall": 0.17721518987341772,
+            "f1": 0.21621621621621623
+          }
+        },
+        {
+          "floor": 0.4,
+          "chosen": {
+            "goldens": 74,
+            "emitted": 101,
+            "truePositives": 28,
+            "falsePositives": 73,
+            "falseNegatives": 130,
+            "precision": 0.27722772277227725,
+            "recall": 0.17721518987341772,
+            "f1": 0.21621621621621623
+          }
+        },
+        {
+          "floor": 0.42,
+          "chosen": {
+            "goldens": 74,
+            "emitted": 97,
+            "truePositives": 27,
+            "falsePositives": 70,
+            "falseNegatives": 131,
+            "precision": 0.27835051546391754,
+            "recall": 0.17088607594936708,
+            "f1": 0.21176470588235294
+          }
+        },
+        {
+          "floor": 0.44,
+          "chosen": {
+            "goldens": 74,
+            "emitted": 92,
+            "truePositives": 26,
+            "falsePositives": 66,
+            "falseNegatives": 132,
+            "precision": 0.2826086956521739,
+            "recall": 0.16455696202531644,
+            "f1": 0.208
+          }
+        },
+        {
+          "floor": 0.46,
+          "chosen": {
+            "goldens": 74,
+            "emitted": 92,
+            "truePositives": 26,
+            "falsePositives": 66,
+            "falseNegatives": 132,
+            "precision": 0.2826086956521739,
+            "recall": 0.16455696202531644,
+            "f1": 0.208
+          }
+        },
+        {
+          "floor": 0.48,
+          "chosen": {
+            "goldens": 74,
+            "emitted": 86,
+            "truePositives": 26,
+            "falsePositives": 60,
+            "falseNegatives": 132,
+            "precision": 0.3023255813953488,
+            "recall": 0.16455696202531644,
+            "f1": 0.21311475409836064
+          }
+        },
+        {
+          "floor": 0.5,
+          "chosen": {
+            "goldens": 74,
+            "emitted": 86,
+            "truePositives": 26,
+            "falsePositives": 60,
+            "falseNegatives": 132,
+            "precision": 0.3023255813953488,
+            "recall": 0.16455696202531644,
+            "f1": 0.21311475409836064
+          }
+        },
+        {
+          "floor": 0.52,
+          "chosen": {
+            "goldens": 74,
+            "emitted": 79,
+            "truePositives": 25,
+            "falsePositives": 54,
+            "falseNegatives": 133,
+            "precision": 0.31645569620253167,
+            "recall": 0.15822784810126583,
+            "f1": 0.2109704641350211
+          }
+        },
+        {
+          "floor": 0.54,
+          "chosen": {
+            "goldens": 74,
+            "emitted": 65,
+            "truePositives": 23,
+            "falsePositives": 42,
+            "falseNegatives": 135,
+            "precision": 0.35384615384615387,
+            "recall": 0.14556962025316456,
+            "f1": 0.2062780269058296
+          }
+        },
+        {
+          "floor": 0.56,
+          "chosen": {
+            "goldens": 74,
+            "emitted": 62,
+            "truePositives": 23,
+            "falsePositives": 39,
+            "falseNegatives": 135,
+            "precision": 0.3709677419354839,
+            "recall": 0.14556962025316456,
+            "f1": 0.20909090909090908
+          }
+        },
+        {
+          "floor": 0.58,
+          "chosen": {
+            "goldens": 74,
+            "emitted": 60,
+            "truePositives": 21,
+            "falsePositives": 39,
+            "falseNegatives": 137,
+            "precision": 0.35,
+            "recall": 0.13291139240506328,
+            "f1": 0.1926605504587156
+          }
+        },
+        {
+          "floor": 0.6,
+          "chosen": {
+            "goldens": 74,
+            "emitted": 60,
+            "truePositives": 21,
+            "falsePositives": 39,
+            "falseNegatives": 137,
+            "precision": 0.35,
+            "recall": 0.13291139240506328,
+            "f1": 0.1926605504587156
+          }
+        },
+        {
+          "floor": 0.62,
+          "chosen": {
+            "goldens": 74,
+            "emitted": 60,
+            "truePositives": 21,
+            "falsePositives": 39,
+            "falseNegatives": 137,
+            "precision": 0.35,
+            "recall": 0.13291139240506328,
+            "f1": 0.1926605504587156
+          }
+        },
+        {
+          "floor": 0.64,
+          "chosen": {
+            "goldens": 74,
+            "emitted": 60,
+            "truePositives": 21,
+            "falsePositives": 39,
+            "falseNegatives": 137,
+            "precision": 0.35,
+            "recall": 0.13291139240506328,
+            "f1": 0.1926605504587156
+          }
+        },
+        {
+          "floor": 0.66,
+          "chosen": {
+            "goldens": 74,
+            "emitted": 58,
+            "truePositives": 21,
+            "falsePositives": 37,
+            "falseNegatives": 137,
+            "precision": 0.3620689655172414,
+            "recall": 0.13291139240506328,
+            "f1": 0.19444444444444445
+          }
+        },
+        {
+          "floor": 0.68,
+          "chosen": {
+            "goldens": 74,
+            "emitted": 58,
+            "truePositives": 21,
+            "falsePositives": 37,
+            "falseNegatives": 137,
+            "precision": 0.3620689655172414,
+            "recall": 0.13291139240506328,
+            "f1": 0.19444444444444445
+          }
+        },
+        {
+          "floor": 0.7,
+          "chosen": {
+            "goldens": 74,
+            "emitted": 58,
+            "truePositives": 21,
+            "falsePositives": 37,
+            "falseNegatives": 137,
+            "precision": 0.3620689655172414,
+            "recall": 0.13291139240506328,
+            "f1": 0.19444444444444445
+          }
+        },
+        {
+          "floor": 0.72,
+          "chosen": {
+            "goldens": 74,
+            "emitted": 58,
+            "truePositives": 21,
+            "falsePositives": 37,
+            "falseNegatives": 137,
+            "precision": 0.3620689655172414,
+            "recall": 0.13291139240506328,
+            "f1": 0.19444444444444445
+          }
+        },
+        {
+          "floor": 0.74,
+          "chosen": {
+            "goldens": 74,
+            "emitted": 58,
+            "truePositives": 21,
+            "falsePositives": 37,
+            "falseNegatives": 137,
+            "precision": 0.3620689655172414,
+            "recall": 0.13291139240506328,
+            "f1": 0.19444444444444445
+          }
+        },
+        {
+          "floor": 0.76,
+          "chosen": {
+            "goldens": 74,
+            "emitted": 55,
+            "truePositives": 20,
+            "falsePositives": 35,
+            "falseNegatives": 138,
+            "precision": 0.36363636363636365,
+            "recall": 0.12658227848101267,
+            "f1": 0.18779342723004694
+          }
+        },
+        {
+          "floor": 0.78,
+          "chosen": {
+            "goldens": 74,
+            "emitted": 53,
+            "truePositives": 19,
+            "falsePositives": 34,
+            "falseNegatives": 139,
+            "precision": 0.3584905660377358,
+            "recall": 0.12025316455696203,
+            "f1": 0.18009478672985782
+          }
+        },
+        {
+          "floor": 0.8,
+          "chosen": {
+            "goldens": 74,
+            "emitted": 53,
+            "truePositives": 19,
+            "falsePositives": 34,
+            "falseNegatives": 139,
+            "precision": 0.3584905660377358,
+            "recall": 0.12025316455696203,
+            "f1": 0.18009478672985782
+          }
+        },
+        {
+          "floor": 0.82,
+          "chosen": {
+            "goldens": 74,
+            "emitted": 46,
+            "truePositives": 19,
+            "falsePositives": 27,
+            "falseNegatives": 139,
+            "precision": 0.41304347826086957,
+            "recall": 0.12025316455696203,
+            "f1": 0.18627450980392157
+          }
+        },
+        {
+          "floor": 0.84,
+          "chosen": {
+            "goldens": 74,
+            "emitted": 46,
+            "truePositives": 19,
+            "falsePositives": 27,
+            "falseNegatives": 139,
+            "precision": 0.41304347826086957,
+            "recall": 0.12025316455696203,
+            "f1": 0.18627450980392157
+          }
+        },
+        {
+          "floor": 0.86,
+          "chosen": {
+            "goldens": 74,
+            "emitted": 31,
+            "truePositives": 16,
+            "falsePositives": 15,
+            "falseNegatives": 142,
+            "precision": 0.5161290322580645,
+            "recall": 0.10126582278481013,
+            "f1": 0.1693121693121693
+          }
+        },
+        {
+          "floor": 0.88,
+          "chosen": {
+            "goldens": 74,
+            "emitted": 11,
+            "truePositives": 7,
+            "falsePositives": 4,
+            "falseNegatives": 151,
+            "precision": 0.6363636363636364,
+            "recall": 0.04430379746835443,
+            "f1": 0.08284023668639054
+          }
+        },
+        {
+          "floor": 0.9,
+          "chosen": {
+            "goldens": 74,
+            "emitted": 11,
+            "truePositives": 7,
+            "falsePositives": 4,
+            "falseNegatives": 151,
+            "precision": 0.6363636363636364,
+            "recall": 0.04430379746835443,
+            "f1": 0.08284023668639054
+          }
+        }
+      ]
+    }
+  }
+}
