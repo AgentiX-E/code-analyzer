@@ -127,6 +127,15 @@ describe('a comment that cannot name both sides keeps its sentence', () => {
       expect(symbolsInComment(text, LINES)).toEqual([]);
     });
 
+    it('never asks about a keyword, because a keyword has no two sides', () => {
+      // **Found by the first paid run**, which spent its opening questions on `` `await` `` and `` `async` `` and got
+      // `cannot` eight times out of twelve. A stoplist is the cheapest fix a question cannot buy.
+      const lines = [' 42| const user = await store.findUser(1);'];
+      expect(symbolsInComment('`await` on `async` lookup is a no-op, see findUser', lines)).toEqual(
+        ['findUser'],
+      );
+    });
+
     it('ignores a token shorter than the floor, because a two-sided question needs a name', () => {
       expect(symbolsInComment('the `id` is used twice', [' 1| const id = 1;'])).toEqual([]);
     });

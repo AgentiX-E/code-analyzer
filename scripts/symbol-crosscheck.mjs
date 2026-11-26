@@ -156,8 +156,24 @@ for (const row of corpus) {
   goldensByPullRequest.set(url, ordered);
 }
 
-/** The comments the arm posts, and the only comments any arm in this file is allowed to post. */
-const posted = postedRows(rows, steps, options.budget);
+/**
+ * **The slice, when one is asked for, is a prefix of the board and not a smaller corpus.**
+ *
+ * S51's open question was exactly this: a run over twelve pull requests is a *sample of the same board*, so its denominator
+ * is the board's and its figure must not be compared with a full-board one. Two things make that true here rather than
+ * promised - the pull requests are taken **in the corpus's own order**, which is the only order the outcome did not choose,
+ * and the record carries `slice.pullRequests` beside `slice.of`, so a sliced figure says how much of the board produced it.
+ *
+ * **And the slice is applied before anything is bought.** A run asked for three pull requests that then judged fifty would
+ * be a run whose bill contradicts its own input.
+ */
+const prOrder = [...goldensByPullRequest.keys()];
+const allowed = new Set(prOrder.slice(0, options.maxPrs));
+
+/** The comments these pull requests post, and the only comments any arm in this file is allowed to post. */
+const posted = postedRows(rows, steps, options.budget).filter((row) =>
+  allowed.has(String(row?.pr ?? '')),
+);
 
 /**
  * **The evidence each comment is asked about, read from the change itself.**
@@ -216,16 +232,8 @@ function diffName(pullRequest, path) {
 
 const evidence = new Map();
 
-/**
- * **The slice, when one is asked for, is a prefix of the board and not a smaller corpus.**
- *
- * S51's open question is exactly this sentence: a run over twelve pull requests is a *sample of the same board*, so its
- * denominator is the board's and its figure is not comparable with a full-board one. The slice is taken in the corpus's
- * own order and the record says how many pull requests it covered, so a sliced number cannot be read as the whole.
- */
-const prOrder = [...goldensByPullRequest.keys()];
-const allowed = new Set(prOrder.slice(0, options.maxPrs));
-const inScope = posted.filter((row) => allowed.has(String(row?.pr ?? '')));
+/** The comments this run verifies: the slice's, which is all of them when the slice is the board. */
+const inScope = posted;
 
 async function recordRun() {
   const key = process.env['DEEPSEEK_API_KEY'] ?? '';
@@ -322,6 +330,10 @@ async function judgeBothArms(postedRowsList, rewrites, provider, report) {
   const runJob = async ([url, bucket]) => {
     const goldensAt = goldensByPullRequest.get(url) ?? [];
     if (goldensAt.length === 0) return;
+    // **The verdicts are filed by the row's own identity, not by its position in this list.** The first run of this
+    // script filed them positionally while the readout looked them up by `row.at`, so 74 pairs the judge had accepted were
+    // read back as one credit and the arm appeared to score `0.0052` - a mismatch that looks exactly like a bad judge.
+    const ids = bucket.rows.map((at) => Number(postedRowsList[at]?.at));
     const textsA = bucket.rows.map((at) => String(postedRowsList[at]?.text ?? ''));
     const textsB = bucket.rows.map((at) => String(corrected[at]?.text ?? ''));
     for (const [goldenAt, golden] of goldensAt.entries()) {
@@ -360,9 +372,9 @@ async function judgeBothArms(postedRowsList, rewrites, provider, report) {
           });
         }
         chunk.forEach((at, index) => {
-          const key = `${url}#${String(goldenAt)}`;
-          push(bitsA, `${key}~${String(at)}`, usableA[index]);
-          push(bitsB, `${key}~${String(at)}`, verdictB[index]);
+          const key = `${url}#${String(goldenAt)}~${String(ids[at])}`;
+          push(bitsA, key, usableA[index]);
+          push(bitsB, key, verdictB[index]);
         });
       }
     }
@@ -488,6 +500,15 @@ async function main() {
       },
     ],
     goldens,
+    /**
+     * **The slice, recorded so a sliced figure cannot be read as a whole-board one.**
+     *
+     * S51's question was whether a slice is a smaller corpus or a sample of this one. It is a sample: the pull requests are
+     * taken in the corpus's own order, the denominator stays the board's three goldens per pull request wherever it applies,
+     * and a record that does not say how many pull requests it covered is a record whose F1 is compared with a full-board
+     * figure by whoever reads it first.
+     */
+    slice: { pullRequests: allowed.size, of: prOrder.length, kind: 'prefix-of-board' },
     comments: { armA: armA.emitted, armB: armB.emitted, unchanged: armA.emitted === armB.emitted },
     verifier: record.report,
     verdicts: record.verdicts,
