@@ -148,3 +148,10 @@ benchmarks/lane-discovery-wide.json
 docs/lane-discovery.html
 benchmarks/symbol-adjacency.json
 docs/symbol-adjacency.html
+
+# **The verifier's record and the page drawn from it, by the rule every artifact above states.** The record is
+# `JSON.stringify(…, null, 2)` from `scripts/symbol-crosscheck.mjs` in `--mode replay`, the page from
+# `scripts/symbol-crosscheck-page.mjs`, and CI regenerates both and fails on a difference - so a formatter opinion about
+# either would be a third author of a reading that two commands already agree on.
+benchmarks/symbol-crosscheck.json
+docs/symbol-crosscheck.html

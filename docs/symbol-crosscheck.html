@@ -1,0 +1,145 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>The sentences corrected, and whether the judge agrees</title>
+<style>
+  :root { color-scheme: light; }
+  body { margin: 0; padding: 32px 40px 56px; background: #fbfbfa; color: #22262b;
+         font: 15px/1.55 -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif; }
+  h1 { font-size: 23px; margin: 0 0 6px; letter-spacing: -0.01em; }
+  h2 { font-size: 15px; margin: 34px 0 10px; text-transform: uppercase; letter-spacing: 0.08em; color: #6a7280; }
+  p { max-width: 74ch; margin: 8px 0; }
+  .lede { color: #4a5058; max-width: 78ch; }
+  .headline { display: flex; gap: 36px; margin: 24px 0 6px; flex-wrap: wrap; padding: 0; list-style: none; }
+  .headline li { border-left: 3px solid #c9ced6; padding: 2px 0 2px 14px; }
+  .headline b { display: block; font-size: 26px; font-variant-numeric: tabular-nums; font-weight: 600; }
+  .headline span { font-size: 12px; text-transform: uppercase; letter-spacing: 0.07em; color: #77808c; }
+  .headline .pass b { color: #2f6f4f; }
+  .headline .fail b { color: #8a3b3b; }
+  table { border-collapse: collapse; margin: 10px 0 4px; min-width: 640px; }
+  th, td { text-align: left; padding: 6px 10px; border-bottom: 1px solid #e6e8eb; }
+  thead th { font-size: 12px; text-transform: uppercase; letter-spacing: 0.06em; color: #77808c; font-weight: 600; }
+  tbody th { font-weight: 600; color: #2e3440; }
+  td.n, th.n { text-align: right; font-variant-numeric: tabular-nums; }
+  td.bar { width: 240px; position: relative; }
+  .fill { display: block; height: 12px; background: #9aa5b4; border-radius: 2px; }
+  .fill.lead { background: #3f6f9f; }
+  .fill.pass { background: #2f6f4f; }
+  .mark { position: absolute; top: 4px; width: 2px; height: 16px; background: #8a3b3b; }
+  .muted { color: #6a7280; }
+  .note { color: #5a6270; font-size: 13.5px; }
+  code { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: 0.92em; background: #f1f2f4;
+         padding: 1px 4px; border-radius: 3px; }
+  footer { margin-top: 40px; padding-top: 14px; border-top: 1px solid #e6e8eb; color: #6a7280; font-size: 13px; }
+</style>
+</head>
+<body>
+<h1>The sentences corrected, and whether the judge agrees</h1>
+<p class="lede">
+  Every comment below was already posted before this device ran. It takes one of them, takes the symbol that comment already
+  names, and asks what the other side of that symbol is - and it may only rewrite the sentence, never add or drop a comment.
+  The first row is the arm as it stood; the second is the same comments with the corrections applied.
+</p>
+
+<ul class="headline">
+  <li><b>227 / 227</b><span>comments, before / after</span></li>
+  <li><b>57 → 55</b><span>credited goldens</span></li>
+  <li><b>0.2961 → 0.2857</b><span>F1 at budget 5</span></li>
+  <li class="fail"><b>0.3735</b><span>the bar · not cleared</span></li>
+</ul>
+
+<h2>The two arms</h2>
+<table>
+<thead><tr><th>arm</th><th class="n">comments</th><th class="n">credited</th><th class="n">precision</th><th class="n">recall</th><th class="n">F1</th><th>against the bar</th></tr></thead>
+<tbody>
+  <tr><th>what the arm posts</th><td class="n">227</td><td class="n">57</td><td class="n">25.1 %</td><td class="n">36.1 %</td><td class="n">0.2961</td><td class="bar"><span class="fill " style="width:68.9%"></span><span class="mark" style="left:87.0%"></span></td></tr>
+  <tr><th>the sentences corrected</th><td class="n">227</td><td class="n">55</td><td class="n">24.2 %</td><td class="n">34.8 %</td><td class="n">0.2857</td><td class="bar"><span class="fill lead" style="width:66.5%"></span><span class="mark" style="left:87.0%"></span></td></tr>
+</tbody>
+</table>
+<p class="note">
+  Both rows were judged <strong>in one run by one judge</strong>: a comment the verifier did not touch is judged once and its
+  verdict is used by both arms, so the difference is the sentences and not the judging. Against the published point this
+  re-read is the judge's own drift, measured on the arm the bar was computed from - the paired test below says whether the
+  movement is the device or the noise.
+</p>
+<table>
+<thead><tr><th>pairs</th><th class="n">fixed</th><th class="n">broken</th><th class="n">delta</th><th class="n">exact McNemar p</th></tr></thead>
+<tbody>
+<tr><th>the same (comment, golden) pairs, both arms</th><td class="n">744</td><td class="n">2</td><td class="n">5</td><td class="n">-3</td><td class="n">0.4531</td></tr>
+</tbody>
+</table>
+
+<h2>What the pass declined to do</h2>
+<p>
+  A verifier that only ever rewrote would be indistinguishable from a verifier that rewrote at random, so every refusal is
+  counted and named. <strong>28 of the 227 comments were rewritten</strong> from 225 calls.
+</p>
+<table>
+<thead><tr><th>reason</th><th class="n">comments</th><th>what it means</th></tr></thead>
+<tbody>
+  <tr><th><code>cannot</code></th><td class="n">109</td><td>the model could not quote both sides from the change</td></tr>
+  <tr><th><code>agree</code></th><td class="n">86</td><td>both sides were quoted and they agreed, so there was nothing to correct</td></tr>
+  <tr><th><code>no-symbol</code></th><td class="n">2</td><td>the comment named nothing the change contains</td></tr>
+  <tr><th><code>same-side</code></th><td class="n">2</td><td>both quotations were the same text, and one side cannot be its own other side</td></tr>
+</tbody>
+</table>
+
+<h2>The plan §166 priced, entry by entry</h2>
+<p>
+  The 27 goldens only the competitor credited that sit on a symbol we already name. An entry is <em>rewritten</em> when the
+  verifier changed the sentence at the comment the plan chose for it, and <em>credited</em> when the judge then gave that
+  comment the golden.
+</p>
+<table>
+<thead><tr><th>symbol</th><th class="n">comment</th><th>sentence</th><th>credit</th></tr></thead>
+<tbody>
+  <tr><th><code>Potential</code></th><td class="n">213</td><td><span class="muted">kept</span></td><td><span class="muted">not credited</span></td></tr>
+  <tr><th><code>Calling</code></th><td class="n">265</td><td><span class="muted">kept</span></td><td><span class="muted">not credited</span></td></tr>
+  <tr><th><code>include_website_name</code></th><td class="n">305</td><td><span class="muted">kept</span></td><td><span class="muted">not credited</span></td></tr>
+  <tr><th><code>capping</code></th><td class="n">345</td><td><span class="muted">kept</span></td><td><span class="muted">not credited</span></td></tr>
+  <tr><th><code>UsernameForm</code></th><td class="n">510</td><td><span class="muted">kept</span></td><td><span class="muted">not credited</span></td></tr>
+  <tr><th><code>get_item_key</code></th><td class="n">741</td><td><span class="muted">kept</span></td><td><span class="muted">not credited</span></td></tr>
+  <tr><th><code>Accessing</code></th><td class="n">741</td><td><span class="muted">kept</span></td><td><span class="muted">not credited</span></td></tr>
+  <tr><th><code>upsampling</code></th><td class="n">761</td><td><span class="muted">kept</span></td><td><span class="muted">not credited</span></td></tr>
+  <tr><th><code>refreshOAuthTokens</code></th><td class="n">117</td><td><span class="muted">kept</span></td><td><span class="muted">not credited</span></td></tr>
+  <tr><th><code>jsforce</code></th><td class="n">134</td><td><span class="muted">kept</span></td><td><span class="muted">not credited</span></td></tr>
+  <tr><th><code>uniqueGuests</code></th><td class="n">152</td><td><span class="muted">kept</span></td><td><span class="muted">not credited</span></td></tr>
+  <tr><th><code>Using</code></th><td class="n">148</td><td>rewritten</td><td><span class="muted">not credited</span></td></tr>
+  <tr><th><code>Null</code></th><td class="n">770</td><td><span class="muted">kept</span></td><td><span class="muted">not credited</span></td></tr>
+  <tr><th><code>deadline</code></th><td class="n">922</td><td><span class="muted">kept</span></td><td><span class="muted">not credited</span></td></tr>
+  <tr><th><code>GrafanaRuleListItem</code></th><td class="n">457</td><td><span class="muted">kept</span></td><td><span class="muted">not credited</span></td></tr>
+  <tr><th><code>RuleActionsButtons</code></th><td class="n">456</td><td><span class="muted">kept</span></td><td><span class="muted">not credited</span></td></tr>
+  <tr><th><code>Race</code></th><td class="n">424</td><td><span class="muted">kept</span></td><td><span class="muted">not credited</span></td></tr>
+  <tr><th><code>Time</code></th><td class="n">424</td><td><span class="muted">kept</span></td><td><span class="muted">not credited</span></td></tr>
+  <tr><th><code>tagDeviceUI</code></th><td class="n">424</td><td><span class="muted">kept</span></td><td><span class="muted">not credited</span></td></tr>
+  <tr><th><code>Inconsistency</code></th><td class="n">478</td><td><span class="muted">kept</span></td><td><span class="muted">not credited</span></td></tr>
+  <tr><th><code>critical</code></th><td class="n">494</td><td><span class="muted">kept</span></td><td><span class="muted">not credited</span></td></tr>
+  <tr><th><code>Calling</code></th><td class="n">501</td><td><span class="muted">kept</span></td><td><span class="muted">not credited</span></td></tr>
+  <tr><th><code>getClientsWithPermission</code></th><td class="n">576</td><td><span class="muted">kept</span></td><td><span class="muted">not credited</span></td></tr>
+  <tr><th><code>getGroupIdsWithViewPermission</code></th><td class="n">611</td><td><span class="muted">kept</span></td><td><span class="muted">not credited</span></td></tr>
+  <tr><th><code>totpStep1</code></th><td class="n">654</td><td>rewritten</td><td><span class="muted">not credited</span></td></tr>
+  <tr><th><code>mentions</code></th><td class="n">695</td><td>rewritten</td><td><span class="muted">not credited</span></td></tr>
+  <tr><th><code>RecoveryAuthnCodesCredentialModel</code></th><td class="n">724</td><td><span class="muted">kept</span></td><td><span class="muted">not credited</span></td></tr>
+</tbody>
+</table>
+<p class="note">
+  <strong>3 of 27 rewritten, 0 credited.</strong> The acceptance §167.3 pre-registered is ≥ 18 of the 27 rewritten with the comment count unchanged
+  and F1 ≥ the bar; a conversion is not a credit, because the protocol matches one finding to one golden.
+</p>
+
+<h2>What was bought</h2>
+<p class="note">
+  222 judge calls, 225 verifier calls,
+  <strong>$0.024080</strong> priced by the verifier's own ledger (the judge's bill is in the
+  run's log). Re-derive every figure from this record with <code>--mode replay</code>: no key, no network, no spend.
+</p>
+
+<footer>
+  Drawn from <code>benchmarks/martian-wide-bench.json</code> on <code>benchmarks/martian/positive_samples.json</code>, measured
+  2026-11-25, profile <code>core</code>, mode <code>replay</code>.
+  Re-derive with <code>npm run bench:symbol-crosscheck</code>; CI fails on a byte of difference.
+</footer>
+</body>
+</html>
