@@ -18218,3 +18218,158 @@ conditioning problem rather than a prompt problem. That narrows S42 rather than 
   That is the staging rule working, not a missing measurement.
 - **Not a same-day delta against the competitor.** The bar is a fixed target read off `martian-bench`; the pair is
   declared in the planner and not dispatched.
+
+## §166. We were not failing to look: twenty-seven of thirty-three sit on a symbol we name, and so do ninety-nine of a hundred and twenty-five
+
+§165 refused the sixth call because it changed _which_ comments were emitted and not _what they said_, and it left one
+sentence standing: **§162.3's "twenty goldens are never named by us at any budget"**. That sentence is about credit, and
+it was read as though it were about reading - as if the twenty were somewhere our lanes never went. This section is the
+measurement of that reading, it costs nothing, and it says the opposite: **the symbols are in our pool; the claim is not.**
+
+### 166.1 The corpus has no coordinates, so the question was never about a path
+
+`benchmarks/martian/README.md` records it plainly: every one of the board's 173 goldens carries `path: null`,
+`from_line: null`, `to_line: null`, because Martian's judge compares two sentences and never asks where either stood. The
+consequence is arithmetic and it holds for every artifact from this board:
+
+| instrument                       | what it reports on an artifact from this corpus                  |
+| -------------------------------- | ---------------------------------------------------------------- |
+| `missedGoldens.counts`           | `hit 106 · noPath 67`, and **every other bucket structurally 0** |
+| `scripts/aacr-miss-anatomy.mjs`  | `0 rejects, all accounted for`                                   |
+| `miss-anatomy`'s six-cell matrix | all six cells empty                                              |
+
+**Four of `golden-attribution.mjs`'s five buckets cannot fire on this board**, so "we said something on this path and the
+judge did not accept it" - the diagnosis every previous iteration reached for - was never available here. What was
+available was a hand count: §164.3 read thirty-two sentences and said twenty of them sat on a symbol our pool mentions.
+**A hand count of a lexical rule is not a measurement**, because the rule is exactly the thing that needs defending.
+
+### 166.2 The rule, and the sweep over its one parameter
+
+`scripts/symbol-adjacency.mjs` (row 53) makes the rule mechanical: an identifier of four characters or more, matched on a
+word boundary, and **specific** when **at most `cap` pull requests' pools name it**. `cap` is the only parameter, so it is
+swept, and both ends are published:
+
+| a token named by | goldens carrying one | adjacent to a posted comment | null mean · p95 over 500 permutations |
+| ---------------- | -------------------: | ---------------------------: | ------------------------------------: |
+| ≤ 1              |                   33 |                       **27** |                              2.13 · 5 |
+| ≤ 2              |                   33 |                           29 |                              3.96 · 7 |
+| ≤ 3              |                   33 |                           30 |                              5.33 · 8 |
+| ≤ 5              |                   33 |                           30 |                             8.15 · 12 |
+| ≤ 8              |                   33 |                           33 |                            13.29 · 18 |
+| ≤ 12             |                   33 |                           33 |                            20.35 · 24 |
+| any token        |                   33 |                           33 |                            31.32 · 33 |
+
+**The loose end is why the count was never the finding.** At `cap = 1` a symbol belongs to one pull request's pool and the
+count is a claim about place; at any token every golden is adjacent to something and the count is a claim about English.
+The record uses `cap = 1`, the conservative end, and carries the rest.
+
+Two controls make `27` a reading rather than a coincidence: **a seeded permutation null** (symbol sets swapped between
+goldens, everything else held fixed) puts the same geometry at `2.13`, p95 `5`, max `6`; and **a wrong-pull-request
+control** (the same symbols against another pool in the same repository) finds **2 of 33**. The symbols are about the
+place, which is the one thing the null does establish.
+
+### 166.3 The number that deflates it, and the sentence that survives
+
+**Co-location is the board's base rate.** The same rule, the same pool, the same profile, applied to the 125 goldens that
+are _not_ in the set:
+
+| goldens                            | adjacent to a comment we post | rate     |
+| ---------------------------------- | ----------------------------: | -------- |
+| the 33 only the competitor credits |                            27 | **82 %** |
+| the 125 in neither arm's credit    |                            99 | **79 %** |
+
+**So adjacency is not a selector.** A device that rewrote the comment nearest an adjacent golden would rewrite four
+comments in five, and the three-point difference between the rows is not a signal a product can aim with. What the set
+buys is not the adjacency but the **demonstration**: these are the goldens the competitor converted, so they are the ones
+a conditioning device can be held to.
+
+**And the sentence it corrects is §162.3's.** "Twenty goldens are never named by us at any budget" is true of _credit_ and
+false of _naming_: for four goldens in five on this board, our pool already contains a comment on the symbol the human's
+sentence names. **The deficit is predicative, not locational** - we are standing in the right place and asking a
+different question about it. That is what §164.3's seven families were describing, and it is now arithmetic rather than
+an impression from three examples.
+
+### 166.4 The prize: the same 227 comments, the sentences corrected
+
+For each adjacent golden the highest-scoring comment on its own pull request that names one of its symbols takes the
+credit. Nothing is added and nothing moves - the budget is unchanged by construction - so the difference is the sentence
+and only the sentence.
+
+| arm                     | ceiling | comments | credited at `k = 5` | F1         |
+| ----------------------- | ------: | -------: | ------------------: | ---------- |
+| what the arm posts      |      88 |      227 |                  62 | **0.3221** |
+| the sentences corrected |     104 |      227 |                  75 | **0.3896** |
+
+**The bar is inside the prize, by three goldens.** `0.3735` needs 72 credited at 227 comments; the ceiling of this device
+is 75. Both readings of a rewrite - the comment now says both things, or it says this instead - land on the same point,
+which is why the record publishes both and why the choice between them did not matter here.
+
+**It is an upper bound and never a score.** The judge never saw the corrected sentence. Its use is to refuse: had this
+been below `0.3735`, no conditioning of the comments we already post could reach the bar, and the deficit would have been
+discovery after all. It is not.
+
+**And it does not reach their ceiling.** 104 against the competitor's 112: converting every sentence we already post
+still leaves eight goldens they name and we do not. The bar at equal budget is reachable; their whole emission is not.
+
+### 166.5 What the bar actually costs: eighteen of twenty-seven, not ten
+
+A conversion is not a credit. The protocol matches one finding to one golden, so twenty-seven conversions on twenty-four
+comments buy **thirteen** credits. The curve is the plan in the order a verifier would apply it, most confident comment
+first:
+
+| corrections applied | credited | F1         |
+| ------------------- | -------: | ---------- |
+| 5 of 27             |       65 | 0.3377     |
+| 9 of 27             |       68 | 0.3532     |
+| 14 of 27            |       71 | 0.3688     |
+| **18 of 27**        |   **72** | **0.3740** |
+| 23 of 27            |       74 | 0.3844     |
+| 27 of 27            |       75 | 0.3896     |
+
+**Eighteen of twenty-seven - a 67 % hit rate - is the acceptance, and the arithmetic floor of ten is not.** The floor
+assumes a conversion is a credit, which is the error one-to-one matching exists to prevent; `bar.needed` carries both
+numbers so that a reader can see how much of the bar is arithmetic and how much is protocol.
+
+### 166.6 S53, registered: a verifier over the comments the arm already posts
+
+The three devices this campaign has already priced point at the same shape, and none of them is this one:
+
+- **not a new lane** - §165: a sixth question, six calls, `1` of 32 and F1 `−0.0342`;
+- **not more reading** - §R-22: a checkout and five tools, F1 `0.2033` against `0.4043`;
+- **not a selector** - 166.3: adjacency is the base rate, so it cannot aim.
+
+What is left is a pass over **the comments the arm already posts**, conditioned on **the symbol each already names**:
+_you named this; what is the other side of it, and does it agree?_ The ten ranked comments per pull request the record
+carries are the input; a two-sided quote is the output; a finding that cannot produce both sides keeps its original
+sentence. **It is `crosscheck`'s question with `crosscheck`'s missing ingredient** - a target - because the symbol comes
+from our own comment rather than from a category.
+
+**Cost.** Five calls per pull request against the run's `4338` calls over fifty pull requests is about `6 %`, or
+**≤ ¥0.12** an arm: two orders of magnitude below the sixth lane it replaces in the budget. **Acceptance.** ≥ 18 of the 27
+conversions on Martian with the comment count unchanged, and the same test on AACR before it ships - §164.6's staging
+rule, unchanged. **Registered as S53 and not run**: the instrument that would judge it now exists, and the device is
+next round's spend.
+
+### 166.7 What this does to the plan
+
+- **S42 is folded into S53.** Its target was a pool density (`0.1238 → 0.1400`), which is a measure of emission per
+  comment - the wrong instrument if the failure is predicative. The `architecture` contract it asked for survives as
+  S53's output shape: **name the symbol, name both sides, say what does not match.**
+- **S52 is taken and closed**: it was this measurement, and its answer is that the question has to be conditioned on a
+  symbol _we already named_, not on a category and not on a symbol chosen from the diff.
+- **S51 stands.** The slice denominator is untouched by this section; the 33 and the 27 are read on the full board.
+- **The target does not move.** `0.3735` is still what the competitor scores when our LLM drives it, and the prize above
+  it is 75, so nothing in 166 lowers the bar - it says where the bar is reachable from.
+
+### 166.8 What this does not establish
+
+- **Not that a verifier converts 18.** The prize assumes every corrected sentence is judged a match; a device that
+  converts two in three is the acceptance, not the expectation.
+- **Not that the 27 are the material.** 166.3 says the same is true of about 99 more goldens; the 27 are the _converted_
+  part, not the reachable part. A verifier that also converts some of the other 99 scores above 0.3896, and nothing here
+  prices that.
+- **Not that the symbol rule is a parser.** It is lexical: `Potential` is an identifier as far as it is concerned, and
+  `TopicUser` in a sentence about a nil topic user is the right answer by luck as much as by rule. The controls bound how
+  much that can matter, not whether it does.
+- **Not on the second board.** AACR is staged behind Martian by §164.6 and Martian is where this was read.
+- **Not a same-day delta.** The bar is a fixed target off one artifact; the competitor's arm was not re-run.

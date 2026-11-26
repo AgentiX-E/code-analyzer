@@ -1,0 +1,555 @@
+{
+  "version": "symbol-adjacency-v1",
+  "measuredAt": "2026-11-25",
+  "arm": "benchmarks/martian-wide-bench.json",
+  "reference": "benchmarks/aacr/competitor-baseline.json",
+  "corpus": "benchmarks/martian/positive_samples.json",
+  "profile": "core",
+  "budget": 5,
+  "guard": [
+    {
+      "field": "k",
+      "published": 402,
+      "rebuilt": 402
+    },
+    {
+      "field": "truePositives",
+      "published": 80,
+      "rebuilt": 80
+    }
+  ],
+  "goldens": 158,
+  "sets": {
+    "ours": 97,
+    "theirs": 112,
+    "shared": 79,
+    "onlyOurs": 18,
+    "onlyTheirs": 33
+  },
+  "rule": {
+    "identifier": "four or more characters, identifier-shaped",
+    "specificity": "the number of pull requests whose pool names it",
+    "cap": 1,
+    "sweep": [
+      {
+        "cap": 1,
+        "withSymbols": 33,
+        "adjacent": 27,
+        "null": {
+          "permutations": 500,
+          "seed": 20261126,
+          "mean": 2.13,
+          "p95": 5,
+          "max": 6
+        }
+      },
+      {
+        "cap": 2,
+        "withSymbols": 33,
+        "adjacent": 29,
+        "null": {
+          "permutations": 500,
+          "seed": 20261126,
+          "mean": 3.96,
+          "p95": 7,
+          "max": 10
+        }
+      },
+      {
+        "cap": 3,
+        "withSymbols": 33,
+        "adjacent": 30,
+        "null": {
+          "permutations": 500,
+          "seed": 20261126,
+          "mean": 5.33,
+          "p95": 8,
+          "max": 11
+        }
+      },
+      {
+        "cap": 5,
+        "withSymbols": 33,
+        "adjacent": 30,
+        "null": {
+          "permutations": 500,
+          "seed": 20261126,
+          "mean": 8.15,
+          "p95": 12,
+          "max": 18
+        }
+      },
+      {
+        "cap": 8,
+        "withSymbols": 33,
+        "adjacent": 33,
+        "null": {
+          "permutations": 500,
+          "seed": 20261126,
+          "mean": 13.29,
+          "p95": 18,
+          "max": 21
+        }
+      },
+      {
+        "cap": 12,
+        "withSymbols": 33,
+        "adjacent": 33,
+        "null": {
+          "permutations": 500,
+          "seed": 20261126,
+          "mean": 20.35,
+          "p95": 24,
+          "max": 28
+        }
+      },
+      {
+        "cap": 1000,
+        "withSymbols": 33,
+        "adjacent": 33,
+        "null": {
+          "permutations": 500,
+          "seed": 20261126,
+          "mean": 31.32,
+          "p95": 33,
+          "max": 33
+        }
+      }
+    ]
+  },
+  "base": {
+    "ceiling": 88,
+    "atBudget": {
+      "k": 227,
+      "truePositives": 62,
+      "f1": 0.3221
+    }
+  },
+  "adjacency": {
+    "goldensWithSymbols": 33,
+    "adjacent": 27,
+    "null": {
+      "permutations": 500,
+      "seed": 20261126,
+      "mean": 2.13,
+      "p95": 5,
+      "max": 6
+    },
+    "wrongPullRequest": {
+      "adjacent": 2,
+      "uncontrolled": 1
+    },
+    "baseRate": {
+      "goldens": 125,
+      "withSymbols": 121,
+      "adjacent": 99
+    }
+  },
+  "ranks": {
+    "within": 27,
+    "median": 1,
+    "max": 1
+  },
+  "rewrite": {
+    "converted": 27,
+    "findings": 24,
+    "additive": {
+      "ceiling": 104,
+      "atBudget": {
+        "k": 227,
+        "truePositives": 75,
+        "f1": 0.3896
+      }
+    },
+    "replacement": {
+      "ceiling": 104,
+      "atBudget": {
+        "k": 227,
+        "truePositives": 75,
+        "f1": 0.3896
+      }
+    }
+  },
+  "bar": {
+    "target": 0.3735,
+    "needed": {
+      "replacement": 10,
+      "additive": 13
+    },
+    "clearing": 18
+  },
+  "curve": [
+    {
+      "converted": 5,
+      "credited": 65,
+      "f1": 0.3377
+    },
+    {
+      "converted": 9,
+      "credited": 68,
+      "f1": 0.3532
+    },
+    {
+      "converted": 14,
+      "credited": 71,
+      "f1": 0.3688
+    },
+    {
+      "converted": 18,
+      "credited": 72,
+      "f1": 0.374
+    },
+    {
+      "converted": 23,
+      "credited": 74,
+      "f1": 0.3844
+    },
+    {
+      "converted": 27,
+      "credited": 75,
+      "f1": 0.3896
+    }
+  ],
+  "plan": [
+    {
+      "key": "https://github.com/ai-code-review-evaluation/discourse-graphite/pull/2\u00000",
+      "golden": 0,
+      "findingAt": 213,
+      "rank": 1,
+      "path": "app/models/topic_user.rb",
+      "symbols": [
+        "Potential",
+        "TopicUser"
+      ]
+    },
+    {
+      "key": "https://github.com/ai-code-review-evaluation/discourse-graphite/pull/4\u00006",
+      "golden": 6,
+      "findingAt": 265,
+      "rank": 1,
+      "path": "app/models/topic_embed.rb",
+      "symbols": [
+        "Calling",
+        "scrub",
+        "feeds",
+        "potential"
+      ]
+    },
+    {
+      "key": "https://github.com/ai-code-review-evaluation/discourse-graphite/pull/6\u00000",
+      "golden": 0,
+      "findingAt": 305,
+      "rank": 1,
+      "path": "app/serializers/user_serializer.rb",
+      "symbols": [
+        "include_website_name",
+        "suffix",
+        "serializers",
+        "include_"
+      ]
+    },
+    {
+      "key": "https://github.com/ai-code-review-evaluation/discourse-graphite/pull/8\u00001",
+      "golden": 1,
+      "findingAt": 345,
+      "rank": 1,
+      "path": "app/assets/javascripts/admin/controllers/admin-group.js.es6",
+      "symbols": [
+        "capping",
+        "user_count"
+      ]
+    },
+    {
+      "key": "https://github.com/ai-code-review-evaluation/keycloak-greptile/pull/1\u00000",
+      "golden": 0,
+      "findingAt": 510,
+      "rank": 1,
+      "path": "services/src/main/java/org/keycloak/authentication/authenticators/browser/UsernamePasswordForm.java",
+      "symbols": [
+        "UsernameForm",
+        "authenticate",
+        "isConditionalPasskeysEnabled"
+      ]
+    },
+    {
+      "key": "https://github.com/ai-code-review-evaluation/sentry-greptile/pull/2\u00002",
+      "golden": 2,
+      "findingAt": 741,
+      "rank": 1,
+      "path": "src/sentry/api/endpoints/organization_auditlogs.py",
+      "symbols": [
+        "get_item_key",
+        "floor",
+        "ceil",
+        "datetime"
+      ]
+    },
+    {
+      "key": "https://github.com/ai-code-review-evaluation/sentry-greptile/pull/2\u00003",
+      "golden": 3,
+      "findingAt": 741,
+      "rank": 1,
+      "path": "src/sentry/api/endpoints/organization_auditlogs.py",
+      "symbols": [
+        "Accessing",
+        "has_global_access",
+        "organization_context",
+        "particularly"
+      ]
+    },
+    {
+      "key": "https://github.com/ai-code-review-evaluation/sentry-greptile/pull/3\u00002",
+      "golden": 2,
+      "findingAt": 761,
+      "rank": 1,
+      "path": "src/sentry/api/helpers/error_upsampling.py",
+      "symbols": [
+        "upsampling",
+        "eligibility",
+        "scoped_dataset",
+        "ultimately"
+      ]
+    },
+    {
+      "key": "https://github.com/calcom/cal.com/pull/11059\u00005",
+      "golden": 5,
+      "findingAt": 117,
+      "rank": 1,
+      "path": "packages/app-store/zoho-bigin/lib/CalendarService.ts",
+      "symbols": [
+        "refreshOAuthTokens",
+        "functionality",
+        "syncing",
+        "impacting"
+      ]
+    },
+    {
+      "key": "https://github.com/calcom/cal.com/pull/11059\u00007",
+      "golden": 7,
+      "findingAt": 134,
+      "rank": 1,
+      "path": "packages/app-store/googlecalendar/lib/CalendarService.ts",
+      "symbols": [
+        "jsforce",
+        "Connection",
+        "credentialKey",
+        "access_token"
+      ]
+    },
+    {
+      "key": "https://github.com/calcom/cal.com/pull/14740\u00003",
+      "golden": 3,
+      "findingAt": 152,
+      "rank": 1,
+      "path": "packages/emails/templates/organizer-add-guests-email.ts",
+      "symbols": [
+        "uniqueGuests",
+        "attendees",
+        "blacklisted",
+        "deduplicate"
+      ]
+    },
+    {
+      "key": "https://github.com/calcom/cal.com/pull/14943\u00000",
+      "golden": 0,
+      "findingAt": 148,
+      "rank": 1,
+      "path": "packages/features/ee/workflows/api/scheduleSMSReminders.ts",
+      "symbols": [
+        "Using",
+        "retryCount",
+        "concurrency",
+        "atomic"
+      ]
+    },
+    {
+      "key": "https://github.com/getsentry/sentry/pull/67876\u00000",
+      "golden": 0,
+      "findingAt": 770,
+      "rank": 1,
+      "path": "src/sentry/integrations/github/integration.py",
+      "symbols": [
+        "Null",
+        "github_authenticated_user"
+      ]
+    },
+    {
+      "key": "https://github.com/getsentry/sentry/pull/93824\u00004",
+      "golden": 4,
+      "findingAt": 922,
+      "rank": 1,
+      "path": "src/sentry/spans/consumers/process/flusher.py",
+      "symbols": [
+        "deadline",
+        "elapsed",
+        "terminating",
+        "flusher"
+      ]
+    },
+    {
+      "key": "https://github.com/grafana/grafana/pull/106778\u00000",
+      "golden": 0,
+      "findingAt": 457,
+      "rank": 1,
+      "path": "public/app/features/alerting/unified/rule-list/FilterView.tsx",
+      "symbols": [
+        "GrafanaRuleListItem"
+      ]
+    },
+    {
+      "key": "https://github.com/grafana/grafana/pull/106778\u00001",
+      "golden": 1,
+      "findingAt": 456,
+      "rank": 1,
+      "path": "public/app/features/alerting/unified/hooks/useAbilities.ts",
+      "symbols": [
+        "RuleActionsButtons",
+        "promRule",
+        "SilenceGrafanaRuleDrawer",
+        "Grafana"
+      ]
+    },
+    {
+      "key": "https://github.com/grafana/grafana/pull/79265\u00000",
+      "golden": 0,
+      "findingAt": 424,
+      "rank": 1,
+      "path": "pkg/services/anonymous/anonimpl/anonstore/database.go",
+      "symbols": [
+        "Race",
+        "Multiple",
+        "device",
+        "simultaneously"
+      ]
+    },
+    {
+      "key": "https://github.com/grafana/grafana/pull/79265\u00003",
+      "golden": 3,
+      "findingAt": 424,
+      "rank": 1,
+      "path": "pkg/services/anonymous/anonimpl/anonstore/database.go",
+      "symbols": [
+        "Time",
+        "calculation",
+        "Using",
+        "device"
+      ]
+    },
+    {
+      "key": "https://github.com/grafana/grafana/pull/79265\u00004",
+      "golden": 4,
+      "findingAt": 424,
+      "rank": 1,
+      "path": "pkg/services/anonymous/anonimpl/anonstore/database.go",
+      "symbols": [
+        "tagDeviceUI",
+        "populates",
+        "device",
+        "CreateOrUpdateDevice"
+      ]
+    },
+    {
+      "key": "https://github.com/grafana/grafana/pull/90045\u00002",
+      "golden": 2,
+      "findingAt": 478,
+      "rank": 1,
+      "path": "pkg/apiserver/rest/dualwriter_mode3.go",
+      "symbols": [
+        "Inconsistency",
+        "Kind",
+        "recording"
+      ]
+    },
+    {
+      "key": "https://github.com/grafana/grafana/pull/90939\u00001",
+      "golden": 1,
+      "findingAt": 494,
+      "rank": 1,
+      "path": "pkg/api/webassets/webassets.go",
+      "symbols": [
+        "critical",
+        "entryPointAssetsCache",
+        "occurs",
+        "asset"
+      ]
+    },
+    {
+      "key": "https://github.com/grafana/grafana/pull/97529\u00001",
+      "golden": 1,
+      "findingAt": 501,
+      "rank": 1,
+      "path": "pkg/storage/unified/resource/search.go",
+      "symbols": [
+        "Calling",
+        "TotalDocs",
+        "watcher",
+        "BuildIndex"
+      ]
+    },
+    {
+      "key": "https://github.com/keycloak/keycloak/pull/36880\u00002",
+      "golden": 2,
+      "findingAt": 576,
+      "rank": 1,
+      "path": "services/src/main/java/org/keycloak/services/resources/admin/permissions/ClientPermissionsV2.java",
+      "symbols": [
+        "getClientsWithPermission",
+        "resourceStore",
+        "findByType",
+        "CLIENTS_RESOURCE_TYPE"
+      ]
+    },
+    {
+      "key": "https://github.com/keycloak/keycloak/pull/37038\u00001",
+      "golden": 1,
+      "findingAt": 611,
+      "rank": 1,
+      "path": "services/src/main/java/org/keycloak/services/resources/admin/UsersResource.java",
+      "symbols": [
+        "getGroupIdsWithViewPermission",
+        "groupResource",
+        "treating",
+        "GroupPermissionEvaluator"
+      ]
+    },
+    {
+      "key": "https://github.com/keycloak/keycloak/pull/37429\u00001",
+      "golden": 1,
+      "findingAt": 654,
+      "rank": 1,
+      "path": "themes/src/main/resources-community/theme/base/account/messages/messages_lt.properties",
+      "symbols": [
+        "totpStep1",
+        "Traditional",
+        "Chinese",
+        "terms"
+      ]
+    },
+    {
+      "key": "https://github.com/keycloak/keycloak/pull/37634\u00002",
+      "golden": 2,
+      "findingAt": 695,
+      "rank": 1,
+      "path": "services/src/main/java/org/keycloak/protocol/oidc/encode/DefaultTokenContextEncoderProvider.java",
+      "symbols": [
+        "mentions",
+        "usually",
+        "letters",
+        "shortcut"
+      ]
+    },
+    {
+      "key": "https://github.com/keycloak/keycloak/pull/38446\u00001",
+      "golden": 1,
+      "findingAt": 724,
+      "rank": 1,
+      "path": "services/src/main/java/org/keycloak/forms/login/freemarker/model/RecoveryAuthnCodeInputLoginBean.java",
+      "symbols": [
+        "RecoveryAuthnCodesCredentialModel",
+        "myUser",
+        "recoveryCodes",
+        "removeStoredCredentialById"
+      ]
+    }
+  ]
+}

@@ -461,6 +461,23 @@ jobs:
       - name: Enforce that the lane page is what the readings say
         run: git diff --exit-code -- docs/lane-discovery.html
 
+      # **The prize, and the rate that says it cannot be aimed.** §165 refused the sixth call because it changed which
+      # comments were emitted and not what they said, and the question left standing was *how many of the goldens only the
+      # competitor credits sit on something we already wrote about*. The instrument answers it with a mechanical symbol
+      # rule, a seeded permutation null, a wrong-pull-request control and **the rate outside the set** - which on this board
+      # is 79% against 82%, so the record says in the same block that adjacency is not a selector.
+      - name: Count where the goldens we never credit were standing
+        run: npm run bench:symbol-adjacency
+
+      - name: Enforce that the prize reading is what the artifacts say
+        run: git diff --exit-code -- benchmarks/symbol-adjacency.json
+
+      - name: Draw the prize as one page
+        run: npm run docs:symbol-adjacency
+
+      - name: Enforce that the prize page is what the reading says
+        run: git diff --exit-code -- docs/symbol-adjacency.html
+
       # **The one device §162.4 proposed that can be refused for nothing.** A score floor calibrated on one half of the
       # board and applied to the other is a cut, so it is priced from the committed artifact rather than bought; the
       # reading is a verdict per arm, and it is regenerated here so the section cannot outlive it.

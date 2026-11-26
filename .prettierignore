@@ -146,3 +146,5 @@ benchmarks/martian-reviewer-bench.json
 benchmarks/lane-discovery.json
 benchmarks/lane-discovery-wide.json
 docs/lane-discovery.html
+benchmarks/symbol-adjacency.json
+docs/symbol-adjacency.html

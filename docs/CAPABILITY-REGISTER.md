@@ -99,6 +99,8 @@ a register that only lists what exists cannot be used to decide what to build.**
 | 50  | **Every committed cut curve is re-derived by CI from a committed artifact, and a half-corpus denominator is readable from the record**                       | harness                  | O                        | — (the end-to-end case re-runs the instrument against the tree)                         | `the-cut-a-step-is-worth-is-priced-on-every-board`            | DONE (§163.1) — the wide arm's artifact was at `/tmp/run-45629019118/`, so two of the four published curves were readings of files no repository holds; the artifact is committed, `coverage.byPullRequest` now supplies a split-half denominator **guarded by its own sum**, and the AACR split-half reproduces exactly through the new path (220/226, `0.2051`/`0.2538`)                                                                                                                                                                                                                                                                                                                                 |
 | 51  | **A lane that asks what the other side of the patch says, and refuses a finding that cannot quote both**                                                     | GitHub App, CLI, harness | P (Greptile, CodeRabbit) | `a-lane-that-reads-the-other-side`, `a-lane-set-that-swaps-a-deleted-lane-for-a-reader` | `a-review-that-checks-both-sides`                             | PART — **refused as a default (§165)**. The lane exists, is dispatched by `lane_set: reviewer`, and its acceptance was written down before it was bought. The reading refused it on three independent counts: inside one run it takes the pool ceiling `83 → 86` (**+3**) against the **13** the swap has to repay; it converts **none** of those three at `k = 5` (`56 → 56` credited); and removing it _raises_ F1 `0.2879 → 0.2894`. It hit **1** of the 32 goldens §164.3 found the competitor naming and we not, and 5 of its 8 credits are restatements — so "ask about something else" is necessary and not sufficient, which is the constraint S42 inherits. **No shipped set contains the lane.** |
 | 52  | **A lane is credited with what the other lanes did not name, and the pool's ceiling is re-derived from a committed artifact**                                | harness                  | O                        | `a-lane-is-credited-with-what-the-others-did-not-name`                                  | `the-ceiling-is-counted-against-the-other-lanes`              | DONE (§164.1) — the ceiling is the size of the maximum matching over the pool, under the corpus's own protocol (a maximum matching per pull request, not a count of `matchedGoldens`, which double-counts a re-statement); the wide arm rebuilds `k 402 / 80` before a ceiling prints, re-derives `62` credited and `0.3221` at `k = 5`, and the two committed six- and five-lane arms differ in **both** directions (20 goldens only the wide arm names, 18 only the shipped one)                                                                                                                                                                                                                         |
+| 53  | **A golden we never credit is located by the symbols its sentence names, and the rate outside the set says adjacency cannot be aimed**                       | harness                  | O                        | `a-golden-we-miss-is-on-a-symbol-we-name`                                               | `the-prize-is-counted-on-the-real-artifact`                   | DONE (§166) — the rule is mechanical (an identifier of four characters or more, specific when at most one pull request's pool names it), swept over its one parameter, and bounded by three controls: a seeded permutation null (`2.13`, p95 `5`), a wrong-pull-request control (`2 of 33`) and **the rate outside the set (`99 of 125`)**. That last control is the point: co-location is the board's base rate, so adjacency locates and cannot select                                                                                                                                                                                                                                                   |
+| 54  | **Each comment the arm posts is re-read against the symbol it names, and a finding that cannot quote both sides keeps its original sentence**                | GitHub App, CLI          | O                        | —                                                                                       | —                                                             | NONE (S53, §166.6) — the device the reading points at, registered with its own acceptance: **≥ 18 of the 27 conversions** at `k = 5` with the comment count unchanged, on both boards, for about `6 %` of a run's calls (≤ ¥0.12)                                                                                                                                                                                                                                                                                                                                                                                                                                                                          |
 
 ---
 
@@ -106,18 +108,18 @@ a register that only lists what exists cannot be used to decide what to build.**
 
 |                             | rows | share |
 | --------------------------- | ---: | ----: |
-| `DONE`                      |   44 |  84 % |
-| `PART`                      |    6 |  12 % |
-| `NONE`                      |    2 |   4 % |
-| **with an end-to-end case** |   40 |  77 % |
-| **with a unit case**        |   23 |  44 % |
-| **`O` ours-only**           |   38 |  73 % |
-| **`P` public**              |   12 |  23 % |
+| `DONE`                      |   45 |  83 % |
+| `PART`                      |    6 |  11 % |
+| `NONE`                      |    3 |   6 % |
+| **with an end-to-end case** |   41 |  76 % |
+| **with a unit case**        |   24 |  44 % |
+| **`O` ours-only**           |   40 |  74 % |
+| **`P` public**              |   12 |  22 % |
 | **`C` competitor-only**     |    2 |   4 % |
 
-**Counted, not estimated**: fifty-two rows, and the arithmetic above is the register's own parse rather than a summary of
+**Counted, not estimated**: fifty-four rows, and the arithmetic above is the register's own parse rather than a summary of
 it - **and the test beside the renderer recounts it**, because the two figures that were wrong in this block before this
-round (`end-to-end 41`, `unit 21` over forty-eight rows) were typed by hand and disagreed with the table they summarise. **The interesting number is the last pair**: 38 capabilities no competitor in this register ships, against 2 that only
+round (`end-to-end 41`, `unit 21` over forty-eight rows) were typed by hand and disagreed with the table they summarise. **The interesting number is the last pair**: 40 capabilities no competitor in this register ships, against 2 that only
 a competitor ships.
 
 **One `C` row is a narrowing and one is a defect.** #32 (dead code) and #33 (taint across HTTP links) both have engines

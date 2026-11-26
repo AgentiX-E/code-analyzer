@@ -1,0 +1,240 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Where the goldens we never credit were standing</title>
+<style>
+  :root { color-scheme: light; }
+  body { margin: 0; padding: 32px 40px 56px; background: #fbfbfa; color: #22262b;
+         font: 15px/1.55 -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif; }
+  h1 { font-size: 23px; margin: 0 0 6px; letter-spacing: -0.01em; }
+  h2 { font-size: 15px; margin: 34px 0 10px; text-transform: uppercase; letter-spacing: 0.08em; color: #6a7280; }
+  p { max-width: 74ch; margin: 8px 0; }
+  .lede { color: #4a5058; max-width: 78ch; }
+  .headline { display: flex; gap: 36px; margin: 24px 0 6px; flex-wrap: wrap; }
+  .headline div { border-left: 3px solid #c9ced6; padding: 2px 0 2px 14px; }
+  .headline dt { font-size: 12px; text-transform: uppercase; letter-spacing: 0.07em; color: #77808c; }
+  .headline dd { margin: 2px 0 0; font-size: 26px; font-variant-numeric: tabular-nums; font-weight: 600; }
+  .headline .sub { font-size: 13px; color: #6a7280; font-weight: 400; }
+  table { border-collapse: collapse; margin: 10px 0 4px; min-width: 620px; }
+  th, td { text-align: left; padding: 6px 10px; border-bottom: 1px solid #e6e8eb; }
+  thead th { font-size: 12px; text-transform: uppercase; letter-spacing: 0.06em; color: #77808c; font-weight: 600; }
+  tbody th { font-weight: 600; color: #2e3440; }
+  td.n, th.n { text-align: right; font-variant-numeric: tabular-nums; }
+  td.bar { width: 240px; position: relative; }
+  .fill { display: block; height: 12px; background: #9aa5b4; border-radius: 2px; }
+  .fill.lead { background: #3f6f9f; }
+  .fill.pass { background: #2f6f4f; }
+  .mark { position: absolute; top: 4px; width: 2px; height: 16px; background: #8a3b3b; }
+  .muted { color: #6a7280; }
+  .pass { color: #2f6f4f; font-weight: 600; }
+  .note { color: #4a5058; background: #f4f5f3; border-left: 3px solid #c9ced6; padding: 10px 14px; max-width: 82ch; }
+  .warn { background: #fdf5f3; border-left-color: #c98b7a; }
+  code { font: 13px/1.4 ui-monospace, SFMono-Regular, Menlo, monospace; background: #f1f2f0; padding: 1px 4px; border-radius: 3px; }
+  footer { margin-top: 34px; color: #77808c; font-size: 13px; }
+</style>
+</head>
+<body>
+<h1>Where the goldens we never credit were standing</h1>
+<p class="lede">
+  33 goldens on <code>core</code> are credited by the competitor's arm and by nothing we
+  emit at any budget. <strong>27 of them sit on an identifier that a comment we already post
+  names</strong>, and 27 of those 27 comments are inside their pull
+  request's first 5. The deficit is not that we did not look; it is that the comment says something
+  else.
+</p>
+
+<dl class="headline">
+  <div><dt>goldens only they credit</dt><dd>33<span class="sub"> of 158</span></dd></div>
+  <div><dt>on a symbol we name</dt><dd>27<span class="sub"> 82 %</span></dd></div>
+  <div><dt>already inside the budget</dt><dd>27<span class="sub"> median rank 1</span></dd></div>
+  <div><dt>the sentences corrected</dt><dd>0.3896<span class="sub"> F1 at k=5</span></dd></div>
+</dl>
+
+<h2>The rate that forbids aiming at it</h2>
+<p class="note warn">
+  <strong>Co-location is the board's base rate.</strong> 99 of the
+  125 goldens that are in neither set sit on a symbol our pool names, by the same rule and
+  on the same pool - <strong>79 % against 82 %</strong>. A device cannot select which comment to rewrite
+  by asking whether it is near a golden we missed; it can only be pointed at every comment it posts.
+</p>
+<table>
+<thead><tr><th>goldens</th><th>adjacent to a comment we post</th><th class="n">count</th><th class="n">rate</th></tr></thead>
+<tbody>
+<tr>
+  <th scope="row">the 33 goldens only they credit</th>
+  <td class="bar"><span class="fill lead" style="width:82%"></span></td>
+  <td class="n">27 / 33</td>
+  <td class="n">82 %</td>
+</tr>
+<tr>
+  <th scope="row">the 125 goldens in neither set</th>
+  <td class="bar"><span class="fill" style="width:79%"></span></td>
+  <td class="n">99 / 125</td>
+  <td class="n">79 %</td>
+</tr>
+</tbody>
+</table>
+
+<h2>What the count is worth, read against its own null</h2>
+<p>
+  Each row sweeps the one parameter the rule has: how many pull requests' pools may name a token before it stops being a
+  name. The bar is the count, the tick is the 500-permutation null's 95th percentile -
+  the count the same geometry produces when the symbol sets are swapped between goldens. At the specificity this record
+  uses (≤ 1) the observed count is 27 against a null of
+  2.13. <strong>The loose end of the sweep is why the count was never the finding:</strong> at any
+  token every golden is adjacent, which is exactly what the rate above says.
+</p>
+<table>
+<thead><tr><th>a token named by</th><th class="n">goldens carrying one</th><th class="n">adjacent</th><th>of 33, tick = null p95</th><th class="n">null mean · p95</th></tr></thead>
+<tbody>
+<tr>
+  <th scope="row">≤ 1</th>
+  <td class="n">33</td>
+  <td class="n">27</td>
+  <td class="bar"><span class="fill" style="width:82%"></span><span class="mark" style="left:15%"></span></td>
+  <td class="n muted">2.13 · 5</td>
+</tr>
+<tr>
+  <th scope="row">≤ 2</th>
+  <td class="n">33</td>
+  <td class="n">29</td>
+  <td class="bar"><span class="fill" style="width:88%"></span><span class="mark" style="left:21%"></span></td>
+  <td class="n muted">3.96 · 7</td>
+</tr>
+<tr>
+  <th scope="row">≤ 3</th>
+  <td class="n">33</td>
+  <td class="n">30</td>
+  <td class="bar"><span class="fill" style="width:91%"></span><span class="mark" style="left:24%"></span></td>
+  <td class="n muted">5.33 · 8</td>
+</tr>
+<tr>
+  <th scope="row">≤ 5</th>
+  <td class="n">33</td>
+  <td class="n">30</td>
+  <td class="bar"><span class="fill" style="width:91%"></span><span class="mark" style="left:36%"></span></td>
+  <td class="n muted">8.15 · 12</td>
+</tr>
+<tr>
+  <th scope="row">≤ 8</th>
+  <td class="n">33</td>
+  <td class="n">33</td>
+  <td class="bar"><span class="fill" style="width:100%"></span><span class="mark" style="left:55%"></span></td>
+  <td class="n muted">13.29 · 18</td>
+</tr>
+<tr>
+  <th scope="row">≤ 12</th>
+  <td class="n">33</td>
+  <td class="n">33</td>
+  <td class="bar"><span class="fill" style="width:100%"></span><span class="mark" style="left:73%"></span></td>
+  <td class="n muted">20.35 · 24</td>
+</tr>
+<tr>
+  <th scope="row">any token</th>
+  <td class="n">33</td>
+  <td class="n">33</td>
+  <td class="bar"><span class="fill" style="width:100%"></span><span class="mark" style="left:100%"></span></td>
+  <td class="n muted">31.32 · 33</td>
+</tr>
+</tbody>
+</table>
+<p class="note">
+  A wrong-pull-request control runs the same symbols against another pool in the same repository and finds
+  2 of 33: the symbols are about the place, which is the
+  one thing the null does establish.
+</p>
+
+<h2>The prize, and the arithmetic floor that is not it</h2>
+<p>
+  Crediting each golden to the highest-scoring comment on its own pull request that names its symbol is <strong>the sentence
+  being corrected and nothing else moving</strong>: no comment added, no rank changed, the budget unchanged at
+  227. Both readings of a rewrite - the credit added beside the one the comment
+  already holds, or moved in place of it - land on the same point, which is why the record publishes both.
+</p>
+<table>
+<thead><tr><th>arm</th><th class="n">ceiling</th><th class="n">comments</th><th class="n">credited</th><th class="n">F1</th></tr></thead>
+<tbody>
+<tr>
+  <th scope="row">what the arm posts</th>
+  <td class="n">88</td>
+  <td class="n">227</td>
+  <td class="n">62</td>
+  <td class="n ">0.3221</td>
+</tr>
+<tr>
+  <th scope="row">the sentences corrected</th>
+  <td class="n">104</td>
+  <td class="n">227</td>
+  <td class="n">75</td>
+  <td class="n pass">0.3896</td>
+</tr>
+</tbody>
+</table>
+<p>
+  <strong>This is an upper bound and never a score.</strong> The judge never saw the corrected sentence. Its use is to
+  refuse: if it were below 0.3735, no conditioning of the comments we already post could reach the bar.
+</p>
+
+<h2>How many corrections the bar actually costs</h2>
+<p>
+  A conversion is not a credit - the protocol matches one finding to one golden - so the 27
+  conversions buy 13 credits, not
+  27. The curve is the plan in the order a verifier would apply it, most confident comment first;
+  <strong>18 of 27 corrections clear it</strong>,
+  against an arithmetic floor of 10 that assumes a conversion is a credit.
+</p>
+<table>
+<thead><tr><th>corrections applied</th><th class="n">credited</th><th>of the prize</th><th class="n">F1</th></tr></thead>
+<tbody>
+<tr>
+  <th scope="row">5 of 27</th>
+  <td class="n">65</td>
+  <td class="bar"><span class="fill" style="width:87%"></span></td>
+  <td class="n ">0.3377</td>
+</tr>
+<tr>
+  <th scope="row">9 of 27</th>
+  <td class="n">68</td>
+  <td class="bar"><span class="fill" style="width:91%"></span></td>
+  <td class="n ">0.3532</td>
+</tr>
+<tr>
+  <th scope="row">14 of 27</th>
+  <td class="n">71</td>
+  <td class="bar"><span class="fill" style="width:95%"></span></td>
+  <td class="n ">0.3688</td>
+</tr>
+<tr>
+  <th scope="row">18 of 27</th>
+  <td class="n">72</td>
+  <td class="bar"><span class="fill pass" style="width:96%"></span></td>
+  <td class="n pass">0.3740</td>
+</tr>
+<tr>
+  <th scope="row">23 of 27</th>
+  <td class="n">74</td>
+  <td class="bar"><span class="fill pass" style="width:99%"></span></td>
+  <td class="n pass">0.3844</td>
+</tr>
+<tr>
+  <th scope="row">27 of 27</th>
+  <td class="n">75</td>
+  <td class="bar"><span class="fill pass" style="width:100%"></span></td>
+  <td class="n pass">0.3896</td>
+</tr>
+</tbody>
+</table>
+<p class="note">
+  The bar drawn here is <code>0.3735</code>, passed to this renderer rather than written into it. The target a
+  section registers is the only thing that moves a green row.
+</p>
+
+<footer>
+  Drawn from <code>benchmarks/martian-wide-bench.json</code> against <code>benchmarks/aacr/competitor-baseline.json</code> on <code>benchmarks/martian/positive_samples.json</code>,
+  measured 2026-11-25. Re-derive with <code>npm run bench:symbol-adjacency</code>; CI fails on a byte of
+  difference.
+</footer>
+</body>
+</html>
