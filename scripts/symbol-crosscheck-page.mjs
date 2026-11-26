@@ -129,7 +129,10 @@ function describe(reason) {
 const conversionRows = (prize?.detail ?? [])
   .map(
     (entry) =>
-      `  <tr><th><code>${escape(entry.symbol ?? '—')}</code></th><td class="n">${String(entry.findingAt)}</td><td>${
+      // **A row that moved is marked rather than merely labelled.** The table is 27 rows and three of them were rewritten;
+      // a reader who has to scan a column of `kept` to find them is reading a list, not a reading. The class is on the row
+      // so the mark is a rule in the stylesheet rather than a second string in a cell.
+      `  <tr${entry.rewritten ? ' class="moved"' : ''}><th><code>${escape(entry.symbol ?? '—')}</code></th><td class="n">${String(entry.findingAt)}</td><td>${
         entry.rewritten ? 'rewritten' : '<span class="muted">kept</span>'
       }</td><td>${entry.credited ? 'credited' : '<span class="muted">not credited</span>'}</td></tr>`,
   )
@@ -159,6 +162,8 @@ const html = `<!doctype html>
   th, td { text-align: left; padding: 6px 10px; border-bottom: 1px solid #e6e8eb; }
   thead th { font-size: 12px; text-transform: uppercase; letter-spacing: 0.06em; color: #77808c; font-weight: 600; }
   tbody th { font-weight: 600; color: #2e3440; }
+  tr.moved th { box-shadow: inset 3px 0 0 #3f6f9f; padding-left: 14px; }
+  tr.moved td:nth-child(3) { color: #3f6f9f; font-weight: 600; }
   td.n, th.n { text-align: right; font-variant-numeric: tabular-nums; }
   td.bar { width: 240px; position: relative; }
   .fill { display: block; height: 12px; background: #9aa5b4; border-radius: 2px; }
