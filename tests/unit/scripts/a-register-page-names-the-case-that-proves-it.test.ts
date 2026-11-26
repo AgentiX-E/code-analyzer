@@ -121,6 +121,54 @@ describe('the page', () => {
     expect(html).toContain('data-state="NONE"');
   });
 
+  it('recounts §7 from the table, so the summary cannot disagree with the rows it summarises', () => {
+    // **The one paragraph in this file that was typed rather than computed**, and it was wrong: the block said
+    // `end-to-end 41` while the table held thirty-eight, because every round added a row and incremented a number by eye.
+    // The rule is stated here once and applied to the same parse the page uses.
+    const hasCase = (cell: string) => /`[^`]+`/u.test(cell) && !cell.startsWith('—');
+    const tally = { DONE: 0, PART: 0, NONE: 0 } as Record<string, number>;
+    const who = { O: 0, P: 0, C: 0 } as Record<string, number>;
+    let unit = 0;
+    let e2e = 0;
+    for (const row of ROWS) {
+      // **The renderer's own reading of a status**, rather than a second rule here: a cell like `` `DONE` (§163) `` is
+      // `DONE` to `state()` and would be nothing to a `split()` that kept the backticks.
+      const state_ = state(String(row.status ?? ''));
+      if (state_ in tally) tally[state_] += 1;
+      const side = String(row.who ?? '')
+        .replace(/[*`]/gu, '')
+        .charAt(0);
+      if (side in who) who[side] += 1;
+      if (hasCase(String(row.unit ?? ''))) unit += 1;
+      if (hasCase(String(row.e2e ?? ''))) e2e += 1;
+    }
+    const section = MARKDOWN.slice(MARKDOWN.indexOf('## 7. Coverage, counted'));
+    // **The label is the row's first cell with its emphasis stripped**, because the block writes `**\`O\` ours-only**` and
+    // a pattern anchored on the pipe would have to spell out every decoration a later edit might add.
+    const row = (label: string): number => {
+      for (const line of section.split('\n')) {
+        if (!line.startsWith('|')) continue;
+        const cells = line.split('|').slice(1, -1);
+        const first = String(cells[0] ?? '')
+          .replace(/[*`]/gu, '')
+          .trim();
+        if (first !== label) continue;
+        return Number(String(cells[1] ?? '').trim());
+      }
+      expect.fail(`no row labelled ${label}`);
+      return Number.NaN;
+    };
+    expect(row('DONE')).toBe(tally['DONE']);
+    expect(row('PART')).toBe(tally['PART']);
+    expect(row('NONE')).toBe(tally['NONE']);
+    expect(row('with an end-to-end case')).toBe(e2e);
+    expect(row('with a unit case')).toBe(unit);
+    expect(row('O ours-only')).toBe(who['O']);
+    expect(row('P public')).toBe(who['P']);
+    expect(row('C competitor-only')).toBe(who['C']);
+    expect(tally['DONE'] + tally['PART'] + tally['NONE']).toBe(ROWS.length);
+  });
+
   it('counts what it rendered rather than restating a number from the prose', () => {
     const tally = count(ROWS);
     expect(tally.total).toBe(ROWS.length);
