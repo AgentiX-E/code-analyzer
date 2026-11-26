@@ -29,6 +29,12 @@
  * **The guard is the one every instrument in this directory applies**: the arm's own published point has to rebuild
  * through the arm's own cut, on the arm's own denominator, or this exits `1`. A ceiling computed over a pool the run did
  * not emit is a claim about nothing.
+ *
+ * **`--without` is the counterfactual, and it has to come from the same run.** Comparing two arms recorded by two runs
+ * bundles the swap with everything else two samples of a sampler disagree on - the reviewer run and the wide run differ by
+ * 8 `architecture` findings and 5 `security` findings before a single lane is swapped. Dropping a lane's rows out of one
+ * artifact and replaying the same cut holds the run fixed and leaves the lane as the only thing that moved, so it is the
+ * number a refusal is written on. The re-derived point is reported as `derived` and never as the arm's published one.
  */
 
 import { readFileSync, writeFileSync } from 'node:fs';
@@ -50,6 +56,7 @@ function parseArgs(argv) {
     corpus: null,
     profile: 'core',
     budget: null,
+    without: null,
     json: null,
   };
   for (let i = 0; i < argv.length; i += 1) {
@@ -59,6 +66,7 @@ function parseArgs(argv) {
     else if (arg === '--corpus') options.corpus = argv[(i += 1)];
     else if (arg === '--profile') options.profile = argv[(i += 1)];
     else if (arg === '--budget') options.budget = Number(argv[(i += 1)]);
+    else if (arg === '--without') options.without = argv[(i += 1)];
     else if (arg === '--json') options.json = argv[(i += 1)];
     else if (arg.startsWith('--')) {
       process.stderr.write(`unknown option ${arg}\n`);
@@ -72,7 +80,7 @@ const options = parseArgs(process.argv.slice(2));
 if (options.arm === null) {
   process.stderr.write(
     'usage: lane-discovery.mjs --arm <artifact.json> [--reference <artifact.json>] [--corpus <positive_samples.json>] ' +
-      '[--profile core|all] [--budget k] [--json out]\n',
+      '[--profile core|all] [--budget k] [--without lane[,lane]] [--json out]\n',
   );
   process.exit(2);
 }
@@ -132,27 +140,65 @@ const guard = [
 ];
 
 /**
+ * **A name the artifact never used is a typo, not an empty counterfactual.**
+ *
+ * Dropping nothing and then reporting the arm's own numbers as the answer to "what happens without this lane" is the most
+ * convincing possible lie, because it looks like a measurement of a swap that was never made. So an unknown name exits
+ * `2`, before anything is counted.
+ */
+const laneOf = (finding) => String(finding.lane ?? 'unnamed');
+const without =
+  options.without === null
+    ? []
+    : options.without
+        .split(',')
+        .map((name) => name.trim())
+        .filter((name) => name !== '');
+const knownLanes = new Set(rawFindings.map(laneOf));
+for (const lane of without) {
+  if (!knownLanes.has(lane)) {
+    process.stderr.write(
+      `--without ${lane}: this artifact has no such lane; known: ${[...knownLanes].sort().join(', ')}\n`,
+    );
+    process.exit(2);
+  }
+}
+const keptRaw =
+  without.length === 0 ? rawFindings : rawFindings.filter((f) => !without.includes(laneOf(f)));
+
+/**
  * **The profile is a denominator over the pull requests this artifact emitted on**, which is the rule `cut-curve.mjs`
  * and `pool-density.mjs` both apply: a run that covered 50 of the corpus's rows is scored against its own 50.
+ *
+ * **A counterfactual holds that set.** Dropping a lane can also drop the last finding on a pull request, and if the
+ * denominator shrank with it the drop would be charged twice: once for the goldens it no longer names and once for the
+ * goldens the corpus stops asking about. So `--without` keeps the full arm's covered pull requests and reports the
+ * removal as the only thing that moved - `denominatorHeld` in the record says which of the two happened.
  */
-function restricted(artifact) {
-  const rows = artifact.rankedFindings ?? [];
+function restricted(artifact, rows, denominatorOver = null) {
   if (options.profile === 'all' || corpus === null) {
     return {
       rows: rows.map((finding) => ({ ...finding, profileGoldens: finding.matchedGoldens ?? [] })),
       goldens: Number(artifact.truePositives ?? 0) + Number(artifact.falseNegatives ?? 0),
+      covered: new Set(rows.map(pullRequestOf)),
     };
   }
   const { maps } = profileMaps(corpus, options.profile);
   const kept = restrictFindings(rows, { maps });
   let denominator = 0;
-  for (const pullRequest of new Set(kept.map(pullRequestOf))) {
+  for (const pullRequest of denominatorOver ?? new Set(kept.map(pullRequestOf))) {
     denominator += maps.get(pullRequest)?.size ?? 0;
   }
-  return { rows: kept, goldens: denominator };
+  return { rows: kept, goldens: denominator, covered: new Set(kept.map(pullRequestOf)) };
 }
 
-const armView = restricted(arm);
+const fullView = restricted(arm, rawFindings);
+/**
+ * **The record is the arm.** `--without` adds a counterfactual block beside it and never replaces what the arm published,
+ * because a file whose headline number quietly belongs to a different set of lanes is the same error as a chart whose axis
+ * is a different run.
+ */
+const armView = fullView;
 const armFindings = armView.rows;
 const goldens = armView.goldens;
 const credit = (finding) => finding.profileGoldens ?? finding.matchedGoldens ?? [];
@@ -185,6 +231,60 @@ const atBudget =
         credit,
         goldens,
       );
+const atBudgetWithK = atBudget === null ? null : { ...atBudget, budget: options.budget };
+
+/**
+ * **The counterfactual, priced by the same code as the arm it is a counterfactual of, and kept in the same file.**
+ *
+ * Two artifacts recorded by two runs answer the wrong question: the reviewer run and the wide run disagree by 8
+ * `architecture` findings and 5 `security` findings before a single lane is swapped, so a difference between their ceilings
+ * is not the swap. Here both sides are the *same* rows under the *same* cut and the *same* denominator, and the only thing
+ * between `from` and `to` is the lane named in `without`.
+ */
+const counterfactual =
+  without.length === 0
+    ? null
+    : (() => {
+        const keptView = restricted(arm, keptRaw, fullView.covered);
+        const keptFindings = keptView.rows;
+        const keptUncapped = applyCut(
+          keptFindings,
+          steps.filter((step) => step.kind !== 'budget'),
+        );
+        const keptAtBudget =
+          options.budget === null
+            ? null
+            : score(
+                applyCut(keptFindings, [
+                  ...steps.filter((step) => step.kind !== 'budget'),
+                  { kind: 'budget', k: options.budget },
+                ]),
+                credit,
+                keptView.goldens,
+              );
+        return {
+          without,
+          droppedFindings: rawFindings.length - keptRaw.length,
+          /** **A held denominator is the claim that the drop is the only difference**, so it travels with the numbers. */
+          denominatorHeld: keptView.goldens === goldens,
+          ceiling: { from: ceiling.size, to: creditedBy(keptUncapped).size },
+          atBudget: {
+            k: options.budget,
+            f1: {
+              from: atBudget === null ? null : round4(atBudget.f1),
+              to: keptAtBudget === null ? null : round4(keptAtBudget.f1),
+            },
+            truePositives: {
+              from: atBudget === null ? null : atBudget.truePositives,
+              to: keptAtBudget === null ? null : keptAtBudget.truePositives,
+            },
+            comments: {
+              from: atBudget === null ? null : atBudget.emitted,
+              to: keptAtBudget === null ? null : keptAtBudget.emitted,
+            },
+          },
+        };
+      })();
 
 /** Per lane: what it emits, what it credits, and what it credits alone. */
 const lanes = [...new Set(armFindings.map((finding) => String(finding.lane ?? 'unnamed')))].sort();
@@ -216,8 +316,8 @@ const laneRows = lanes.map((lane) => {
  */
 let difference = null;
 if (reference !== null) {
-  const referenceRows = restricted(reference);
-  const referenceFindings = Array.isArray(referenceRows) ? referenceRows : referenceRows.rows;
+  const referenceRows = restricted(reference, reference.rankedFindings ?? []);
+  const referenceFindings = referenceRows.rows;
   const theirSteps = reference.emissionRules?.shipped?.steps ?? [];
   const theirs = creditedBy(
     applyCut(
@@ -245,6 +345,7 @@ const report = {
   corpus: options.corpus,
   cut: describeCut(steps),
   guard,
+  counterfactual,
   goldens,
   emitted: armFindings.length,
   ceiling: {
@@ -253,7 +354,7 @@ const report = {
     f1IfEverythingPosted: round4(f1FromCounts(ceiling.size, uncapped.length, goldens)),
     comments: uncapped.length,
   },
-  atBudget,
+  atBudget: atBudgetWithK,
   lanes: laneRows,
   difference,
 };
@@ -262,6 +363,12 @@ const lines = [
   `arm ${options.arm} · lanes ${String(report.laneSet)} · profile ${options.profile} · goldens ${String(goldens)}`,
   `cut ${report.cut}`,
   `guard ${guard.map((entry) => `${entry.field} ${String(entry.rebuilt)}`).join(' · ')} (the artifact's own point)`,
+  ...(counterfactual === null
+    ? []
+    : [
+        `without ${counterfactual.without.join(', ')}: ${String(counterfactual.droppedFindings)} findings dropped · denominator ${counterfactual.denominatorHeld ? 'held' : 'SHRANK'} at ${String(goldens)}`,
+        `  ceiling ${String(counterfactual.ceiling.from)} -> ${String(counterfactual.ceiling.to)} · k=${String(counterfactual.atBudget.k)} F1 ${String(counterfactual.atBudget.f1.from)} -> ${String(counterfactual.atBudget.f1.to)} · credited ${String(counterfactual.atBudget.truePositives.from)} -> ${String(counterfactual.atBudget.truePositives.to)} · comments ${String(counterfactual.atBudget.comments.from)} -> ${String(counterfactual.atBudget.comments.to)}`,
+      ]),
   `pool ${String(uncapped.length)} comments · ceiling ${String(ceiling.size)} credited goldens`,
   ...(atBudget === null
     ? []

@@ -1,0 +1,148 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>What each lane adds, counted against the others</title>
+<style>
+  :root { color-scheme: light; }
+  body { margin: 0 auto; max-width: 980px; padding: 32px 20px 64px; font: 15px/1.55 -apple-system, "Segoe UI", Roboto, sans-serif; color: #2e3440; }
+  h1 { font-size: 26px; margin: 0 0 6px; letter-spacing: -0.01em; }
+  h2 { font-size: 17px; margin: 32px 0 8px; }
+  p.lede { margin: 0 0 20px; color: #4c566a; max-width: 74ch; }
+  p.note { color: #4c566a; font-size: 13.5px; max-width: 74ch; }
+  code { font: 13px/1.4 ui-monospace, SFMono-Regular, Menlo, monospace; background: #eceff4; padding: 1px 5px; border-radius: 4px; }
+  table { border-collapse: collapse; width: 100%; margin: 8px 0 4px; }
+  th, td { padding: 7px 10px; border-bottom: 1px solid #e5e9f0; text-align: left; vertical-align: middle; }
+  thead th { font-size: 12px; text-transform: uppercase; letter-spacing: 0.06em; color: #7b8794; font-weight: 600; }
+  td.n, th.n { text-align: right; font-variant-numeric: tabular-nums; }
+  .strong { font-weight: 700; color: #2f6f4f; }
+  .cost { color: #8a3b3b; }
+  .bold { font-weight: 700; }
+  table.swap th[scope="row"] { font-weight: 600; color: #2e3440; }
+  table.swap td, table.swap th { padding: 6px 10px; }
+  td.bars { width: 46%; position: relative; }
+  .bar { display: block; height: 9px; border-radius: 3px; margin: 2px 0; }
+  .bar.all { background: #cfd7e3; }
+  .bar.uniq { background: #2f6f4f; }
+  dl.point { display: flex; gap: 26px; flex-wrap: wrap; margin: 6px 0 0; }
+  dl.point div { min-width: 74px; }
+  dt { font-size: 12px; text-transform: uppercase; letter-spacing: 0.06em; color: #7b8794; }
+  dd { margin: 2px 0 0; font-size: 20px; font-variant-numeric: tabular-nums; }
+  dl.point .pass dd { color: #2f6f4f; }
+  dl.point .target dd { color: #8a6d24; }
+  .legend { display: flex; gap: 18px; font-size: 13px; color: #4c566a; margin: 4px 0 10px; }
+  .legend i { display: inline-block; width: 22px; height: 9px; border-radius: 3px; margin-right: 6px; vertical-align: middle; }
+  footer { margin-top: 40px; border-top: 1px solid #e5e9f0; padding-top: 14px; color: #7b8794; font-size: 12.5px; }
+</style>
+</head>
+<body>
+<h1>What each lane adds, counted against the others</h1>
+<p class="lede">A lane that re-states a golden another lane already named adds a comment and no recall, and both rows carry
+the same golden index — so the column that answers <em>was this call worth its price</em> is the one that counts what a
+lane credits <strong>that no other lane in the same run does</strong>.</p>
+
+<dl class="point">
+  <div><dt>lanes</dt><dd>reviewer</dd></div>
+  <div><dt>comments</dt><dd>886</dd></div>
+  <div><dt>ceiling</dt><dd>86</dd></div>
+  <div><dt>goldens</dt><dd>158</dd></div>
+  <div><dt>profile</dt><dd>core</dd></div>
+</dl>
+<p class="note">Cut: <code>drop test, drop path test, budget 12</code>. Guard: k 414 · truePositives 82 — rebuilt from the arm's own rows before either number below was counted.</p>
+
+<h2>The point at <code>k = 5</code></h2>
+<dl class="point">
+  <div><dt>comments</dt><dd>231</dd></div>
+  <div><dt>credited</dt><dd>56</dd></div>
+  <div><dt>precision</dt><dd>0.2424</dd></div>
+  <div><dt>recall</dt><dd>0.3544</dd></div>
+  <div class=""><dt>F1</dt><dd>0.2879</dd></div>
+  <div class="target"><dt>the bar</dt><dd>0.3735</dd></div>
+</dl>
+
+<h2>Per lane</h2>
+<div class="legend"><span><i style="background:#cfd7e3"></i>credited</span><span><i style="background:#2f6f4f"></i>unique to this lane</span></div>
+<table class="lanes">
+  <thead><tr><th>lane</th><th>credited / unique</th><th class="n">findings</th><th class="n">credited</th><th class="n">unique</th><th class="n">density</th></tr></thead>
+  <tbody>
+<tr>
+  <th scope="row"><code>architecture</code></th>
+  <td class="bars"><span class="bar all" style="width:100.0%"></span><span class="bar uniq" style="width:71.4%"></span></td>
+  <td class="n">471</td>
+  <td class="n">56</td>
+  <td class="n strong">40</td>
+  <td class="n">0.1189</td>
+</tr>
+<tr>
+  <th scope="row"><code>security</code></th>
+  <td class="bars"><span class="bar all" style="width:51.8%"></span><span class="bar uniq" style="width:26.8%"></span></td>
+  <td class="n">116</td>
+  <td class="n">29</td>
+  <td class="n strong">15</td>
+  <td class="n">0.2500</td>
+</tr>
+<tr>
+  <th scope="row"><code>maintainability</code></th>
+  <td class="bars"><span class="bar all" style="width:19.6%"></span><span class="bar uniq" style="width:7.1%"></span></td>
+  <td class="n">181</td>
+  <td class="n">11</td>
+  <td class="n strong">4</td>
+  <td class="n">0.0608</td>
+</tr>
+<tr>
+  <th scope="row"><code>crosscheck</code></th>
+  <td class="bars"><span class="bar all" style="width:14.3%"></span><span class="bar uniq" style="width:5.4%"></span></td>
+  <td class="n">49</td>
+  <td class="n">8</td>
+  <td class="n strong">3</td>
+  <td class="n">0.1633</td>
+</tr>
+<tr>
+  <th scope="row"><code>performance</code></th>
+  <td class="bars"><span class="bar all" style="width:10.7%"></span><span class="bar uniq" style="width:5.4%"></span></td>
+  <td class="n">27</td>
+  <td class="n">6</td>
+  <td class="n strong">3</td>
+  <td class="n">0.2222</td>
+</tr>
+<tr>
+  <th scope="row"><code>behaviour</code></th>
+  <td class="bars"><span class="bar all" style="width:25.0%"></span><span class="bar uniq" style="width:1.8%"></span></td>
+  <td class="n">42</td>
+  <td class="n">14</td>
+  <td class="n strong">1</td>
+  <td class="n">0.3333</td>
+</tr>
+  </tbody>
+</table>
+<p class="note">Density is credited goldens per finding inside the lane. 76.7% of the ceiling is owned by exactly one lane; the rest is named twice, which is what a run of six lanes is for.</p>
+
+<h2>What <code>crosscheck</code> buys, inside one run</h2>
+<table class="plain swap">
+  <thead><tr><th>reading</th><th class="n">with</th><th class="n">without</th><th class="n">Δ</th></tr></thead>
+  <tbody>
+    <tr><th scope="row">ceiling (credited goldens, no budget)</th><td class="n">86</td><td class="n">83</td><td class="n cost">-3</td></tr>
+    <tr><th scope="row">credited at <code>k = 5</code></th><td class="n">56</td><td class="n">56</td><td class="n ">0</td></tr>
+    <tr><th scope="row">comments at that budget</th><td class="n">231</td><td class="n">229</td><td class="n cost">-2</td></tr>
+    <tr><th scope="row">F1 at that budget</th><td class="n">0.2879</td><td class="n">0.2894</td><td class="n strong">+0.0015</td></tr>
+  </tbody>
+</table>
+<p class="note">Both columns are the <em>same artifact</em> under the same cut and the same 158 goldens:
+49 findings are the only thing between them. A comparison across two runs would
+bundle the swap with everything two samples of a sampler disagree on, which on this board is 8 <code>architecture</code>
+findings before a lane is touched.</p>
+
+<h2>Against <code>benchmarks/martian-wide-bench.json</code> (wide)</h2>
+<table class="plain">
+  <thead><tr><th>their ceiling</th><th>shared</th><th>only this arm</th><th>only theirs</th></tr></thead>
+  <tbody><tr><td class="n">88</td><td class="n">77</td><td class="n bold">9</td><td class="n">11</td></tr></tbody>
+</table>
+<p class="note">The union is not a superset in either direction: two lane sets name different goldens, and a set that
+only added lanes would show <code>only theirs</code> at zero.</p>
+
+<footer>Drawn from <code>benchmarks/martian-reviewer-bench.json</code> by <code>scripts/lane-discovery-page.mjs</code>. core profile,
+158 goldens, 886 comments. This page draws the record; it recomputes
+nothing.</footer>
+</body>
+</html>

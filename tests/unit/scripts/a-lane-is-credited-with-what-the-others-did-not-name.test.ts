@@ -6,7 +6,7 @@
 // already named adds a comment and no recall. `matchedGoldens` cannot tell the two apart, because both rows carry the
 // same golden index.
 //
-// `scripts/lane-discovery.mjs` is the instrument, and these cases hold the four ways it could report a gain that is not
+// `scripts/lane-discovery.mjs` is the instrument, and these cases hold the five ways it could report a gain that is not
 // one:
 //
 //   1. **A pool rebuilt under another cut.** The arm's own published point has to rebuild through its own steps first.
@@ -14,6 +14,8 @@
 //   3. **A budget that was not re-imposed.** `--budget` replaces the run's budget step and nothing else.
 //   4. **A difference that is not a difference.** `onlyArm` / `onlyReference` / `shared` have to add up to the two
 //      ceilings, keyed by pull request as well as by index.
+//   5. **A counterfactual that was never made.** `--without` has to name a lane this artifact used, has to leave the
+//      arm's own headline numbers alone, and must not be answered by dropping nothing.
 
 import { execFileSync } from 'node:child_process';
 import { mkdtempSync, writeFileSync } from 'node:fs';
@@ -216,5 +218,26 @@ describe('a lane is credited with what the others did not name', () => {
     const refused = failure({ version: 'x', rankedFindings: [] });
     expect(refused.status).toBe(2);
     expect(refused.stderr).toContain('emissionRules.shipped');
+  });
+
+  it('drops a lane out of one artifact and reports both sides of the swap', () => {
+    // **The counterfactual has to come from the same run.** `alpha` names `A:0`, `A:1` and `B:0`; without it the pool is
+    // `beta`'s two restatements and the ceiling falls from three to two. The headline figures above the block stay the
+    // arm's own, because a record whose number belongs to a set of lanes it does not have is the error this file is about.
+    const out = run(ARM, ['--budget', '2', '--without', 'alpha']);
+    expect(out).toContain('ceiling 3 credited goldens');
+    expect(out).toContain('without alpha: 3 findings dropped · denominator held at 5');
+    expect(out).toContain(
+      'ceiling 3 -> 2 · k=2 F1 0.6667 -> 0.5714 · credited 3 -> 2 · comments 4 -> 2',
+    );
+  });
+
+  it('refuses a lane the artifact never used, rather than dropping nothing', () => {
+    // **A typo that quietly drops nothing** reports the arm's own numbers as the answer to "what happens without this
+    // lane", which is the most convincing possible way to be wrong about a swap that was never made.
+    const refused = failure(ARM, ['--without', 'gamma']);
+    expect(refused.status).toBe(2);
+    expect(refused.stderr).toContain('no such lane');
+    expect(refused.stderr).toContain('alpha, beta');
   });
 });

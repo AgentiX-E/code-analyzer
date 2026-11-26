@@ -444,6 +444,23 @@ jobs:
       - name: Enforce that the candidate page is what the record says
         run: git diff --exit-code -- docs/cut-candidates.html
 
+      # **The number §164's swap is judged on, and the refusal §165 records.** No cut can reach a comment nobody wrote, so
+      # the ceiling - the credited goldens the whole emission names with no budget at all - is what an added lane has to
+      # move. The instrument rebuilds each arm's own published point first, counts per lane what no other lane in the same
+      # run names, and prices the swap *inside one run* (`--without crosscheck`) instead of across two, because two runs of
+      # the same sampler already disagree by 8 `architecture` findings before a lane is touched.
+      - name: Count what each lane names that the other lanes do not
+        run: npm run bench:lane-discovery
+
+      - name: Enforce that the lane readings are what the artifacts say
+        run: git diff --exit-code -- benchmarks/lane-discovery.json benchmarks/lane-discovery-wide.json
+
+      - name: Draw the lanes as one page
+        run: npm run docs:lane-discovery
+
+      - name: Enforce that the lane page is what the readings say
+        run: git diff --exit-code -- docs/lane-discovery.html
+
       # **The one device §162.4 proposed that can be refused for nothing.** A score floor calibrated on one half of the
       # board and applied to the other is a cut, so it is priced from the committed artifact rather than bought; the
       # reading is a verdict per arm, and it is regenerated here so the section cannot outlive it.
