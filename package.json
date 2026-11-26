@@ -116,6 +116,8 @@
     "bench:score-floor": "node scripts/score-floor.mjs --artifact benchmarks/martian-bench.json --baseline benchmarks/aacr/competitor-baseline.json --corpus benchmarks/martian/positive_samples.json --profile core --k 5 --json benchmarks/score-floor-k5.json && node scripts/score-floor.mjs --artifact benchmarks/martian-bench.json --baseline benchmarks/aacr/competitor-baseline.json --corpus benchmarks/martian/positive_samples.json --profile core --k 12 --json benchmarks/score-floor-k12.json",
     "bench:symbol-adjacency": "node scripts/symbol-adjacency.mjs --arm benchmarks/martian-wide-bench.json --reference benchmarks/aacr/competitor-baseline.json --corpus benchmarks/martian/positive_samples.json --profile core --budget 5 --json benchmarks/symbol-adjacency.json",
     "bench:symbol-crosscheck:record": "node scripts/symbol-crosscheck.mjs --arm benchmarks/martian-wide-bench.json --corpus benchmarks/martian/positive_samples.json --profile core --budget 5 --mode record --out benchmarks/symbol-crosscheck.json",
+    "bench:symbol-crosscheck": "node scripts/symbol-crosscheck.mjs --arm benchmarks/martian-wide-bench.json --corpus benchmarks/martian/positive_samples.json --profile core --budget 5 --mode replay --out benchmarks/symbol-crosscheck.json",
+    "docs:symbol-crosscheck": "node scripts/symbol-crosscheck-page.mjs --record benchmarks/symbol-crosscheck.json --target 0.3735 --out docs/symbol-crosscheck.html",
     "docs:symbol-adjacency": "node scripts/symbol-adjacency-page.mjs --bar 0.3735"
   },
   "devDependencies": {

@@ -85,6 +85,14 @@ jobs:
             --max-calls "${{ inputs.max_calls }}" \
             --max-usd "${{ inputs.max_usd }}"
 
+      # **The readout, printed from the record this job just made** - the same arithmetic a reader runs, so the log and the
+      # artifact cannot disagree about what the run said.
+      - name: Re-derive the figures from the record
+        run: pnpm -s bench:symbol-crosscheck
+
+      - name: Draw the page
+        run: pnpm -s docs:symbol-crosscheck
+
       - name: Collect the record
         if: always()
         uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7
@@ -93,4 +101,5 @@ jobs:
           path: |
             benchmarks/symbol-crosscheck.json
             benchmarks/martian-harness.json
+            docs/symbol-crosscheck.html
           if-no-files-found: warn
