@@ -44,13 +44,13 @@
   already relates</strong>, and asks what the code says about the pair - one of the two quotes has to stand on the anchor's
   own line, and it may only rewrite the sentence, never add or drop a comment. The first row is the arm as it stood; the
   second is the same comments with the corrections applied. The rule that produced the sentences is
-  <code>two-sides-v1</code>.
+  <code>two-related-names-v1</code>.
 </p>
 
 <ul class="headline">
   <li><b>227 / 227</b><span>comments, before / after</span></li>
-  <li><b>57 → 55</b><span>credited goldens</span></li>
-  <li><b>0.2961 → 0.2857</b><span>F1 at budget 5</span></li>
+  <li><b>58 → 57</b><span>credited goldens</span></li>
+  <li><b>0.3013 → 0.2961</b><span>F1 at budget 5</span></li>
   <li class="fail"><b>0.3735</b><span>the bar · not cleared</span></li>
 </ul>
 
@@ -58,8 +58,8 @@
 <table>
 <thead><tr><th>arm</th><th class="n">comments</th><th class="n">credited</th><th class="n">precision</th><th class="n">recall</th><th class="n">F1</th><th>against the bar</th></tr></thead>
 <tbody>
-  <tr><th>what the arm posts</th><td class="n">227</td><td class="n">57</td><td class="n">25.1 %</td><td class="n">36.1 %</td><td class="n">0.2961</td><td class="bar"><span class="fill " style="width:68.9%"></span><span class="mark" style="left:87.0%"></span></td></tr>
-  <tr><th>the sentences corrected</th><td class="n">227</td><td class="n">55</td><td class="n">24.2 %</td><td class="n">34.8 %</td><td class="n">0.2857</td><td class="bar"><span class="fill lead" style="width:66.5%"></span><span class="mark" style="left:87.0%"></span></td></tr>
+  <tr><th>what the arm posts</th><td class="n">227</td><td class="n">58</td><td class="n">25.6 %</td><td class="n">36.7 %</td><td class="n">0.3013</td><td class="bar"><span class="fill " style="width:70.1%"></span><span class="mark" style="left:87.0%"></span></td></tr>
+  <tr><th>the sentences corrected</th><td class="n">227</td><td class="n">57</td><td class="n">25.1 %</td><td class="n">36.1 %</td><td class="n">0.2961</td><td class="bar"><span class="fill lead" style="width:68.9%"></span><span class="mark" style="left:87.0%"></span></td></tr>
 </tbody>
 </table>
 <p class="note">
@@ -71,22 +71,24 @@
 <table>
 <thead><tr><th>pairs</th><th class="n">fixed</th><th class="n">broken</th><th class="n">delta</th><th class="n">exact McNemar p</th></tr></thead>
 <tbody>
-<tr><th>the same (comment, golden) pairs, both arms</th><td class="n">744</td><td class="n">2</td><td class="n">5</td><td class="n">-3</td><td class="n">0.4531</td></tr>
+<tr><th>the same (comment, golden) pairs, both arms</th><td class="n">744</td><td class="n">2</td><td class="n">4</td><td class="n">-2</td><td class="n">0.6875</td></tr>
 </tbody>
 </table>
 
 <h2>What the pass declined to do</h2>
 <p>
   A verifier that only ever rewrote would be indistinguishable from a verifier that rewrote at random, so every refusal is
-  counted and named. <strong>28 of the 227 comments were rewritten</strong> from 225 calls.
+  counted and named. <strong>20 of the 227 comments were rewritten</strong> from 184 calls.
 </p>
 <table>
 <thead><tr><th>reason</th><th class="n">comments</th><th>what it means</th></tr></thead>
 <tbody>
-  <tr><th><code>cannot</code></th><td class="n">109</td><td>the model could not quote both sides from the change</td></tr>
-  <tr><th><code>agree</code></th><td class="n">86</td><td>both sides were quoted and they agreed, so there was nothing to correct</td></tr>
-  <tr><th><code>no-symbol</code></th><td class="n">2</td><td>the comment named nothing the change contains</td></tr>
-  <tr><th><code>same-side</code></th><td class="n">2</td><td>both quotations were the same text, and one side cannot be its own other side</td></tr>
+  <tr><th><code>agree</code></th><td class="n">93</td><td>both sides were quoted and they agreed, so there was nothing to correct</td></tr>
+  <tr><th><code>no-symbol</code></th><td class="n">43</td><td>the comment named nothing the change contains</td></tr>
+  <tr><th><code>cannot</code></th><td class="n">26</td><td>the model could not quote both sides from the change</td></tr>
+  <tr><th><code>same-side</code></th><td class="n">26</td><td>both quotations were the same text, and one side cannot be its own other side</td></tr>
+  <tr><th><code>off-anchor</code></th><td class="n">18</td><td>neither quotation stood on the line the anchor is on</td></tr>
+  <tr><th><code>unreadable</code></th><td class="n">1</td><td>the answer was not a verdict this pass could read</td></tr>
 </tbody>
 </table>
 
@@ -101,49 +103,49 @@
 <tbody>
   <tr><th><code>Potential</code></th><td class="n">213</td><td><span class="muted">kept</span></td><td><span class="muted">not credited</span></td></tr>
   <tr><th><code>Calling</code></th><td class="n">265</td><td><span class="muted">kept</span></td><td><span class="muted">not credited</span></td></tr>
-  <tr><th><code>include_website_name</code></th><td class="n">305</td><td><span class="muted">kept</span></td><td><span class="muted">not credited</span></td></tr>
-  <tr><th><code>capping</code></th><td class="n">345</td><td><span class="muted">kept</span></td><td><span class="muted">not credited</span></td></tr>
-  <tr><th><code>UsernameForm</code></th><td class="n">510</td><td><span class="muted">kept</span></td><td><span class="muted">not credited</span></td></tr>
-  <tr><th><code>get_item_key</code></th><td class="n">741</td><td><span class="muted">kept</span></td><td><span class="muted">not credited</span></td></tr>
-  <tr><th><code>Accessing</code></th><td class="n">741</td><td><span class="muted">kept</span></td><td><span class="muted">not credited</span></td></tr>
-  <tr><th><code>upsampling</code></th><td class="n">761</td><td><span class="muted">kept</span></td><td><span class="muted">not credited</span></td></tr>
-  <tr><th><code>refreshOAuthTokens</code></th><td class="n">117</td><td><span class="muted">kept</span></td><td><span class="muted">not credited</span></td></tr>
+  <tr><th><code>website_name → path</code></th><td class="n">305</td><td><span class="muted">kept</span></td><td><span class="muted">not credited</span></td></tr>
+  <tr><th><code>offset → limit</code></th><td class="n">345</td><td><span class="muted">kept</span></td><td><span class="muted">not credited</span></td></tr>
+  <tr><th><code>data → webauthnAuth</code></th><td class="n">510</td><td><span class="muted">kept</span></td><td><span class="muted">not credited</span></td></tr>
+  <tr><th><code>optimized_pagination → query</code></th><td class="n">741</td><td><span class="muted">kept</span></td><td><span class="muted">not credited</span></td></tr>
+  <tr><th><code>optimized_pagination → query</code></th><td class="n">741</td><td><span class="muted">kept</span></td><td><span class="muted">not credited</span></td></tr>
+  <tr><th><code>is_eligible → allowlist</code></th><td class="n">761</td><td><span class="muted">kept</span></td><td><span class="muted">not credited</span></td></tr>
+  <tr><th><code>refreshOAuthTokens → axios</code></th><td class="n">117</td><td><span class="muted">kept</span></td><td><span class="muted">not credited</span></td></tr>
   <tr><th><code>jsforce</code></th><td class="n">134</td><td><span class="muted">kept</span></td><td><span class="muted">not credited</span></td></tr>
   <tr><th><code>uniqueGuests</code></th><td class="n">152</td><td><span class="muted">kept</span></td><td><span class="muted">not credited</span></td></tr>
-  <tr class="moved"><th><code>Using</code></th><td class="n">148</td><td>rewritten</td><td><span class="muted">not credited</span></td></tr>
-  <tr><th><code>Null</code></th><td class="n">770</td><td><span class="muted">kept</span></td><td><span class="muted">not credited</span></td></tr>
-  <tr><th><code>deadline</code></th><td class="n">922</td><td><span class="muted">kept</span></td><td><span class="muted">not credited</span></td></tr>
-  <tr><th><code>GrafanaRuleListItem</code></th><td class="n">457</td><td><span class="muted">kept</span></td><td><span class="muted">not credited</span></td></tr>
-  <tr><th><code>RuleActionsButtons</code></th><td class="n">456</td><td><span class="muted">kept</span></td><td><span class="muted">not credited</span></td></tr>
-  <tr><th><code>Race</code></th><td class="n">424</td><td><span class="muted">kept</span></td><td><span class="muted">not credited</span></td></tr>
-  <tr><th><code>Time</code></th><td class="n">424</td><td><span class="muted">kept</span></td><td><span class="muted">not credited</span></td></tr>
-  <tr><th><code>tagDeviceUI</code></th><td class="n">424</td><td><span class="muted">kept</span></td><td><span class="muted">not credited</span></td></tr>
-  <tr><th><code>Inconsistency</code></th><td class="n">478</td><td><span class="muted">kept</span></td><td><span class="muted">not credited</span></td></tr>
+  <tr><th><code>reminders → retryCount</code></th><td class="n">148</td><td><span class="muted">kept</span></td><td><span class="muted">not credited</span></td></tr>
+  <tr><th><code>integration → pipeline</code></th><td class="n">770</td><td><span class="muted">kept</span></td><td><span class="muted">not credited</span></td></tr>
+  <tr><th><code>process_to_shards_map → process_index</code></th><td class="n">922</td><td><span class="muted">kept</span></td><td><span class="muted">not credited</span></td></tr>
+  <tr><th><code>GrafanaRuleListItem → rule</code></th><td class="n">457</td><td><span class="muted">kept</span></td><td><span class="muted">not credited</span></td></tr>
+  <tr><th><code>useFolder → useIsGrafanaPromRuleEditable</code></th><td class="n">456</td><td><span class="muted">kept</span></td><td><span class="muted">not credited</span></td></tr>
+  <tr><th><code>updateDevice → device</code></th><td class="n">424</td><td><span class="muted">kept</span></td><td><span class="muted">not credited</span></td></tr>
+  <tr><th><code>updateDevice → device</code></th><td class="n">424</td><td><span class="muted">kept</span></td><td><span class="muted">not credited</span></td></tr>
+  <tr><th><code>updateDevice → device</code></th><td class="n">424</td><td><span class="muted">kept</span></td><td><span class="muted">not credited</span></td></tr>
+  <tr><th><code>DeleteCollection → legacy</code></th><td class="n">478</td><td><span class="muted">kept</span></td><td><span class="muted">not credited</span></td></tr>
   <tr><th><code>critical</code></th><td class="n">494</td><td><span class="muted">kept</span></td><td><span class="muted">not credited</span></td></tr>
-  <tr><th><code>Calling</code></th><td class="n">501</td><td><span class="muted">kept</span></td><td><span class="muted">not credited</span></td></tr>
-  <tr><th><code>getClientsWithPermission</code></th><td class="n">576</td><td><span class="muted">kept</span></td><td><span class="muted">not credited</span></td></tr>
+  <tr><th><code>search → TotalDocs</code></th><td class="n">501</td><td><span class="muted">kept</span></td><td><span class="muted">not credited</span></td></tr>
+  <tr><th><code>client → ClientModel</code></th><td class="n">576</td><td><span class="muted">kept</span></td><td><span class="muted">not credited</span></td></tr>
   <tr><th><code>getGroupIdsWithViewPermission</code></th><td class="n">611</td><td><span class="muted">kept</span></td><td><span class="muted">not credited</span></td></tr>
-  <tr class="moved"><th><code>totpStep1</code></th><td class="n">654</td><td>rewritten</td><td><span class="muted">not credited</span></td></tr>
-  <tr class="moved"><th><code>mentions</code></th><td class="n">695</td><td>rewritten</td><td><span class="muted">not credited</span></td></tr>
+  <tr><th><code>totpStep1 → Installa</code></th><td class="n">654</td><td><span class="muted">kept</span></td><td><span class="muted">not credited</span></td></tr>
+  <tr><th><code>getTokenContextFromTokenId → token</code></th><td class="n">695</td><td><span class="muted">kept</span></td><td><span class="muted">not credited</span></td></tr>
   <tr><th><code>RecoveryAuthnCodesCredentialModel</code></th><td class="n">724</td><td><span class="muted">kept</span></td><td><span class="muted">not credited</span></td></tr>
 </tbody>
 </table>
 <p class="note">
-  <strong>3 of 27 rewritten, 0 credited.</strong> The acceptance §167.3 pre-registered is ≥ 18 of the 27 rewritten with the comment count unchanged
+  <strong>0 of 27 rewritten, 0 credited.</strong> The acceptance §167.3 pre-registered is ≥ 18 of the 27 rewritten with the comment count unchanged
   and F1 ≥ the bar; a conversion is not a credit, because the protocol matches one finding to one golden.
 </p>
 
 <h2>What was bought</h2>
 <p class="note">
-  222 judge calls, 225 verifier calls,
-  <strong>$0.024080</strong> priced by the verifier's own ledger (the judge's bill is in the
+  204 judge calls, 184 verifier calls,
+  <strong>$0.014737</strong> priced by the verifier's own ledger (the judge's bill is in the
   run's log). Re-derive every figure from this record with <code>--mode replay</code>: no key, no network, no spend.
 </p>
 
 <footer>
   Drawn from <code>benchmarks/martian-wide-bench.json</code> on <code>benchmarks/martian/positive_samples.json</code>, measured
   2026-11-25, profile <code>core</code>, mode <code>replay</code>,
-  contract <code>two-sides-v1</code>.
+  contract <code>two-related-names-v1</code>.
   Re-derive with <code>npm run bench:symbol-crosscheck</code>; CI fails on a byte of difference.
 </footer>
 </body>
