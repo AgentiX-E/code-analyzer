@@ -4,6 +4,7 @@
     {
       "artifact": "benchmarks/martian-bench.json",
       "corpus": "benchmarks/martian/positive_samples.json",
+      "laneSet": "shipped",
       "cut": "drop:test+budget:12",
       "profile": "core",
       "budgets": [
@@ -182,6 +183,7 @@
       "costAtBest": 0.019374290898871327,
       "splitHalf": {
         "chosenOn": "chosen",
+        "denominatorSource": "corpus",
         "chosenGoldens": 74,
         "heldOutGoldens": 84,
         "budget": 8,

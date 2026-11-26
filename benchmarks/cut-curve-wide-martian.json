@@ -2,7 +2,7 @@
   "version": "cut-curve-v1",
   "results": [
     {
-      "artifact": "/tmp/run-45629019118/aacr-bench.json",
+      "artifact": "benchmarks/martian-wide-bench.json",
       "corpus": "benchmarks/martian/positive_samples.json",
       "laneSet": "wide",
       "cut": "drop:test+drop-path:test+budget:12",
@@ -183,6 +183,7 @@
       "costAtBest": 0.03673913043478261,
       "splitHalf": {
         "chosenOn": "chosen",
+        "denominatorSource": "corpus",
         "chosenGoldens": 84,
         "heldOutGoldens": 89,
         "budget": 6,

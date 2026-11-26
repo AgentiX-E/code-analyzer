@@ -3,7 +3,8 @@
   "results": [
     {
       "artifact": "benchmarks/aacr-bench.json",
-      "corpus": "/tmp/aacr/dataset/v1/positive_samples.json",
+      "corpus": null,
+      "laneSet": null,
       "cut": "no rule",
       "profile": "all",
       "budgets": [
@@ -174,6 +175,7 @@
       "costAtBest": null,
       "splitHalf": {
         "chosenOn": "chosen",
+        "denominatorSource": "artifact",
         "chosenGoldens": 220,
         "heldOutGoldens": 226,
         "budget": 12,

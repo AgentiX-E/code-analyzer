@@ -182,18 +182,60 @@ for (const artifactPath of options.artifacts) {
 
   // **Guard 2.** Choose on one half, report on the other. The split is by position in the sorted pull-request list.
   if (options.splitHalf) {
-    if (options.corpus === null) {
-      // **A half-corpus needs its own denominator**, and the denominator lives in the corpus rather than in the artifact.
-      // Guessing it from the findings would divide recall by the goldens something happened to claim.
-      process.stderr.write(
-        '--split-half needs --corpus <positive_samples.json>, because a half has its own denominator\n',
+    /**
+     * **A half needs its own denominator, and where that denominator may come from is the question this branch
+     * answers.**
+     *
+     * Guessing it from the findings would divide recall by the goldens something happened to claim, so the first version
+     * of this instrument demanded `--corpus` and refused to run without it. **That refusal made a committed curve
+     * unreproducible**: `benchmarks/cut-curve-aacr.json` records a split-half read against a corpus that lives at
+     * `/tmp/aacr/dataset/v1/positive_samples.json` and is in no repository, so the number could not be re-derived on any
+     * machine but the one that wrote it.
+     *
+     * **The artifact publishes the same denominator one level down.** `coverage.byPullRequest` carries the golden count
+     * of every pull request it emitted on, and its sum is the `goldens` figure the curve above is divided by. A half is
+     * therefore readable from the record, and it is read **only when the counts add up** - a coverage block that does
+     * not sum to the artifact's own denominator is a record of a different run, and `exit 1` says so rather than
+     * silently dividing by something else.
+     *
+     * **A profile still needs the corpus**, because a profile is a *rule* over golden categories (158 of 173) and the
+     * artifact carries no categories. Only the `all` profile can be split from the record, and that is exactly the one
+     * the AACR curve uses.
+     */
+    let maps;
+    let denominatorSource;
+    if (options.corpus !== null) {
+      const corpus = JSON.parse(readFileSync(options.corpus, 'utf8'));
+      // **The half is drawn from the run's own pull requests and divided by the same profile the curve used**, so a
+      // held-out figure is on the same denominator as the figure it is held out from.
+      maps = scoredMaps ?? profileMaps(corpus, 'all').maps;
+      denominatorSource = 'corpus';
+    } else {
+      const coverage = Array.isArray(artifact.coverage?.byPullRequest)
+        ? artifact.coverage.byPullRequest
+        : null;
+      if (coverage === null) {
+        process.stderr.write(
+          '--split-half needs --corpus <positive_samples.json> or an artifact that publishes coverage.byPullRequest, ' +
+            'because a half has its own denominator\n',
+        );
+        process.exit(2);
+      }
+      maps = new Map(
+        coverage.map((row) => [
+          String(row.pr),
+          new Map(Array.from({ length: Number(row.goldens ?? 0) }, (_, index) => [index, index])),
+        ]),
       );
-      process.exit(2);
+      const summed = [...maps.values()].reduce((total, goldens) => total + goldens.size, 0);
+      if (summed !== denominator) {
+        process.stderr.write(
+          `${artifactPath}: coverage.byPullRequest sums to ${String(summed)} goldens and the artifact scores ${String(denominator)}, so the split would divide by a different corpus than the curve\n`,
+        );
+        process.exit(1);
+      }
+      denominatorSource = 'artifact';
     }
-    const corpus = JSON.parse(readFileSync(options.corpus, 'utf8'));
-    // **The half is drawn from the run's own pull requests and divided by the same profile the curve used**, so a
-    // held-out figure is on the same denominator as the figure it is held out from.
-    const maps = scoredMaps ?? profileMaps(corpus, 'all').maps;
     const pullRequests = [...new Set(scored.map(pullRequestOf))].sort();
     const even = new Set(pullRequests.filter((_, index) => index % 2 === 0));
     const odd = new Set(pullRequests.filter((_, index) => index % 2 === 1));
@@ -223,6 +265,7 @@ for (const artifactPath of options.artifacts) {
     }
     record.splitHalf = {
       chosenOn: chosenHalf.name,
+      denominatorSource,
       chosenGoldens: chosenHalf.goldens,
       heldOutGoldens: heldOut.goldens,
       budget: pick.budget,
