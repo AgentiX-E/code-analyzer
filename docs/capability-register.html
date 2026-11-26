@@ -57,20 +57,20 @@
   point — a row without one is not accepted, whatever its unit coverage, because the last three defects here were joins
   between components that each passed their own tests.</p>
   <ul class="tiles">
-    <li><b>51</b><span>capabilities</span></li>
-    <li><b>43</b><span>done</span></li>
+    <li><b>52</b><span>capabilities</span></li>
+    <li><b>44</b><span>done</span></li>
     <li><b>6</b><span>partial</span></li>
     <li><b>2</b><span>not built</span></li>
-    <li><b>42</b><span>with an end-to-end case</span></li>
-    <li><b>37</b><span>ours only</span></li>
+    <li><b>43</b><span>with an end-to-end case</span></li>
+    <li><b>38</b><span>ours only</span></li>
     <li><b>2</b><span>competitor only</span></li>
   </ul>
 </header>
 <nav>
-  <button data-filter="all" aria-pressed="true">All <span style="opacity:.6">51</span></button>
+  <button data-filter="all" aria-pressed="true">All <span style="opacity:.6">52</span></button>
   <button data-filter="NONE" aria-pressed="false">Not built <span style="opacity:.6">2</span></button>
   <button data-filter="PART" aria-pressed="false">Partial <span style="opacity:.6">6</span></button>
-  <button data-filter="DONE" aria-pressed="false">Done <span style="opacity:.6">43</span></button>
+  <button data-filter="DONE" aria-pressed="false">Done <span style="opacity:.6">44</span></button>
   <button data-filter="C" aria-pressed="false">Competitor only <span style="opacity:.6">2</span></button>
   <button data-filter="no-e2e" aria-pressed="false">No end-to-end case <span style="opacity:.6">9</span></button>
   <input id="q" type="search" placeholder="filter by capability, file or surface" aria-label="filter">
@@ -423,7 +423,7 @@
     </table>
   </section>
   <section>
-    <h2>researcher, I want every number to be reproducible and every difference to be real<span class="count">17</span></h2>
+    <h2>researcher, I want every number to be reproducible and every difference to be real<span class="count">18</span></h2>
     <table>
       <thead><tr><th>#</th><th>Capability</th><th>Ships at</th><th>Unit</th><th>End-to-end</th><th>State</th><th>What the state means</th></tr></thead>
       <tbody>
@@ -579,6 +579,15 @@
         <td class="proof"><code>a-review-that-checks-both-sides</code></td>
         <td><span class="state PART">PART</span></td>
         <td class="why">PART (§164) — the lane exists and is dispatched by lane_set: reviewer, and its acceptance is measured rather than argued: S49 needs the pool ceiling to rise by ten credited goldens at k = 5 on both boards, and the run that prices it is registered in §164 before it is bought. The row is PART until that reading exists</td>
+      </tr>
+      <tr data-state="DONE" data-who="O" data-e2e="true">
+        <td class="id">52</td>
+        <td class="cap">A lane is credited with what the other lanes did not name, and the pool's ceiling is re-derived from a committed artifact<span class="surface">harness</span></td>
+        <td><span class="tag O">ours only</span></td>
+        <td class="proof"><code>a-lane-is-credited-with-what-the-others-did-not-name</code></td>
+        <td class="proof"><code>the-ceiling-is-counted-against-the-other-lanes</code></td>
+        <td><span class="state DONE">DONE</span></td>
+        <td class="why">DONE (§164.1) — the ceiling is the size of the maximum matching over the pool, under the corpus's own protocol (a maximum matching per pull request, not a count of matchedGoldens, which double-counts a re-statement); the wide arm rebuilds k 402 / 80 before a ceiling prints, re-derives 62 credited and 0.3221 at k = 5, and the two committed six- and five-lane arms differ in both directions (20 goldens only the wide arm names, 18 only the shipped one)</td>
       </tr>
       </tbody>
     </table>

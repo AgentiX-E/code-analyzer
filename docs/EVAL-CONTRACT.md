@@ -18079,3 +18079,32 @@ one board refuses the device, and a success on one board is not an acceptance.
 - **Not that one arm is a comparison.** The acceptance is a **fixed target** - `0.3735` and ten credited goldens - read
   off one artifact, not a same-day delta against a second arm; the pair is declared in the planner (`pair-reviewer`) and
   is not dispatched this round, because a delta needs two arms and a target needs one.
+
+### 164.8 The calibration, and the defect it found that is not the lane's
+
+**The five-pull-request calibration is bought for one question** - does the lane emit at all, and at what density - and
+it answered it: on run `45744938916` `crosscheck` filed **9 findings** (density `0.111`, one credited), the smallest lane
+in the run after `behaviour`'s four, so the prompt is alive. **That is all fourteen core goldens can say**, and the
+reading below is the fifty-pull-request arm.
+
+**It also turned red, and the failure is not the lane.** Three readings of one sliced run divided by the board's
+denominator:
+
+| reading                           | the figure it reported                       | the denominator it used |
+| --------------------------------- | -------------------------------------------- | ----------------------: |
+| the artifact's own                | `F1 0.2192`, 8 credited                      |          18 (its slice) |
+| `benchmarks/martian-profile.json` | core `F1 0.0657`, `0.0702` on all            |               158 / 173 |
+| `competitor-cut.mjs --guard-from` | refused: `R 0.7222` against `0.0751` rebuilt |               173 vs 18 |
+
+**The third one is the interesting one, because it is a guard refusing a legitimate slice** - which is the one kind of
+red that teaches a reader to ignore an instrument. Fixing its denominator to the slice's (`R 0.7222` against `0.7143`,
+`F1 0.2222` against `0.1770`) moved the mismatch to the **profile**: the artifact publishes the competitor's block over
+all eighteen goldens and the pricing divides by core fourteen. **Two denominators in one comparison, which is the family
+§140.5, §158.2 and §162.4 are all members of.**
+
+**Registered as S51 rather than fixed inside this dispatch**, and the reason is a decision rather than a budget: a slice
+is either **a smaller corpus** (then every instrument divides by its own 14) or **a sample of one board** (then every
+instrument divides by 158 and reports wider intervals). **§147.3's rule - a hole is not a zero - answers the full-board
+case and is silent on this one**, and a figure re-priced by a footnote inside a dispatch that is buying a different
+measurement is exactly what §163.5 refused. The calibration run is therefore left red with this section as its record;
+the fifty-pull-request arm it calibrates runs the full-board path, where all three instruments agree by construction.
