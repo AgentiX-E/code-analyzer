@@ -169,6 +169,21 @@ describe('the page', () => {
     expect((tally['DONE'] ?? 0) + (tally['PART'] ?? 0) + (tally['NONE'] ?? 0)).toBe(ROWS.length);
   });
 
+  it('names in prose the count its own table holds', () => {
+    // **The sentence beside the table is the last thing in this block typed by hand**, and it drifted by one the round a
+    // row was added: the table said `O 38` and the prose said "37 capabilities no competitor in this register ships".
+    // A reader quotes the sentence, not the cell.
+    const stated = /(\d+) capabilities no competitor in this register ships/u.exec(MARKDOWN);
+    expect(stated).not.toBeNull();
+    const owned = ROWS.filter((row) =>
+      String(row.who ?? '')
+        .replace(/[*`]/gu, '')
+        .trim()
+        .startsWith('O'),
+    ).length;
+    expect(Number(stated?.[1])).toBe(owned);
+  });
+
   it('counts what it rendered rather than restating a number from the prose', () => {
     const tally = count(ROWS);
     expect(tally.total).toBe(ROWS.length);
