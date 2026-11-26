@@ -412,6 +412,38 @@ jobs:
       - name: Enforce that the same-cut page is what the readings say
         run: git diff --exit-code -- docs/same-cut.html
 
+      # **A curve a machine cannot re-derive is a paragraph, not a reading.** Five cut curves are committed; four were
+      # produced by a command nobody had written down and one of them was drawn from an artifact at `/tmp`, so the figure
+      # §162 quotes could not be reproduced anywhere but on the machine that wrote it. The artifact is in the repository
+      # now and this step re-derives all five from it.
+      - name: Re-derive the five cut curves
+        run: npm run bench:cut-curve
+
+      - name: Enforce that the curves are what the artifacts say
+        run: >
+          git diff --exit-code --
+          benchmarks/cut-curve-aacr.json
+          benchmarks/cut-curve-martian.json
+          benchmarks/cut-curve-martian-core.json
+          benchmarks/cut-curve-wide-martian.json
+          benchmarks/cut-curve-wide-martian-core.json
+
+      # **S48's answer, and it is a refusal.** Five cut steps - a severity floor at two tiers, a distinct-site rule, a
+      # corroboration floor and one pair - priced on five boards, with the incumbent of every board rebuilt before a cell
+      # prints. Nothing in the family may ship: the trivial tier is free on Martian and costs eight to thirteen goldens on
+      # AACR, and the distinct-site rule loses twelve goldens to gain one. The reading costs nothing, so the gate is free.
+      - name: Price the cut candidates on every board
+        run: npm run bench:cut-candidates
+
+      - name: Enforce that the candidate record is what the boards say
+        run: git diff --exit-code -- benchmarks/cut-candidates.json
+
+      - name: Draw the candidates as one page
+        run: npm run docs:cut-candidates
+
+      - name: Enforce that the candidate page is what the record says
+        run: git diff --exit-code -- docs/cut-candidates.html
+
       # **The one device §162.4 proposed that can be refused for nothing.** A score floor calibrated on one half of the
       # board and applied to the other is a cut, so it is priced from the committed artifact rather than bought; the
       # reading is a verdict per arm, and it is regenerated here so the section cannot outlive it.
