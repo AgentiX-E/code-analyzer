@@ -58,6 +58,7 @@ function parseArgs(argv) {
     profile: 'core',
     budget: 5,
     mode: 'replay',
+    contract: 'two-related-names-v1',
     out: 'benchmarks/symbol-crosscheck.json',
     diffs: '.cache/martian-diffs',
     plan: 'benchmarks/symbol-adjacency.json',
@@ -103,13 +104,22 @@ if (options.arm === null || options.corpus === null) {
   process.stderr.write(
     'usage: symbol-crosscheck.mjs --arm <artifact.json> --corpus <positive_samples.json> ' +
       '[--profile core|all] [--budget k] [--mode replay|record] [--out file] [--diffs dir] ' +
-      '[--max-prs n] [--max-calls n] [--max-usd n] [--target f1]\n',
+      '[--max-prs n] [--max-calls n] [--max-usd n] [--target f1] [--contract two-related-names-v1|two-sides-v1]\n',
   );
   process.exit(2);
 }
 if (options.mode !== 'record' && options.mode !== 'replay') {
   process.stderr.write(
     `refusing: --mode is ${options.mode}, and the two modes are record and replay\n`,
+  );
+  process.exit(2);
+}
+// **A contract this file does not know is refused rather than run under the nearest one.** `two-sides-v1` produced the
+// committed record and stays available as the ablation; anything else is a typo that would otherwise buy 227 calls under
+// a rule the artifact would then name correctly and describe wrongly.
+if (options.contract !== 'two-related-names-v1' && options.contract !== 'two-sides-v1') {
+  process.stderr.write(
+    `refusing: --contract is ${options.contract}, and the two contracts are two-related-names-v1 and two-sides-v1\n`,
   );
   process.exit(2);
 }
@@ -249,18 +259,27 @@ async function recordRun() {
   // a readout that needed the product compiled would be a readout CI could not print on a documentation commit.
   if (options.fetch === null) options.fetch = Boolean(process.env['GITHUB_TOKEN']);
   for (const row of inScope) evidence.set(Number(row.at), await evidenceFor(row));
-  const { SymbolCrosscheck, symbolsInComment } =
+  const { SymbolCrosscheck, relatedPairs, symbolsInComment } =
     await import('../packages/intelligence/dist/review/symbol-crosscheck.js');
   const { DeepSeekProvider } = await import('../packages/intelligence/dist/review/llm/provider.js');
   const { CostLedger } = await import('../packages/intelligence/dist/review/llm/cost.js');
   const ledger = new CostLedger();
   const provider = new DeepSeekProvider({ ledger, ceilingUsd: options.maxUsd });
 
+  // **The plan's symbol is handed to the device as the anchor**, because that is the name the prize §166 priced was
+  // computed on: an entry exists because the competitor's comment sits on a name ours already writes, and a pass that
+  // ignored it would be answering a different question than the one the acceptance is stated over.
+  const anchorOf = new Map();
+  for (const entry of planRecord?.plan ?? []) {
+    const symbol = entry?.symbols?.[0];
+    if (typeof symbol === 'string' && symbol !== '') anchorOf.set(Number(entry.findingAt), symbol);
+  }
   const findings = inScope.map((row) => ({
     pr: String(row?.pr ?? ''),
     path: String(row?.path ?? ''),
     startLine: Number(row?.startLine ?? 0),
     description: String(row?.text ?? ''),
+    ...(anchorOf.has(Number(row.at)) ? { anchor: anchorOf.get(Number(row.at)) } : {}),
   }));
   const linesOf = new Map(
     findings.map((finding, at) => [finding, evidence.get(Number(inScope[at].at))?.lines ?? []]),
@@ -269,7 +288,18 @@ async function recordRun() {
   // the budget has to cover every one of them rather than ask two questions about half: at `k = 5` the board posts 227
   // comments, and 227 calls is what `maxCalls` buys. A second symbol on the same comment is a second chance to rewrite it,
   // which is exactly the sort of second chance a measurement must not hand the device it is measuring.
+  // **The pair is computed before the run with the same pure function the device uses**, so the record says which two
+  // names were asked about rather than which two names a second reading of the sentence would have picked.
+  const pairOf = (row) => {
+    const lines = evidence.get(Number(row.at))?.lines ?? [];
+    const [pair] = relatedPairs(String(row?.text ?? ''), lines, {
+      max: 1,
+      anchor: anchorOf.get(Number(row.at)),
+    });
+    return pair ?? null;
+  };
   const pass = new SymbolCrosscheck(provider, {
+    contract: options.contract,
     maxCalls: options.maxCalls,
     maxPerPullRequest: options.maxPerPullRequest,
     maxSymbolsPerComment: 1,
@@ -293,6 +323,7 @@ async function recordRun() {
       path: String(row?.path ?? ''),
       startLine: Number(row?.startLine ?? 0),
       symbol: symbolsInComment(before, evidence.get(Number(row.at))?.lines ?? [])[0] ?? null,
+      pair: pairOf(row),
       rewritten: after !== before,
       before,
       after,
@@ -582,6 +613,10 @@ async function main() {
     },
     paired: change,
     prize,
+    // **Which rule produced the sentence, carried beside the reading rather than only inside it.** §167's record says
+    // `two-sides-v1` and this one says `two-related-names-v1`, so two records of the same board can be told apart without
+    // a git blame.
+    contract: record.report?.contract ?? null,
     bar: {
       target: options.target,
       cleared: armB.f1 >= options.target,
@@ -595,7 +630,7 @@ async function main() {
   const line = (label, value) => `${label.padEnd(28)}${value}`;
   process.stdout.write(
     [
-      `SYMBOL-CROSSCHECK ${String(options.mode)} · ${String(record.verdicts.length)} comments · ${String(prize.rewritten)} of ${String(prize.planned)} rewritten`,
+      `SYMBOL-CROSSCHECK ${String(options.mode)} · ${String(record.report?.contract ?? 'unknown')} · ${String(record.verdicts.length)} comments · ${String(prize.rewritten)} of ${String(prize.planned)} rewritten`,
       '',
       line('comments A / B', `${String(armA.emitted)} / ${String(armB.emitted)}`),
       line('credited at k=5', `${String(armA.truePositives)} → ${String(armB.truePositives)}`),

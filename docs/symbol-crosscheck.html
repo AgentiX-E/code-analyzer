@@ -40,9 +40,11 @@
 <body>
 <h1>The sentences corrected, and whether the judge agrees</h1>
 <p class="lede">
-  Every comment below was already posted before this device ran. It takes one of them, takes the symbol that comment already
-  names, and asks what the other side of that symbol is - and it may only rewrite the sentence, never add or drop a comment.
-  The first row is the arm as it stood; the second is the same comments with the corrections applied.
+  Every comment below was already posted before this device ran. It takes one of them, takes <strong>two names the comment
+  already relates</strong>, and asks what the code says about the pair - one of the two quotes has to stand on the anchor's
+  own line, and it may only rewrite the sentence, never add or drop a comment. The first row is the arm as it stood; the
+  second is the same comments with the corrections applied. The rule that produced the sentences is
+  <code>two-sides-v1</code>.
 </p>
 
 <ul class="headline">
@@ -95,7 +97,7 @@
   comment the golden.
 </p>
 <table>
-<thead><tr><th>symbol</th><th class="n">comment</th><th>sentence</th><th>credit</th></tr></thead>
+<thead><tr><th>pair asked about</th><th class="n">comment</th><th>sentence</th><th>credit</th></tr></thead>
 <tbody>
   <tr><th><code>Potential</code></th><td class="n">213</td><td><span class="muted">kept</span></td><td><span class="muted">not credited</span></td></tr>
   <tr><th><code>Calling</code></th><td class="n">265</td><td><span class="muted">kept</span></td><td><span class="muted">not credited</span></td></tr>
@@ -140,7 +142,8 @@
 
 <footer>
   Drawn from <code>benchmarks/martian-wide-bench.json</code> on <code>benchmarks/martian/positive_samples.json</code>, measured
-  2026-11-25, profile <code>core</code>, mode <code>replay</code>.
+  2026-11-25, profile <code>core</code>, mode <code>replay</code>,
+  contract <code>two-sides-v1</code>.
   Re-derive with <code>npm run bench:symbol-crosscheck</code>; CI fails on a byte of difference.
 </footer>
 </body>

@@ -120,6 +120,9 @@ async function main() {
     CORRECTION === null
       ? null
       : new CORRECTION.SymbolCrosscheck(provider, {
+          // **The pair question is the one this ships with**, because §167's single-name question was measured to move
+          // nothing: 3 of 27 rewritten and 0 credited. `two-sides-v1` stays reachable as the ablation.
+          contract: String(process.env['SYMBOL_CROSSCHECK_CONTRACT'] ?? 'two-related-names-v1'),
           maxCalls: Number(process.env['SYMBOL_CROSSCHECK_MAX_CALLS'] ?? '250'),
           maxPerPullRequest: Number(process.env['SYMBOL_CROSSCHECK_PER_PR'] ?? '5'),
         });

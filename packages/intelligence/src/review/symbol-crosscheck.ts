@@ -32,6 +32,20 @@ import type { CompletionOptions, CompletionResult, LLMProvider } from './llm/pro
 /** The contract's name, carried in the artifact, because a figure has to say which rule produced it. */
 export const CROSSCHECK_CONTRACT = 'two-sides-v1';
 
+/**
+ * **The second contract, and the reason it exists.**
+ *
+ * §167 asked about one name and moved nothing: 3 of the 27 prize entries rewritten, 0 credited. The rewrites were real -
+ * two quoted lines that genuinely disagree - so the failure was in the choosing. `two-sides-v1` takes the **first**
+ * backticked name in a comment, which is usually the sentence's subject, while a golden's concern is the
+ * **correspondence between two names**: 24 of the 27 entries were never asked about.
+ *
+ * `two-related-names-v1` asks about a **pair the comment already relates** and requires **one of the two quotes to be the
+ * anchor's own line**, so an answer cannot drift elsewhere in the file and still count. Everything else is unchanged: one
+ * finding in, one out, `cannot` free, both quotes verified, one question per comment.
+ */
+export const RELATED_NAMES_CONTRACT = 'two-related-names-v1';
+
 /** The three answers the model is allowed to give to *do the two sides agree*. */
 export const AGREEMENTS = Object.freeze(['yes', 'no', 'cannot'] as const);
 export type Agreement = (typeof AGREEMENTS)[number];
@@ -55,6 +69,14 @@ export interface TwoSidedFinding {
   description?: string;
   /** The product surface's sentence. */
   content?: string;
+  /**
+   * **The name the caller wants asked about, when it has one.**
+   *
+   * The plan §166 priced addresses each entry by the symbol the competitor's comment sits on, and a device that ignored it
+   * would be answering a question the prize was not computed on. Ignored when the comment does not name it, because an
+   * anchor the sentence never mentions is not an anchor.
+   */
+  anchor?: string;
   /** Set on a rewritten finding, so a reader can tell a checked sentence from an unchecked one. */
   crosschecked?: string;
 }
@@ -74,6 +96,23 @@ export interface Verdict {
   rewrite: string | null;
 }
 
+/**
+ * **The same answer with the pair attached**, which is what the second contract asks about.
+ *
+ * `anchor` is the name one of the quotes must stand on; `other` is the name the comment relates it to. The two are carried
+ * rather than re-derived, so that the check after the call reads the question that was actually asked.
+ */
+export interface RelationVerdict extends Verdict {
+  anchor: string;
+  other: string;
+}
+
+/** The two names a question is asked about. */
+export interface Pair {
+  anchor: string;
+  other: string;
+}
+
 /** Why a verdict did not change the sentence, spelled out so a run can be disagreed with rather than merely read. */
 export type KeepReason =
   | 'no-evidence'
@@ -85,6 +124,7 @@ export type KeepReason =
   | 'cannot'
   | 'unquoted'
   | 'same-side'
+  | 'off-anchor'
   | 'agree'
   | 'no-rewrite'
   | 'identical'
@@ -119,6 +159,14 @@ export interface CrosscheckReport {
 export type EvidenceOf = (finding: TwoSidedFinding) => string[];
 
 export interface CrosscheckOptions {
+  /**
+   * **Which contract to run, and the default is the one the record was produced under.**
+   *
+   * A caller that says nothing reproduces the published reading rather than a newer one, which is what makes an old
+   * artifact re-derivable and a new one a deliberate purchase. The workflow and the harness name the newer contract
+   * explicitly; `--contract two-sides-v1` is the ablation.
+   */
+  contract?: CrosscheckContract;
   /** The whole pass's call budget. Default `250`, which is ~6 % of the fifty-pull-request run it rides on. */
   maxCalls?: number;
   /** Calls per pull request, so one busy diff cannot carry the bill. Default `5`. */
@@ -134,6 +182,7 @@ export interface CrosscheckOptions {
 }
 
 const DEFAULTS = {
+  contract: CROSSCHECK_CONTRACT,
   maxCalls: 250,
   maxPerPullRequest: 5,
   maxSymbolsPerComment: 2,
@@ -141,6 +190,9 @@ const DEFAULTS = {
   maxRewriteChars: 400,
   tag: 'crosscheck',
 } as const;
+
+/** The two rules this module knows how to run, so a caller cannot pass a third and be silently answered by one of them. */
+export type CrosscheckContract = typeof CROSSCHECK_CONTRACT | typeof RELATED_NAMES_CONTRACT;
 
 /**
  * **The tokens that are never a symbol, whatever the comment puts in backticks.**
@@ -271,7 +323,155 @@ export function symbolsInComment(
 }
 
 /**
- * **The question, and the two sentences that keep it answerable.**
+ * **How far apart two names may stand and still be one claim.**
+ *
+ * 120 characters, which on this corpus is about one sentence of a review comment. It is a distance rather than a parse:
+ * the pass has a model for grammar, and what it needs from this side is a rule a reader can check by looking.
+ */
+const CLAUSE_CHARS = 120;
+
+/** Where a name first appears in a sentence, or `-1`. Word-bounded, so `id` is not found inside `credentialId`. */
+function firstMention(text: string, name: string): number {
+  const match = new RegExp(`(?<![A-Za-z0-9_$])${escapeForRegExp(name)}(?![A-Za-z0-9_$])`).exec(
+    text,
+  );
+  return match === null ? -1 : (match.index ?? -1);
+}
+
+/**
+ * **The pair a comment already relates, which is the question §167 should have asked.**
+ *
+ * The anchor is the caller's when the caller has one and the sentence names it - the plan §166 priced addresses each entry
+ * by the symbol the competitor's comment sits on - and otherwise the first name the sentence reached a backtick for.
+ *
+ * **The anchor may be a name that occurs only where it is declared.** That is the one place this contract departs from
+ * `symbolsInComment`'s rule, and it is deliberate: a function being introduced at the top of a hunk is exactly the name a
+ * comment is about, and §167's silence came from refusing to ask about it because it had "no other side". In a pair the
+ * other side is the **partner name**, not a second occurrence of the anchor.
+ *
+ * **The partner may itself be a declaration**, because a declaration is a side: "set here, read there" is exactly the kind
+ * of disagreement this device is looking for. What it may not be is a reserved word or a name in **another clause** - no
+ * sentence break between the two, and no more than `CLAUSE_CHARS` characters apart. Two names in different sentences are
+ * two claims, and pairing them would be asking a question the comment did not write. Nearest first, so the same comment
+ * always yields the same pair.
+ *
+ * **One pair by default.** The acceptance is a share of the comments the arm posts, so a second question on the same
+ * comment is a second chance to rewrite it - which is exactly the kind of second chance a measurement must not hand the
+ * device it is measuring.
+ */
+export function relatedPairs(
+  text: string,
+  lines: string[],
+  options: { max?: number; minLength?: number; anchor?: string } = {},
+): Pair[] {
+  const max = options.max ?? 1;
+  if (max <= 0) return [];
+  const sentence = String(text);
+  const minLength = options.minLength ?? DEFAULTS.minSymbolLength;
+  const present = new Set(occurrences(lines, minLength).map((occurrence) => occurrence.name));
+
+  // The names the sentence actually writes, in the order it writes them - `symbolsInComment` orders by preference, which
+  // is the wrong order for a distance rule.
+  const mentioned: string[] = [];
+  for (const match of sentence.matchAll(/[A-Za-z_$][A-Za-z0-9_$]*/g)) {
+    const name = match[0];
+    if (name.length < minLength) continue;
+    if (!present.has(name) || RESERVED.has(name)) continue;
+    if (!mentioned.includes(name)) mentioned.push(name);
+  }
+  if (mentioned.length < 2) return [];
+
+  const ticked: string[] = [];
+  for (const match of sentence.matchAll(/`([^`]+)`/g)) {
+    const name = (match[1] ?? '').trim();
+    if (mentioned.includes(name) && !ticked.includes(name)) ticked.push(name);
+  }
+  const wanted = options.anchor ?? '';
+  const anchor = mentioned.includes(wanted) ? wanted : (ticked[0] ?? (mentioned[0] as string));
+  const at = firstMention(sentence, anchor);
+
+  const ranked = mentioned
+    .filter((name) => name !== anchor)
+    .map((name) => {
+      const other = firstMention(sentence, name);
+      const gap = Math.abs(other - at);
+      const between = sentence.slice(Math.min(at, other), Math.max(at, other));
+      return { name, gap, sameClause: gap <= CLAUSE_CHARS && !/[.!?]\s/.test(between) };
+    })
+    .filter((entry) => entry.sameClause)
+    .sort((left, right) => left.gap - right.gap || left.name.localeCompare(right.name));
+
+  return ranked.slice(0, max).map((entry) => ({ anchor, other: entry.name }));
+}
+
+/**
+ * **Whether one of the two quoted sides stands on the anchor's own line.**
+ *
+ * This is the clause that makes the second contract different in kind rather than in prompt wording: §167's answers could
+ * quote any two lines in the file, so a "disagreement" could be found two functions away from the comment's subject. Here
+ * the anchor's line has to be one of the two, so the disagreement is about the name the comment opened with.
+ *
+ * The comparison is **on the line's text, not on the quote**, because a model is allowed to quote a fragment of a line and
+ * a fragment is not the place to be strict about.
+ */
+export function anchorAmongSides(verdict: Verdict, anchor: string, lines: string[]): boolean {
+  const byLine = new Map<number, string>();
+  for (const raw of lines) {
+    const parsed = numberedLine(raw);
+    if (parsed !== null) byLine.set(parsed.line, parsed.text);
+  }
+  const stands = (side: Side): boolean => {
+    const text = byLine.get(side.line);
+    return text !== undefined && namesSymbol(text, anchor);
+  };
+  return stands(verdict.left) || stands(verdict.right);
+}
+
+/**
+ * **The question, asked about a pair, with the anchor rule stated to the model rather than only checked after it.**
+ *
+ * A rule only the checker knows is a rule that turns into a refusal after the money is spent, which is why the anchor
+ * clause appears in the system message in the same words the check uses.
+ */
+export function buildRelationPrompt(input: {
+  comment: string;
+  anchor: string;
+  other: string;
+  lines: string[];
+  maxRewriteChars?: number;
+}): { system: string; user: string } {
+  const bound = input.maxRewriteChars ?? DEFAULTS.maxRewriteChars;
+  return {
+    system: [
+      'You are checking one code review comment against the code it is about.',
+      `The comment relates two names. One question is asked about the pair: what do these lines say about ${input.anchor} ` +
+        `and ${input.other}, and do they agree?`,
+      'A side is a quoted line: where a name is declared, set, produced, or called - and where it is used, consumed, compared, or published.',
+      '',
+      'Rules:',
+      '- Both quotes must be copied verbatim from the numbered lines. No paraphrase, no ellipsis, no reconstructed code.',
+      '- The first name is the anchor: one of the two quotes must be the line where the first name stands, so the answer cannot drift elsewhere in the file.',
+      '- If you cannot quote both sides from these lines, answer "cannot" and leave both quotes empty.',
+      '- "no" only when the two quoted lines state different things about the pair. Anything else is "yes" or "cannot".',
+      `- Only when the answer is "no", write a replacement for the comment that names both ${input.anchor} and ${input.other}, says what does not match, and is at most ${String(bound)} characters. Otherwise "rewrite" is null.`,
+      '',
+      'Answer with one JSON object and nothing else:',
+      '{"left": {"line": 12, "quote": "..."}, "right": {"line": 18, "quote": "..."}, "agree": "yes"|"no"|"cannot", "rewrite": "..."|null}',
+    ].join('\n'),
+    user: [
+      'Comment:',
+      input.comment,
+      '',
+      `Relates: ${input.anchor} and ${input.other}`,
+      '',
+      'Lines:',
+      ...input.lines,
+    ].join('\n'),
+  };
+}
+
+/**
+ * **The first question, and the two sentences that keep it answerable.**
  *
  * `verbatim` and `cannot` are not politeness: the quote check downstream refuses a paraphrase, and the `cannot` branch is
  * the one that protects the arm - **a verifier whose free action is to keep the sentence cannot make the emission
@@ -421,13 +621,66 @@ export function applyVerdict(
   if (!namesSymbol(verdict.rewrite, verdict.symbol)) {
     return { finding, action: 'kept', reason: 'unnamed' };
   }
-  const rewritten: TwoSidedFinding = { ...finding, crosschecked: CROSSCHECK_CONTRACT };
-  if (finding.description !== undefined) rewritten.description = verdict.rewrite;
-  if (finding.content !== undefined) rewritten.content = verdict.rewrite;
+  return {
+    finding: rewrittenWith(finding, verdict.rewrite, CROSSCHECK_CONTRACT),
+    action: 'rewritten',
+    reason: 'rewritten',
+  };
+}
+
+/** The finding, with its sentence replaced and the contract recorded on it. */
+function rewrittenWith(
+  finding: TwoSidedFinding,
+  sentence: string,
+  contract: CrosscheckContract,
+): TwoSidedFinding {
+  const rewritten: TwoSidedFinding = { ...finding, crosschecked: contract };
+  if (finding.description !== undefined) rewritten.description = sentence;
+  if (finding.content !== undefined) rewritten.content = sentence;
   if (finding.description === undefined && finding.content === undefined) {
-    rewritten.title = verdict.rewrite;
+    rewritten.title = sentence;
   }
-  return { finding: rewritten, action: 'rewritten', reason: 'rewritten' };
+  return rewritten;
+}
+
+/**
+ * **What a pair verdict does to a sentence.**
+ *
+ * The order is the order of the evidence: an unreadable or unquotable answer is refused before an agreement is read, and
+ * **an answer whose sides both stand away from the anchor is refused before the agreement is read too** - because a
+ * disagreement between two lines that are not about the comment's subject is not evidence about the comment. A rewrite
+ * then has to name **both** names: a sentence that names one of them has not stated a correspondence.
+ */
+export function applyRelationVerdict(
+  finding: TwoSidedFinding,
+  verdict: RelationVerdict,
+  lines: string[],
+  options: { maxRewriteChars?: number } = {},
+): AppliedVerdict {
+  const bound = options.maxRewriteChars ?? DEFAULTS.maxRewriteChars;
+  if (verdict.agree === 'cannot') return { finding, action: 'kept', reason: 'cannot' };
+  const quotes = verifyQuotes(verdict, lines);
+  if (!quotes.ok) return { finding, action: 'kept', reason: quotes.reason };
+  if (!anchorAmongSides(verdict, verdict.anchor, lines)) {
+    return { finding, action: 'kept', reason: 'off-anchor' };
+  }
+  if (verdict.agree === 'yes') return { finding, action: 'kept', reason: 'agree' };
+  if (verdict.rewrite === null) return { finding, action: 'kept', reason: 'no-rewrite' };
+  if (reflow(verdict.rewrite) === reflow(sentenceOf(finding))) {
+    return { finding, action: 'kept', reason: 'identical' };
+  }
+  if (verdict.rewrite.length > bound) return { finding, action: 'kept', reason: 'toolong' };
+  if (
+    !namesSymbol(verdict.rewrite, verdict.anchor) ||
+    !namesSymbol(verdict.rewrite, verdict.other)
+  ) {
+    return { finding, action: 'kept', reason: 'unnamed' };
+  }
+  return {
+    finding: rewrittenWith(finding, verdict.rewrite, RELATED_NAMES_CONTRACT),
+    action: 'rewritten',
+    reason: 'rewritten',
+  };
 }
 
 /** Every keep reason, so a report cannot be missing one. */
@@ -441,6 +694,7 @@ const KEEP_REASONS: KeepReason[] = [
   'cannot',
   'unquoted',
   'same-side',
+  'off-anchor',
   'agree',
   'no-rewrite',
   'identical',
@@ -455,7 +709,20 @@ function emptyKept(): Record<KeepReason, number> {
 }
 
 /**
- * **The pass itself: one call per symbol, one sentence in and one sentence out.**
+ * **One question, with the rule that applies its answer.**
+ *
+ * The two contracts differ in what is asked and in what counts as evidence, and in nothing else - so the budget, the cap,
+ * the failure accounting and the count invariant are written once, above this type rather than inside each contract.
+ */
+interface Question {
+  /** The tally key: the name for `two-sides-v1`, the pair for `two-related-names-v1`. */
+  key: string;
+  prompt: { system: string; user: string };
+  decide: (finding: TwoSidedFinding, verdict: Verdict) => AppliedVerdict;
+}
+
+/**
+ * **The pass itself: one call per question, one sentence in and one sentence out.**
  *
  * The budget is checked before the call and not after it, so the pass cannot overspend by one; the per-diff cap is checked
  * the same way; and a provider that throws is counted rather than propagated, because **a single failed call is not a
@@ -468,6 +735,44 @@ export class SymbolCrosscheck {
   constructor(provider: LLMProvider, options: CrosscheckOptions = {}) {
     this.provider = provider;
     this.options = { ...DEFAULTS, ...options };
+  }
+
+  /** The questions one comment gets, under whichever contract this pass was constructed with. */
+  private questionsFor(finding: TwoSidedFinding, lines: string[]): Question[] {
+    const sentence = sentenceOf(finding);
+    const bound = this.options.maxRewriteChars;
+    if (this.options.contract === RELATED_NAMES_CONTRACT) {
+      return relatedPairs(sentence, lines, {
+        max: this.options.maxSymbolsPerComment,
+        minLength: this.options.minSymbolLength,
+        anchor: finding.anchor,
+      }).map((pair) => ({
+        key: `${pair.anchor}→${pair.other}`,
+        prompt: buildRelationPrompt({
+          comment: sentence,
+          anchor: pair.anchor,
+          other: pair.other,
+          lines,
+          maxRewriteChars: bound,
+        }),
+        decide: (current, verdict) =>
+          applyRelationVerdict(
+            current,
+            { ...verdict, anchor: pair.anchor, other: pair.other },
+            lines,
+            { maxRewriteChars: bound },
+          ),
+      }));
+    }
+    return symbolsInComment(sentence, lines, {
+      max: this.options.maxSymbolsPerComment,
+      minLength: this.options.minSymbolLength,
+    }).map((symbol) => ({
+      key: symbol,
+      prompt: buildCrosscheckPrompt({ comment: sentence, symbol, lines, maxRewriteChars: bound }),
+      decide: (current, verdict) =>
+        applyVerdict(current, verdict, lines, { maxRewriteChars: bound }),
+    }));
   }
 
   async run(
@@ -487,19 +792,13 @@ export class SymbolCrosscheck {
 
     for (const finding of findings) {
       const lines = evidenceOf(finding);
-      const symbols =
-        lines.length === 0
-          ? []
-          : symbolsInComment(sentenceOf(finding), lines, {
-              max: this.options.maxSymbolsPerComment,
-              minLength: this.options.minSymbolLength,
-            });
       if (lines.length === 0) {
         kept['no-evidence'] += 1;
         out.push(finding);
         continue;
       }
-      if (symbols.length === 0) {
+      const questions = this.questionsFor(finding, lines);
+      if (questions.length === 0) {
         kept['no-symbol'] += 1;
         out.push(finding);
         continue;
@@ -512,7 +811,7 @@ export class SymbolCrosscheck {
       }
 
       let current = finding;
-      for (const symbol of symbols) {
+      for (const question of questions) {
         if (called >= this.options.maxCalls) {
           kept['budget'] += 1;
           budgetExhausted = true;
@@ -522,25 +821,22 @@ export class SymbolCrosscheck {
           kept['pull-request-cap'] += 1;
           break;
         }
-        const tally = bySymbol.get(symbol) ?? { called: 0, rewritten: 0 };
-        const prompt = buildCrosscheckPrompt({
-          comment: sentenceOf(current),
-          symbol,
-          lines,
-          maxRewriteChars: this.options.maxRewriteChars,
-        });
+        const tally = bySymbol.get(question.key) ?? { called: 0, rewritten: 0 };
         called += 1;
         perPullRequest.set(pull, (perPullRequest.get(pull) ?? 0) + 1);
         tally.called += 1;
-        bySymbol.set(symbol, tally);
+        bySymbol.set(question.key, tally);
 
         let result: CompletionResult;
         try {
-          result = await this.provider.complete(`${prompt.system}\n\n${prompt.user}`, {
-            temperature: 0,
-            maxTokens: 400,
-            tag: this.options.tag,
-          } satisfies CompletionOptions);
+          result = await this.provider.complete(
+            `${question.prompt.system}\n\n${question.prompt.user}`,
+            {
+              temperature: 0,
+              maxTokens: 400,
+              tag: this.options.tag,
+            } satisfies CompletionOptions,
+          );
         } catch {
           failed += 1;
           kept['failed'] += 1;
@@ -555,9 +851,7 @@ export class SymbolCrosscheck {
           kept['unreadable'] += 1;
           break;
         }
-        const applied = applyVerdict(current, verdict, lines, {
-          maxRewriteChars: this.options.maxRewriteChars,
-        });
+        const applied = question.decide(current, verdict);
         if (applied.action === 'rewritten') {
           current = applied.finding;
           rewritten += 1;
@@ -572,7 +866,7 @@ export class SymbolCrosscheck {
     return {
       findings: out,
       report: {
-        contract: CROSSCHECK_CONTRACT,
+        contract: this.options.contract,
         considered: findings.length,
         called,
         rewritten,
