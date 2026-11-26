@@ -320,7 +320,7 @@ describe('a question about two names, with the anchor among the quotes', () => {
       expect(
         parseRelationVerdict(undefined as unknown as string, { anchor: 'a', other: 'b' }),
       ).toBeNull();
-      expect(parseRelationVerdict('' as string, { anchor: 'a', other: 'b' })).toBeNull();
+      expect(parseRelationVerdict('', { anchor: 'a', other: 'b' })).toBeNull();
     });
 
     it('refuses an answer with no sides at all', () => {
