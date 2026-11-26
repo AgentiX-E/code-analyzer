@@ -12,12 +12,13 @@
 
 import { describe, expect, it } from 'vitest';
 
-import { addedLinesByPath, evidenceWindow } from '../../../scripts/lib/diff-added-lines.mjs';
+import { evidenceWindow, sideLinesByPath } from '../../../scripts/lib/diff-side-lines.mjs';
 import {
   pairedChange,
   pointOf,
   postedRows,
   withRewrites,
+  type ArtifactRow,
 } from '../../../scripts/lib/crosscheck-readout.mjs';
 
 const DIFF = [
@@ -77,7 +78,7 @@ const ROWS = [
 describe('the rewrite changes the sentence and not the count', () => {
   describe('the diff, as the new revision numbers it', () => {
     it('numbers an added line the way the file after the change does', () => {
-      const files = addedLinesByPath(DIFF);
+      const files = sideLinesByPath(DIFF);
       const added = files.get('src/auth/refresh.ts')?.added ?? [];
       // **The hunk starts at new line 10**, the context line is 10, and the first `+` is therefore 11.
       expect(added).toEqual([
@@ -87,23 +88,35 @@ describe('the rewrite changes the sentence and not the count', () => {
     });
 
     it('counts a removed line without offering it as evidence', () => {
-      const files = addedLinesByPath(DIFF);
+      const files = sideLinesByPath(DIFF);
       expect(files.get('src/auth/refresh.ts')?.removed).toBe(1);
     });
 
+    it('keeps a context line, because a line the pull request did not touch is still one the reader can see', () => {
+      // **The defect that cost 118 of 217 answers**: with only `+` lines numbered, a caller whose callee sits in unchanged
+      // context could quote one side and the pass answered `cannot`. The first hunk's context line is new-side line 10.
+      const lines = sideLinesByPath(DIFF).get('src/auth/refresh.ts')?.lines ?? [];
+      expect(lines[0]).toEqual({
+        line: 10,
+        text: 'const user = store.findUser(credentialId);',
+        added: false,
+      });
+      expect(lines.filter((entry) => entry.added)).toHaveLength(2);
+    });
+
     it('drops a file the change deleted, because a comment cannot be posted on it', () => {
-      expect(addedLinesByPath(DIFF).has('src/gone.ts')).toBe(false);
+      expect(sideLinesByPath(DIFF).has('src/gone.ts')).toBe(false);
     });
 
     it('keeps a content line that starts with a plus, because only the column decides', () => {
       const diff = ['+++ b/a.ts', '@@ -1,1 +1,2 @@', ' x', '++plus = 1;'].join('\n');
       // **The context line is new-side line 1**, so the added line that follows it is line 2.
-      expect(addedLinesByPath(diff).get('a.ts')?.added).toEqual([{ line: 2, text: '+plus = 1;' }]);
+      expect(sideLinesByPath(diff).get('a.ts')?.added).toEqual([{ line: 2, text: '+plus = 1;' }]);
     });
 
     it('stops a file at a hunk header it cannot read, rather than guessing the numbers', () => {
       const diff = ['+++ b/a.ts', '@@ nonsense @@', '+const a = 1;'].join('\n');
-      expect(addedLinesByPath(diff).get('a.ts')?.added).toEqual([]);
+      expect(sideLinesByPath(diff).get('a.ts')?.added).toEqual([]);
     });
   });
 
@@ -113,10 +126,12 @@ describe('the rewrite changes the sentence and not the count', () => {
       text: `line ${index + 1}`,
     }));
 
-    it('looks back six lines and forward eighteen, because both sides have to be in it', () => {
+    it('looks back twelve lines and forward twenty, because both sides have to be in it', () => {
+      // **Widened after the first paid run answered `cannot` on 118 of 217 comments**: the window is where that number
+      // lived, and a declaration is usually further back than a use is forward.
       const window = evidenceWindow(added, 20);
-      expect(window[0]).toBe('  14| line 14');
-      expect(window.at(-1)).toBe('  38| line 38');
+      expect(window[0]).toBe('   8| line 8');
+      expect(window.at(-1)).toBe('  40| line 40');
     });
 
     it('bounds the window, so a large diff cannot become a large prompt', () => {
@@ -126,8 +141,8 @@ describe('the rewrite changes the sentence and not the count', () => {
     it('numbers with a fixed width, so the quotation check reads one shape', () => {
       const window = evidenceWindow(added, 3);
       expect(window[0]).toBe('   1| line 1');
-      // **Twenty-one lines, not four**: the window is the bound, and a caller that wanted four would have said so.
-      expect(window).toHaveLength(21);
+      // **Twenty-three lines, not four**: the window is the bound, and a caller that wanted four would have said so.
+      expect(window).toHaveLength(23);
     });
 
     it('answers nothing when the change added nothing here, which the pass reads as no evidence', () => {
@@ -168,11 +183,14 @@ describe('the rewrite changes the sentence and not the count', () => {
     });
 
     it('scores the same rows through the same cut, so two arms differ only in their sentences', () => {
-      const creditOf = (row) => row.matched ?? [];
+      const creditOf = (row: ArtifactRow): number[] =>
+        (row['matched'] as number[] | undefined) ?? [];
       const withCredit = ROWS.map((row, at) => ({ ...row, matched: at === 0 ? [0] : [] }));
       const base = pointOf(withCredit, creditOf, 2, STEPS, 2);
       const corrected = pointOf(
-        withCredit.map((row) => (row.at === 1 ? { ...row, matched: [1] } : row)),
+        withCredit.map((row: ArtifactRow & { matched: number[] }) =>
+          row.at === 1 ? { ...row, matched: [1] } : row,
+        ),
         creditOf,
         2,
         STEPS,

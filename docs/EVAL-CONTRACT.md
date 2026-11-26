@@ -18382,15 +18382,15 @@ and the refusals come before the run, because a device whose target is chosen af
 
 ### 167.1 What it is, in one sentence and in one type
 
-Take a comment the arm already posts; take the symbol that comment already names; ask **one** question about it: *what is
-the other side of this symbol, and do the two agree?* Both sides must be quoted verbatim from the lines the comment is
+Take a comment the arm already posts; take the symbol that comment already names; ask **one** question about it: _what is
+the other side of this symbol, and do the two agree?_ Both sides must be quoted verbatim from the lines the comment is
 about. Only a quoted disagreement rewrites the sentence, and the rewrite must name the symbol it is about.
 
 `packages/intelligence/src/review/symbol-crosscheck.ts`, contract **`two-sides-v1`**. Two properties are in the type rather
 than in the prose:
 
 - **It may only edit.** `run` returns one finding per finding it was given, in the same order, with the same `path` and
-  the same `startLine`. §166.4's prize is *the same 227 comments, the sentences corrected* - the count is the premise of the
+  the same `startLine`. §166.4's prize is _the same 227 comments, the sentences corrected_ - the count is the premise of the
   arithmetic that licensed the device, so a pass that dropped what it could not verify would move the denominator and the
   figure with it.
 - **Silence keeps the sentence.** An unreadable answer, a quote that appears nowhere, two quotations of the same text, an
@@ -18412,7 +18412,7 @@ is anchored to. Two properties are tested rather than assumed:
 
 | property                                                    | why it decides a figure                                                                                                     |
 | ----------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------- |
-| a removed line is counted and never quoted                  | quoting a line the reader cannot see at head is §149.5's unpostable comment arriving by a different route                    |
+| a removed line is counted and never quoted                  | quoting a line the reader cannot see at head is §149.5's unpostable comment arriving by a different route                   |
 | a `\ No newline` marker does not advance the new-side count | one line of drift makes every later quotation fail a check it should pass - a verifier that refuses everything looks strict |
 | a file header (`--- a/…`) is not a removal                  | an earlier version counted it as one, so every file's removed-line tally was wrong by the number of files after it          |
 
@@ -18423,14 +18423,14 @@ against the change, and a figure that could not tell them apart would be the str
 
 ### 167.3 The acceptance, pre-registered
 
-| what                             | bar                                                                                  | why that bar                                                                                       |
-| -------------------------------- | ------------------------------------------------------------------------------------ | -------------------------------------------------------------------------------------------------- |
-| conversions on Martian           | **≥ 18 of the 27** plan entries rewritten                                            | §166.5's curve: 18 is where `k = 5` F1 reaches `0.3740` against a bar of `0.3735`                    |
-| comment count                    | **unchanged**                                                                        | §166.4's prize is defined at a fixed budget; a count that moved measures a different arm             |
-| `k = 5` F1                       | **≥ 0.3735**                                                                         | the competitor's score with our LLM - the bar does not move (§166.7)                                |
-| the pair                         | both arms judged **in one run, by one judge**                                        | a difference between two runs is a difference between two judgements as well as two sentences       |
-| the readout                      | cannot add or drop a comment                                                         | `withRewrites` ignores a position that was not posted, so the invariant is a property of the code   |
-| AACR                             | **staged behind Martian**                                                            | §164.6's rule; a second board is a second run after the first one reads                                    |
+| what                   | bar                                           | why that bar                                                                                      |
+| ---------------------- | --------------------------------------------- | ------------------------------------------------------------------------------------------------- |
+| conversions on Martian | **≥ 18 of the 27** plan entries rewritten     | §166.5's curve: 18 is where `k = 5` F1 reaches `0.3740` against a bar of `0.3735`                 |
+| comment count          | **unchanged**                                 | §166.4's prize is defined at a fixed budget; a count that moved measures a different arm          |
+| `k = 5` F1             | **≥ 0.3735**                                  | the competitor's score with our LLM - the bar does not move (§166.7)                              |
+| the pair               | both arms judged **in one run, by one judge** | a difference between two runs is a difference between two judgements as well as two sentences     |
+| the readout            | cannot add or drop a comment                  | `withRewrites` ignores a position that was not posted, so the invariant is a property of the code |
+| AACR                   | **staged behind Martian**                     | §164.6's rule; a second board is a second run after the first one reads                           |
 
 **And the bar is read against a re-judged twin, not against the published point.** Arm A is our emission judged by this run's
 judge; arm B is the same emission with the corrections. Arm A's distance from the artifact's `0.3221` is the judge's own

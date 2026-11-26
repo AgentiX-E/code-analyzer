@@ -434,6 +434,42 @@ export type {
   AppliedVerdict,
 } from './review/adjudication/verdict.js';
 export { applyNarrationVeto, readNarration } from './review/adjudication/narration.js';
+// ---------------------------------------------------------------------------
+// §167 — the two-sided verifier over the comments the arm already posts
+// ---------------------------------------------------------------------------
+//
+// **It is a public surface rather than a harness detail**, because the pass is what makes the claim §166 measured
+// actionable and because an export is what makes the module reachable from the package's declared entry - the
+// reachability suite records an unreachable module as unmeasured as product, which is the correct verdict for a pass
+// nothing ships.
+//
+// `applyVerdict` and `Verdict` are aliased because the adjudicator already owns those names for a different verdict: one
+// decides whether a sentence is true, the other decides whether a symbol's two sides agree. **Two verdicts under one name
+// would be a caller that compiles while reading the wrong one.**
+export {
+  AGREEMENTS,
+  CROSSCHECK_CONTRACT,
+  SymbolCrosscheck,
+  applyVerdict as applyTwoSidedVerdict,
+  buildCrosscheckPrompt,
+  namesSymbol,
+  numberedLine,
+  parseVerdict,
+  symbolsInComment,
+  verifyQuotes,
+} from './review/symbol-crosscheck.js';
+export type {
+  Agreement,
+  AppliedVerdict as TwoSidedApplied,
+  CrosscheckOptions,
+  CrosscheckReport,
+  EvidenceOf,
+  KeepReason,
+  Side,
+  TwoSidedFinding,
+  Verdict as TwoSidedVerdict,
+} from './review/symbol-crosscheck.js';
+
 export type {
   DescribedFinding,
   NarrationReason,
