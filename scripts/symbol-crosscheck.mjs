@@ -79,6 +79,9 @@ function parseArgs(argv) {
   ]);
   for (let at = 0; at < argv.length; at += 1) {
     const arg = argv[at];
+    // **A bare `--` is a separator, not an option.** pnpm forwards it verbatim, and a parser that refused it turned a
+    // workflow dispatch into an immediate exit - which is how this line was found.
+    if (arg === '--') continue;
     if (!arg.startsWith('--')) {
       options.arm = arg;
       continue;
