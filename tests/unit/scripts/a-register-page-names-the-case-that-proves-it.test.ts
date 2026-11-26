@@ -134,11 +134,11 @@ describe('the page', () => {
       // **The renderer's own reading of a status**, rather than a second rule here: a cell like `` `DONE` (§163) `` is
       // `DONE` to `state()` and would be nothing to a `split()` that kept the backticks.
       const state_ = state(String(row.status ?? ''));
-      if (state_ in tally) tally[state_] += 1;
+      if (state_ in tally) tally[state_] = (tally[state_] ?? 0) + 1;
       const side = String(row.who ?? '')
         .replace(/[*`]/gu, '')
         .charAt(0);
-      if (side in who) who[side] += 1;
+      if (side in who) who[side] = (who[side] ?? 0) + 1;
       if (hasCase(String(row.unit ?? ''))) unit += 1;
       if (hasCase(String(row.e2e ?? ''))) e2e += 1;
     }
@@ -166,7 +166,7 @@ describe('the page', () => {
     expect(row('O ours-only')).toBe(who['O']);
     expect(row('P public')).toBe(who['P']);
     expect(row('C competitor-only')).toBe(who['C']);
-    expect(tally['DONE'] + tally['PART'] + tally['NONE']).toBe(ROWS.length);
+    expect((tally['DONE'] ?? 0) + (tally['PART'] ?? 0) + (tally['NONE'] ?? 0)).toBe(ROWS.length);
   });
 
   it('counts what it rendered rather than restating a number from the prose', () => {
