@@ -134,7 +134,11 @@ const pairByAt = new Map(
 );
 const pairLabel = (entry) => {
   const pair = pairByAt.get(Number(entry.findingAt));
-  if (pair === null || pair === undefined) return escape(entry.symbol ?? '—');
+  // **A row with no pair says so.** It is not the same reading as a row that was asked and kept: §168.8's finding is that
+  // 7 of these 27 never had a question to answer, and a table that prints the plan's symbol for both cases hides it.
+  if (pair === null || pair === undefined) {
+    return `${escape(entry.symbol ?? '—')} <span class="muted">· no pair</span>`;
+  }
   return `${escape(pair.anchor)} → ${escape(pair.other)}`;
 };
 
