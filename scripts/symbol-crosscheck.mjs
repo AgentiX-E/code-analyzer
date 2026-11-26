@@ -41,7 +41,7 @@ import {
   chunkIndices,
   parseJudgeBatch,
 } from '../.github/scripts/lib/judge-batch.mjs';
-import { addedLinesByPath, evidenceWindow } from './lib/diff-added-lines.mjs';
+import { evidenceWindow, sideLinesByPath } from './lib/diff-side-lines.mjs';
 import { profileMaps, restrictFindings } from './lib/corpus-profile.mjs';
 import { applyCut, score } from './lib/operating-point.mjs';
 import { pairedChange, pointOf, postedRows, withRewrites } from './lib/crosscheck-readout.mjs';
@@ -219,8 +219,10 @@ async function evidenceFor(row) {
 
 /** The window a diff gives one row, or nothing when the file is not in it. */
 function windowOf(diff, path, row) {
-  const added = addedLinesByPath(diff).get(path)?.added ?? [];
-  return evidenceWindow(added, Number(row?.startLine ?? 0));
+  // **Every line the new revision has in the hunk**, not only the added ones: a caller whose callee sits forty unchanged
+  // lines above has its other side in the context, and quoting only `+` lines answered `cannot` on half the emission.
+  const lines = sideLinesByPath(diff).get(path)?.lines ?? [];
+  return evidenceWindow(lines, Number(row?.startLine ?? 0));
 }
 
 /** One diff file per pull request and path, so a re-run of the same corpus reads the same bytes. */
@@ -352,12 +354,17 @@ async function judgeBothArms(postedRowsList, rewrites, provider, report) {
         // **An unreadable batch is a batch of non-matches that nobody may record as such**, so it is reported and the
         // affected pairs are left out of both arms - the rule the AAcr board states and this file reuses.
         const usableA = verdictA ?? chunk.map(() => null);
-        const changed = chunk.filter((at) => textsB[at] !== textsA[at]);
+        // **The whole chunk is re-judged, not only the comments that changed.** A batch of one changed comment is a
+        // different question from a batch of six - models answer a one-item list with `{"match": true}` - and the first
+        // paid run lost **19 verdicts** to exactly that, recorded as an unreadable answer rather than as a disagreement.
+        // Re-judging the chunk keeps the prompt's shape identical between the two arms, so the only difference the judge
+        // sees is the sentences.
+        const changed = chunk.some((at) => textsB[at] !== textsA[at]);
         let verdictB = usableA;
-        if (changed.length > 0) {
+        if (changed) {
           const messagesB = buildJudgeMessages(
             golden,
-            changed.map((at) => textsB[at]),
+            chunk.map((at) => textsB[at]),
           );
           const answerB = await provider.complete(`${messagesB.system}\n\n${messagesB.user}`, {
             temperature: 0,
@@ -365,11 +372,17 @@ async function judgeBothArms(postedRowsList, rewrites, provider, report) {
             tag: 'judge:crosscheck',
           });
           calls += 1;
-          const read = parseJudgeBatch(answerB.content, changed.length) ?? changed.map(() => null);
-          verdictB = [...usableA];
-          changed.forEach((at, index) => {
-            verdictB[chunk.indexOf(at)] = read[index];
-          });
+          const read = parseJudgeBatch(answerB.content, chunk.length);
+          if (read !== null) verdictB = read;
+          else {
+            // **A batch that cannot be read is paid for again one pair at a time**, which is the fallback the AAcr board
+            // documents: the old instrument rather than a second implementation of it.
+            verdictB = [];
+            for (const at of chunk) {
+              verdictB.push(await judgeOne(provider, golden, textsB[at]));
+              calls += 1;
+            }
+          }
         }
         chunk.forEach((at, index) => {
           const key = `${url}#${String(goldenAt)}~${String(ids[at])}`;
@@ -381,6 +394,37 @@ async function judgeBothArms(postedRowsList, rewrites, provider, report) {
   };
   await mapLimit(jobs, JUDGE_CONCURRENCY, runJob);
   return { calls, bitsA, bitsB, unreadable: report.callsUnreadable ?? 0 };
+}
+
+/**
+ * **One pair, in the shape a single-pair judge reads**, used only when a batch answer cannot be parsed.
+ *
+ * It asks for `{"match": true|false}` rather than a list, because the reason it exists is that a model given a one-item list
+ * answered in another shape. **A fallback that repeated the question would repeat the failure.**
+ */
+async function judgeOne(provider, golden, comment) {
+  const answer = await provider.complete(
+    [
+      'You compare one code review comment against one expert-confirmed issue from the same pull request.',
+      'They match when they describe the same underlying defect, even in different words.',
+      'Answer with one JSON object and nothing else: {"match": true|false}',
+      '',
+      `Expert-confirmed issue:\n${golden}`,
+      '',
+      `Review comment:\n${comment}`,
+    ].join('\n'),
+    { temperature: 0, maxTokens: 20, tag: 'judge:crosscheck' },
+  );
+  const stripped = String(answer.content ?? '')
+    .replace(/```json|```/g, '')
+    .trim();
+  try {
+    const body = JSON.parse(stripped);
+    if (typeof body?.match === 'boolean') return body.match;
+  } catch {
+    // **An unreadable pair is `null`, which is not a non-match**, and the record keeps it out of both arms.
+  }
+  return null;
 }
 
 function push(map, key, value) {

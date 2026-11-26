@@ -487,7 +487,10 @@ describe('every module a package compiles is reachable from an entry its manifes
       // **197 since §148**, which added `review/evidence.ts`: the anchor a comment carries - the lines, the revision
       // and the name of the rule that resolved them - plus the marker that keeps a derived quotation out of the
       // scoring term that is supposed to measure the reviewer. (196 was §130.)
-      intelligence: 197,
+      // **198 since iteration 162**, which added `review/symbol-crosscheck.ts`: the two-sided verifier §167 registers. It
+      // is a module rather than a paragraph in the harness because it may only edit - one comment in, one out, same anchor -
+      // and that invariant is a property of a type rather than of a file that promises it.
+      intelligence: 198,
       mcp: 39,
       server: 24,
       // **11 since iteration 121**, which added `utils/type-text.ts`: the depth-counted removal of type arguments and

@@ -107,7 +107,7 @@ const PLAN = {
  * the correction earned, row 1 against PR1's second - which is the whole reason §166.5 says a conversion is not a credit:
  * had PR1 held one golden, correcting a second comment on it would have stolen the credit rather than added any.
  */
-function recorded(armB) {
+function recorded(armB?: Record<string, boolean>) {
   return {
     version: 'symbol-crosscheck-v1',
     verdicts: [
@@ -175,7 +175,7 @@ function recorded(armB) {
   };
 }
 
-function run(overrides = {}) {
+function run(overrides: { armB?: Record<string, boolean> } = {}) {
   const out = join(work, 'out.json');
   writeFileSync(out, `${JSON.stringify(recorded(overrides.armB), null, 2)}\n`);
   writeFileSync(join(work, 'arm.json'), `${JSON.stringify(ARTIFACT, null, 2)}\n`);

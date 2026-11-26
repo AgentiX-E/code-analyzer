@@ -105,7 +105,7 @@ async function main() {
   const CORRECTION = CROSSCHECK
     ? await import('../../packages/intelligence/dist/review/symbol-crosscheck.js')
     : null;
-  const DIFFS = CROSSCHECK ? await import('../../scripts/lib/diff-added-lines.mjs') : null;
+  const DIFFS = CROSSCHECK ? await import('../../scripts/lib/diff-side-lines.mjs') : null;
   const crosschecker =
     CORRECTION === null
       ? null
@@ -148,7 +148,7 @@ async function main() {
    * not corrected still reaches the reader exactly as the lanes wrote it.
    */
   async function correctByTwoSides(findings, diff) {
-    const added = DIFFS.addedLinesByPath(diff);
+    const sides = DIFFS.sideLinesByPath(diff);
     const prepared = findings.map((finding) => ({
       pr: null,
       path: String(finding.path ?? ''),
@@ -157,7 +157,7 @@ async function main() {
       description: String(finding.description ?? ''),
     }));
     const { findings: verified, report } = await crosschecker.run(prepared, (finding) =>
-      DIFFS.evidenceWindow(added.get(finding.path)?.added ?? [], finding.startLine ?? 0),
+      DIFFS.evidenceWindow(sides.get(finding.path)?.lines ?? [], finding.startLine ?? 0),
     );
     crosscheckReports.push(report);
     return findings.map((finding, at) =>
