@@ -512,13 +512,23 @@ export function buildCrosscheckPrompt(input: {
 }
 
 /**
- * **Reading the answer, strictly.**
+ * **The half of an answer both contracts read the same way**, and the shape the prompts ask for.
  *
- * A verdict that cannot be read is not a verdict and not a disagreement, which is the rule `judge-batch.mjs` states one
- * layer down. **An unreadable answer keeps the sentence**, so a model that stops answering produces the arm it was given
- * rather than a quieter one.
+ * This type exists because of a defect that cost a paid run: the relation prompt asked for four fields and the parser
+ * demanded five, so **184 of 184 answers came back `unreadable`** and the pass rewrote nothing. A parser stricter than its
+ * own prompt is a parser that reports the model's silence while the model was answering. The fields one contract needs and
+ * the other does not - `symbol` for `two-sides-v1`, the pair for `two-related-names-v1` - are attached by that contract's
+ * own reader below, and `a-question-about-two-names…` holds the invariant that **the example each prompt prints is an
+ * answer its own reader accepts**.
  */
-export function parseVerdict(raw: string): Verdict | null {
+interface Answer {
+  left: Side;
+  right: Side;
+  agree: Agreement;
+  rewrite: string | null;
+}
+
+function answerOf(raw: string): { answer: Answer; record: Record<string, unknown> } | null {
   const stripped = String(raw ?? '')
     .replace(/```json|```/g, '')
     .trim();
@@ -531,8 +541,6 @@ export function parseVerdict(raw: string): Verdict | null {
   }
   if (typeof body !== 'object' || body === null) return null;
   const record = body as Record<string, unknown>;
-  const symbol = typeof record['symbol'] === 'string' ? record['symbol'].trim() : '';
-  if (symbol === '') return null;
   const agree = record['agree'];
   if (typeof agree !== 'string' || !(AGREEMENTS as readonly string[]).includes(agree)) return null;
   const left = side(record['left']);
@@ -541,12 +549,45 @@ export function parseVerdict(raw: string): Verdict | null {
   const rewrite = record['rewrite'];
   if (rewrite !== undefined && rewrite !== null && typeof rewrite !== 'string') return null;
   return {
-    symbol,
-    left,
-    right,
-    agree: agree as Agreement,
-    rewrite: typeof rewrite === 'string' && rewrite.trim() !== '' ? rewrite.trim() : null,
+    answer: {
+      left,
+      right,
+      agree: agree as Agreement,
+      rewrite: typeof rewrite === 'string' && rewrite.trim() !== '' ? rewrite.trim() : null,
+    },
+    record,
   };
+}
+
+/**
+ * **Reading the first contract's answer, strictly.**
+ *
+ * A verdict that cannot be read is not a verdict and not a disagreement, which is the rule `judge-batch.mjs` states one
+ * layer down. **An unreadable answer keeps the sentence**, so a model that stops answering produces the arm it was given
+ * rather than a quieter one.
+ */
+export function parseVerdict(raw: string): Verdict | null {
+  const read = answerOf(raw);
+  if (read === null) return null;
+  const symbol =
+    typeof read.record['symbol'] === 'string' ? String(read.record['symbol']).trim() : '';
+  // **`symbol` is required here and only here**, because this contract's rewrite is checked against it. The relation
+  // contract carries its pair from the question rather than from the answer, so it does not ask for an echo.
+  if (symbol === '') return null;
+  return { symbol, ...read.answer };
+}
+
+/**
+ * **Reading the second contract's answer, with the pair attached from the question.**
+ *
+ * The model is asked what the lines say about two names it is given; it is not asked to repeat them back, because an echo
+ * is a field that can disagree with the question and then has to be checked. The pair here is the one that was asked, and
+ * a `symbol` or `anchor` the model volunteers is ignored rather than trusted.
+ */
+export function parseRelationVerdict(raw: string, pair: Pair): RelationVerdict | null {
+  const read = answerOf(raw);
+  if (read === null) return null;
+  return { ...read.answer, symbol: pair.anchor, anchor: pair.anchor, other: pair.other };
 }
 
 function side(value: unknown): Side | null {
@@ -718,6 +759,13 @@ interface Question {
   /** The tally key: the name for `two-sides-v1`, the pair for `two-related-names-v1`. */
   key: string;
   prompt: { system: string; user: string };
+  /**
+   * **The reader for this question's own answer.**
+   *
+   * It is on the question rather than chosen once for the pass because the two prompts ask for different shapes, and the
+   * defect that cost run 4 was exactly a shared reader that demanded a field one prompt does not ask for.
+   */
+  parse: (raw: string) => Verdict | null;
   decide: (finding: TwoSidedFinding, verdict: Verdict) => AppliedVerdict;
 }
 
@@ -755,6 +803,7 @@ export class SymbolCrosscheck {
           lines,
           maxRewriteChars: bound,
         }),
+        parse: (raw) => parseRelationVerdict(raw, pair),
         decide: (current, verdict) =>
           applyRelationVerdict(
             current,
@@ -770,6 +819,7 @@ export class SymbolCrosscheck {
     }).map((symbol) => ({
       key: symbol,
       prompt: buildCrosscheckPrompt({ comment: sentence, symbol, lines, maxRewriteChars: bound }),
+      parse: parseVerdict,
       decide: (current, verdict) =>
         applyVerdict(current, verdict, lines, { maxRewriteChars: bound }),
     }));
@@ -833,7 +883,10 @@ export class SymbolCrosscheck {
             `${question.prompt.system}\n\n${question.prompt.user}`,
             {
               temperature: 0,
-              maxTokens: 400,
+              // **600 rather than 400, because a cap that clips an answer reads as a model that cannot answer.** The
+              // relation answer carries a rewrite that has to name both names, and the cost of the cap is paid only in
+              // the tokens actually produced - while the cost of clipping is a verdict counted as `unreadable`.
+              maxTokens: 600,
               tag: this.options.tag,
             } satisfies CompletionOptions,
           );
@@ -846,7 +899,7 @@ export class SymbolCrosscheck {
           callsPriced += 1;
           spendUsd += result.costUsd;
         }
-        const verdict = parseVerdict(result.content);
+        const verdict = question.parse(result.content);
         if (verdict === null) {
           kept['unreadable'] += 1;
           break;

@@ -23,7 +23,9 @@ import {
   SymbolCrosscheck,
   anchorAmongSides,
   applyRelationVerdict,
+  buildCrosscheckPrompt,
   buildRelationPrompt,
+  parseRelationVerdict,
   relatedPairs,
   type RelationVerdict,
   type TwoSidedFinding,
@@ -221,6 +223,66 @@ describe('a question about two names, with the anchor among the quotes', () => {
     });
   });
 
+  describe('the reader and the prompt agree, which is the defect run 4 paid for', () => {
+    /** The field names a prompt's example prints, which is what a model imitates and therefore what the reader must read. */
+    const fieldsOf = (system: string): Set<string> => {
+      const example = system.split('\n').find((line) => line.trim().startsWith('{"'));
+      expect(example).toBeDefined();
+      return new Set([...String(example).matchAll(/"(\w+)":/g)].map((match) => match[1] as string));
+    };
+
+    it('accepts an answer built from exactly the fields the relation prompt asks for', () => {
+      const prompt = buildRelationPrompt({
+        comment: COMMENT,
+        anchor: 'getForLogin',
+        other: 'organizationId',
+        lines: LINES,
+      });
+      const fields = fieldsOf(prompt.system);
+      // **The exact failure of run 4**: 184 of 184 answers were `unreadable` because this reader demanded a `symbol` the
+      // prompt never asked for. The set of fields is taken from the prompt, so a reader stricter than its own prompt fails
+      // here in a second rather than in a paid run.
+      expect(fields.has('symbol')).toBe(false);
+      const composed = answer({
+        left: GOOD.left,
+        right: GOOD.right,
+        agree: 'no',
+        rewrite: GOOD.rewrite,
+      });
+      const verdict = parseRelationVerdict(composed, {
+        anchor: 'getForLogin',
+        other: 'organizationId',
+      });
+      expect(verdict).not.toBeNull();
+      expect(verdict?.anchor).toBe('getForLogin');
+    });
+
+    it('still requires the symbol the first prompt does ask for', () => {
+      const prompt = buildCrosscheckPrompt({
+        comment: COMMENT,
+        symbol: 'getForLogin',
+        lines: LINES,
+      });
+      expect(fieldsOf(prompt.system).has('symbol')).toBe(true);
+    });
+
+    it('ignores a symbol or pair the model volunteers, because the question owns the pair', () => {
+      const volunteered = answer({ ...GOOD, symbol: 'realm', anchor: 'realm', other: 'mode' });
+      const verdict = parseRelationVerdict(volunteered, {
+        anchor: 'getForLogin',
+        other: 'organizationId',
+      });
+      expect(verdict?.anchor).toBe('getForLogin');
+      expect(verdict?.other).toBe('organizationId');
+    });
+
+    it('refuses an answer with no sides at all', () => {
+      expect(
+        parseRelationVerdict(answer({ agree: 'yes', rewrite: null }), { anchor: 'a', other: 'b' }),
+      ).toBeNull();
+    });
+  });
+
   describe('the question itself', () => {
     it('names both names, in the order the comment relates them', () => {
       const prompt = buildRelationPrompt({
@@ -383,6 +445,20 @@ describe('a question about two names, with the anchor among the quotes', () => {
       const { report } = await pass.run([{ ...FINDING, anchor: 'organizationId' }], linesOf);
       expect(provider.prompts[0]).toContain('Relates: organizationId and getForLogin');
       expect(report.bySymbol[0]?.symbol).toBe('organizationId→getForLogin');
+    });
+
+    it('reads the relation answer with the relation reader, so a missing echo is not an unreadable answer', async () => {
+      // **The regression for run 4.** The scripted answer here is in the shape the prompt asks for: four fields, no
+      // `symbol`. A pass that reaches for the single-name reader reports `unreadable` and rewrites nothing, which is what
+      // 184 calls bought before this test existed.
+      const provider = new ScriptedProvider([
+        answer({ left: GOOD.left, right: GOOD.right, agree: 'no', rewrite: GOOD.rewrite }),
+      ]);
+      const pass = new SymbolCrosscheck(provider, { contract: RELATED_NAMES_CONTRACT });
+      const { report, findings } = await pass.run([FINDING], linesOf);
+      expect(report.kept['unreadable']).toBe(0);
+      expect(findings[0]?.description).toBe(GOOD.rewrite);
+      expect(report.rewritten).toBe(1);
     });
 
     it('keeps the previous contract available, because the committed record was produced under it', async () => {

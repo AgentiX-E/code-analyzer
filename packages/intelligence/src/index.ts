@@ -458,6 +458,7 @@ export {
   buildRelationPrompt,
   namesSymbol,
   numberedLine,
+  parseRelationVerdict,
   parseVerdict,
   relatedPairs,
   symbolsInComment,
