@@ -129,10 +129,15 @@ that a previous arm did not. That is a dispatch asked for with <code>--reference
 <p class="note">The union is not a superset in either direction: two lane sets name different goldens, and a set that
 only added lanes would show <code>only theirs</code> at zero.</p>`;
 
-const atBudget =
-  record.atBudget === null
-    ? `<p class="note">No budget was priced, so this page carries the ceiling and not a point.</p>`
-    : `<dl class="point">
+/**
+ * **Whether the record prices a point at all**, kept as a boolean rather than inferred from the markup below it: the
+ * renderer used to ask `atBudget === null` of the *string* it had just built, which is never null, so the heading claimed
+ * a point on a record that had none. CodeQL found the comparison; the defect was the shape of the variable.
+ */
+const hasPoint = record.atBudget !== null;
+const atBudget = !hasPoint
+  ? `<p class="note">No budget was priced, so this page carries the ceiling and not a point.</p>`
+  : `<dl class="point">
   <div><dt>comments</dt><dd>${String(record.atBudget.emitted)}</dd></div>
   <div><dt>credited</dt><dd>${String(record.atBudget.truePositives)}</dd></div>
   <div><dt>precision</dt><dd>${number(record.atBudget.precision)}</dd></div>
@@ -229,7 +234,7 @@ lane credits <strong>that no other lane in the same run does</strong>.</p>
 </dl>
 <p class="note">Cut: <code>${record.cut}</code>. Guard: ${(record.guard ?? []).map((entry) => `${entry.field} ${String(entry.rebuilt)}`).join(' · ')} — rebuilt from the arm's own rows before either number below was counted.</p>
 
-<h2>${atBudget === null ? '' : 'The point'}${atBudget === null ? '' : ` at <code>k = ${String(record.atBudget.budget ?? '')}</code>`}</h2>
+<h2>${hasPoint ? `The point at <code>k = ${String(record.atBudget.budget ?? '')}</code>` : ''}</h2>
 ${atBudget}
 
 <h2>Per lane</h2>

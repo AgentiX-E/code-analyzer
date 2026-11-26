@@ -48,11 +48,11 @@ const known = new Set(boards.map((board) => board.id));
 // **A cell whose board the registry does not hold would be drawn in a row that has no label**, which is the kind of
 // page that looks complete and is not.
 for (const board of boards) {
-  for (const cell of board.cells) {
-    if (!known.has(board.id)) {
-      process.stderr.write(`cell under unknown board ${board.id}\n`);
-      process.exit(2);
-    }
+  // **The check is about the board, not about each cell**, so it is one condition rather than a loop over cells whose
+  // body names something else: the loop read as "every cell is fine" and said "this board is unknown" N times.
+  if (board.cells.length > 0 && !known.has(board.id)) {
+    process.stderr.write(`cell under unknown board ${board.id}\n`);
+    process.exit(2);
   }
 }
 
