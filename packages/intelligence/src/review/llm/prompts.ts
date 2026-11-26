@@ -827,12 +827,114 @@ Respond ONLY with the JSON object. Do not include any markdown formatting, expla
 }
 
 // ---------------------------------------------------------------------------
+// Cross-check Review Prompt — the lane asked for the other side of what the patch says
+// ---------------------------------------------------------------------------
+
+/**
+ * **The disagreement between two statements of one intent.**
+ *
+ * **Why this lane exists, in the corpus's misses rather than in a theory of reviewing.** §164 reads the thirty-two
+ * credited goldens the competitor's arm names on Martian's fifty pull requests and ours never does, and **twenty of
+ * them sit on a symbol our pool already mentions**: we wrote about `credentialId`, about `has_global_access`, about
+ * `group_id` - and asserted something else about the same line. What the golden asserts is a *correspondence*: the
+ * route publishes `params[:id]` and the handler reads `params[:group_id]`; a refresh helper takes a user id and is
+ * handed a credential id; a paginator built for a numeric key is ordered by a timestamp; the `zh_CN` bundle carries
+ * traditional characters.
+ *
+ * **None of the six lanes asks it.** `behaviour` asks what the value at the line produces when it is empty; this lane's
+ * findings are about two places that should agree and do not, and **a question that cannot name the other side cannot
+ * find a disagreement with it**. `maintainability` asks whether the file contradicts its own conventions, which is one
+ * side; `architecture` asks whether a boundary was crossed, which is neither.
+ *
+ * **Four families, each stated as a pair to name rather than as a defect to hunt**, because §69.4 measured what the
+ * category framing produces: findings that narrate the change sit at precision 0.183 against 0.343 for findings that
+ * name what is wrong.
+ */
+export function CROSSCHECK_REVIEW_PROMPT(ctx: PromptContext): string {
+  const head = `You are reading this change the way a reviewer reads a pull request. The patch is one statement of an
+intent, and something else - the function it calls, the route that reaches it, the code that writes the key it reads,
+the rule it claims to follow - is another statement of the same intent. **Your question is whether the two still
+agree.** It is not whether the change is good, and it is not what the value at the line does when it is empty:
+another reviewer is asking that.
+
+For every call, lookup, write and rule the patch touches, **name the two sides** and say what does not match:
+
+- **a call and the thing it calls**: the callee reads a parameter this argument is not - an id of one kind where an id
+  of another kind is read, the outer collection while the scoped one is used, an argument added, dropped or reordered
+  against the signature, or a required one not passed at all.
+- **a name and the place that produces it**: a route parameter, request key, column, header, event, config key or
+  serialised field, read under a spelling the producer does not use - or read with an assumption the producer does not
+  satisfy, such as arithmetic that only works on numbers applied to a timestamp.
+- **one value written twice**: a counter, a window bound, a cache entry, an expiry, a rate - where the two writes read
+  different state, so one of them is stale, computed from another clock, or skipped on the path that matters.
+- **a rule the patch claims to follow**: a framework requirement, a locale, a documented signature, a neighbouring
+  implementation - and the place the rule is written says something else.
+
+**Quote both sides.** A finding that cannot name the call and the thing it calls, or the name and its producer, has not
+answered the question, and the right output is to leave it out rather than to describe the change.
+
+**Do not report an improvement here.** A naming problem, a long function, a missing test and a layer violation are all
+real, all five other reviewers' business, and all five cost a comment that a defect needed.
+
+**Most changes keep both sides in step.** A rename, a reformat, a comment, a test fixture and most configuration
+changes carry nothing this lane can say, and an empty findings array is the expected answer for them rather than a
+failure of the exercise.
+
+`;
+  const tail = `Return a JSON object with this exact structure:
+${defectChecklist(ctx)}${selectionContract(ctx)}
+
+Few-shot example — a call that passes the wrong id:
+Input: diff changing \`const user = await refresh(credential.id);\` where \`refresh\` takes a user id
+Output:
+{
+  "findings": [
+    {
+      "startLine": 42,
+      "endLine": 42,
+      "severity": "high",
+      "category": "bug",
+      "title": "refresh is passed a credential id where the callee reads a user id",
+      "description": "refresh(userId) resolves the user row by the value it is given and then reads that user's token. The argument here is credential.id, so the lookup resolves a different row (or none) and every later write is keyed to the wrong user; the previous call passed the user's own id.",
+      "suggestion": "Pass the user id: const user = await refresh(credential.userId);"
+    }
+  ]
+}
+
+Few-shot example — a key read under a name its producer does not write:
+Input: diff adding \`const groupId = req.params.group_id;\` in a route declared as \`/:id\`
+Output:
+{
+  "findings": [
+    {
+      "startLine": 8,
+      "endLine": 8,
+      "severity": "high",
+      "category": "bug",
+      "title": "Handler reads params.group_id but the route publishes params.id",
+      "description": "The route is declared as /groups/:id, so the router publishes the value as req.params.id. This line reads req.params.group_id, which is undefined, and the lookup that follows is made with undefined; the endpoint answers 404 for every request instead of the group's memberships.",
+      "suggestion": "Read the name the route declares: const groupId = req.params.id;"
+    }
+  ]
+}
+
+Respond ONLY with the JSON object. Do not include any markdown formatting, explanations, or additional text.`;
+  return composeLanePrompt(ctx, head, tail);
+}
+
+// ---------------------------------------------------------------------------
 // Prompt Registry
 // ---------------------------------------------------------------------------
 
 /** All available review lanes with their associated prompt builders. */
 export type ReviewLane =
-  'security' | 'performance' | 'maintainability' | 'testing' | 'architecture' | 'behaviour';
+  | 'security'
+  | 'performance'
+  | 'maintainability'
+  | 'testing'
+  | 'architecture'
+  | 'behaviour'
+  | 'crosscheck';
 
 export const LANE_PROMPTS: Record<ReviewLane, (ctx: PromptContext) => string> = {
   security: SECURITY_REVIEW_PROMPT,
@@ -841,6 +943,7 @@ export const LANE_PROMPTS: Record<ReviewLane, (ctx: PromptContext) => string> = 
   testing: TESTING_REVIEW_PROMPT,
   architecture: ARCHITECTURE_REVIEW_PROMPT,
   behaviour: BEHAVIOUR_REVIEW_PROMPT,
+  crosscheck: CROSSCHECK_REVIEW_PROMPT,
 };
 
 /** Labels for each review lane (human-readable). */
@@ -851,6 +954,7 @@ export const LANE_LABELS: Record<ReviewLane, string> = {
   testing: 'Testing Review',
   architecture: 'Architecture Review',
   behaviour: 'Behaviour Review',
+  crosscheck: 'Cross-check Review',
 };
 
 /**
@@ -887,6 +991,36 @@ export const LANE_SETS = {
    */
   wide: ['security', 'architecture', 'performance', 'maintainability', 'testing', 'behaviour'],
   /**
+   * **The wide arm with the deleted lane swapped for the one that reads the other side (§164).**
+   *
+   * `wide` asks six questions and one of them - `testing` - has **no product on either board**: its findings are
+   * `category: test`, `drop test` is the first step of the cut, and the wide artifact's 192 such findings reached no
+   * judge. **That is a slot, not a taste**: the run pays for six calls per file and five of them can reach the
+   * scorer, so the sixth is bought for nothing on the measurement and kept for the product.
+   *
+   * **So this set swaps it rather than adding to it**, for the reason §69.5 gave when `behaviour` replaced the same
+   * lane: a set that also costs 17 % more per file cannot be priced against one that does not. **Six calls either
+   * way**, and the difference between `wide` and `reviewer` is one question.
+   *
+   * **What it buys is measured, not argued.** §162.3 read the ceiling: our emission names 84 credited goldens at any
+   * budget against the competitor's 109, and **§164 finds that twenty of the thirty-two goldens only their arm names
+   * sit on a symbol our pool already mentions** - we wrote about the same line and asserted something else. The
+   * question those goldens answer is a correspondence between two places, and `crosscheck` is the lane that asks it.
+   *
+   * **S49 is the acceptance, registered before the run**: the pool ceiling rises by ten credited goldens at `k = 5`
+   * (`2·72/385 = 0.3740` against the competitor's `0.3735`), and it rises on **both** boards. `wide` loses three
+   * credited goldens to the swap (106 → 103 at no budget, from `testing`'s 27 non-`test`-categorised findings), so the
+   * bar for `crosscheck` is thirteen.
+   */
+  reviewer: [
+    'security',
+    'architecture',
+    'performance',
+    'maintainability',
+    'behaviour',
+    'crosscheck',
+  ],
+  /**
    * **The four questions this corpus scores, and the one it pays for and deletes.**
    *
    * On two artifacts of fifty pull requests `testing` filed **152 findings whose category is `test`** - 73 and 79 - and
@@ -914,6 +1048,7 @@ export const LANE_PRIORITIES: ReviewLane[] = [
   'maintainability',
   'testing',
   'behaviour',
+  'crosscheck',
 ];
 
 // ---------------------------------------------------------------------------

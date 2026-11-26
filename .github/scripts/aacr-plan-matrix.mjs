@@ -137,6 +137,8 @@ export const ALL_DISPATCHES = Object.freeze([
   { ensemble: 'on' },
   { second_concern: 'pair' },
   { second_concern: 'on' },
+  { lane_set: 'pair-reviewer' },
+  { lane_set: 'reviewer' },
   { lane_set: 'pair-lean' },
   { lane_set: 'lean' },
   { lane_set: 'pair-wide' },
@@ -200,6 +202,8 @@ export function planMatrix(inputs = {}) {
   if (is(inputs.second_concern, 'on')) return [row({ second_concern: 'on' })];
 
   // --- lane set: `on` means the behaviour lanes, which is a historical name the dispatch cannot change -------------
+  if (is(inputs.lane_set, 'pair-reviewer')) return [row(), row({ lane_set: 'reviewer' })];
+  if (is(inputs.lane_set, 'reviewer')) return [row({ lane_set: 'reviewer' })];
   if (is(inputs.lane_set, 'pair-lean')) return [row(), row({ lane_set: 'lean' })];
   if (is(inputs.lane_set, 'lean')) return [row({ lane_set: 'lean' })];
   if (is(inputs.lane_set, 'pair-wide')) return [row(), row({ lane_set: 'wide' })];

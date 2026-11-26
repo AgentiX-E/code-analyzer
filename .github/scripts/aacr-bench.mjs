@@ -200,7 +200,7 @@ const PROFILE = (() => {
  * right failure, on an input the workflow had just declared valid**, which is the pair a reader cannot tell apart without
  * opening both files. `tests/unit/scripts/a-lane-set-the-bench-refuses-is-a-set-that-exists.test.ts` keeps them equal.
  */
-const LANE_SET_NAMES = ['shipped', 'behaviour', 'wide', 'lean'];
+const LANE_SET_NAMES = ['shipped', 'behaviour', 'wide', 'lean', 'reviewer'];
 
 function parseLaneSet(raw) {
   const value = String(raw ?? 'shipped');
@@ -1712,7 +1712,7 @@ async function dryRun() {
     // A run is bought against another run only when the two ask the same number of questions of the same diff, so
     // `shipped` and `behaviour` are pinned at five; `wide` asks six and `lean` asks four, and **a `lean` that somehow
     // carried five lanes would be a run whose 19.9 % saving had been silently re-bought**.
-    const expected = { shipped: 5, behaviour: 5, wide: 6, lean: 4 }[LANE_SET];
+    const expected = { shipped: 5, behaviour: 5, wide: 6, lean: 4, reviewer: 6 }[LANE_SET];
     assert.equal(
       lanes.length,
       expected,
@@ -1724,6 +1724,27 @@ async function dryRun() {
         'function',
         `the build carries no prompt for the ${lane} lane`,
       );
+    /**
+     * **A fused run can only ask the questions its prompt carries, and the prompt carries the union.**
+     *
+     * `FUSED_REVIEW_PROMPT` renders `FUSED_QUESTIONS` - every lane the union knows - and files each answer under the
+     * lane it labels. **A set that contains a lane the union does not carry would therefore buy a question the call
+     * never puts**, and the artifact would name a reviewer whose seventh lane was never asked: the §58.1 shape one
+     * device over, an artifact internally consistent and about a different reviewer.
+     *
+     * **Refused rather than defaulted**, and refused before the corpus is cloned for the reason `LANE_SET` is: the
+     * only other place this can be noticed is a finding count of zero that nobody can attribute.
+     */
+    if (LANE_MODE === 'fused') {
+      const { FUSED_QUESTIONS } =
+        await import('../../packages/intelligence/dist/review/llm/prompts.js');
+      const asked = new Set(FUSED_QUESTIONS.map((question) => question.lane));
+      for (const lane of lanes)
+        assert.ok(
+          asked.has(lane),
+          `the ${LANE_SET} set buys the ${lane} lane and FUSED_QUESTIONS does not ask it, so a fused call would never put that question`,
+        );
+    }
     const behaviour = prompts['behaviour']({
       diffContent: diff,
       filePath: 'src/scoring/rhythm.ts',

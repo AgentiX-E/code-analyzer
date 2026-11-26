@@ -17953,3 +17953,129 @@ the union of the boards, and the halves only pick the number inside it.**
   constraint; it does not show what is.
 - **Not that a lane cannot be filtered at all.** `drop test` and `drop path test` are filters that survived because they
   never lost a golden on either board. The rule is not "no filters", it is "no filter that costs a golden somewhere".
+
+## 164. Twenty of the thirty-two goldens we never name sit on a symbol we already mention
+
+§163 closed every cheap device with a measurement and left one on the list: **the deficit is discovery, and the device is
+a lane that reads the pull request the way a reviewer does.** This section is the registration of that lane, and it is
+written before the run it will be judged by. **It costs nothing to write and nothing to read**: both arms' verdicts are
+records this repository already pays for, and everything below is arithmetic over them.
+
+### 164.1 The sets, computed from two committed records
+
+Two artifacts, both in the tree, both re-derivable:
+
+- **ours** is `benchmarks/martian-wide-bench.json` - the paid run `45629019118`, fifty pull requests, six lanes, 984
+  findings, each carrying `matchedGoldens` on the board's own index.
+- **theirs** is `benchmarks/aacr/competitor-baseline.json` - the competitor's arm over **ninety-five** pull requests, of
+  which **forty-eight** are among our fifty. The two it does not cover stay in the denominator, which is the rule §162.2
+  set: **a pull request nobody reviewed is a miss, not an exclusion.**
+
+Re-indexed to the board's Core profile (158 goldens on these fifty pull requests), and taking each arm's **union over
+every budget** rather than its cut:
+
+| quantity                          | ours | theirs |
+| --------------------------------- | ---: | -----: |
+| credited goldens, any budget      |   99 |    112 |
+| of which the other arm also names |   80 |     80 |
+| credited by that arm alone        |   19 |     32 |
+| union                             |  131 |    131 |
+
+**The thirty-two are the material.** Nineteen goldens the reverse way round are the reason this is a swap and not an
+addition: **we are not behind on the pool's size, we are behind on which goldens are in it.**
+
+### 164.2 What the thirty-two say, in seven families
+
+Read by hand, once, and counted rather than characterised - the rule §163.4 applied to a severity tier, applied here to
+a sentence:
+
+| family                                                                                                                                                                | count | the sentence, shortened                                                                                                                                |
+| --------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ----: | ------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| **an argument that is not the one the callee reads** (wrong variable, id of one kind where another is read, missing or reordered argument, a props contract)          |     7 | _"the route publishes `params[:id]` and the handler reads `params[:group_id]`"_; _"`refreshOAuthTokens` is passed `credentialId` instead of `userId`"_ |
+| **the order two operations run in** (stale read-modify-write, check-then-act, unsynchronised read, set-before-write, a shutdown that breaks out early)                |     6 | _"`retryCount: reminder.retryCount + 1` reads a possibly stale value"_; _"the cache is populated before `CreateOrUpdateDevice`"_                       |
+| **a convention or a locale the file claims and does not follow**                                                                                                      |     6 | _"the `zh_CN` bundle carries traditional characters"_; _"the serializer's `include_` methods end with `?` and this one does not"_                      |
+| **a value from another layer that arrives null**                                                                                                                      |     5 | _"if no `TopicUser` record exists, `tu` will be nil"_; _"`organization_context.member` is `None` for API-key requests"_                                |
+| **a type or a bound the arithmetic assumes wrong** (a numeric key ordered by timestamp, an offset that can equal the total, a window whose two bounds use two clocks) |     4 | _"`floor`/`ceil` on a datetime key raises `TypeError`"_; _"capping the offset at `user_count` can produce an empty page"_                              |
+| **an error that is not the error the caller contracts for**                                                                                                           |     2 | _"throwing a generic `Error` answers 500 in tRPC instead of a `TRPCError`"_                                                                            |
+| **a state written but never initialised, or a set that is not deduplicated**                                                                                          |     2 | _"`getId()` will be null and downstream removal by id will not work"_                                                                                  |
+
+**Twenty-two of the thirty-two are the first four families**, and those are the ones a lane may be asked for: the last
+three include taste (a log level), documentation and locale data, which this repository refuses to score as defects.
+
+### 164.3 What we said instead, about the same line
+
+The finding that makes this section worth writing is not the thirty-two. It is that **twenty of them sit on a symbol our
+pool already mentions**: the deficit is not that we did not look, it is that we asserted something else.
+
+| golden                                                                 | what our pool says about the same symbol                                                            |
+| ---------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------- |
+| _handler reads `params[:group_id]`, the route publishes `params[:id]`_ | two findings about the **tests** hardcoding `group_id: 1` - correct, and about a different question |
+| _`refreshOAuthTokens` is passed `credentialId` instead of `userId`_    | _"CalendarService now depends on a shared OAuth refresh utility"_ - the coupling, not the argument  |
+| _`member.has_global_access` raises when `member` is `None`_            | _"authorization bypassed via client-controlled paginator selection"_ - the bypass, not the `None`   |
+
+**A question about a category cannot produce a sentence about a disagreement**, which is the whole argument for a
+seventh question rather than a better sixth: `behaviour` asks what the value at the line does when it is empty,
+`maintainability` asks whether the file contradicts itself, and `architecture` asks whether a boundary was crossed.
+**None of them names the other side, so none of them can find that the two sides do not match.**
+
+### 164.4 The lane, and what it is not
+
+`crosscheck` (`packages/intelligence/src/review/llm/prompts.ts`) asks one thing of every call, lookup, write and rule the
+patch touches: **name the two sides and say what does not match** - a call and the thing it calls, a name and the place
+that produces it, one value written twice, a rule and the place the rule is written. It carries the falsifier the rest of
+this campaign applies, in the prompt rather than after the fact: **a finding that cannot quote both sides is not a
+finding**, and most changes keep both sides in step.
+
+**It is not the reading agent again.** `AACR_AGENT=on` was measured at F1 0.2033 against the competitor's 0.4043 on
+thirty-six pull requests (§R-22): it changed **how the model reads** - a checkout, five tools, a loop - and reading more
+did not help. This changes **what the model is asked**, in one call, with no tools and no repository. **The two devices
+are independent, and only one of them has been priced.**
+
+### 164.5 The swap, and why the bar is thirteen rather than ten
+
+The set is `reviewer` = `wide` − `testing` + `crosscheck`. **Six calls either way**, so a difference between the two
+arms is the question and not the budget - the rule §69.5 stated when `behaviour` replaced the same lane.
+
+**Why `testing` is the lane that goes.** On the wide artifact it filed 165 findings, 138 of them `category: test`, and
+**`drop test` is the first step of the cut on both boards**: 192 such findings in the pool, none of which reached a
+judge. Its twenty-seven findings in another category are worth **three credited goldens** - the ceiling falls from 106 to
+103 when the lane is removed - so the swap costs **three** and S49 asks for **ten**:
+
+| quantity                                     | value                                                          |
+| -------------------------------------------- | -------------------------------------------------------------- |
+| credited goldens `k = 5` needs for F1 0.3735 | **72** (`2·72/385 = 0.3740`) against 62 today and 227 comments |
+| so the arm has to add                        | **10** at `k = 5`                                              |
+| the swap removes                             | **3** at no budget (106 → 103), measured on the wide artifact  |
+| **the bar for `crosscheck` alone**           | **13**                                                         |
+
+### 164.6 S49, restated, and what refuses it
+
+**S49 (registered in §163.6, and this is the section that prices it):** the lane ships only if `k = 5` F1 reaches
+`0.3735` **and** the pool names ten more credited goldens than `72` - and only if it holds on **both** boards, because
+§163.4 is what happens when a device is judged on one.
+
+**The run, and what it costs.** One arm of the Martian board at fifty pull requests (`lane_set: reviewer`), preceded by a
+five-pull-request calibration whose only job is to show that the lane emits at all and at what density. **Registered
+cost: about ¥1.5, the same as the wide run** (`$1.04` at 6 lanes and a 0.84 cache ratio), plus a fifth of that for the
+calibration. **AACR is bought only if Martian passes**, which is staging rather than a one-board judgement: a failure on
+one board refuses the device, and a success on one board is not an acceptance.
+
+**What refuses it, stated before the reading exists:**
+
+- the lane emits findings that credit **fewer than thirteen** goldens the wide arm's pool does not have;
+- or it lifts the ceiling but not `k = 5`, which would mean the new comments rank below the incumbent's first five - the
+  §162.6 finding that our score stops separating hits once past the fifth comment;
+- or it pays on Martian and loses on AACR, which is §163.4's trap and the reason the second board is a condition.
+
+### 164.7 What this section does not establish
+
+- **Not that the thirty-two are reachable.** The pre-check in 164.3 is **lexical** - a symbol appears in our text - and a
+  symbol that appears is not an argument that was made. It says _we looked at the line_, which is why the device is a
+  question rather than a prompt-tightening.
+- **Not that the families are a taxonomy.** They are seven buckets a reader put thirty-two sentences into, and the
+  boundary between "an argument" and "a name" is a judgement, not a measurement.
+- **Not that the competitor's thirty-two are better comments.** `matchedGoldens` is a judge's opinion, produced by the
+  same judge on both arms (§162.7).
+- **Not that one arm is a comparison.** The acceptance is a **fixed target** - `0.3735` and ten credited goldens - read
+  off one artifact, not a same-day delta against a second arm; the pair is declared in the planner (`pair-reviewer`) and
+  is not dispatched this round, because a delta needs two arms and a target needs one.
