@@ -441,10 +441,19 @@ describe('the matrix is one experiment', () => {
       // actually cost. It is eight rows and not nine because row 0 *is* the baseline every published figure was measured
       // under - a grid never re-buys its own control.
       //
+      // **And one single and one pair for the lane that reads the other side**, which is §164's device: `reviewer` is
+      // the wide set with `testing` - a lane whose every finding the cut's first step deletes - swapped for
+      // `crosscheck`. The single arm is this round's dispatch, because the acceptance is a fixed target (`k = 5` F1
+      // >= 0.3735 and ten more credited goldens than 72) and a fixed target needs one arm rather than two; `pair-reviewer`
+      // is declared for the dispatch that will price the device against a same-day baseline, and it is deliberately not
+      // offered on the workflow's choice list until it has something to price.
+      //
       // **The count is still a budget and not a style**, which is why this array is enumerated rather than bounded: an
       // alternative that appeared by accident would be a dispatch nobody chose, and at eight rows it would be eight
       // dispatches nobody chose.
-    ).toEqual([1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 8]);
+    ).toEqual([
+      1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 8,
+    ]);
   });
 
   it('varies exactly one key, so that a difference between the arms is the device', () => {

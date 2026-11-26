@@ -269,9 +269,12 @@ on:
         # to the judge, which is where §69's substitution should have left it. `pair-wide` is how it is priced, and it is
         # a separate value rather than a redefinition of `pair` so that §72's figure stays reproducible from the switch
         # that produced it.
-        description: 'Lane set: the five lanes every figure was measured under (off), the behaviour lane in place of testing (on), both arms (pair), the union of both (wide), or the union priced against the five (pair-wide)'
+        # **`reviewer` is §164's arm**: the wide set with `testing` - whose every finding the cut's first step deletes -
+        # swapped for `crosscheck`, the lane that asks whether the call, the key or the write still agrees with the place
+        # that defines it. Six calls either way, so the difference between `wide` and `reviewer` is one question.
+        description: 'Lane set: the five lanes every figure was measured under (off), the behaviour lane in place of testing (on), both arms (pair), the union of both (wide), the union priced against the five (pair-wide), or the wide set with testing swapped for the cross-check lane (reviewer)'
         type: choice
-        options: ['off', 'on', 'pair', 'wide', 'pair-wide', 'lean', 'pair-lean']
+        options: ['off', 'on', 'pair', 'wide', 'pair-wide', 'lean', 'pair-lean', 'reviewer']
         default: 'off'
 
       lane_mode:

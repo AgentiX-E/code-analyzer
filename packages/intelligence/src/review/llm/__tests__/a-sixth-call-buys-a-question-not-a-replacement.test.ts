@@ -41,6 +41,7 @@ const OPENINGS: Record<ReviewLane, string> = {
   testing: 'expert test engineer',
   architecture: 'expert software architect',
   behaviour: 'what a change does to the values that reach it',
+  crosscheck: 'the way a reviewer reads a pull request',
 };
 
 /** A provider that answers every lane with an empty list and counts the calls it was given. */
@@ -110,7 +111,12 @@ describe('the wide set', () => {
     // **Order is not cosmetic here**: the prompt bundle and the per-lane tables are written in the order the engine is
     // handed, so a set whose order drifted would produce an artifact whose lane table cannot be compared with the one
     // §69.3 published.
-    const expected = LANE_PRIORITIES.filter((lane) => LANE_SETS.wide.includes(lane));
+    // **The set is widened to `readonly ReviewLane[]` for the lookup**, because `LANE_PRIORITIES` now carries a lane the
+    // union does not (§164's `crosscheck`): `includes` on the tuple is typed to the tuple's own members, which is the
+    // assertion this line wants and the wrong type for the filter's argument.
+    const expected = LANE_PRIORITIES.filter((lane) =>
+      (LANE_SETS.wide as readonly ReviewLane[]).includes(lane),
+    );
     expect([...LANE_SETS.wide]).toEqual(expected);
   });
 });

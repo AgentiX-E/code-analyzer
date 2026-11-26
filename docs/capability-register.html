@@ -57,19 +57,19 @@
   point — a row without one is not accepted, whatever its unit coverage, because the last three defects here were joins
   between components that each passed their own tests.</p>
   <ul class="tiles">
-    <li><b>50</b><span>capabilities</span></li>
+    <li><b>51</b><span>capabilities</span></li>
     <li><b>43</b><span>done</span></li>
-    <li><b>5</b><span>partial</span></li>
+    <li><b>6</b><span>partial</span></li>
     <li><b>2</b><span>not built</span></li>
-    <li><b>41</b><span>with an end-to-end case</span></li>
+    <li><b>42</b><span>with an end-to-end case</span></li>
     <li><b>37</b><span>ours only</span></li>
     <li><b>2</b><span>competitor only</span></li>
   </ul>
 </header>
 <nav>
-  <button data-filter="all" aria-pressed="true">All <span style="opacity:.6">50</span></button>
+  <button data-filter="all" aria-pressed="true">All <span style="opacity:.6">51</span></button>
   <button data-filter="NONE" aria-pressed="false">Not built <span style="opacity:.6">2</span></button>
-  <button data-filter="PART" aria-pressed="false">Partial <span style="opacity:.6">5</span></button>
+  <button data-filter="PART" aria-pressed="false">Partial <span style="opacity:.6">6</span></button>
   <button data-filter="DONE" aria-pressed="false">Done <span style="opacity:.6">43</span></button>
   <button data-filter="C" aria-pressed="false">Competitor only <span style="opacity:.6">2</span></button>
   <button data-filter="no-e2e" aria-pressed="false">No end-to-end case <span style="opacity:.6">9</span></button>
@@ -423,7 +423,7 @@
     </table>
   </section>
   <section>
-    <h2>researcher, I want every number to be reproducible and every difference to be real<span class="count">16</span></h2>
+    <h2>researcher, I want every number to be reproducible and every difference to be real<span class="count">17</span></h2>
     <table>
       <thead><tr><th>#</th><th>Capability</th><th>Ships at</th><th>Unit</th><th>End-to-end</th><th>State</th><th>What the state means</th></tr></thead>
       <tbody>
@@ -570,6 +570,15 @@
         <td class="proof"><code>the-cut-a-step-is-worth-is-priced-on-every-board</code></td>
         <td><span class="state DONE">DONE</span></td>
         <td class="why">DONE (§163.1) — the wide arm's artifact was at /tmp/run-45629019118/, so two of the four published curves were readings of files no repository holds; the artifact is committed, coverage.byPullRequest now supplies a split-half denominator guarded by its own sum, and the AACR split-half reproduces exactly through the new path (220/226, 0.2051/0.2538)</td>
+      </tr>
+      <tr data-state="PART" data-who="P" data-e2e="true">
+        <td class="id">51</td>
+        <td class="cap">A lane that asks what the other side of the patch says, and refuses a finding that cannot quote both<span class="surface">GitHub App, CLI, harness</span></td>
+        <td><span class="tag P">public</span></td>
+        <td class="proof"><code>a-lane-that-reads-the-other-side, a-lane-set-that-swaps-a-deleted-lane-for-a-reader</code></td>
+        <td class="proof"><code>a-review-that-checks-both-sides</code></td>
+        <td><span class="state PART">PART</span></td>
+        <td class="why">PART (§164) — the lane exists and is dispatched by lane_set: reviewer, and its acceptance is measured rather than argued: S49 needs the pool ceiling to rise by ten credited goldens at k = 5 on both boards, and the run that prices it is registered in §164 before it is bought. The row is PART until that reading exists</td>
       </tr>
       </tbody>
     </table>
