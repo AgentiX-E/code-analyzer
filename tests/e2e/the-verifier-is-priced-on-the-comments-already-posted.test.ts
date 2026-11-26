@@ -212,6 +212,10 @@ describe('a rewrite is priced on the comments that were already posted', () => {
     expect(result.comments).toEqual({ armA: 4, armB: 4, unchanged: true });
   });
 
+  it('says how much of the board it covered, so a slice cannot be read as the whole', () => {
+    expect(result.slice).toEqual({ pullRequests: 2, of: 2, kind: 'prefix-of-board' });
+  });
+
   it('scores both arms against the same denominator', () => {
     // **Three goldens survive the Core profile out of four**, and a recall computed against the artifact's own count would
     // be a different denominator wearing the same name.

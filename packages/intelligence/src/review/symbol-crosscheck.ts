@@ -143,6 +143,26 @@ const DEFAULTS = {
 } as const;
 
 /**
+ * **The tokens that are never a symbol, whatever the comment puts in backticks.**
+ *
+ * The first paid run of this pass asked its opening questions about `` `await` `` and `` `async` ``, and eight of twelve
+ * answers came back `cannot` - because a keyword has no two sides to compare. **A stoplist is the cheapest form of the fix
+ * that a question cannot buy: it costs nothing, it is checkable, and it removes the class of question no answer could
+ * have justified.** The list is deliberately the union of the languages this product reads, because a comment about
+ * Java's `synchronized` is the same non-question as one about JavaScript's `await`.
+ */
+const RESERVED = new Set(
+  (
+    'abstract any as async await base bool boolean break byte case catch char class const continue debugger default ' +
+    'defer def delete do double elif else enum export extends false final finally float fn for from func function get ' +
+    'global goto if impl implements import in instanceof int interface is lambda let long module namespace native new ' +
+    'nil noexcept null of operator or override package pass private protected public raise readonly record ref return ' +
+    'sealed set short static strictfp string struct super switch synchronized this throw throws trait transient true ' +
+    'try type typeof union unsigned using val var virtual void volatile where while with yield'
+  ).split(' '),
+);
+
+/**
  * **The keywords that make an occurrence a declaration.**
  *
  * Lexical, and deliberately so: a parser would be the wrong instrument here for the reason §166.8 gives about the symbol
@@ -220,7 +240,11 @@ export function symbolsInComment(
   const max = options.max ?? DEFAULTS.maxSymbolsPerComment;
   const minLength = options.minLength ?? DEFAULTS.minSymbolLength;
   const seen = occurrences(lines, minLength);
-  const usable = new Set(seen.filter((occurrence) => !occurrence.declaration).map((o) => o.name));
+  const usable = new Set(
+    seen
+      .filter((occurrence) => !occurrence.declaration && !RESERVED.has(occurrence.name))
+      .map((occurrence) => occurrence.name),
+  );
   const present = new Set(seen.map((occurrence) => occurrence.name));
 
   const ticked: string[] = [];
