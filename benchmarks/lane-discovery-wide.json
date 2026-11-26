@@ -1,0 +1,90 @@
+{
+  "version": "lane-discovery-v1",
+  "arm": "benchmarks/martian-wide-bench.json",
+  "laneSet": "wide",
+  "profile": "core",
+  "corpus": "benchmarks/martian/positive_samples.json",
+  "cut": "drop test, drop path test, budget 12",
+  "guard": [
+    {
+      "field": "k",
+      "published": 402,
+      "rebuilt": 402
+    },
+    {
+      "field": "truePositives",
+      "published": 80,
+      "rebuilt": 80
+    }
+  ],
+  "counterfactual": null,
+  "goldens": 158,
+  "emitted": 984,
+  "ceiling": {
+    "credited": 88,
+    "f1IfEverythingPosted": 0.2025,
+    "comments": 711
+  },
+  "atBudget": {
+    "emitted": 227,
+    "truePositives": 62,
+    "falsePositives": 165,
+    "falseNegatives": 96,
+    "precision": 0.27312775330396477,
+    "recall": 0.3924050632911392,
+    "f1": 0.3220779220779221,
+    "budget": 5
+  },
+  "lanes": [
+    {
+      "lane": "architecture",
+      "findings": 463,
+      "credited": 58,
+      "unique": 38,
+      "density": 0.1253
+    },
+    {
+      "lane": "behaviour",
+      "findings": 32,
+      "credited": 7,
+      "unique": 2,
+      "density": 0.2188
+    },
+    {
+      "lane": "maintainability",
+      "findings": 157,
+      "credited": 14,
+      "unique": 5,
+      "density": 0.0892
+    },
+    {
+      "lane": "performance",
+      "findings": 38,
+      "credited": 8,
+      "unique": 2,
+      "density": 0.2105
+    },
+    {
+      "lane": "security",
+      "findings": 129,
+      "credited": 38,
+      "unique": 21,
+      "density": 0.2946
+    },
+    {
+      "lane": "testing",
+      "findings": 165,
+      "credited": 10,
+      "unique": 3,
+      "density": 0.0606
+    }
+  ],
+  "difference": {
+    "reference": "benchmarks/martian-bench.json",
+    "referenceLaneSet": "shipped",
+    "referenceCeiling": 86,
+    "shared": 68,
+    "onlyArm": 20,
+    "onlyReference": 18
+  }
+}

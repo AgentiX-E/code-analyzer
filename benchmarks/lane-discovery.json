@@ -1,0 +1,115 @@
+{
+  "version": "lane-discovery-v1",
+  "arm": "benchmarks/martian-reviewer-bench.json",
+  "laneSet": "reviewer",
+  "profile": "core",
+  "corpus": "benchmarks/martian/positive_samples.json",
+  "cut": "drop test, drop path test, budget 12",
+  "guard": [
+    {
+      "field": "k",
+      "published": 414,
+      "rebuilt": 414
+    },
+    {
+      "field": "truePositives",
+      "published": 82,
+      "rebuilt": 82
+    }
+  ],
+  "counterfactual": {
+    "without": [
+      "crosscheck"
+    ],
+    "droppedFindings": 49,
+    "denominatorHeld": true,
+    "ceiling": {
+      "from": 86,
+      "to": 83
+    },
+    "atBudget": {
+      "k": 5,
+      "f1": {
+        "from": 0.2879,
+        "to": 0.2894
+      },
+      "truePositives": {
+        "from": 56,
+        "to": 56
+      },
+      "comments": {
+        "from": 231,
+        "to": 229
+      }
+    }
+  },
+  "goldens": 158,
+  "emitted": 886,
+  "ceiling": {
+    "credited": 86,
+    "f1IfEverythingPosted": 0.193,
+    "comments": 733
+  },
+  "atBudget": {
+    "emitted": 231,
+    "truePositives": 56,
+    "falsePositives": 175,
+    "falseNegatives": 102,
+    "precision": 0.24242424242424243,
+    "recall": 0.35443037974683544,
+    "f1": 0.2879177377892031,
+    "budget": 5
+  },
+  "lanes": [
+    {
+      "lane": "architecture",
+      "findings": 471,
+      "credited": 56,
+      "unique": 40,
+      "density": 0.1189
+    },
+    {
+      "lane": "behaviour",
+      "findings": 42,
+      "credited": 14,
+      "unique": 1,
+      "density": 0.3333
+    },
+    {
+      "lane": "crosscheck",
+      "findings": 49,
+      "credited": 8,
+      "unique": 3,
+      "density": 0.1633
+    },
+    {
+      "lane": "maintainability",
+      "findings": 181,
+      "credited": 11,
+      "unique": 4,
+      "density": 0.0608
+    },
+    {
+      "lane": "performance",
+      "findings": 27,
+      "credited": 6,
+      "unique": 3,
+      "density": 0.2222
+    },
+    {
+      "lane": "security",
+      "findings": 116,
+      "credited": 29,
+      "unique": 15,
+      "density": 0.25
+    }
+  ],
+  "difference": {
+    "reference": "benchmarks/martian-wide-bench.json",
+    "referenceLaneSet": "wide",
+    "referenceCeiling": 88,
+    "shared": 77,
+    "onlyArm": 9,
+    "onlyReference": 11
+  }
+}

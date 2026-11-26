@@ -18108,3 +18108,113 @@ instrument divides by 158 and reports wider intervals). **§147.3's rule - a hol
 case and is silent on this one**, and a figure re-priced by a footnote inside a dispatch that is buying a different
 measurement is exactly what §163.5 refused. The calibration run is therefore left red with this section as its record;
 the fifty-pull-request arm it calibrates runs the full-board path, where all three instruments agree by construction.
+
+## §165. The verdict on S49: the sixth call is refused, and the number it was refused on
+
+§164 declared the swap and wrote down what would refuse it **before the run existed**. The run exists
+(`45746775443`, `success`, ¥1.69 over 4338 calls, 886 findings) and the reading is below. **The device is refused**, and
+the reason is not that the lane is quiet - it is that the lane is _specific_: it names three goldens nothing else in its
+own run names, and converts none of them at the budget the claim is made at.
+
+### 165.1 The reading
+
+Both arms are the committed artifacts, both are scored on the board's own denominator (core `158`), both at `k = 5`:
+
+| arm                      | lanes    | comments | ceiling | credited | precision | recall | F1         |
+| ------------------------ | -------- | -------: | ------: | -------: | --------: | -----: | ---------- |
+| `martian-bench`          | shipped  |      230 |      86 |       53 |    0.2304 | 0.3354 | **0.2732** |
+| `martian-wide-bench`     | wide     |      227 |      88 |       62 |    0.2731 | 0.3924 | **0.3221** |
+| `martian-reviewer-bench` | reviewer |      231 |      86 |       56 |    0.2424 | 0.3544 | **0.2879** |
+
+**The reviewer arm sits between the two arms it is a swap of** - `+0.0147` over the five-lane set that ships, `−0.0342`
+under the six-lane set whose slot it takes. `crosscheck` is therefore **better than not having a sixth call and worse than
+the sixth call we already had**, which is the precise shape of a refusal: the slot is not worthless, this occupant is.
+
+### 165.2 Per lane, in the run that priced it
+
+| lane              | findings | credited | **unique** | density |
+| ----------------- | -------: | -------: | ---------: | ------: |
+| `architecture`    |      471 |       56 |     **40** |  0.1189 |
+| `security`        |      116 |       29 |     **15** |  0.2500 |
+| `maintainability` |      181 |       11 |      **4** |  0.0608 |
+| `crosscheck`      |       49 |        8 |      **3** |  0.1633 |
+| `performance`     |       27 |        6 |      **3** |  0.2222 |
+| `behaviour`       |       42 |       14 |      **1** |  0.3333 |
+
+**`unique` is the only column that answers "was this call worth its price"**, and `crosscheck` is third from the bottom on
+it. Its density `0.1633` is respectable - it is not emitting noise - but **density is credit per comment and the question
+is credit per comment nobody else wrote**, which is `3 / 49 = 0.0612`, second worst in the run.
+
+**Against the wide arm, as sets:**
+
+| shared | only `reviewer` | only `wide` | the two ceilings |
+| -----: | --------------: | ----------: | ---------------: |
+|     77 |           **9** |      **11** |          86 / 88 |
+
+The union is not a superset in either direction, so the swap is not "`reviewer` plus something": it is a different six
+lanes that names **nine goldens `wide` never names and misses eleven that it does.** §164.5 priced the swap at thirteen;
+the realised exchange is +9 / −11.
+
+### 165.3 Why the counterfactual is inside one run, and what it says
+
+Comparing the two artifacts bundles the swap with everything two samples of a sampler disagree on: the `reviewer` run and
+the `wide` run differ by **8 `architecture` findings and 13 `security` findings before a single lane is swapped**. So
+`--without crosscheck` drops the lane's 49 rows out of _one_ artifact and replays the same cut on the same denominator -
+`denominator held at 158`, because a denominator that shrinks with the dropped lane charges the removal twice.
+
+| reading             | with `crosscheck` | without | Δ           |
+| ------------------- | ----------------: | ------: | ----------- |
+| ceiling (no budget) |                86 |      83 | **−3**      |
+| credited at `k = 5` |                56 |      56 | **0**       |
+| comments at `k = 5` |               231 |     229 | **−2**      |
+| F1 at `k = 5`       |            0.2879 |  0.2894 | **+0.0015** |
+
+**Read the middle two rows together.** The lane adds three goldens to the ceiling and converts **none** of them at the
+budget the claim is made at: it spends two comments of a five-comment budget on pull requests where those three goldens
+were already reachable, and the arm is `0.0015` **worse** for it. That is §162.6 from the other side - our score stops
+separating a hit once past the fifth comment, so a lane whose contributions do not rank in the top five is a lane that
+costs recall.
+
+**Three independent refusals, any one of which is enough:**
+
+1. **Ceiling**: `+3` against the `13` §164.5 derived from the swap's own cost (`106 → 103` on `wide`, plus the ten that
+   `k = 5` needs). Short by ten.
+2. **The point**: `0.2879` against `0.3735`, and `−0.0342` against the set whose slot it takes - the swap is a regression
+   before the target is even in view.
+3. **The counterfactual**: removing it _improves_ F1. A device whose absence is better than its presence is not
+   under-tuned; it is pointed the wrong way.
+
+### 165.4 What the lane got right, because a refusal is not a null result
+
+`crosscheck` was aimed at the thirty-two goldens §164.3 identified as named by the competitor and not by us, twenty of
+them on symbols our own pool already mentions. **It hit one of the thirty-two.** The prompt asks for two sides of a
+mismatch, and the model does produce them (`route publishes params.id`, `the name and the producer disagree`), but the
+goldens it lands on are the ones the other five lanes already land on: 8 credited, 3 unique, 5 restatements.
+
+**That is the useful part of the reading.** §164.3's hypothesis was that the twenty symbol-adjacent goldens were missed
+because we _asked about the wrong thing_ - tests, dependency direction, auth bypass - rather than because we did not read
+the line. `crosscheck` asked about a different thing and still landed on the same goldens, **so "ask about something
+else" is not sufficient on its own**: the question has to be asked _about the symbol the golden is on_, which is a
+conditioning problem rather than a prompt problem. That narrows S42 rather than duplicating it.
+
+### 165.5 What is established, and what is not
+
+**Established:**
+
+- the instrument (row 52) works on a real artifact, rebuilds each arm's published point, and produces a same-run
+  counterfactual with a held denominator - `npm run bench:lane-discovery`, gated in CI with `git diff --exit-code`;
+- `crosscheck` is refused as a default lane set. `LANE_SETS.reviewer` stays in the code (it is dispatched by name and
+  costs nothing to keep), and **no shipped set contains it**;
+- the sixth call is not free: it replaces a lane, and the lane it replaced was worth three goldens. **The reviewer set is
+  `wide` minus a lane that cost three to gain three.**
+
+**Not established:**
+
+- **Not that the twenty are unreachable.** One lane asked one question. §164.3's seven families are still seven families,
+  and `crosscheck` addressed two of them (call↔callee, name↔producer) with a generic phrasing.
+- **Not that the sixth slot is worthless.** This prices _this_ lane in _this_ slot. `wide`'s own sixth call (`testing`)
+  is worth three. **The slot is worth ≤ three as currently staffed**, which is the honest statement.
+- **Not on both boards.** AACR was staged behind Martian (§164.6) and Martian refused, so the second board was not bought.
+  That is the staging rule working, not a missing measurement.
+- **Not a same-day delta against the competitor.** The bar is a fixed target read off `martian-bench`; the pair is
+  declared in the planner and not dispatched.

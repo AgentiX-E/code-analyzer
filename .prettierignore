@@ -137,3 +137,12 @@ docs/cut-candidates.html
 # **A paid run's artifact, committed because two curves are drawn from it and one of them used to point at `/tmp`.**
 # Written by the harness, not by a formatter.
 benchmarks/martian-wide-bench.json
+
+# **The lane record, the reference-wide record and the page drawn from them, by the rule every artifact above states.**
+# `benchmarks/martian-reviewer-bench.json` is a paid run's artifact (written by the harness, not by a formatter); the two
+# records are `JSON.stringify(…, null, 2)` from `scripts/lane-discovery.mjs`, the page from `scripts/lane-discovery-page.mjs`,
+# and CI regenerates all three and fails on a difference.
+benchmarks/martian-reviewer-bench.json
+benchmarks/lane-discovery.json
+benchmarks/lane-discovery-wide.json
+docs/lane-discovery.html

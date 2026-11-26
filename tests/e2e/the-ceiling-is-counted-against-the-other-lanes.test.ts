@@ -18,6 +18,7 @@ const SCRIPT = 'scripts/lane-discovery.mjs';
 const CORPUS = 'benchmarks/martian/positive_samples.json';
 const WIDE = 'benchmarks/martian-wide-bench.json';
 const SHIPPED = 'benchmarks/martian-bench.json';
+const REVIEWER = 'benchmarks/martian-reviewer-bench.json';
 
 function read(artifact: string, ...extra: string[]): string {
   return execFileSync(
@@ -72,5 +73,40 @@ describe('the ceiling the claim is about', () => {
       { encoding: 'utf8' },
     );
     expect(out).toContain('their ceiling 86 · shared 68 · only this arm 20 · only theirs 18');
+  });
+
+  it('prices the swap inside one run, on a denominator that does not move with it', () => {
+    // **The counterfactual is the number §165's refusal is written on.** `crosscheck` names three goldens nothing else in
+    // its run names, so the ceiling falls `86 -> 83` without it - and at `k = 5` the same removal *raises* F1
+    // `0.2879 -> 0.2894`, because the lane converts none of the three and spends two comments of budget reaching them.
+    //
+    // **The denominator is held at 158**: dropping a lane can also drop the last finding on a pull request, and a
+    // denominator that shrank with it would charge the removal twice - once for the goldens it no longer names and once
+    // for the goldens the corpus stops asking about.
+    const out = execFileSync(
+      'node',
+      [
+        SCRIPT,
+        '--arm',
+        REVIEWER,
+        '--corpus',
+        CORPUS,
+        '--profile',
+        'core',
+        '--budget',
+        '5',
+        '--without',
+        'crosscheck',
+      ],
+      { encoding: 'utf8' },
+    );
+    expect(out).toContain('goldens 158');
+    expect(out).toContain('denominator held at 158');
+    expect(out).toContain(
+      'ceiling 86 -> 83 · k=5 F1 0.2879 -> 0.2894 · credited 56 -> 56 · comments 231 -> 229',
+    );
+    // **The arm's own headline is not the counterfactual's**: the record above the block still says 86, 231 and 0.2879.
+    expect(out).toContain('ceiling 86 credited goldens');
+    expect(out).toContain('budget 5 · 231 comments · 56 credited');
   });
 });
