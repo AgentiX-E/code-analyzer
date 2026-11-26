@@ -158,7 +158,7 @@ const counterfactualBlock =
     ? ''
     : `<h2>What <code>${counterfactual.without.join(', ')}</code> buys, inside one run</h2>
 <table class="plain swap">
-  <thead><tr><th>reading</th><th class="n">with</th><th class="n">without</th><th class="n">Δ</th></tr></thead>
+  <thead><tr><th>reading</th><th class="n">with</th><th class="n">without</th><th class="n">Δ on removal</th></tr></thead>
   <tbody>
     <tr><th scope="row">ceiling (credited goldens, no budget)</th><td class="n">${String(counterfactual.ceiling.from)}</td><td class="n">${String(counterfactual.ceiling.to)}</td>${delta(counterfactual.ceiling.from, counterfactual.ceiling.to)}</tr>
     <tr><th scope="row">credited at <code>k = ${String(counterfactual.atBudget.k)}</code></th><td class="n">${String(counterfactual.atBudget.truePositives.from)}</td><td class="n">${String(counterfactual.atBudget.truePositives.to)}</td>${delta(counterfactual.atBudget.truePositives.from, counterfactual.atBudget.truePositives.to)}</tr>
@@ -167,9 +167,10 @@ const counterfactualBlock =
   </tbody>
 </table>
 <p class="note">Both columns are the <em>same artifact</em> under the same cut and the same ${String(record.goldens)} goldens:
-${String(counterfactual.droppedFindings)} findings are the only thing between them. A comparison across two runs would
-bundle the swap with everything two samples of a sampler disagree on, which on this board is 8 <code>architecture</code>
-findings before a lane is touched.</p>`;
+${String(counterfactual.droppedFindings)} findings are the only thing between them, and <strong>every delta is signed from
+the left column to the right</strong>: a green figure is one that improves when the lane is removed. A comparison across
+two runs would bundle the swap with everything two samples of a sampler disagree on, which on this board is 8
+<code>architecture</code> findings before a lane is touched.</p>`;
 
 const html = `<!doctype html>
 <html lang="en">
@@ -192,6 +193,10 @@ const html = `<!doctype html>
   .strong { font-weight: 700; color: #2f6f4f; }
   .cost { color: #8a3b3b; }
   .bold { font-weight: 700; }
+  /* **A plain table is laid out fixed**, because its header row and its body row otherwise take their column widths
+     from their own content and the figures sit under the wrong headings. */
+  table.plain { table-layout: fixed; }
+  table.plain th:first-child, table.plain td:first-child { width: 46%; }
   table.swap th[scope="row"] { font-weight: 600; color: #2e3440; }
   table.swap td, table.swap th { padding: 6px 10px; }
   td.bars { width: 46%; position: relative; }
