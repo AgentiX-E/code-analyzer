@@ -380,7 +380,10 @@ export function relatedPairs(
     if (!present.has(name) || RESERVED.has(name)) continue;
     if (!mentioned.includes(name)) mentioned.push(name);
   }
-  if (mentioned.length < 2) return [];
+  // **The first name is read once and narrowed once**, so the fallback below needs no cast: a cast would silence the
+  // compiler where a guard states the fact.
+  const first = mentioned[0];
+  if (first === undefined || mentioned.length < 2) return [];
 
   const ticked: string[] = [];
   for (const match of sentence.matchAll(/`([^`]+)`/g)) {
@@ -388,7 +391,7 @@ export function relatedPairs(
     if (mentioned.includes(name) && !ticked.includes(name)) ticked.push(name);
   }
   const wanted = options.anchor ?? '';
-  const anchor = mentioned.includes(wanted) ? wanted : (ticked[0] ?? (mentioned[0] as string));
+  const anchor = mentioned.includes(wanted) ? wanted : (ticked[0] ?? first);
   const at = firstMention(sentence, anchor);
 
   const ranked = mentioned
