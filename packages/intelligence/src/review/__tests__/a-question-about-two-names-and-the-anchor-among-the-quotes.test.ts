@@ -20,6 +20,7 @@ import { describe, expect, it } from 'vitest';
 import {
   CROSSCHECK_CONTRACT,
   RELATED_NAMES_CONTRACT,
+  numberedLine,
   SymbolCrosscheck,
   anchorAmongSides,
   applyRelationVerdict,
@@ -194,6 +195,32 @@ describe('a question about two names, with the anchor among the quotes', () => {
     });
   });
 
+  describe('the shapes a real diff has, which the numbered-line rule has to survive', () => {
+    it('skips a line the lexer did not number rather than reading its first token as a name', () => {
+      // A unified diff contains context that is not numbered - an `@@` header, a `\ No newline` marker - and a device that
+      // read them would attach a pair to a line number that does not exist.
+      const mixed = ['@@ -1,3 +1,3 @@', ...LINES, '\\ No newline at end of file'];
+      expect(relatedPairs(COMMENT, mixed)).toEqual([
+        { anchor: 'getForLogin', other: 'organizationId' },
+      ]);
+    });
+
+    it('reads a numbered line with no text, and a name shorter than the floor is not a name', () => {
+      const blank = ['214| export function getForLogin(organizationId: string) {', '215|'];
+      expect(numberedLine('215|')).toEqual({ line: 215, text: '' });
+      // `` `id` `` is backticked and real, and it is below the length floor - so it is not offered as a partner.
+      const pairs = relatedPairs('`getForLogin` is handed `id` on every call.', blank);
+      expect(pairs).toEqual([]);
+    });
+
+    it('finds a pair in a comment that uses no backticks at all', () => {
+      // Most comments in this corpus are prose without code formatting, so the pair cannot depend on a backtick.
+      expect(
+        relatedPairs('getForLogin is handed organizationId but caches by realm.', LINES),
+      ).toEqual([{ anchor: 'getForLogin', other: 'organizationId' }]);
+    });
+  });
+
   describe('the anchor has to be one of the two quoted sides', () => {
     it('accepts an answer whose left side is the anchor’s line', () => {
       expect(anchorAmongSides(GOOD, 'getForLogin', LINES)).toBe(true);
@@ -209,6 +236,17 @@ describe('a question about two names, with the anchor among the quotes', () => {
         ...GOOD,
         left: { line: 216, quote: 'return cache.get(key);' },
         right: { line: 216, quote: 'return cache.get(key);' },
+      };
+      expect(anchorAmongSides(adrift, 'getForLogin', LINES)).toBe(false);
+    });
+
+    it('reports no anchor when the quoted line is not one the lexer numbered', () => {
+      const adrift: RelationVerdict = {
+        ...GOOD,
+        left: {
+          line: 999,
+          quote: 'export function getForLogin(organizationId: string, realm: string) {',
+        },
       };
       expect(anchorAmongSides(adrift, 'getForLogin', LINES)).toBe(false);
     });
@@ -274,6 +312,15 @@ describe('a question about two names, with the anchor among the quotes', () => {
       });
       expect(verdict?.anchor).toBe('getForLogin');
       expect(verdict?.other).toBe('organizationId');
+    });
+
+    it('refuses an answer that is not text at all', () => {
+      // **A provider that returns nothing is not a provider that returned JSON.** `undefined` and `null` arrive here from
+      // a completion the caller could not read, and both are refusals rather than crashes.
+      expect(
+        parseRelationVerdict(undefined as unknown as string, { anchor: 'a', other: 'b' }),
+      ).toBeNull();
+      expect(parseRelationVerdict('' as string, { anchor: 'a', other: 'b' })).toBeNull();
     });
 
     it('refuses an answer with no sides at all', () => {

@@ -264,7 +264,8 @@ function occurrences(lines: string[], minLength: number): Occurrence[] {
     for (const match of parsed.text.matchAll(/[A-Za-z_$][A-Za-z0-9_$]*/g)) {
       const name = match[0];
       if (name.length < minLength) continue;
-      const at = match.index ?? 0;
+      // `index` is a number on every `RegExpExecArray`, so a `?? 0` here would be a branch no test could ever take.
+      const at = match.index;
       found.push({
         name,
         line: parsed.line,
@@ -335,7 +336,7 @@ function firstMention(text: string, name: string): number {
   const match = new RegExp(`(?<![A-Za-z0-9_$])${escapeForRegExp(name)}(?![A-Za-z0-9_$])`).exec(
     text,
   );
-  return match === null ? -1 : (match.index ?? -1);
+  return match === null ? -1 : match.index;
 }
 
 /**
