@@ -18601,3 +18601,33 @@ refuses the next call when it is reached, so the worst case is bounded by the fl
 thing for three rounds** - and the next move is emission (what gets said at all), not phrasing. That is a stronger
 statement than §167 could make, because §167's own reading was of a device that asked the wrong question. This one asks
 the question the prize was computed on, with the anchor the plan chose, and the anchor cannot drift off the quoted line.
+
+### 168.6 The run the reader spoiled, and what it cost to learn it
+
+Dispatch `45866558083` bought 184 verifier calls and 222 judge calls under `two-related-names-v1` and **rewrote nothing**:
+`57 → 57`, F1 `0.2961 → 0.2961`, `0 of 27`. The verifier's own report says why, in one line:
+
+```
+called 184 · rewritten 0 · unreadable 184 · no-symbol 43 · spend $0.028189
+```
+
+**Every answer was unreadable, and every answer was correct.** The relation prompt asks for four fields - `left`, `right`,
+`agree`, `rewrite` - because the pair is carried from the question rather than echoed back; `parseVerdict` demanded a fifth,
+`symbol`, because the first contract's rewrite is checked against it. A reader stricter than its own prompt does not report
+a model that cannot answer, it reports **silence while the model was answering**, and the pass then has no choice but to
+keep every sentence.
+
+**The repair is structural rather than a prompt edit.** A shared `answerOf` reads the four fields both contracts share; each
+contract attaches what only it needs - `symbol` for the first, the pair for the second - in its **own** reader, and the
+reader travels on the question (`Question.parse`) rather than being chosen once for the pass. Asking the model to echo the
+pair would have made this run pass and left the next prompt able to make the same mistake.
+
+**Two tests now hold it.** One composes an answer from exactly the field names the relation prompt prints and requires its
+own reader to accept it, and asserts that the first prompt does print `symbol` - so a reader that grows a field its prompt
+does not ask for fails in a second rather than in a paid run. The other drives the whole pass with a four-field answer and
+requires `unreadable: 0`.
+
+**What it cost.** `$0.0282` of verifier calls and 222 judge calls, about `¥0.35` together, against a budget of `$3` that
+never came close. A device that ships off by default had already cost this campaign one `ReferenceError` on its switch-on
+path (§167.8); **this is the second defect that only a real dispatch could find, and both were found by the artefact rather
+than by the tests that were supposed to cover it.**
