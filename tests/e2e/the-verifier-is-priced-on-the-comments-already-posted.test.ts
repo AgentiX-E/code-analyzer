@@ -15,7 +15,7 @@
 // prize this campaign has been aiming at stops meaning anything.
 
 import { execFileSync } from 'node:child_process';
-import { mkdtempSync, rmSync, writeFileSync } from 'node:fs';
+import { mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join, resolve } from 'node:path';
 
@@ -202,7 +202,10 @@ function run(overrides: { armB?: Record<string, boolean> } = {}) {
     ],
     { cwd: REPO, encoding: 'utf8' },
   );
-  return { stdout, result: JSON.parse(execFileSync('cat', [out], { encoding: 'utf8' })) };
+  // **Read rather than `cat`.** The artifact is a file this process already has a path to, so spawning a reader for it
+  // is a second process to say what `readFileSync` says in one call - CodeQL's `js/unnecessary-use-of-cat`, and a fair
+  // one: a test that shells out to read its own output can also pass on a platform where the shell resolves differently.
+  return { stdout, result: JSON.parse(readFileSync(out, 'utf8')) };
 }
 
 describe('a rewrite is priced on the comments that were already posted', () => {
