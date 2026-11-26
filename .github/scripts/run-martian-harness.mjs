@@ -100,6 +100,16 @@ async function main() {
   // truncation, because a reviewer that stops mid-corpus and reports a lower recall is a figure that looks like a
   // measurement.
   const { CostLedger } = await import('../../packages/intelligence/dist/review/llm/cost.js');
+  const ledger = new CostLedger();
+  const CEILING_USD = Number(process.env['LLM_MAX_USD'] ?? 6);
+  // **The provider is kept beside the engine rather than inside it**, because the two-sided verifier is a second caller
+  // of the same model and the same ledger - and a second provider would be a second bill that the ceiling did not see.
+  // **It is constructed before either caller, which is load-bearing and was not.** The verifier block used to sit above
+  // this line, so with `SYMBOL_CROSSCHECK=on` the constructor read a `const` in its temporal dead zone and threw before
+  // the first call: a pass that is off by default, and that only the standalone script had ever exercised, carried a
+  // `ReferenceError` on the one path that turns it on. CodeQL found it (`js/use-before-declaration`); the ordering below
+  // is the fix, and it is ordered by dependency rather than alphabetically so that a reader can see it.
+  const provider = new DeepSeekProvider({ ledger, ceilingUsd: CEILING_USD });
   // **Loaded only when it is asked for**, because a run that does not buy the verifier should not pay for its import path
   // either - and because the pass's own budget is a separate decision from the review's.
   const CORRECTION = CROSSCHECK
@@ -114,11 +124,6 @@ async function main() {
           maxPerPullRequest: Number(process.env['SYMBOL_CROSSCHECK_PER_PR'] ?? '5'),
         });
   const crosscheckReports = [];
-  const ledger = new CostLedger();
-  const CEILING_USD = Number(process.env['LLM_MAX_USD'] ?? 6);
-  // **The provider is kept beside the engine rather than inside it**, because the two-sided verifier is a second caller
-  // of the same model and the same ledger - and a second provider would be a second bill that the ceiling did not see.
-  const provider = new DeepSeekProvider({ ledger, ceilingUsd: CEILING_USD });
   const engine = new LLMReviewEngine(provider);
   console.log('MARTIAN-HARNESS ceiling ' + String(CEILING_USD) + ' USD');
   // **And what it spent, printed on the way out.** The ledger is registered rather than summarised at the end because

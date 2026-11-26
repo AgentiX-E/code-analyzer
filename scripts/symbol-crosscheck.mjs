@@ -440,7 +440,11 @@ async function mapLimit(items, limit, run) {
       const at = next;
       next += 1;
       if (at >= items.length) return;
-      results[at] = await run(items[at], at);
+      // **One argument, because the second one was never read.** This used to pass the index as well, and a reviewer
+      // reading the generic `run` against its only concrete callee - a one-parameter destructuring of a job pair - saw a
+      // trailing argument nobody could justify. The fix is at the shape rather than at the call: a runner that does not
+      // receive an index cannot be handed a superfluous one.
+      results[at] = await run(items[at]);
     }
   });
   await Promise.all(workers);
