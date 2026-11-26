@@ -47,6 +47,9 @@ const GOLDEN = join(MARTIAN, 'offline', 'golden_comments');
 const OFFLINE = join(MARTIAN, 'offline');
 const TOOL = process.env['MARTIAN_TOOL'] ?? 'agentix-e';
 const HAS_KEY = Boolean(process.env['DEEPSEEK_API_KEY']);
+// **The verifier is a purchase and not a default**: a run that was not asked to buy it does not, and an unset variable is
+// off rather than on - the rule every optional arm in this repository follows.
+const CROSSCHECK = String(process.env['SYMBOL_CROSSCHECK'] ?? 'off').toLowerCase() === 'on';
 const TOKEN = process.env['GITHUB_TOKEN'] ?? '';
 const MAX_PRS = Number(process.env['MAX_PRS'] ?? '6');
 
@@ -97,9 +100,26 @@ async function main() {
   // truncation, because a reviewer that stops mid-corpus and reports a lower recall is a figure that looks like a
   // measurement.
   const { CostLedger } = await import('../../packages/intelligence/dist/review/llm/cost.js');
+  // **Loaded only when it is asked for**, because a run that does not buy the verifier should not pay for its import path
+  // either - and because the pass's own budget is a separate decision from the review's.
+  const CORRECTION = CROSSCHECK
+    ? await import('../../packages/intelligence/dist/review/symbol-crosscheck.js')
+    : null;
+  const DIFFS = CROSSCHECK ? await import('../../scripts/lib/diff-added-lines.mjs') : null;
+  const crosschecker =
+    CORRECTION === null
+      ? null
+      : new CORRECTION.SymbolCrosscheck(provider, {
+          maxCalls: Number(process.env['SYMBOL_CROSSCHECK_MAX_CALLS'] ?? '250'),
+          maxPerPullRequest: Number(process.env['SYMBOL_CROSSCHECK_PER_PR'] ?? '5'),
+        });
+  const crosscheckReports = [];
   const ledger = new CostLedger();
   const CEILING_USD = Number(process.env['LLM_MAX_USD'] ?? 6);
-  const engine = new LLMReviewEngine(new DeepSeekProvider({ ledger, ceilingUsd: CEILING_USD }));
+  // **The provider is kept beside the engine rather than inside it**, because the two-sided verifier is a second caller
+  // of the same model and the same ledger - and a second provider would be a second bill that the ceiling did not see.
+  const provider = new DeepSeekProvider({ ledger, ceilingUsd: CEILING_USD });
+  const engine = new LLMReviewEngine(provider);
   console.log('MARTIAN-HARNESS ceiling ' + String(CEILING_USD) + ' USD');
   // **And what it spent, printed on the way out.** The ledger is registered rather than summarised at the end because
   // these scripts have several exits - a corpus that fails to clone, an account out of credit, a thrown error - and a
@@ -120,6 +140,33 @@ async function main() {
     );
   });
 
+  /**
+   * **The two-sided verifier, applied to the comments this diff already produced.**
+   *
+   * It may rewrite a sentence and may not add or drop one, so the array it returns is the one it was given - and the
+   * evidence is the change itself, windowed around each anchor. **A finding kept is the same object**, so a finding that was
+   * not corrected still reaches the reader exactly as the lanes wrote it.
+   */
+  async function correctByTwoSides(findings, diff) {
+    const added = DIFFS.addedLinesByPath(diff);
+    const prepared = findings.map((finding) => ({
+      pr: null,
+      path: String(finding.path ?? ''),
+      startLine: Number(finding.startLine ?? 1),
+      title: String(finding.title ?? ''),
+      description: String(finding.description ?? ''),
+    }));
+    const { findings: verified, report } = await crosschecker.run(prepared, (finding) =>
+      DIFFS.evidenceWindow(added.get(finding.path)?.added ?? [], finding.startLine ?? 0),
+    );
+    crosscheckReports.push(report);
+    return findings.map((finding, at) =>
+      verified[at]?.description === prepared[at].description
+        ? finding
+        : { ...finding, description: verified[at]?.description ?? finding.description },
+    );
+  }
+
   // **Their schema, filled in.** One entry per golden PR, with one review by this tool.
   const benchmark = {};
   let scored = 0;
@@ -134,7 +181,8 @@ async function main() {
     // **A candidate is an issue description**, which is what their step2 would have extracted from comments -
     // **and ours is the finding's own title**, because that is what our engine says about a diff.
     const lanes = await engine.reviewDiff(createDiff('PR.diff', 'added', diff), diff);
-    const findings = lanes.filter((l) => l.success).flatMap((l) => l.findings);
+    const reviewed = lanes.filter((l) => l.success).flatMap((l) => l.findings);
+    const findings = CROSSCHECK ? await correctByTwoSides(reviewed, diff) : reviewed;
     benchmark[pr.url] = {
       pr_title: pr.prTitle,
       original_url: pr.url,
@@ -226,6 +274,19 @@ async function main() {
     ...base,
     prsScored: scored,
     prsWithoutDiff: noDiff,
+    symbolCrosscheck:
+      crosscheckReports.length === 0
+        ? null
+        : {
+            contract: crosscheckReports[0]?.contract ?? null,
+            considered: crosscheckReports.reduce((sum, report) => sum + report.considered, 0),
+            called: crosscheckReports.reduce((sum, report) => sum + report.called, 0),
+            rewritten: crosscheckReports.reduce((sum, report) => sum + report.rewritten, 0),
+            failed: crosscheckReports.reduce((sum, report) => sum + report.failed, 0),
+            spendUsd: Number(
+              crosscheckReports.reduce((sum, report) => sum + report.spendUsd, 0).toFixed(6),
+            ),
+          },
     totalFindings: Object.values(benchmark).reduce(
       (n, p) => n + (p.reviews?.[0]?.candidates?.length ?? 0),
       0,

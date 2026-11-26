@@ -18373,3 +18373,88 @@ next round's spend.
   much that can matter, not whether it does.
 - **Not on the second board.** AACR is staged behind Martian by §164.6 and Martian is where this was read.
 - **Not a same-day delta.** The bar is a fixed target off one artifact; the competitor's arm was not re-run.
+
+## §167. The verifier is built, and its acceptance was written before it was bought
+
+§166 refused three devices and named a fourth: **a pass over the comments the arm already posts**, conditioned on the symbol
+each already names. This section is that device as code, and it is written as a pre-registration - the acceptance, the cost
+and the refusals come before the run, because a device whose target is chosen after its number is a device that cannot fail.
+
+### 167.1 What it is, in one sentence and in one type
+
+Take a comment the arm already posts; take the symbol that comment already names; ask **one** question about it: *what is
+the other side of this symbol, and do the two agree?* Both sides must be quoted verbatim from the lines the comment is
+about. Only a quoted disagreement rewrites the sentence, and the rewrite must name the symbol it is about.
+
+`packages/intelligence/src/review/symbol-crosscheck.ts`, contract **`two-sides-v1`**. Two properties are in the type rather
+than in the prose:
+
+- **It may only edit.** `run` returns one finding per finding it was given, in the same order, with the same `path` and
+  the same `startLine`. §166.4's prize is *the same 227 comments, the sentences corrected* - the count is the premise of the
+  arithmetic that licensed the device, so a pass that dropped what it could not verify would move the denominator and the
+  figure with it.
+- **Silence keeps the sentence.** An unreadable answer, a quote that appears nowhere, two quotations of the same text, an
+  agreement, a rewrite that does not name the symbol, a rewrite over 400 characters - **each is a named keep reason and a
+  counter**, so a run can tell a strict verifier from a broken one. A verifier whose free action is to keep cannot make the
+  emission worse.
+
+**And the four things it is not**, each of which the campaign has already paid to refuse: not a sixth lane (§165: `+3` on
+the ceiling against the `13` a swap must repay, `1` of 32 converted, F1 `−0.0342`); not more reading (§R-22: `0.2033`
+against `0.4043`); not a selector (§166.3: adjacency is the base rate at 79 % outside the set); not a drop gate
+(`adjudication/falsifier.ts` may only drop and may never edit - two devices whose permitted actions are disjoint do not
+belong behind one flag).
+
+### 167.2 Where the evidence comes from, and the two ways a lexer can lie
+
+A two-sided question needs both sides, and the sides are in the change rather than in the sentence. `scripts/lib/diff-added-lines.mjs`
+reads the pull request's unified diff and numbers its added lines on the **new** side, because that is the revision a comment
+is anchored to. Two properties are tested rather than assumed:
+
+| property                                                    | why it decides a figure                                                                                                     |
+| ----------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------- |
+| a removed line is counted and never quoted                  | quoting a line the reader cannot see at head is §149.5's unpostable comment arriving by a different route                    |
+| a `\ No newline` marker does not advance the new-side count | one line of drift makes every later quotation fail a check it should pass - a verifier that refuses everything looks strict |
+| a file header (`--- a/…`) is not a removal                  | an earlier version counted it as one, so every file's removed-line tally was wrong by the number of files after it          |
+
+The window is asymmetric on purpose - **six lines back for the declaration or the assignment, eighteen forward for the use** -
+and bounded at forty lines. When no diff is available the finding's own quoted code is used and the record says so
+(`evidenceSource: quote`), because a run that verified against one quoted line is a weaker reading than one that verified
+against the change, and a figure that could not tell them apart would be the stronger claim wearing the weaker run's numbers.
+
+### 167.3 The acceptance, pre-registered
+
+| what                             | bar                                                                                  | why that bar                                                                                       |
+| -------------------------------- | ------------------------------------------------------------------------------------ | -------------------------------------------------------------------------------------------------- |
+| conversions on Martian           | **≥ 18 of the 27** plan entries rewritten                                            | §166.5's curve: 18 is where `k = 5` F1 reaches `0.3740` against a bar of `0.3735`                    |
+| comment count                    | **unchanged**                                                                        | §166.4's prize is defined at a fixed budget; a count that moved measures a different arm             |
+| `k = 5` F1                       | **≥ 0.3735**                                                                         | the competitor's score with our LLM - the bar does not move (§166.7)                                |
+| the pair                         | both arms judged **in one run, by one judge**                                        | a difference between two runs is a difference between two judgements as well as two sentences       |
+| the readout                      | cannot add or drop a comment                                                         | `withRewrites` ignores a position that was not posted, so the invariant is a property of the code   |
+| AACR                             | **staged behind Martian**                                                            | §164.6's rule; a second board is a second run after the first one reads                                    |
+
+**And the bar is read against a re-judged twin, not against the published point.** Arm A is our emission judged by this run's
+judge; arm B is the same emission with the corrections. Arm A's distance from the artifact's `0.3221` is the judge's own
+drift, measured on the arm the bar was computed from - which is the only way a reader can tell a better reviewer from a
+different judge.
+
+### 167.4 What it costs
+
+At `k = 5` the wide arm posts **227** comments, and the verifier asks **one question per comment** rather than one per symbol:
+the acceptance is a share of the comments posted, so the budget has to cover all of them. That is **227 calls** at roughly
+1 200 prompt tokens each - about **6 %** of the `4 338` calls the review itself spends on the same fifty pull requests, or
+**≤ ¥0.5** at the vendor's off-peak rate. The judgement is one pass over the emission plus one over the corrections, since
+a comment the verifier did not touch is judged once and its verdict is used by both arms. The script carries a ceiling
+(`--max-usd`, default `3`) and the provider refuses the call after it, so a run cannot run away.
+
+**`--mode replay` is free and is the default.** It reads a recorded run and recomputes every figure from its stored verdicts,
+which is what lets CI and a documentation page print the numbers on every commit without buying them again.
+
+### 167.5 What it does not establish
+
+- **Not that a credited rewrite is a correct one.** The judge compares two sentences; a rewrite that names both sides and
+  earns the golden is a rewrite the judge accepted, and nothing here reads whether the disagreement it asserts is real.
+- **Not the 99 goldens outside the set.** §166.3 says the same device could touch them and §166.8 says nothing prices it.
+- **Not that the symbol rule is a parser.** It is lexical: a name counts when the comment names it and the evidence contains
+  it, and a name that occurs only where it is declared is not a symbol for this pass because it has no other side.
+- **Not a same-run competitor arm.** The bar is the competitor's score with our LLM from the recorded baseline; this run does
+  not re-buy their arm.

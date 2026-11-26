@@ -59,20 +59,20 @@
   <ul class="tiles">
     <li><b>54</b><span>capabilities</span></li>
     <li><b>45</b><span>done</span></li>
-    <li><b>6</b><span>partial</span></li>
-    <li><b>3</b><span>not built</span></li>
-    <li><b>44</b><span>with an end-to-end case</span></li>
+    <li><b>7</b><span>partial</span></li>
+    <li><b>2</b><span>not built</span></li>
+    <li><b>45</b><span>with an end-to-end case</span></li>
     <li><b>40</b><span>ours only</span></li>
     <li><b>2</b><span>competitor only</span></li>
   </ul>
 </header>
 <nav>
   <button data-filter="all" aria-pressed="true">All <span style="opacity:.6">54</span></button>
-  <button data-filter="NONE" aria-pressed="false">Not built <span style="opacity:.6">3</span></button>
-  <button data-filter="PART" aria-pressed="false">Partial <span style="opacity:.6">6</span></button>
+  <button data-filter="NONE" aria-pressed="false">Not built <span style="opacity:.6">2</span></button>
+  <button data-filter="PART" aria-pressed="false">Partial <span style="opacity:.6">7</span></button>
   <button data-filter="DONE" aria-pressed="false">Done <span style="opacity:.6">45</span></button>
   <button data-filter="C" aria-pressed="false">Competitor only <span style="opacity:.6">2</span></button>
-  <button data-filter="no-e2e" aria-pressed="false">No end-to-end case <span style="opacity:.6">10</span></button>
+  <button data-filter="no-e2e" aria-pressed="false">No end-to-end case <span style="opacity:.6">9</span></button>
   <input id="q" type="search" placeholder="filter by capability, file or surface" aria-label="filter">
 </nav>
 <main>
@@ -598,14 +598,14 @@
         <td><span class="state DONE">DONE</span></td>
         <td class="why">DONE (§166) — the rule is mechanical (an identifier of four characters or more, specific when at most one pull request's pool names it), swept over its one parameter, and bounded by three controls: a seeded permutation null (2.13, p95 5), a wrong-pull-request control (2 of 33) and the rate outside the set (99 of 125). That last control is the point: co-location is the board's base rate, so adjacency locates and cannot select</td>
       </tr>
-      <tr data-state="NONE" data-who="O" data-e2e="false">
+      <tr data-state="PART" data-who="O" data-e2e="true">
         <td class="id">54</td>
         <td class="cap">Each comment the arm posts is re-read against the symbol it names, and a finding that cannot quote both sides keeps its original sentence<span class="surface">GitHub App, CLI</span></td>
         <td><span class="tag O">ours only</span></td>
-        <td class="proof"><span class="none">no unit case</span></td>
-        <td class="proof"><span class="none">no end-to-end case</span></td>
-        <td><span class="state NONE">NONE</span></td>
-        <td class="why">NONE (S53, §166.6) — the device the reading points at, registered with its own acceptance: ≥ 18 of the 27 conversions at k = 5 with the comment count unchanged, on both boards, for about 6 % of a run's calls (≤ ¥0.12)</td>
+        <td class="proof"><code>a-comment-that-cannot-name-both-sides-keeps-its-sentence</code></td>
+        <td class="proof"><code>the-verifier-is-priced-on-the-comments-already-posted</code></td>
+        <td><span class="state PART">PART</span></td>
+        <td class="why">PART (S53, §167) — built as two-sides-v1 under a pre-registered acceptance: ≥ 18 of the 27 conversions at k = 5, the comment count unchanged, F1 ≥ 0.3735, and both arms judged in one run by one judge. The pass may only edit - one comment in, one out, same anchor - so the count is a property of the type; every other outcome is a named keep reason. The reading is the paid dispatch and is appended to §167 when it lands.</td>
       </tr>
       </tbody>
     </table>
