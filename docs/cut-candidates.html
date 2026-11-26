@@ -1,0 +1,95 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Five cut steps, five boards, and what each one costs</title>
+<style>
+  :root { color-scheme: light; }
+  body { margin: 0 auto; max-width: 1040px; padding: 32px 20px 64px; font: 15px/1.55 -apple-system, "Segoe UI", Roboto, sans-serif; color: #2e3440; }
+  h1 { font-size: 24px; margin: 0 0 4px; }
+  h2 { font-size: 15px; margin: 0 0 2px; }
+  .lede { color: #4c566a; margin: 0 0 18px; }
+  .meta { color: #4c566a; font-size: 12.5px; margin: 0 0 10px; }
+  .why { color: #3b4252; font-size: 12.5px; margin: 8px 0 0; }
+  .badge { font: 11px ui-monospace, SFMono-Regular, Menlo, monospace; text-transform: uppercase; letter-spacing: .04em; padding: 2px 7px; border-radius: 999px; margin-left: 6px; }
+  .candidate.refused .badge { background: #f3dcdc; color: #8a3b3b; }
+  .candidate.promotable .badge { background: #dceee2; color: #2f6f4f; }
+  .candidate { border-top: 1px solid #e5e9f0; padding: 18px 0 6px; }
+  .candidate:first-of-type { border-top: none; }
+  table { border-collapse: collapse; width: 100%; }
+  table.grid { font: 12px/1.4 ui-monospace, SFMono-Regular, Menlo, monospace; }
+  table.grid th { text-align: left; font-weight: 600; color: #4c566a; padding: 4px 8px 4px 0; vertical-align: top; width: 30%; }
+  table.grid th small { display: block; font-weight: 400; color: #7b8794; }
+  table.grid th[scope="col"] { width: auto; text-align: right; padding: 0 6px 6px; }
+  table.grid td { text-align: right; padding: 7px 8px; border-left: 3px solid transparent; vertical-align: top; }
+  table.grid td b { display: block; font-weight: 600; }
+  table.grid td span, table.grid td em { display: block; font-style: normal; font-size: 11px; color: #4c566a; }
+  td.good { background: rgba(163, 190, 140, calc(0.18 + 0.55 * var(--w))); border-left-color: #2f6f4f; }
+  td.bad { background: rgba(191, 97, 106, calc(0.16 + 0.55 * var(--w))); border-left-color: #8a3b3b; }
+  td.flat { background: #f1f4f8; }
+  table.verdicts { font: 12.5px/1.5 -apple-system, "Segoe UI", Roboto, sans-serif; margin-top: 10px; }
+  table.verdicts th, table.verdicts td { text-align: left; padding: 6px 8px; border-bottom: 1px solid #eceff4; vertical-align: top; }
+  table.verdicts thead th { color: #4c566a; }
+  .good { color: #2f6f4f; }
+  .bad { color: #8a3b3b; }
+  footer { margin-top: 34px; color: #4c566a; font-size: 12px; }
+  code { font: 12px ui-monospace, SFMono-Regular, Menlo, monospace; }
+</style>
+</head>
+<body>
+<h1>Five cut steps, five boards, and what each one costs</h1>
+<p class="lede">Each cell is one candidate cut applied to one board at one budget, read against the cut that board
+already publishes. <strong>Green means the step kept every credited golden the incumbent kept and posted strictly fewer
+comments</strong> - it cannot have lost anything, so no significance test applies. <strong>Red means it posted fewer
+comments and lost a golden to do it</strong>, and the cell says how many: that is the trade the acceptance rule exists to
+refuse. A step ships only when no cell anywhere is red.</p>
+
+<section class="candidate refused">
+  <h2><code>severity:medium</code> <span class="badge">refused</span></h2>
+  <p class="meta">drop severity below medium &middot; a reviewer does not post what it called trivial &middot; 12 of 15 cells strictly shrink the emission, 3 lose a credited golden, worst -0.0270</p>
+  <table class="grid"><thead><tr><th></th><th scope="col">k = 4</th><th scope="col">k = 5</th><th scope="col">k = 12</th></tr></thead><tbody><tr><th scope="row">Martian · wide arm · core 158<small>158 goldens</small></th><td class="good" style="--w:0.088"><b>+0.0067</b><span>no golden lost</span><em>186 vs 187 comments</em></td><td class="good" style="--w:0.102"><b>+0.0078</b><span>no golden lost</span><em>224 vs 227 comments</em></td><td class="good" style="--w:0.132"><b>+0.0101</b><span>no golden lost</span><em>382 vs 402 comments</em></td></tr><tr><th scope="row">Martian · wide arm · all 173<small>173 goldens</small></th><td class="good" style="--w:0.084"><b>+0.0064</b><span>no golden lost</span><em>186 vs 187 comments</em></td><td class="good" style="--w:0.097"><b>+0.0074</b><span>no golden lost</span><em>224 vs 227 comments</em></td><td class="good" style="--w:0.179"><b>+0.0136</b><span>no golden lost</span><em>382 vs 402 comments</em></td></tr><tr><th scope="row">Martian · shipped arm · core 158<small>158 goldens</small></th><td class="good" style="--w:0.128"><b>+0.0098</b><span>no golden lost</span><em>183 vs 188 comments</em></td><td class="good" style="--w:0.144"><b>+0.0110</b><span>no golden lost</span><em>222 vs 230 comments</em></td><td class="good" style="--w:0.241"><b>+0.0184</b><span>no golden lost</span><em>391 vs 429 comments</em></td></tr><tr><th scope="row">Martian · shipped arm · all 173<small>173 goldens</small></th><td class="good" style="--w:0.197"><b>+0.0150</b><span>no golden lost</span><em>183 vs 188 comments</em></td><td class="good" style="--w:0.206"><b>+0.0158</b><span>no golden lost</span><em>222 vs 230 comments</em></td><td class="good" style="--w:0.290"><b>+0.0221</b><span>no golden lost</span><em>391 vs 429 comments</em></td></tr><tr><th scope="row">AACR-Bench · 452<small>452 goldens</small></th><td class="bad" style="--w:0.251"><b>-0.0192</b><span>8 lost</span><em>141 vs 157 comments</em></td><td class="bad" style="--w:0.308"><b>-0.0235</b><span>11 lost</span><em>165 vs 185 comments</em></td><td class="bad" style="--w:0.354"><b>-0.0270</b><span>13 lost</span><em>238 vs 273 comments</em></td></tr></tbody></table>
+  <p class="why">3 of 15 cells lose credited goldens, worst aacr k=12 (-0.0270, 13 lost against 0 gained), and 10 cells sit below their board's resolution</p>
+</section>
+<section class="candidate refused">
+  <h2><code>severity:high</code> <span class="badge">refused</span></h2>
+  <p class="meta">drop severity below high &middot; the same sentence with the tier moved one step, as a control on where the line sits &middot; 0 of 15 cells strictly shrink the emission, 15 lose a credited golden, worst -0.0763</p>
+  <table class="grid"><thead><tr><th></th><th scope="col">k = 4</th><th scope="col">k = 5</th><th scope="col">k = 12</th></tr></thead><tbody><tr><th scope="row">Martian · wide arm · core 158<small>158 goldens</small></th><td class="bad" style="--w:0.213"><b>-0.0163</b><span>17 lost</span><em>152 vs 187 comments</em></td><td class="bad" style="--w:0.207"><b>-0.0158</b><span>18 lost</span><em>175 vs 227 comments</em></td><td class="bad" style="--w:0.080"><b>+0.0061</b><span>20 lost</span><em>260 vs 402 comments</em></td></tr><tr><th scope="row">Martian · wide arm · all 173<small>173 goldens</small></th><td class="bad" style="--w:0.214"><b>-0.0163</b><span>17 lost</span><em>152 vs 187 comments</em></td><td class="bad" style="--w:0.136"><b>-0.0104</b><span>18 lost</span><em>175 vs 227 comments</em></td><td class="bad" style="--w:0.015"><b>-0.0011</b><span>22 lost</span><em>260 vs 402 comments</em></td></tr><tr><th scope="row">Martian · shipped arm · core 158<small>158 goldens</small></th><td class="bad" style="--w:0.163"><b>+0.0124</b><span>11 lost</span><em>151 vs 188 comments</em></td><td class="bad" style="--w:0.165"><b>-0.0126</b><span>13 lost</span><em>172 vs 230 comments</em></td><td class="bad" style="--w:0.343"><b>+0.0262</b><span>18 lost</span><em>253 vs 429 comments</em></td></tr><tr><th scope="row">Martian · shipped arm · all 173<small>173 goldens</small></th><td class="bad" style="--w:0.083"><b>+0.0063</b><span>12 lost</span><em>151 vs 188 comments</em></td><td class="bad" style="--w:0.223"><b>-0.0170</b><span>14 lost</span><em>172 vs 230 comments</em></td><td class="bad" style="--w:0.262"><b>+0.0200</b><span>21 lost</span><em>253 vs 429 comments</em></td></tr><tr><th scope="row">AACR-Bench · 452<small>452 goldens</small></th><td class="bad" style="--w:0.780"><b>-0.0595</b><span>31 lost</span><em>83 vs 157 comments</em></td><td class="bad" style="--w:0.899"><b>-0.0686</b><span>35 lost</span><em>89 vs 185 comments</em></td><td class="bad" style="--w:1.000"><b>-0.0763</b><span>41 lost</span><em>118 vs 273 comments</em></td></tr></tbody></table>
+  <p class="why">15 of 15 cells lose credited goldens, worst aacr k=12 (-0.0763, 41 lost against 3 gained), and 13 cells sit below their board's resolution</p>
+</section>
+<section class="candidate refused">
+  <h2><code>distinct:overlap</code> <span class="badge">refused</span></h2>
+  <p class="meta">one comment per overlapping range &middot; two comments on one line range are one comment said twice &middot; 0 of 15 cells strictly shrink the emission, 15 lose a credited golden, worst -0.0257</p>
+  <table class="grid"><thead><tr><th></th><th scope="col">k = 4</th><th scope="col">k = 5</th><th scope="col">k = 12</th></tr></thead><tbody><tr><th scope="row">Martian · wide arm · core 158<small>158 goldens</small></th><td class="bad" style="--w:0.036"><b>+0.0027</b><span>3 lost</span><em>184 vs 187 comments</em></td><td class="bad" style="--w:0.268"><b>-0.0205</b><span>7 lost</span><em>220 vs 227 comments</em></td><td class="bad" style="--w:0.336"><b>-0.0257</b><span>12 lost</span><em>371 vs 402 comments</em></td></tr><tr><th scope="row">Martian · wide arm · all 173<small>173 goldens</small></th><td class="bad" style="--w:0.107"><b>+0.0082</b><span>3 lost</span><em>184 vs 187 comments</em></td><td class="bad" style="--w:0.193"><b>-0.0147</b><span>7 lost</span><em>220 vs 227 comments</em></td><td class="bad" style="--w:0.322"><b>-0.0246</b><span>12 lost</span><em>371 vs 402 comments</em></td></tr><tr><th scope="row">Martian · shipped arm · core 158<small>158 goldens</small></th><td class="bad" style="--w:0.010"><b>+0.0008</b><span>4 lost</span><em>187 vs 188 comments</em></td><td class="bad" style="--w:0.022"><b>-0.0017</b><span>6 lost</span><em>225 vs 230 comments</em></td><td class="bad" style="--w:0.104"><b>-0.0079</b><span>9 lost</span><em>385 vs 429 comments</em></td></tr><tr><th scope="row">Martian · shipped arm · all 173<small>173 goldens</small></th><td class="bad" style="--w:0.010"><b>+0.0008</b><span>4 lost</span><em>187 vs 188 comments</em></td><td class="bad" style="--w:0.020"><b>-0.0015</b><span>6 lost</span><em>225 vs 230 comments</em></td><td class="bad" style="--w:0.044"><b>-0.0033</b><span>9 lost</span><em>385 vs 429 comments</em></td></tr><tr><th scope="row">AACR-Bench · 452<small>452 goldens</small></th><td class="bad" style="--w:0.189"><b>-0.0145</b><span>5 lost</span><em>149 vs 157 comments</em></td><td class="bad" style="--w:0.204"><b>-0.0156</b><span>7 lost</span><em>172 vs 185 comments</em></td><td class="bad" style="--w:0.172"><b>-0.0131</b><span>9 lost</span><em>240 vs 273 comments</em></td></tr></tbody></table>
+  <p class="why">15 of 15 cells lose credited goldens, worst martian-wide-core k=12 (-0.0257, 12 lost against 1 gained), and 15 cells sit below their board's resolution</p>
+</section>
+<section class="candidate refused">
+  <h2><code>agreement:2</code> <span class="badge">refused</span></h2>
+  <p class="meta">drop findings only one lane saw &middot; corroboration is the score term that says a defect was seen from two angles &middot; 0 of 15 cells strictly shrink the emission, 15 lose a credited golden, worst -0.0180</p>
+  <table class="grid"><thead><tr><th></th><th scope="col">k = 4</th><th scope="col">k = 5</th><th scope="col">k = 12</th></tr></thead><tbody><tr><th scope="row">Martian · wide arm · core 158<small>158 goldens</small></th><td class="bad" style="--w:0.082"><b>-0.0063</b><span>2 lost</span><em>181 vs 187 comments</em></td><td class="bad" style="--w:0.077"><b>+0.0059</b><span>2 lost</span><em>214 vs 227 comments</em></td><td class="bad" style="--w:0.158"><b>+0.0121</b><span>2 lost</span><em>364 vs 402 comments</em></td></tr><tr><th scope="row">Martian · wide arm · all 173<small>173 goldens</small></th><td class="bad" style="--w:0.080"><b>-0.0061</b><span>2 lost</span><em>181 vs 187 comments</em></td><td class="bad" style="--w:0.071"><b>+0.0054</b><span>2 lost</span><em>214 vs 227 comments</em></td><td class="bad" style="--w:0.209"><b>+0.0160</b><span>2 lost</span><em>364 vs 402 comments</em></td></tr><tr><th scope="row">Martian · shipped arm · core 158<small>158 goldens</small></th><td class="bad" style="--w:0.112"><b>-0.0086</b><span>3 lost</span><em>184 vs 188 comments</em></td><td class="bad" style="--w:0.003"><b>-0.0002</b><span>3 lost</span><em>223 vs 230 comments</em></td><td class="bad" style="--w:0.087"><b>+0.0066</b><span>5 lost</span><em>378 vs 429 comments</em></td></tr><tr><th scope="row">Martian · shipped arm · all 173<small>173 goldens</small></th><td class="bad" style="--w:0.107"><b>-0.0082</b><span>3 lost</span><em>184 vs 188 comments</em></td><td class="bad" style="--w:0.002"><b>-0.0001</b><span>3 lost</span><em>223 vs 230 comments</em></td><td class="bad" style="--w:0.097"><b>+0.0074</b><span>5 lost</span><em>378 vs 429 comments</em></td></tr><tr><th scope="row">AACR-Bench · 452<small>452 goldens</small></th><td class="bad" style="--w:0.163"><b>-0.0124</b><span>8 lost</span><em>141 vs 157 comments</em></td><td class="bad" style="--w:0.199"><b>-0.0152</b><span>11 lost</span><em>158 vs 185 comments</em></td><td class="bad" style="--w:0.236"><b>-0.0180</b><span>13 lost</span><em>216 vs 273 comments</em></td></tr></tbody></table>
+  <p class="why">15 of 15 cells lose credited goldens, worst aacr k=12 (-0.0180, 13 lost against 1 gained), and 14 cells sit below their board's resolution</p>
+</section>
+<section class="candidate refused">
+  <h2><code>severity:medium+distinct:overlap</code> <span class="badge">refused</span></h2>
+  <p class="meta">both of the above &middot; the pair §162.6 half-suggested, priced as one step rather than assumed to compose &middot; 0 of 15 cells strictly shrink the emission, 15 lose a credited golden, worst -0.0427</p>
+  <table class="grid"><thead><tr><th></th><th scope="col">k = 4</th><th scope="col">k = 5</th><th scope="col">k = 12</th></tr></thead><tbody><tr><th scope="row">Martian · wide arm · core 158<small>158 goldens</small></th><td class="bad" style="--w:0.060"><b>+0.0046</b><span>3 lost</span><em>182 vs 187 comments</em></td><td class="bad" style="--w:0.145"><b>-0.0111</b><span>7 lost</span><em>215 vs 227 comments</em></td><td class="bad" style="--w:0.111"><b>-0.0085</b><span>12 lost</span><em>344 vs 402 comments</em></td></tr><tr><th scope="row">Martian · wide arm · all 173<small>173 goldens</small></th><td class="bad" style="--w:0.130"><b>+0.0099</b><span>3 lost</span><em>182 vs 187 comments</em></td><td class="bad" style="--w:0.075"><b>-0.0057</b><span>7 lost</span><em>215 vs 227 comments</em></td><td class="bad" style="--w:0.047"><b>-0.0036</b><span>12 lost</span><em>344 vs 402 comments</em></td></tr><tr><th scope="row">Martian · shipped arm · core 158<small>158 goldens</small></th><td class="bad" style="--w:0.381"><b>+0.0291</b><span>2 lost</span><em>181 vs 188 comments</em></td><td class="bad" style="--w:0.355"><b>+0.0271</b><span>4 lost</span><em>215 vs 230 comments</em></td><td class="bad" style="--w:0.358"><b>+0.0273</b><span>7 lost</span><em>347 vs 429 comments</em></td></tr><tr><th scope="row">Martian · shipped arm · all 173<small>173 goldens</small></th><td class="bad" style="--w:0.440"><b>+0.0336</b><span>2 lost</span><em>181 vs 188 comments</em></td><td class="bad" style="--w:0.411"><b>+0.0314</b><span>4 lost</span><em>215 vs 230 comments</em></td><td class="bad" style="--w:0.469"><b>+0.0358</b><span>7 lost</span><em>347 vs 429 comments</em></td></tr><tr><th scope="row">AACR-Bench · 452<small>452 goldens</small></th><td class="bad" style="--w:0.449"><b>-0.0343</b><span>13 lost</span><em>133 vs 157 comments</em></td><td class="bad" style="--w:0.528"><b>-0.0403</b><span>18 lost</span><em>153 vs 185 comments</em></td><td class="bad" style="--w:0.560"><b>-0.0427</b><span>22 lost</span><em>207 vs 273 comments</em></td></tr></tbody></table>
+  <p class="why">15 of 15 cells lose credited goldens, worst aacr k=12 (-0.0427, 22 lost against 1 gained), and 9 cells sit below their board's resolution</p>
+</section>
+
+<h2 style="margin-top:28px">The verdicts</h2>
+<table class="verdicts">
+  <thead><tr><th>candidate</th><th>verdict</th><th>losing cells</th><th>dominating cells</th><th>why</th></tr></thead>
+  <tbody><tr><td><code>severity:medium</code></td><td class="bad">refused</td><td>3</td><td>12</td><td>3 of 15 cells lose credited goldens, worst aacr k=12 (-0.0270, 13 lost against 0 gained), and 10 cells sit below their board's resolution</td></tr><tr><td><code>severity:high</code></td><td class="bad">refused</td><td>15</td><td>0</td><td>15 of 15 cells lose credited goldens, worst aacr k=12 (-0.0763, 41 lost against 3 gained), and 13 cells sit below their board's resolution</td></tr><tr><td><code>distinct:overlap</code></td><td class="bad">refused</td><td>15</td><td>0</td><td>15 of 15 cells lose credited goldens, worst martian-wide-core k=12 (-0.0257, 12 lost against 1 gained), and 15 cells sit below their board's resolution</td></tr><tr><td><code>agreement:2</code></td><td class="bad">refused</td><td>15</td><td>0</td><td>15 of 15 cells lose credited goldens, worst aacr k=12 (-0.0180, 13 lost against 1 gained), and 14 cells sit below their board's resolution</td></tr><tr><td><code>severity:medium+distinct:overlap</code></td><td class="bad">refused</td><td>15</td><td>0</td><td>15 of 15 cells lose credited goldens, worst aacr k=12 (-0.0427, 22 lost against 1 gained), and 9 cells sit below their board's resolution</td></tr></tbody>
+</table>
+
+<footer>
+Read from <code>benchmarks/cut-candidates.json</code> by <code>scripts/cut-candidates.mjs</code>, drawn by
+<code>scripts/cut-candidates-page.mjs</code>. Every figure is arithmetic over verdicts a run already paid for: no model was
+called and nothing was re-judged, so the round this page belongs to cost nothing. The boards are
+<code>benchmarks/martian-wide-bench.json</code> (six lanes, 984 findings), <code>benchmarks/martian-bench.json</code>
+(five lanes, 943) and <code>benchmarks/aacr-bench.json</code> (452 goldens, its published point rebuilt through the
+actionability gate: 387 comments, 85 credited). The denominator of each board is recomputed from its corpus rather than
+trusted, and the incumbent of each board has to rebuild the point its artifact published before a cell prints.
+</footer>
+</body>
+</html>

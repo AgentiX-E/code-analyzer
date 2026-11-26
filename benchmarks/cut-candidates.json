@@ -1,0 +1,1890 @@
+{
+  "version": "cut-candidates-v1",
+  "command": "node scripts/cut-candidates.mjs",
+  "budgets": [
+    4,
+    5,
+    12
+  ],
+  "boards": [
+    {
+      "id": "martian-wide-core",
+      "label": "Martian · wide arm · core 158",
+      "artifact": "benchmarks/martian-wide-bench.json",
+      "corpus": "benchmarks/martian/positive_samples.json",
+      "profile": "core",
+      "denominators": {
+        "goldens": 158,
+        "pool": 711
+      },
+      "resolution": 0.0126,
+      "shippedBudget": 12,
+      "cells": [
+        {
+          "budget": 4,
+          "candidate": "severity:medium",
+          "incumbent": {
+            "emitted": 187,
+            "truePositives": 54,
+            "f1": 0.3130434782608696
+          },
+          "candidatePoint": {
+            "emitted": 186,
+            "truePositives": 55,
+            "f1": 0.31976744186046513
+          },
+          "coverage": {
+            "kept": 55,
+            "lost": 0,
+            "gained": 1
+          },
+          "deltaF1": 0.006723963599595539,
+          "mcnemar": 1,
+          "verdict": "dominates"
+        },
+        {
+          "budget": 4,
+          "candidate": "severity:high",
+          "incumbent": {
+            "emitted": 187,
+            "truePositives": 54,
+            "f1": 0.3130434782608696
+          },
+          "candidatePoint": {
+            "emitted": 152,
+            "truePositives": 46,
+            "f1": 0.2967741935483871
+          },
+          "coverage": {
+            "kept": 46,
+            "lost": 17,
+            "gained": 9
+          },
+          "deltaF1": -0.016269284712482512,
+          "mcnemar": 0.16863754391670227,
+          "verdict": "loses"
+        },
+        {
+          "budget": 4,
+          "candidate": "distinct:overlap",
+          "incumbent": {
+            "emitted": 187,
+            "truePositives": 54,
+            "f1": 0.3130434782608696
+          },
+          "candidatePoint": {
+            "emitted": 184,
+            "truePositives": 54,
+            "f1": 0.3157894736842105
+          },
+          "coverage": {
+            "kept": 54,
+            "lost": 3,
+            "gained": 3
+          },
+          "deltaF1": 0.002745995423340919,
+          "mcnemar": 1,
+          "verdict": "loses"
+        },
+        {
+          "budget": 4,
+          "candidate": "agreement:2",
+          "incumbent": {
+            "emitted": 187,
+            "truePositives": 54,
+            "f1": 0.3130434782608696
+          },
+          "candidatePoint": {
+            "emitted": 181,
+            "truePositives": 52,
+            "f1": 0.30678466076696165
+          },
+          "coverage": {
+            "kept": 52,
+            "lost": 2,
+            "gained": 0
+          },
+          "deltaF1": -0.006258817493907942,
+          "mcnemar": 0.5,
+          "verdict": "loses"
+        },
+        {
+          "budget": 4,
+          "candidate": "severity:medium+distinct:overlap",
+          "incumbent": {
+            "emitted": 187,
+            "truePositives": 54,
+            "f1": 0.3130434782608696
+          },
+          "candidatePoint": {
+            "emitted": 182,
+            "truePositives": 54,
+            "f1": 0.3176470588235294
+          },
+          "coverage": {
+            "kept": 54,
+            "lost": 3,
+            "gained": 3
+          },
+          "deltaF1": 0.004603580562659804,
+          "mcnemar": 1,
+          "verdict": "loses"
+        },
+        {
+          "budget": 5,
+          "candidate": "severity:medium",
+          "incumbent": {
+            "emitted": 227,
+            "truePositives": 62,
+            "f1": 0.3220779220779221
+          },
+          "candidatePoint": {
+            "emitted": 224,
+            "truePositives": 63,
+            "f1": 0.3298429319371728
+          },
+          "coverage": {
+            "kept": 63,
+            "lost": 0,
+            "gained": 1
+          },
+          "deltaF1": 0.0077650098592507155,
+          "mcnemar": 1,
+          "verdict": "dominates"
+        },
+        {
+          "budget": 5,
+          "candidate": "severity:high",
+          "incumbent": {
+            "emitted": 227,
+            "truePositives": 62,
+            "f1": 0.3220779220779221
+          },
+          "candidatePoint": {
+            "emitted": 175,
+            "truePositives": 51,
+            "f1": 0.3063063063063063
+          },
+          "coverage": {
+            "kept": 51,
+            "lost": 18,
+            "gained": 7
+          },
+          "deltaF1": -0.015771615771615788,
+          "mcnemar": 0.043285250663757324,
+          "verdict": "loses"
+        },
+        {
+          "budget": 5,
+          "candidate": "distinct:overlap",
+          "incumbent": {
+            "emitted": 227,
+            "truePositives": 62,
+            "f1": 0.3220779220779221
+          },
+          "candidatePoint": {
+            "emitted": 220,
+            "truePositives": 57,
+            "f1": 0.30158730158730157
+          },
+          "coverage": {
+            "kept": 57,
+            "lost": 7,
+            "gained": 2
+          },
+          "deltaF1": -0.020490620490620504,
+          "mcnemar": 0.1796875,
+          "verdict": "loses"
+        },
+        {
+          "budget": 5,
+          "candidate": "agreement:2",
+          "incumbent": {
+            "emitted": 227,
+            "truePositives": 62,
+            "f1": 0.3220779220779221
+          },
+          "candidatePoint": {
+            "emitted": 214,
+            "truePositives": 61,
+            "f1": 0.3279569892473118
+          },
+          "coverage": {
+            "kept": 61,
+            "lost": 2,
+            "gained": 1
+          },
+          "deltaF1": 0.00587906716938974,
+          "mcnemar": 1,
+          "verdict": "loses"
+        },
+        {
+          "budget": 5,
+          "candidate": "severity:medium+distinct:overlap",
+          "incumbent": {
+            "emitted": 227,
+            "truePositives": 62,
+            "f1": 0.3220779220779221
+          },
+          "candidatePoint": {
+            "emitted": 215,
+            "truePositives": 58,
+            "f1": 0.3109919571045576
+          },
+          "coverage": {
+            "kept": 58,
+            "lost": 7,
+            "gained": 3
+          },
+          "deltaF1": -0.011085964973364448,
+          "mcnemar": 0.34375,
+          "verdict": "loses"
+        },
+        {
+          "budget": 12,
+          "candidate": "severity:medium",
+          "incumbent": {
+            "emitted": 402,
+            "truePositives": 76,
+            "f1": 0.2714285714285714
+          },
+          "candidatePoint": {
+            "emitted": 382,
+            "truePositives": 76,
+            "f1": 0.2814814814814815
+          },
+          "coverage": {
+            "kept": 76,
+            "lost": 0,
+            "gained": 0
+          },
+          "deltaF1": 0.010052910052910091,
+          "mcnemar": null,
+          "verdict": "dominates"
+        },
+        {
+          "budget": 12,
+          "candidate": "severity:high",
+          "incumbent": {
+            "emitted": 402,
+            "truePositives": 76,
+            "f1": 0.2714285714285714
+          },
+          "candidatePoint": {
+            "emitted": 260,
+            "truePositives": 58,
+            "f1": 0.27751196172248804
+          },
+          "coverage": {
+            "kept": 58,
+            "lost": 20,
+            "gained": 2
+          },
+          "deltaF1": 0.006083390293916635,
+          "mcnemar": 0.00012111663818359375,
+          "verdict": "loses"
+        },
+        {
+          "budget": 12,
+          "candidate": "distinct:overlap",
+          "incumbent": {
+            "emitted": 402,
+            "truePositives": 76,
+            "f1": 0.2714285714285714
+          },
+          "candidatePoint": {
+            "emitted": 371,
+            "truePositives": 65,
+            "f1": 0.24574669187145556
+          },
+          "coverage": {
+            "kept": 65,
+            "lost": 12,
+            "gained": 1
+          },
+          "deltaF1": -0.025681879557115844,
+          "mcnemar": 0.00341796875,
+          "verdict": "loses"
+        },
+        {
+          "budget": 12,
+          "candidate": "agreement:2",
+          "incumbent": {
+            "emitted": 402,
+            "truePositives": 76,
+            "f1": 0.2714285714285714
+          },
+          "candidatePoint": {
+            "emitted": 364,
+            "truePositives": 74,
+            "f1": 0.2835249042145594
+          },
+          "coverage": {
+            "kept": 74,
+            "lost": 2,
+            "gained": 0
+          },
+          "deltaF1": 0.012096332785987984,
+          "mcnemar": 0.5,
+          "verdict": "loses"
+        },
+        {
+          "budget": 12,
+          "candidate": "severity:medium+distinct:overlap",
+          "incumbent": {
+            "emitted": 402,
+            "truePositives": 76,
+            "f1": 0.2714285714285714
+          },
+          "candidatePoint": {
+            "emitted": 344,
+            "truePositives": 66,
+            "f1": 0.26294820717131473
+          },
+          "coverage": {
+            "kept": 66,
+            "lost": 12,
+            "gained": 2
+          },
+          "deltaF1": -0.008480364257256678,
+          "mcnemar": 0.012939453125,
+          "verdict": "loses"
+        }
+      ]
+    },
+    {
+      "id": "martian-wide-all",
+      "label": "Martian · wide arm · all 173",
+      "artifact": "benchmarks/martian-wide-bench.json",
+      "corpus": "benchmarks/martian/positive_samples.json",
+      "profile": "all",
+      "denominators": {
+        "goldens": 173,
+        "pool": 711
+      },
+      "resolution": 0.0126,
+      "shippedBudget": 12,
+      "cells": [
+        {
+          "budget": 4,
+          "candidate": "severity:medium",
+          "incumbent": {
+            "emitted": 187,
+            "truePositives": 55,
+            "f1": 0.3055555555555556
+          },
+          "candidatePoint": {
+            "emitted": 186,
+            "truePositives": 56,
+            "f1": 0.31197771587743733
+          },
+          "coverage": {
+            "kept": 56,
+            "lost": 0,
+            "gained": 1
+          },
+          "deltaF1": 0.0064221603218817536,
+          "mcnemar": 1,
+          "verdict": "dominates"
+        },
+        {
+          "budget": 4,
+          "candidate": "severity:high",
+          "incumbent": {
+            "emitted": 187,
+            "truePositives": 55,
+            "f1": 0.3055555555555556
+          },
+          "candidatePoint": {
+            "emitted": 152,
+            "truePositives": 47,
+            "f1": 0.28923076923076924
+          },
+          "coverage": {
+            "kept": 47,
+            "lost": 17,
+            "gained": 9
+          },
+          "deltaF1": -0.016324786324786345,
+          "mcnemar": 0.16863754391670227,
+          "verdict": "loses"
+        },
+        {
+          "budget": 4,
+          "candidate": "distinct:overlap",
+          "incumbent": {
+            "emitted": 187,
+            "truePositives": 55,
+            "f1": 0.3055555555555556
+          },
+          "candidatePoint": {
+            "emitted": 184,
+            "truePositives": 56,
+            "f1": 0.3137254901960784
+          },
+          "coverage": {
+            "kept": 56,
+            "lost": 3,
+            "gained": 4
+          },
+          "deltaF1": 0.008169934640522847,
+          "mcnemar": 1,
+          "verdict": "loses"
+        },
+        {
+          "budget": 4,
+          "candidate": "agreement:2",
+          "incumbent": {
+            "emitted": 187,
+            "truePositives": 55,
+            "f1": 0.3055555555555556
+          },
+          "candidatePoint": {
+            "emitted": 181,
+            "truePositives": 53,
+            "f1": 0.2994350282485876
+          },
+          "coverage": {
+            "kept": 53,
+            "lost": 2,
+            "gained": 0
+          },
+          "deltaF1": -0.006120527306967993,
+          "mcnemar": 0.5,
+          "verdict": "loses"
+        },
+        {
+          "budget": 4,
+          "candidate": "severity:medium+distinct:overlap",
+          "incumbent": {
+            "emitted": 187,
+            "truePositives": 55,
+            "f1": 0.3055555555555556
+          },
+          "candidatePoint": {
+            "emitted": 182,
+            "truePositives": 56,
+            "f1": 0.3154929577464789
+          },
+          "coverage": {
+            "kept": 56,
+            "lost": 3,
+            "gained": 4
+          },
+          "deltaF1": 0.009937402190923317,
+          "mcnemar": 1,
+          "verdict": "loses"
+        },
+        {
+          "budget": 5,
+          "candidate": "severity:medium",
+          "incumbent": {
+            "emitted": 227,
+            "truePositives": 63,
+            "f1": 0.315
+          },
+          "candidatePoint": {
+            "emitted": 224,
+            "truePositives": 64,
+            "f1": 0.3224181360201511
+          },
+          "coverage": {
+            "kept": 64,
+            "lost": 0,
+            "gained": 1
+          },
+          "deltaF1": 0.007418136020151123,
+          "mcnemar": 1,
+          "verdict": "dominates"
+        },
+        {
+          "budget": 5,
+          "candidate": "severity:high",
+          "incumbent": {
+            "emitted": 227,
+            "truePositives": 63,
+            "f1": 0.315
+          },
+          "candidatePoint": {
+            "emitted": 175,
+            "truePositives": 53,
+            "f1": 0.3045977011494253
+          },
+          "coverage": {
+            "kept": 53,
+            "lost": 18,
+            "gained": 8
+          },
+          "deltaF1": -0.010402298850574698,
+          "mcnemar": 0.07551869750022888,
+          "verdict": "loses"
+        },
+        {
+          "budget": 5,
+          "candidate": "distinct:overlap",
+          "incumbent": {
+            "emitted": 227,
+            "truePositives": 63,
+            "f1": 0.315
+          },
+          "candidatePoint": {
+            "emitted": 220,
+            "truePositives": 59,
+            "f1": 0.30025445292620867
+          },
+          "coverage": {
+            "kept": 59,
+            "lost": 7,
+            "gained": 3
+          },
+          "deltaF1": -0.014745547073791332,
+          "mcnemar": 0.34375,
+          "verdict": "loses"
+        },
+        {
+          "budget": 5,
+          "candidate": "agreement:2",
+          "incumbent": {
+            "emitted": 227,
+            "truePositives": 63,
+            "f1": 0.315
+          },
+          "candidatePoint": {
+            "emitted": 214,
+            "truePositives": 62,
+            "f1": 0.32041343669250644
+          },
+          "coverage": {
+            "kept": 62,
+            "lost": 2,
+            "gained": 1
+          },
+          "deltaF1": 0.005413436692506435,
+          "mcnemar": 1,
+          "verdict": "loses"
+        },
+        {
+          "budget": 5,
+          "candidate": "severity:medium+distinct:overlap",
+          "incumbent": {
+            "emitted": 227,
+            "truePositives": 63,
+            "f1": 0.315
+          },
+          "candidatePoint": {
+            "emitted": 215,
+            "truePositives": 60,
+            "f1": 0.30927835051546393
+          },
+          "coverage": {
+            "kept": 60,
+            "lost": 7,
+            "gained": 4
+          },
+          "deltaF1": -0.005721649484536073,
+          "mcnemar": 0.548828125,
+          "verdict": "loses"
+        },
+        {
+          "budget": 12,
+          "candidate": "severity:medium",
+          "incumbent": {
+            "emitted": 402,
+            "truePositives": 80,
+            "f1": 0.2782608695652174
+          },
+          "candidatePoint": {
+            "emitted": 382,
+            "truePositives": 81,
+            "f1": 0.2918918918918919
+          },
+          "coverage": {
+            "kept": 81,
+            "lost": 0,
+            "gained": 1
+          },
+          "deltaF1": 0.013631022326674513,
+          "mcnemar": 1,
+          "verdict": "dominates"
+        },
+        {
+          "budget": 12,
+          "candidate": "severity:high",
+          "incumbent": {
+            "emitted": 402,
+            "truePositives": 80,
+            "f1": 0.2782608695652174
+          },
+          "candidatePoint": {
+            "emitted": 260,
+            "truePositives": 60,
+            "f1": 0.27713625866050806
+          },
+          "coverage": {
+            "kept": 60,
+            "lost": 22,
+            "gained": 2
+          },
+          "deltaF1": -0.0011246109047093333,
+          "mcnemar": 0.000035881996154785156,
+          "verdict": "loses"
+        },
+        {
+          "budget": 12,
+          "candidate": "distinct:overlap",
+          "incumbent": {
+            "emitted": 402,
+            "truePositives": 80,
+            "f1": 0.2782608695652174
+          },
+          "candidatePoint": {
+            "emitted": 371,
+            "truePositives": 69,
+            "f1": 0.2536764705882353
+          },
+          "coverage": {
+            "kept": 69,
+            "lost": 12,
+            "gained": 1
+          },
+          "deltaF1": -0.024584398976982114,
+          "mcnemar": 0.00341796875,
+          "verdict": "loses"
+        },
+        {
+          "budget": 12,
+          "candidate": "agreement:2",
+          "incumbent": {
+            "emitted": 402,
+            "truePositives": 80,
+            "f1": 0.2782608695652174
+          },
+          "candidatePoint": {
+            "emitted": 364,
+            "truePositives": 79,
+            "f1": 0.2942271880819367
+          },
+          "coverage": {
+            "kept": 79,
+            "lost": 2,
+            "gained": 1
+          },
+          "deltaF1": 0.015966318516719313,
+          "mcnemar": 1,
+          "verdict": "loses"
+        },
+        {
+          "budget": 12,
+          "candidate": "severity:medium+distinct:overlap",
+          "incumbent": {
+            "emitted": 402,
+            "truePositives": 80,
+            "f1": 0.2782608695652174
+          },
+          "candidatePoint": {
+            "emitted": 344,
+            "truePositives": 71,
+            "f1": 0.2746615087040619
+          },
+          "coverage": {
+            "kept": 71,
+            "lost": 12,
+            "gained": 3
+          },
+          "deltaF1": -0.003599360861155476,
+          "mcnemar": 0.03515625,
+          "verdict": "loses"
+        }
+      ]
+    },
+    {
+      "id": "martian-narrow-core",
+      "label": "Martian · shipped arm · core 158",
+      "artifact": "benchmarks/martian-bench.json",
+      "corpus": "benchmarks/martian/positive_samples.json",
+      "profile": "core",
+      "denominators": {
+        "goldens": 158,
+        "pool": 743
+      },
+      "resolution": 0.0126,
+      "shippedBudget": 12,
+      "cells": [
+        {
+          "budget": 4,
+          "candidate": "severity:medium",
+          "incumbent": {
+            "emitted": 188,
+            "truePositives": 46,
+            "f1": 0.2658959537572254
+          },
+          "candidatePoint": {
+            "emitted": 183,
+            "truePositives": 47,
+            "f1": 0.2756598240469208
+          },
+          "coverage": {
+            "kept": 47,
+            "lost": 0,
+            "gained": 1
+          },
+          "deltaF1": 0.009763870289695387,
+          "mcnemar": 1,
+          "verdict": "dominates"
+        },
+        {
+          "budget": 4,
+          "candidate": "severity:high",
+          "incumbent": {
+            "emitted": 188,
+            "truePositives": 46,
+            "f1": 0.2658959537572254
+          },
+          "candidatePoint": {
+            "emitted": 151,
+            "truePositives": 43,
+            "f1": 0.2783171521035599
+          },
+          "coverage": {
+            "kept": 43,
+            "lost": 11,
+            "gained": 8
+          },
+          "deltaF1": 0.012421198346334483,
+          "mcnemar": 0.6476058959960938,
+          "verdict": "loses"
+        },
+        {
+          "budget": 4,
+          "candidate": "distinct:overlap",
+          "incumbent": {
+            "emitted": 188,
+            "truePositives": 46,
+            "f1": 0.2658959537572254
+          },
+          "candidatePoint": {
+            "emitted": 187,
+            "truePositives": 46,
+            "f1": 0.26666666666666666
+          },
+          "coverage": {
+            "kept": 46,
+            "lost": 4,
+            "gained": 4
+          },
+          "deltaF1": 0.0007707129094412513,
+          "mcnemar": 1,
+          "verdict": "loses"
+        },
+        {
+          "budget": 4,
+          "candidate": "agreement:2",
+          "incumbent": {
+            "emitted": 188,
+            "truePositives": 46,
+            "f1": 0.2658959537572254
+          },
+          "candidatePoint": {
+            "emitted": 184,
+            "truePositives": 44,
+            "f1": 0.2573099415204678
+          },
+          "coverage": {
+            "kept": 44,
+            "lost": 3,
+            "gained": 1
+          },
+          "deltaF1": -0.00858601223675759,
+          "mcnemar": 0.625,
+          "verdict": "loses"
+        },
+        {
+          "budget": 4,
+          "candidate": "severity:medium+distinct:overlap",
+          "incumbent": {
+            "emitted": 188,
+            "truePositives": 46,
+            "f1": 0.2658959537572254
+          },
+          "candidatePoint": {
+            "emitted": 181,
+            "truePositives": 50,
+            "f1": 0.2949852507374631
+          },
+          "coverage": {
+            "kept": 50,
+            "lost": 2,
+            "gained": 6
+          },
+          "deltaF1": 0.02908929698023771,
+          "mcnemar": 0.2890625,
+          "verdict": "loses"
+        },
+        {
+          "budget": 5,
+          "candidate": "severity:medium",
+          "incumbent": {
+            "emitted": 230,
+            "truePositives": 53,
+            "f1": 0.27319587628865977
+          },
+          "candidatePoint": {
+            "emitted": 222,
+            "truePositives": 54,
+            "f1": 0.28421052631578947
+          },
+          "coverage": {
+            "kept": 54,
+            "lost": 0,
+            "gained": 1
+          },
+          "deltaF1": 0.011014650027129702,
+          "mcnemar": 1,
+          "verdict": "dominates"
+        },
+        {
+          "budget": 5,
+          "candidate": "severity:high",
+          "incumbent": {
+            "emitted": 230,
+            "truePositives": 53,
+            "f1": 0.27319587628865977
+          },
+          "candidatePoint": {
+            "emitted": 172,
+            "truePositives": 43,
+            "f1": 0.2606060606060606
+          },
+          "coverage": {
+            "kept": 43,
+            "lost": 13,
+            "gained": 3
+          },
+          "deltaF1": -0.012589815682599148,
+          "mcnemar": 0.021270751953125,
+          "verdict": "loses"
+        },
+        {
+          "budget": 5,
+          "candidate": "distinct:overlap",
+          "incumbent": {
+            "emitted": 230,
+            "truePositives": 53,
+            "f1": 0.27319587628865977
+          },
+          "candidatePoint": {
+            "emitted": 225,
+            "truePositives": 52,
+            "f1": 0.27154046997389036
+          },
+          "coverage": {
+            "kept": 52,
+            "lost": 6,
+            "gained": 5
+          },
+          "deltaF1": -0.0016554063147694031,
+          "mcnemar": 1,
+          "verdict": "loses"
+        },
+        {
+          "budget": 5,
+          "candidate": "agreement:2",
+          "incumbent": {
+            "emitted": 230,
+            "truePositives": 53,
+            "f1": 0.27319587628865977
+          },
+          "candidatePoint": {
+            "emitted": 223,
+            "truePositives": 52,
+            "f1": 0.27296587926509186
+          },
+          "coverage": {
+            "kept": 52,
+            "lost": 3,
+            "gained": 2
+          },
+          "deltaF1": -0.0002299970235679072,
+          "mcnemar": 1,
+          "verdict": "loses"
+        },
+        {
+          "budget": 5,
+          "candidate": "severity:medium+distinct:overlap",
+          "incumbent": {
+            "emitted": 230,
+            "truePositives": 53,
+            "f1": 0.27319587628865977
+          },
+          "candidatePoint": {
+            "emitted": 215,
+            "truePositives": 56,
+            "f1": 0.3002680965147453
+          },
+          "coverage": {
+            "kept": 56,
+            "lost": 4,
+            "gained": 7
+          },
+          "deltaF1": 0.02707222022608552,
+          "mcnemar": 0.548828125,
+          "verdict": "loses"
+        },
+        {
+          "budget": 12,
+          "candidate": "severity:medium",
+          "incumbent": {
+            "emitted": 429,
+            "truePositives": 78,
+            "f1": 0.2657580919931857
+          },
+          "candidatePoint": {
+            "emitted": 391,
+            "truePositives": 78,
+            "f1": 0.28415300546448086
+          },
+          "coverage": {
+            "kept": 78,
+            "lost": 0,
+            "gained": 0
+          },
+          "deltaF1": 0.018394913471295182,
+          "mcnemar": null,
+          "verdict": "dominates"
+        },
+        {
+          "budget": 12,
+          "candidate": "severity:high",
+          "incumbent": {
+            "emitted": 429,
+            "truePositives": 78,
+            "f1": 0.2657580919931857
+          },
+          "candidatePoint": {
+            "emitted": 253,
+            "truePositives": 60,
+            "f1": 0.291970802919708
+          },
+          "coverage": {
+            "kept": 60,
+            "lost": 18,
+            "gained": 0
+          },
+          "deltaF1": 0.02621271092652233,
+          "mcnemar": 0.00000762939453125,
+          "verdict": "loses"
+        },
+        {
+          "budget": 12,
+          "candidate": "distinct:overlap",
+          "incumbent": {
+            "emitted": 429,
+            "truePositives": 78,
+            "f1": 0.2657580919931857
+          },
+          "candidatePoint": {
+            "emitted": 385,
+            "truePositives": 70,
+            "f1": 0.2578268876611418
+          },
+          "coverage": {
+            "kept": 70,
+            "lost": 9,
+            "gained": 1
+          },
+          "deltaF1": -0.007931204332043862,
+          "mcnemar": 0.021484375,
+          "verdict": "loses"
+        },
+        {
+          "budget": 12,
+          "candidate": "agreement:2",
+          "incumbent": {
+            "emitted": 429,
+            "truePositives": 78,
+            "f1": 0.2657580919931857
+          },
+          "candidatePoint": {
+            "emitted": 378,
+            "truePositives": 73,
+            "f1": 0.27238805970149255
+          },
+          "coverage": {
+            "kept": 73,
+            "lost": 5,
+            "gained": 0
+          },
+          "deltaF1": 0.006629967708306872,
+          "mcnemar": 0.0625,
+          "verdict": "loses"
+        },
+        {
+          "budget": 12,
+          "candidate": "severity:medium+distinct:overlap",
+          "incumbent": {
+            "emitted": 429,
+            "truePositives": 78,
+            "f1": 0.2657580919931857
+          },
+          "candidatePoint": {
+            "emitted": 347,
+            "truePositives": 74,
+            "f1": 0.29306930693069305
+          },
+          "coverage": {
+            "kept": 74,
+            "lost": 7,
+            "gained": 3
+          },
+          "deltaF1": 0.027311214937507378,
+          "mcnemar": 0.34375,
+          "verdict": "loses"
+        }
+      ]
+    },
+    {
+      "id": "martian-narrow-all",
+      "label": "Martian · shipped arm · all 173",
+      "artifact": "benchmarks/martian-bench.json",
+      "corpus": "benchmarks/martian/positive_samples.json",
+      "profile": "all",
+      "denominators": {
+        "goldens": 173,
+        "pool": 743
+      },
+      "resolution": 0.0126,
+      "shippedBudget": 12,
+      "cells": [
+        {
+          "budget": 4,
+          "candidate": "severity:medium",
+          "incumbent": {
+            "emitted": 188,
+            "truePositives": 49,
+            "f1": 0.27146814404432135
+          },
+          "candidatePoint": {
+            "emitted": 183,
+            "truePositives": 51,
+            "f1": 0.28651685393258425
+          },
+          "coverage": {
+            "kept": 51,
+            "lost": 0,
+            "gained": 2
+          },
+          "deltaF1": 0.015048709888262901,
+          "mcnemar": 0.5,
+          "verdict": "dominates"
+        },
+        {
+          "budget": 4,
+          "candidate": "severity:high",
+          "incumbent": {
+            "emitted": 188,
+            "truePositives": 49,
+            "f1": 0.27146814404432135
+          },
+          "candidatePoint": {
+            "emitted": 151,
+            "truePositives": 45,
+            "f1": 0.2777777777777778
+          },
+          "coverage": {
+            "kept": 45,
+            "lost": 12,
+            "gained": 8
+          },
+          "deltaF1": 0.006309633733456443,
+          "mcnemar": 0.5034446716308594,
+          "verdict": "loses"
+        },
+        {
+          "budget": 4,
+          "candidate": "distinct:overlap",
+          "incumbent": {
+            "emitted": 188,
+            "truePositives": 49,
+            "f1": 0.27146814404432135
+          },
+          "candidatePoint": {
+            "emitted": 187,
+            "truePositives": 49,
+            "f1": 0.2722222222222222
+          },
+          "coverage": {
+            "kept": 49,
+            "lost": 4,
+            "gained": 4
+          },
+          "deltaF1": 0.0007540781779008521,
+          "mcnemar": 1,
+          "verdict": "loses"
+        },
+        {
+          "budget": 4,
+          "candidate": "agreement:2",
+          "incumbent": {
+            "emitted": 188,
+            "truePositives": 49,
+            "f1": 0.27146814404432135
+          },
+          "candidatePoint": {
+            "emitted": 184,
+            "truePositives": 47,
+            "f1": 0.26330532212885155
+          },
+          "coverage": {
+            "kept": 47,
+            "lost": 3,
+            "gained": 1
+          },
+          "deltaF1": -0.008162821915469798,
+          "mcnemar": 0.625,
+          "verdict": "loses"
+        },
+        {
+          "budget": 4,
+          "candidate": "severity:medium+distinct:overlap",
+          "incumbent": {
+            "emitted": 188,
+            "truePositives": 49,
+            "f1": 0.27146814404432135
+          },
+          "candidatePoint": {
+            "emitted": 181,
+            "truePositives": 54,
+            "f1": 0.3050847457627119
+          },
+          "coverage": {
+            "kept": 54,
+            "lost": 2,
+            "gained": 7
+          },
+          "deltaF1": 0.03361660171839054,
+          "mcnemar": 0.1796875,
+          "verdict": "loses"
+        },
+        {
+          "budget": 5,
+          "candidate": "severity:medium",
+          "incumbent": {
+            "emitted": 230,
+            "truePositives": 56,
+            "f1": 0.27791563275434245
+          },
+          "candidatePoint": {
+            "emitted": 222,
+            "truePositives": 58,
+            "f1": 0.2936708860759494
+          },
+          "coverage": {
+            "kept": 58,
+            "lost": 0,
+            "gained": 2
+          },
+          "deltaF1": 0.015755253321606932,
+          "mcnemar": 0.5,
+          "verdict": "dominates"
+        },
+        {
+          "budget": 5,
+          "candidate": "severity:high",
+          "incumbent": {
+            "emitted": 230,
+            "truePositives": 56,
+            "f1": 0.27791563275434245
+          },
+          "candidatePoint": {
+            "emitted": 172,
+            "truePositives": 45,
+            "f1": 0.2608695652173913
+          },
+          "coverage": {
+            "kept": 45,
+            "lost": 14,
+            "gained": 3
+          },
+          "deltaF1": -0.01704606753695115,
+          "mcnemar": 0.012725830078125,
+          "verdict": "loses"
+        },
+        {
+          "budget": 5,
+          "candidate": "distinct:overlap",
+          "incumbent": {
+            "emitted": 230,
+            "truePositives": 56,
+            "f1": 0.27791563275434245
+          },
+          "candidatePoint": {
+            "emitted": 225,
+            "truePositives": 55,
+            "f1": 0.27638190954773867
+          },
+          "coverage": {
+            "kept": 55,
+            "lost": 6,
+            "gained": 5
+          },
+          "deltaF1": -0.0015337232066037765,
+          "mcnemar": 1,
+          "verdict": "loses"
+        },
+        {
+          "budget": 5,
+          "candidate": "agreement:2",
+          "incumbent": {
+            "emitted": 230,
+            "truePositives": 56,
+            "f1": 0.27791563275434245
+          },
+          "candidatePoint": {
+            "emitted": 223,
+            "truePositives": 55,
+            "f1": 0.2777777777777778
+          },
+          "coverage": {
+            "kept": 55,
+            "lost": 3,
+            "gained": 2
+          },
+          "deltaF1": -0.00013785497656465528,
+          "mcnemar": 1,
+          "verdict": "loses"
+        },
+        {
+          "budget": 5,
+          "candidate": "severity:medium+distinct:overlap",
+          "incumbent": {
+            "emitted": 230,
+            "truePositives": 56,
+            "f1": 0.27791563275434245
+          },
+          "candidatePoint": {
+            "emitted": 215,
+            "truePositives": 60,
+            "f1": 0.30927835051546393
+          },
+          "coverage": {
+            "kept": 60,
+            "lost": 4,
+            "gained": 8
+          },
+          "deltaF1": 0.031362717761121484,
+          "mcnemar": 0.3876953125,
+          "verdict": "loses"
+        },
+        {
+          "budget": 12,
+          "candidate": "severity:medium",
+          "incumbent": {
+            "emitted": 429,
+            "truePositives": 83,
+            "f1": 0.2757475083056478
+          },
+          "candidatePoint": {
+            "emitted": 391,
+            "truePositives": 84,
+            "f1": 0.2978723404255319
+          },
+          "coverage": {
+            "kept": 84,
+            "lost": 0,
+            "gained": 1
+          },
+          "deltaF1": 0.022124832119884086,
+          "mcnemar": 1,
+          "verdict": "dominates"
+        },
+        {
+          "budget": 12,
+          "candidate": "severity:high",
+          "incumbent": {
+            "emitted": 429,
+            "truePositives": 83,
+            "f1": 0.2757475083056478
+          },
+          "candidatePoint": {
+            "emitted": 253,
+            "truePositives": 63,
+            "f1": 0.29577464788732394
+          },
+          "coverage": {
+            "kept": 63,
+            "lost": 21,
+            "gained": 1
+          },
+          "deltaF1": 0.020027139581676123,
+          "mcnemar": 0.000010967254638671875,
+          "verdict": "loses"
+        },
+        {
+          "budget": 12,
+          "candidate": "distinct:overlap",
+          "incumbent": {
+            "emitted": 429,
+            "truePositives": 83,
+            "f1": 0.2757475083056478
+          },
+          "candidatePoint": {
+            "emitted": 385,
+            "truePositives": 76,
+            "f1": 0.2724014336917563
+          },
+          "coverage": {
+            "kept": 76,
+            "lost": 9,
+            "gained": 2
+          },
+          "deltaF1": -0.0033460746138915254,
+          "mcnemar": 0.0654296875,
+          "verdict": "loses"
+        },
+        {
+          "budget": 12,
+          "candidate": "agreement:2",
+          "incumbent": {
+            "emitted": 429,
+            "truePositives": 83,
+            "f1": 0.2757475083056478
+          },
+          "candidatePoint": {
+            "emitted": 378,
+            "truePositives": 78,
+            "f1": 0.2831215970961887
+          },
+          "coverage": {
+            "kept": 78,
+            "lost": 5,
+            "gained": 0
+          },
+          "deltaF1": 0.007374088790540911,
+          "mcnemar": 0.0625,
+          "verdict": "loses"
+        },
+        {
+          "budget": 12,
+          "candidate": "severity:medium+distinct:overlap",
+          "incumbent": {
+            "emitted": 429,
+            "truePositives": 83,
+            "f1": 0.2757475083056478
+          },
+          "candidatePoint": {
+            "emitted": 347,
+            "truePositives": 81,
+            "f1": 0.31153846153846154
+          },
+          "coverage": {
+            "kept": 81,
+            "lost": 7,
+            "gained": 5
+          },
+          "deltaF1": 0.03579095323281373,
+          "mcnemar": 0.7744140625,
+          "verdict": "loses"
+        }
+      ]
+    },
+    {
+      "id": "aacr",
+      "label": "AACR-Bench · 452",
+      "artifact": "benchmarks/aacr-bench.json",
+      "corpus": null,
+      "profile": "all",
+      "denominators": {
+        "goldens": 452,
+        "pool": 387
+      },
+      "resolution": 0.0191,
+      "shippedBudget": null,
+      "cells": [
+        {
+          "budget": 4,
+          "candidate": "severity:medium",
+          "incumbent": {
+            "emitted": 157,
+            "truePositives": 50,
+            "f1": 0.16420361247947454
+          },
+          "candidatePoint": {
+            "emitted": 141,
+            "truePositives": 43,
+            "f1": 0.14502529510961215
+          },
+          "coverage": {
+            "kept": 43,
+            "lost": 8,
+            "gained": 1
+          },
+          "deltaF1": -0.01917831736986239,
+          "mcnemar": 0.0390625,
+          "verdict": "loses"
+        },
+        {
+          "budget": 4,
+          "candidate": "severity:high",
+          "incumbent": {
+            "emitted": 157,
+            "truePositives": 50,
+            "f1": 0.16420361247947454
+          },
+          "candidatePoint": {
+            "emitted": 83,
+            "truePositives": 28,
+            "f1": 0.10467289719626169
+          },
+          "coverage": {
+            "kept": 28,
+            "lost": 31,
+            "gained": 9
+          },
+          "deltaF1": -0.059530715283212854,
+          "mcnemar": 0.0006795482549932785,
+          "verdict": "loses"
+        },
+        {
+          "budget": 4,
+          "candidate": "distinct:overlap",
+          "incumbent": {
+            "emitted": 157,
+            "truePositives": 50,
+            "f1": 0.16420361247947454
+          },
+          "candidatePoint": {
+            "emitted": 149,
+            "truePositives": 45,
+            "f1": 0.1497504159733777
+          },
+          "coverage": {
+            "kept": 45,
+            "lost": 5,
+            "gained": 0
+          },
+          "deltaF1": -0.014453196506096833,
+          "mcnemar": 0.0625,
+          "verdict": "loses"
+        },
+        {
+          "budget": 4,
+          "candidate": "agreement:2",
+          "incumbent": {
+            "emitted": 157,
+            "truePositives": 50,
+            "f1": 0.16420361247947454
+          },
+          "candidatePoint": {
+            "emitted": 141,
+            "truePositives": 45,
+            "f1": 0.15177065767284992
+          },
+          "coverage": {
+            "kept": 45,
+            "lost": 8,
+            "gained": 3
+          },
+          "deltaF1": -0.012432954806624624,
+          "mcnemar": 0.2265625,
+          "verdict": "loses"
+        },
+        {
+          "budget": 4,
+          "candidate": "severity:medium+distinct:overlap",
+          "incumbent": {
+            "emitted": 157,
+            "truePositives": 50,
+            "f1": 0.16420361247947454
+          },
+          "candidatePoint": {
+            "emitted": 133,
+            "truePositives": 38,
+            "f1": 0.12991452991452992
+          },
+          "coverage": {
+            "kept": 38,
+            "lost": 13,
+            "gained": 1
+          },
+          "deltaF1": -0.03428908256494462,
+          "mcnemar": 0.0018310546875,
+          "verdict": "loses"
+        },
+        {
+          "budget": 5,
+          "candidate": "severity:medium",
+          "incumbent": {
+            "emitted": 185,
+            "truePositives": 56,
+            "f1": 0.17582417582417584
+          },
+          "candidatePoint": {
+            "emitted": 165,
+            "truePositives": 47,
+            "f1": 0.15235008103727715
+          },
+          "coverage": {
+            "kept": 47,
+            "lost": 11,
+            "gained": 2
+          },
+          "deltaF1": -0.023474094786898686,
+          "mcnemar": 0.0224609375,
+          "verdict": "loses"
+        },
+        {
+          "budget": 5,
+          "candidate": "severity:high",
+          "incumbent": {
+            "emitted": 185,
+            "truePositives": 56,
+            "f1": 0.17582417582417584
+          },
+          "candidatePoint": {
+            "emitted": 89,
+            "truePositives": 29,
+            "f1": 0.10720887245841035
+          },
+          "coverage": {
+            "kept": 29,
+            "lost": 35,
+            "gained": 8
+          },
+          "deltaF1": -0.06861530336576549,
+          "mcnemar": 0.000041934157934520044,
+          "verdict": "loses"
+        },
+        {
+          "budget": 5,
+          "candidate": "distinct:overlap",
+          "incumbent": {
+            "emitted": 185,
+            "truePositives": 56,
+            "f1": 0.17582417582417584
+          },
+          "candidatePoint": {
+            "emitted": 172,
+            "truePositives": 50,
+            "f1": 0.16025641025641027
+          },
+          "coverage": {
+            "kept": 50,
+            "lost": 7,
+            "gained": 1
+          },
+          "deltaF1": -0.015567765567765568,
+          "mcnemar": 0.0703125,
+          "verdict": "loses"
+        },
+        {
+          "budget": 5,
+          "candidate": "agreement:2",
+          "incumbent": {
+            "emitted": 185,
+            "truePositives": 56,
+            "f1": 0.17582417582417584
+          },
+          "candidatePoint": {
+            "emitted": 158,
+            "truePositives": 49,
+            "f1": 0.16065573770491803
+          },
+          "coverage": {
+            "kept": 49,
+            "lost": 11,
+            "gained": 4
+          },
+          "deltaF1": -0.015168438119257804,
+          "mcnemar": 0.11846923828125,
+          "verdict": "loses"
+        },
+        {
+          "budget": 5,
+          "candidate": "severity:medium+distinct:overlap",
+          "incumbent": {
+            "emitted": 185,
+            "truePositives": 56,
+            "f1": 0.17582417582417584
+          },
+          "candidatePoint": {
+            "emitted": 153,
+            "truePositives": 41,
+            "f1": 0.13553719008264462
+          },
+          "coverage": {
+            "kept": 41,
+            "lost": 18,
+            "gained": 3
+          },
+          "deltaF1": -0.04028698574153122,
+          "mcnemar": 0.0014896392822265625,
+          "verdict": "loses"
+        },
+        {
+          "budget": 12,
+          "candidate": "severity:medium",
+          "incumbent": {
+            "emitted": 273,
+            "truePositives": 76,
+            "f1": 0.2096551724137931
+          },
+          "candidatePoint": {
+            "emitted": 238,
+            "truePositives": 63,
+            "f1": 0.1826086956521739
+          },
+          "coverage": {
+            "kept": 63,
+            "lost": 13,
+            "gained": 0
+          },
+          "deltaF1": -0.027046476761619198,
+          "mcnemar": 0.000244140625,
+          "verdict": "loses"
+        },
+        {
+          "budget": 12,
+          "candidate": "severity:high",
+          "incumbent": {
+            "emitted": 273,
+            "truePositives": 76,
+            "f1": 0.2096551724137931
+          },
+          "candidatePoint": {
+            "emitted": 118,
+            "truePositives": 38,
+            "f1": 0.13333333333333333
+          },
+          "coverage": {
+            "kept": 38,
+            "lost": 41,
+            "gained": 3
+          },
+          "deltaF1": -0.07632183908045978,
+          "mcnemar": 1.6183321349672042e-9,
+          "verdict": "loses"
+        },
+        {
+          "budget": 12,
+          "candidate": "distinct:overlap",
+          "incumbent": {
+            "emitted": 273,
+            "truePositives": 76,
+            "f1": 0.2096551724137931
+          },
+          "candidatePoint": {
+            "emitted": 240,
+            "truePositives": 68,
+            "f1": 0.19653179190751446
+          },
+          "coverage": {
+            "kept": 68,
+            "lost": 9,
+            "gained": 1
+          },
+          "deltaF1": -0.013123380506278648,
+          "mcnemar": 0.021484375,
+          "verdict": "loses"
+        },
+        {
+          "budget": 12,
+          "candidate": "agreement:2",
+          "incumbent": {
+            "emitted": 273,
+            "truePositives": 76,
+            "f1": 0.2096551724137931
+          },
+          "candidatePoint": {
+            "emitted": 216,
+            "truePositives": 64,
+            "f1": 0.19161676646706588
+          },
+          "coverage": {
+            "kept": 64,
+            "lost": 13,
+            "gained": 1
+          },
+          "deltaF1": -0.018038405946727232,
+          "mcnemar": 0.0018310546875,
+          "verdict": "loses"
+        },
+        {
+          "budget": 12,
+          "candidate": "severity:medium+distinct:overlap",
+          "incumbent": {
+            "emitted": 273,
+            "truePositives": 76,
+            "f1": 0.2096551724137931
+          },
+          "candidatePoint": {
+            "emitted": 207,
+            "truePositives": 55,
+            "f1": 0.1669195751138088
+          },
+          "coverage": {
+            "kept": 55,
+            "lost": 22,
+            "gained": 1
+          },
+          "deltaF1": -0.0427355972999843,
+          "mcnemar": 0.0000057220458984375,
+          "verdict": "loses"
+        }
+      ]
+    }
+  ],
+  "verdicts": [
+    {
+      "candidate": "severity:medium",
+      "label": "drop severity below medium",
+      "note": "a reviewer does not post what it called trivial",
+      "verdict": "refused",
+      "reason": "3 of 15 cells lose credited goldens, worst aacr k=12 (-0.0270, 13 lost against 0 gained), and 10 cells sit below their board's resolution",
+      "cells": {
+        "total": 15,
+        "losing": 3,
+        "dominating": 12,
+        "belowResolution": 10
+      }
+    },
+    {
+      "candidate": "severity:high",
+      "label": "drop severity below high",
+      "note": "the same sentence with the tier moved one step, as a control on where the line sits",
+      "verdict": "refused",
+      "reason": "15 of 15 cells lose credited goldens, worst aacr k=12 (-0.0763, 41 lost against 3 gained), and 13 cells sit below their board's resolution",
+      "cells": {
+        "total": 15,
+        "losing": 15,
+        "dominating": 0,
+        "belowResolution": 13
+      }
+    },
+    {
+      "candidate": "distinct:overlap",
+      "label": "one comment per overlapping range",
+      "note": "two comments on one line range are one comment said twice",
+      "verdict": "refused",
+      "reason": "15 of 15 cells lose credited goldens, worst martian-wide-core k=12 (-0.0257, 12 lost against 1 gained), and 15 cells sit below their board's resolution",
+      "cells": {
+        "total": 15,
+        "losing": 15,
+        "dominating": 0,
+        "belowResolution": 15
+      }
+    },
+    {
+      "candidate": "agreement:2",
+      "label": "drop findings only one lane saw",
+      "note": "corroboration is the score term that says a defect was seen from two angles",
+      "verdict": "refused",
+      "reason": "15 of 15 cells lose credited goldens, worst aacr k=12 (-0.0180, 13 lost against 1 gained), and 14 cells sit below their board's resolution",
+      "cells": {
+        "total": 15,
+        "losing": 15,
+        "dominating": 0,
+        "belowResolution": 14
+      }
+    },
+    {
+      "candidate": "severity:medium+distinct:overlap",
+      "label": "both of the above",
+      "note": "the pair §162.6 half-suggested, priced as one step rather than assumed to compose",
+      "verdict": "refused",
+      "reason": "15 of 15 cells lose credited goldens, worst aacr k=12 (-0.0427, 22 lost against 1 gained), and 9 cells sit below their board's resolution",
+      "cells": {
+        "total": 15,
+        "losing": 15,
+        "dominating": 0,
+        "belowResolution": 9
+      }
+    }
+  ],
+  "guards": [
+    {
+      "board": "martian-wide-core",
+      "guard": "incumbent-rebuilds",
+      "expected": {
+        "emitted": 402,
+        "truePositives": 80
+      },
+      "rebuilt": {
+        "emitted": 402,
+        "truePositives": 80
+      }
+    },
+    {
+      "board": "martian-wide-core",
+      "guard": "denominator",
+      "value": 158
+    },
+    {
+      "board": "martian-wide-all",
+      "guard": "incumbent-rebuilds",
+      "expected": {
+        "emitted": 402,
+        "truePositives": 80
+      },
+      "rebuilt": {
+        "emitted": 402,
+        "truePositives": 80
+      }
+    },
+    {
+      "board": "martian-wide-all",
+      "guard": "denominator",
+      "value": 173
+    },
+    {
+      "board": "martian-narrow-core",
+      "guard": "incumbent-rebuilds",
+      "expected": {
+        "emitted": 429,
+        "truePositives": 83
+      },
+      "rebuilt": {
+        "emitted": 429,
+        "truePositives": 83
+      }
+    },
+    {
+      "board": "martian-narrow-core",
+      "guard": "denominator",
+      "value": 158
+    },
+    {
+      "board": "martian-narrow-all",
+      "guard": "incumbent-rebuilds",
+      "expected": {
+        "emitted": 429,
+        "truePositives": 83
+      },
+      "rebuilt": {
+        "emitted": 429,
+        "truePositives": 83
+      }
+    },
+    {
+      "board": "martian-narrow-all",
+      "guard": "denominator",
+      "value": 173
+    },
+    {
+      "board": "aacr",
+      "guard": "incumbent-rebuilds",
+      "expected": {
+        "emitted": 387,
+        "truePositives": 85
+      },
+      "rebuilt": {
+        "emitted": 387,
+        "truePositives": 85
+      }
+    },
+    {
+      "board": "aacr",
+      "guard": "denominator",
+      "value": 452
+    }
+  ]
+}
