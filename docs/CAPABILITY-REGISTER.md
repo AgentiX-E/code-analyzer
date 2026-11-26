@@ -117,7 +117,7 @@ a register that only lists what exists cannot be used to decide what to build.**
 
 **Counted, not estimated**: fifty-two rows, and the arithmetic above is the register's own parse rather than a summary of
 it - **and the test beside the renderer recounts it**, because the two figures that were wrong in this block before this
-round (`end-to-end 41`, `unit 21` over forty-eight rows) were typed by hand and disagreed with the table they summarise. **The interesting number is the last pair**: 37 capabilities no competitor in this register ships, against 2 that only
+round (`end-to-end 41`, `unit 21` over forty-eight rows) were typed by hand and disagreed with the table they summarise. **The interesting number is the last pair**: 38 capabilities no competitor in this register ships, against 2 that only
 a competitor ships.
 
 **One `C` row is a narrowing and one is a defect.** #32 (dead code) and #33 (taint across HTTP links) both have engines
