@@ -478,6 +478,24 @@ jobs:
       - name: Enforce that the prize page is what the reading says
         run: git diff --exit-code -- docs/symbol-adjacency.html
 
+      # **A refusal is a reading too, and it has to be re-derived like one.** §167 asked whether a verifier could rewrite
+      # the sentences the arm posts without touching how many it posts, and two paid runs answered no - `57 → 57` and then
+      # `57 → 55`, 3 of the 27 prize entries rewritten and none of them credited. The device is kept because the record of
+      # a refused move is what stops it being proposed a third time, and it is re-read here in `--mode replay`, which
+      # recomputes every figure from the stored verdicts for nothing. The gate is therefore exact: if the section and the
+      # record ever disagree, or the record stops being replayable, the commit fails rather than §167.6 quietly standing.
+      - name: Re-read the two-sided verifier on the comments already posted
+        run: npm run bench:symbol-crosscheck
+
+      - name: Enforce that the verifier reading is what the record says
+        run: git diff --exit-code -- benchmarks/symbol-crosscheck.json
+
+      - name: Draw the verifier as one page
+        run: npm run docs:symbol-crosscheck
+
+      - name: Enforce that the verifier page is what the reading says
+        run: git diff --exit-code -- docs/symbol-crosscheck.html
+
       # **The one device §162.4 proposed that can be refused for nothing.** A score floor calibrated on one half of the
       # board and applied to the other is a cut, so it is priced from the committed artifact rather than bought; the
       # reading is a verdict per arm, and it is regenerated here so the section cannot outlive it.

@@ -18458,3 +18458,82 @@ which is what lets CI and a documentation page print the numbers on every commit
   it, and a name that occurs only where it is declared is not a symbol for this pass because it has no other side.
 - **Not a same-run competitor arm.** The bar is the competitor's score with our LLM from the recorded baseline; this run does
   not re-buy their arm.
+
+### 167.6 The reading: 28 sentences corrected, two pairs gained, five lost, and the bar not reached
+
+Two dispatches of `symbol-crosscheck.yml`, both on the full board, one instrument change between them. The first is the pass
+as §167.1 wrote it; the second keeps the same contract and widens what it is allowed to quote.
+
+| run                        | verifier calls | sentences rewritten | `cannot` | credited `k = 5` | F1                |
+| -------------------------- | -------------: | ------------------: | -------: | ---------------: | ----------------- |
+| 1 · added lines only       |            217 |                  21 |      118 |      57 → **57** | `0.2961 → 0.2961` |
+| 2 · context lines quotable |            225 |                  28 |      109 |      57 → **55** | `0.2961 → 0.2857` |
+
+**The second run is the reading, and it is a refusal.** `57 → 55` credited, F1 `−0.0104`, and the paired test over the 744
+`(comment, golden)` pairs is **two gained against five lost**, exact McNemar `p = 0.4531` - a movement the size of its own
+noise and in the wrong direction. The comment count holds at 227 in both arms, which is the one property the device was built
+to guarantee and the only one it delivered.
+
+**And the prize was not touched.** Three of the 27 plan entries were rewritten and **none of the three earned its golden**.
+That is the number that decides what is wrong: the pass is not failing to predicate - 28 sentences came back with two quoted
+sides that disagree, and reading them they are real (``getForLogin`takes`organizationId`at line 214 but computes its cache
+key from`realm`and`mode` at line 215`). It is failing to **select**: it asks about the first name a comment puts in
+backticks, which is usually the _subject_ of the sentence, while the golden's concern is the _correspondence_ between two
+names - and 24 of the 27 plan entries were never asked about at all.
+
+**The five losses are the part that was not predicted.** A rewrite can cost a golden the original sentence had earned, and
+§166.4's prize assumed a correction is monotone: it moves a sentence from "not this" to "this" and never the other way. On
+this board a sentence that already earned a golden is rewritten into one that does not - **which is what a device licensed
+only by "the two sides disagree" will do, because disagreement with itself is not evidence of a better claim.**
+
+**What this does to the campaign.**
+
+- **S53 is refused as designed** and ships off (`SYMBOL_CROSSCHECK=off` by default, `docs/CAPABILITY-REGISTER.md` row 54).
+- **The sentence §166 wrote survives.** The deficit is predicative - 28 comments in the arm's own emission had a two-sided
+  disagreement to state, and the pass found it without being told which - **and predicating is not selecting.** §166.3 said
+  adjacency cannot aim; this says the same about a symbol taken from the comment's own prose.
+- **S54 is registered**: the question has to be asked about **two names the comment already relates** - the anchor's name and
+  the name it is compared to - and the anchor line has to be one of the two quoted sides, so a correction cannot drift to a
+  different line. Baseline to beat: `0.2961` at 227 comments; acceptance unchanged (`≥ 18` of the 27, count fixed,
+  `F1 ≥ 0.3735`).
+- **And the cost claim in §167.4 held**: `$0.0241` of verifier calls over 227 comments, `222` judge calls, `¥0.18` at the
+  off-peak rate. A device the campaign can afford to refuse is a device it can afford to test.
+
+### 167.7 What the two runs changed, and what that says about the instrument
+
+The gap between them is one lexer decision: whether a line the pull request did not touch can be quoted. It moved `cannot`
+from `118` to `109` of 227 - **less than the argument for it predicted** - and rewrites from 21 to 28. So the window was part
+of the silence and not most of it: **a verifier that must quote both sides spends its questions on files whose two sides the
+diff does not contain**, and the two sides of a call and its callee usually live in two files. That is the evidence for S54's
+second clause, and it arrived from a paid run rather than from a guess.
+
+### 167.8 What the wiring found: a crash on the switch-on path, and two shapes
+
+Wiring the instrument into `ci.yml` - replay, then `git diff --exit-code` on both the record and the page, so §167.6 cannot
+outlive the run it quotes - and reading the repository's own review surface afterwards produced three findings against this
+section's code. **One of them was a defect the two paid runs could not have found.**
+
+| alert  | rule                                | where                                     | what it was                                                  |
+| ------ | ----------------------------------- | ----------------------------------------- | ------------------------------------------------------------ |
+| `1718` | `js/use-before-declaration`         | `.github/scripts/run-martian-harness.mjs` | the verifier was constructed above the provider it is handed |
+| `1719` | `js/superfluous-trailing-arguments` | `scripts/symbol-crosscheck.mjs`           | `mapLimit` passed an index its only runner never reads       |
+| `1717` | `js/unnecessary-use-of-cat`         | `tests/e2e/the-verifier-is-priced…`       | a test shelled out to read the file it had just written      |
+
+**1718 is a `ReferenceError` rather than a style note.** `const provider` is hoisted uninitialised, so with
+`SYMBOL_CROSSCHECK=on` the harness threw `Cannot access 'provider' before initialization` **before its first model call**,
+while with the switch off nothing was observable - and every test in the tree was green, because the two paid runs and the
+e2e exercise the standalone `scripts/symbol-crosscheck.mjs` and never the harness. Reproduced on the commit before the
+repair, on a corpus directory with no goldens (no diff fetched, no model called, `LLM_MAX_USD=0`):
+`MARTIAN-HARNESS failed: Cannot access 'provider' before initialization`. On the repair the same command completes and
+prints `ceiling 0 USD … spend 0 USD over 0 calls (0 cached prompt tokens, 0 unpriced)`.
+
+**§167.6 is unaffected** - the record was produced by the CLI, which constructs its provider first - but **a pass that ships
+off by default and breaks when switched on is a pass nobody can test**, which is the failure mode a default-off feature
+hides from exactly the runs that matter. The ordering is now held by
+`tests/unit/scripts/the-verifier-is-constructed-after-the-provider-it-calls.test.ts`, which fails on the old order (the two
+offsets compare as `expected 7042 to be less than 6447`) and passes on the repair, alongside two invariants the same file
+states: one provider is constructed, and the verifier's import stays behind the switch so a run that does not buy it does
+not load it.
+
+**1719 and 1717 are shapes rather than slips**, and both are fixed at the shape: the index is not passed rather than the
+rule being suppressed, and a file this process already has a path to is read rather than spawned into `cat`.
