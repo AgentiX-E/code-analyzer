@@ -301,4 +301,42 @@ describe('the readout refuses to invent a run it was not given', () => {
     expect(failure?.status).toBe(2);
     expect(String(failure?.stderr)).toMatch(/needs a recorded run/);
   });
+
+  it('refuses a contract it does not know, rather than buying calls under the nearest one', () => {
+    // **A typo in a workflow input is 227 model calls under a rule nobody chose.** The refusal names both contracts, so
+    // the answer to "what should it have been" is in the error rather than in this file.
+    let failure: { status?: number; stderr?: string } | null = null;
+    try {
+      execFileSync(
+        process.execPath,
+        [
+          join(REPO, 'scripts/symbol-crosscheck.mjs'),
+          '--arm',
+          join(work, 'arm.json'),
+          '--corpus',
+          join(work, 'corpus.json'),
+          '--out',
+          join(work, 'recorded.json'),
+          '--contract',
+          'two-sides-v2',
+        ],
+        { cwd: REPO, encoding: 'utf8', stdio: 'pipe' },
+      );
+    } catch (error) {
+      failure = error as { status?: number; stderr?: string };
+    }
+    expect(failure?.status).toBe(2);
+    expect(String(failure?.stderr)).toContain('two-related-names-v1 and two-sides-v1');
+  });
+});
+
+describe('the record says which rule produced its sentences', () => {
+  const { result } = run();
+
+  it('carries the contract at the top level, not only inside the verifier report', () => {
+    // **Two records of the same board have to be told apart without a git blame**, and the top level is where a reader
+    // looks before reading any figures.
+    expect(result.contract).toBe(result.verifier.contract);
+    expect(result.contract).toBe('two-sides-v1');
+  });
 });

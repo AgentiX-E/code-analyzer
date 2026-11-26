@@ -18537,3 +18537,67 @@ not load it.
 
 **1719 and 1717 are shapes rather than slips**, and both are fixed at the shape: the index is not passed rather than the
 rule being suppressed, and a file this process already has a path to is read rather than spawned into `cat`.
+
+## §168 Two names, and the anchor among the quotes
+
+### 168.1 What §167 left standing
+
+§167.6 says the pass was not failing to predicate but failing to **select**: 28 sentences came back with two quoted sides
+that genuinely disagree, and 3 of the 27 prize entries were among them - **none of which earned its golden**. The named
+cause was that the question went to the **first backticked name**, usually the sentence's subject, while the golden's
+concern is the **correspondence between two names**; 24 of the 27 entries were never asked about at all.
+
+Two further facts from that run constrain what a second attempt may do. **`cannot` fell by only 9** (118 → 109 of 227)
+when context lines became quotable, so the silence is mostly about the code rather than about the lexer window. And **five
+of the seven paired movements were losses**: a sentence that already earned a golden was rewritten into one that does not,
+which breaks §166.4's assumption that a correction is monotone.
+
+### 168.2 The contract: `two-related-names-v1`
+
+| what changes | from                               | to                                                                                                   |
+| ------------ | ---------------------------------- | ---------------------------------------------------------------------------------------------------- |
+| the question | one symbol                         | **a pair the comment relates**                                                                       |
+| the anchor   | must occur outside its declaration | **may be the declaration** — a function introduced at the top of a hunk is what the comment is about |
+| the partner  | none                               | a name the comment writes, **in the same clause** (≤ 120 chars, no sentence break)                   |
+| the evidence | two quotable lines                 | two quotable lines, **one of which stands on the anchor's line**                                     |
+| the rewrite  | names the symbol                   | names **both** names                                                                                 |
+
+**What does not change, because it is what made the first attempt refuse rather than damage.** One finding in and one out;
+the same anchor, path and line; `cannot` free; both quotes verified verbatim; one question per comment; the budget checked
+before the call rather than after it; and the rewrite bounded, different from the sentence it replaces, and about the names
+it claims to be about.
+
+**The anchor may be a declaration, and that is the whole of the repair.** §167 inherited `symbolsInComment`'s rule - a name
+that occurs only where it is declared is not a symbol, because it has "no other side". For a single-name question that is
+right; for a pair it is exactly backwards, because the other side is the **partner**, not a second occurrence of the
+anchor. On this board the names the plan chose are frequently introduced in the hunk's first line, so the old rule
+discarded them before the question was built.
+
+### 168.3 The acceptance, registered before the call is bought
+
+Unchanged from §167.3, plus one clause the five losses earned:
+
+| condition                                             | threshold                                                              |
+| ----------------------------------------------------- | ---------------------------------------------------------------------- |
+| prize entries rewritten                               | **≥ 18 of 27**                                                         |
+| credited goldens at `k = 5`                           | **72**, and the comment count unchanged at 227                         |
+| F1 on Martian Core                                    | **≥ 0.3735** (`2·72/385 = 0.3740`), from `0.2961`                      |
+| the paired test over shared `(comment, golden)` pairs | **more gained than lost**, exact McNemar `p < 0.05`                    |
+| spend                                                 | **≤ $0.60** for the verifier, 222 judge calls, ceiling `LLM_MAX_USD=3` |
+
+**The fourth row is new and it is the lesson of §167.7.** A run that rewrites 30 sentences, credits 20 goldens and loses 12
+has not improved the arm; it has moved it. The paired test is the only measurement that can tell those apart, and it was
+present in the last run and read afterwards rather than registered first.
+
+### 168.4 The cost
+
+One question per comment at `k = 5`: **227 verifier calls**, priced at `$0.0241` by the previous run's own ledger, and
+**222 judge calls** because both arms are judged in one run by one judge. The ceiling is `LLM_MAX_USD=3` and the runner
+refuses the next call when it is reached, so the worst case is bounded by the flag rather than by the corpus.
+
+### 168.5 What would refute it
+
+**If 0 of 27 are credited a second time, the deficit is not predication and this campaign has been measuring the wrong
+thing for three rounds** - and the next move is emission (what gets said at all), not phrasing. That is a stronger
+statement than §167 could make, because §167's own reading was of a device that asked the wrong question. This one asks
+the question the prize was computed on, with the anchor the plan chose, and the anchor cannot drift off the quoted line.

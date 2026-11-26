@@ -5241,6 +5241,7 @@
       }
     ]
   },
+  "contract": "two-sides-v1",
   "bar": {
     "target": 0.3735,
     "cleared": false,

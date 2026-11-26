@@ -112,6 +112,7 @@ function describe(reason) {
     cannot: 'the model could not quote both sides from the change',
     unquoted: 'a quotation did not appear on the line it was attributed to',
     'same-side': 'both quotations were the same text, and one side cannot be its own other side',
+    'off-anchor': 'neither quotation stood on the line the anchor is on',
     unreadable: 'the answer was not a verdict this pass could read',
     'no-symbol': 'the comment named nothing the change contains',
     'no-evidence': 'the change added no lines around the anchor',
@@ -126,13 +127,24 @@ function describe(reason) {
   return sentences[reason] ?? '';
 }
 
+// **The pair that was actually asked about**, read from the verdict filed on the same row, so the table says which two names
+// the money was spent on rather than which two names the plan would have liked.
+const pairByAt = new Map(
+  (record.verdicts ?? []).map((verdict) => [Number(verdict.at), verdict.pair ?? null]),
+);
+const pairLabel = (entry) => {
+  const pair = pairByAt.get(Number(entry.findingAt));
+  if (pair === null || pair === undefined) return escape(entry.symbol ?? '—');
+  return `${escape(pair.anchor)} → ${escape(pair.other)}`;
+};
+
 const conversionRows = (prize?.detail ?? [])
   .map(
     (entry) =>
       // **A row that moved is marked rather than merely labelled.** The table is 27 rows and three of them were rewritten;
       // a reader who has to scan a column of `kept` to find them is reading a list, not a reading. The class is on the row
       // so the mark is a rule in the stylesheet rather than a second string in a cell.
-      `  <tr${entry.rewritten ? ' class="moved"' : ''}><th><code>${escape(entry.symbol ?? '—')}</code></th><td class="n">${String(entry.findingAt)}</td><td>${
+      `  <tr${entry.rewritten ? ' class="moved"' : ''}><th><code>${pairLabel(entry)}</code></th><td class="n">${String(entry.findingAt)}</td><td>${
         entry.rewritten ? 'rewritten' : '<span class="muted">kept</span>'
       }</td><td>${entry.credited ? 'credited' : '<span class="muted">not credited</span>'}</td></tr>`,
   )
@@ -180,9 +192,11 @@ const html = `<!doctype html>
 <body>
 <h1>The sentences corrected, and whether the judge agrees</h1>
 <p class="lede">
-  Every comment below was already posted before this device ran. It takes one of them, takes the symbol that comment already
-  names, and asks what the other side of that symbol is - and it may only rewrite the sentence, never add or drop a comment.
-  The first row is the arm as it stood; the second is the same comments with the corrections applied.
+  Every comment below was already posted before this device ran. It takes one of them, takes <strong>two names the comment
+  already relates</strong>, and asks what the code says about the pair - one of the two quotes has to stand on the anchor's
+  own line, and it may only rewrite the sentence, never add or drop a comment. The first row is the arm as it stood; the
+  second is the same comments with the corrections applied. The rule that produced the sentences is
+  <code>${escape(record.contract ?? verifier?.contract ?? '—')}</code>.
 </p>
 
 <ul class="headline">
@@ -237,7 +251,7 @@ ${keepRows}
   comment the golden.
 </p>
 <table>
-<thead><tr><th>symbol</th><th class="n">comment</th><th>sentence</th><th>credit</th></tr></thead>
+<thead><tr><th>pair asked about</th><th class="n">comment</th><th>sentence</th><th>credit</th></tr></thead>
 <tbody>
 ${conversionRows}
 </tbody>
@@ -258,7 +272,8 @@ ${conversionRows}
 
 <footer>
   Drawn from <code>${escape(record.arm)}</code> on <code>${escape(record.corpus)}</code>, measured
-  ${escape(record.measuredAt)}, profile <code>${escape(record.profile)}</code>, mode <code>${escape(record.mode)}</code>.
+  ${escape(record.measuredAt)}, profile <code>${escape(record.profile)}</code>, mode <code>${escape(record.mode)}</code>,
+  contract <code>${escape(record.contract ?? verifier?.contract ?? '—')}</code>.
   Re-derive with <code>npm run bench:symbol-crosscheck</code>; CI fails on a byte of difference.
 </footer>
 </body>
