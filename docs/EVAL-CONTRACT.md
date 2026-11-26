@@ -17824,3 +17824,132 @@ thing this repository's split-half rule exists to refuse.
   device that would move it and it has not been run.
 - **Not that `k = 4` is their shipped cut.** It is the best point on the curve their own emission traces. Their product
   posts more, and scores `0.2817` for it.
+
+## 163. A cut step is a device only if it holds on every board
+
+§162.6 refused a score floor and left one question standing: if the threshold is not the lever, is the _ordering_ one?
+S48 named five candidate cut steps that answer it without touching the score's arithmetic, and this section prices all
+five on **five boards** - two arms × two denominators of Martian, plus AACR's 452. **Every one of them is refused, and the
+refusals are of two different kinds**: one is a fact about an answer key, and the other is a fact about how a device is
+accepted.
+
+The whole reading is `¥0`. It is arithmetic over verdicts runs already paid for, and CI re-derives it on every push.
+
+### 163.1 First, the curves have to be re-derivable, or the pricing inherits their provenance
+
+§162's table was read from `benchmarks/cut-curve-wide-martian-core.json`, whose `artifact` field said
+**`/tmp/run-45629019118/aacr-bench.json`**. **A figure drawn from a path outside the repository cannot be reproduced by
+anyone who does not have the machine that wrote it**, and the same was true of the AACR curve's split-half block: it was
+divided by a corpus at `/tmp/aacr/dataset/v1/positive_samples.json`. Two of the four curves this repository quotes were
+therefore _readings of files that no longer exist_, which is the defect class §159.2 was written about, one level up.
+
+Three changes, and none of them moves a number:
+
+1. **The wide arm's artifact is committed** (`benchmarks/martian-wide-bench.json`, the paid run `45629019118`, 984
+   findings, six lanes) and the two wide curves are re-pointed at it. The only difference in either file is the path.
+2. **A split-half denominator may be read from the record instead of the corpus.** The artifact publishes
+   `coverage.byPullRequest` - the golden count of every pull request it emitted on - and its sum is the `goldens` figure
+   the curve is divided by. A half is therefore readable from the artifact, **guarded by that sum**: a coverage block
+   that does not add up to the artifact's own denominator is a record of a different run and exits `1`. **The AACR
+   split-half reproduces exactly through the new path** (220 chosen / 226 held out, `k = 12`, `0.2051` and `0.2538`), which
+   is the proof that the two paths are one reading.
+3. **`npm run bench:cut-curve` re-derives all five curves, and CI fails on a difference.** With the split-half rule the
+   AACR curve is reproducible from two committed files and nothing else.
+
+**One more record defect, found by the new guard rather than by looking for it.** AACR's artifact publishes no
+`emissionRules.shipped`; what it publishes is a rule in prose - `scoring.emissionRule`, the actionability gate - and the
+counts that rule produced, `387` comments and `85` credited goldens. **The gate rebuilds all three exactly**
+(`0.2026`), so the board's incumbent is the gate and this is now asserted before any candidate is priced against it.
+
+### 163.2 The rule: containment, because two boards disagree
+
+A promotion judged on a delta needs a minimum detectable effect, and this section is the case where that rule fails:
+**`severity:medium` gains `+0.0158` on the shipped arm's 173, which is above the board's `0.0126` resolution - and it
+loses thirteen credited goldens on AACR.** A delta rule would have promoted it. So the acceptance rule here is
+containment:
+
+> A cut step may ship only when, at every budget this repository reports and on every board it publishes, **the set of
+> credited goldens it keeps is a superset of the incumbent's and its emission is no larger**.
+
+Containment needs no significance test because **nothing was traded**: `F1 = 2·TP/(emitted + goldens)`, so a cut that
+keeps every credited golden and posts fewer comments is better on every denominator at once. A step that violates it has
+bought silence with a golden, and the price is printed rather than argued. The rule has a second door - a step may also
+ship when **every** cell clears **its own board's** resolution, which is `0.0126` on Martian and `0.0191` on AACR - and
+nothing in this family walks through either.
+
+### 163.3 The five candidates, and what each one costs
+
+`node scripts/cut-candidates.mjs` - five boards across, three budgets down, 75 cells. A cell is `dominates` when it keeps
+everything and posts less, `neutral` when it keeps everything and posts the same, and `loses` otherwise, with the goldens
+it dropped and McNemar's exact p over the goldens the two cuts disagree about.
+
+| candidate                      | Martian wide 158 | Martian wide 173 | shipped 158 | shipped 173 |              AACR 452 |
+| ------------------------------ | ---------------: | ---------------: | ----------: | ----------: | --------------------: |
+| `severity:medium` at `k = 4`   | +0.0067 · 0 lost |      +0.0064 · 0 | +0.0098 · 0 | +0.0150 · 0 |  **−0.0192 · 8 lost** |
+| `severity:medium` at `k = 5`   |      +0.0078 · 0 |      +0.0074 · 0 | +0.0110 · 0 | +0.0158 · 0 | **−0.0235 · 11 lost** |
+| `severity:medium` at `k = 12`  |      +0.0101 · 0 |      +0.0136 · 0 | +0.0184 · 0 | +0.0221 · 0 | **−0.0270 · 13 lost** |
+| `distinct:overlap` at `k = 5`  | −0.0205 · 7 lost |      −0.0147 · 7 | −0.0017 · 6 | −0.0015 · 6 |           −0.0156 · 7 |
+| `distinct:overlap` at `k = 12` | **−0.0257 · 12** |     −0.0246 · 12 | −0.0079 · 9 | −0.0033 · 9 |           −0.0131 · 9 |
+
+**`docs/cut-candidates.html` is the same 75 cells drawn**, one grid per candidate with the verdict as the colour and the
+goldens it dropped in the cell, rendered from `benchmarks/cut-candidates.json` by `scripts/cut-candidates-page.mjs`; the
+page refuses a record whose verdict disagrees with its own cells, so it cannot say something the instrument did not, and CI
+re-derives both on every push.
+
+The two controls were refused outright: **`severity:high` loses a golden in all fifteen cells** (41 of them on AACR at
+`k = 12`), and **`agreement:2` - keep only what two lanes saw - loses a golden in all fifteen too**, which is worth stating
+plainly because corroboration is a score term this repository trusts: it orders comments, and it is not a filter.
+
+**And the domination is not only about emission.** At four of the twelve Martian cells the floor _gains_ a credited golden
+(`gained = 1` or `2`) while losing none: the slots it frees are spent on the next comment down, and that comment turns out
+to be about something a human wrote about. A device that removes noise and finds a golden with the slot is not a
+threshold, it is a re-allocation.
+
+### 163.4 Why the same step is free on one board and expensive on the other
+
+Not because AACR's findings are worse - because **the tier means something different in each answer key**:
+
+| artifact                                                   | comments in the `low` tier | of those, carrying a credited golden |
+| ---------------------------------------------------------- | -------------------------: | -----------------------------------: |
+| Martian, shipped arm, after `drop test` + `drop path test` |                        111 |                                **1** |
+| AACR-Bench, 569-finding pool                               |                         95 |                               **27** |
+
+On Martian, `high` is `0.2704` precision and `low` is `0.0090` - a factor of thirty, so refusing to post the tier is
+free. On AACR the same tier carries goldens that the cut then cannot reach, and the loss is eight to thirteen. **The step
+is a property of one answer key, and `emission-policy.ts` already carries the sentence that governs this**: _a rule
+language with more expressive power than the campaign has hypotheses is a rule language that can fit the corpus_. A
+severity floor is exactly such a rule - it is not a device, it is a fit - and the file is right to keep it out.
+
+### 163.5 The methodological finding, which outlives the candidates
+
+**§162.6's split-half reading accepted `distinct:overlap`** on `+0.0274` at the held-out half, and the whole board refuses
+it at every budget, losing twelve goldens to one at `k = 12` (`p = 0.0034`). A half is for **choosing a parameter**; it is
+not enough to **accept a device**, because an acceptance needs to know what the device costs everywhere and two halves of
+fifty pull requests cannot see a board that neither half is. This section's rule is the repair: **a device is accepted on
+the union of the boards, and the halves only pick the number inside it.**
+
+### 163.6 What this leaves on the path
+
+- **The cheap devices are exhausted, and each of the four was refused with a measurement rather than an argument**: a
+  threshold (§162.6), a monotone recalibration (a no-op inside a pull request, since selection is a per-pull-request
+  order), a severity floor (163.4), and a distinct-site rule (163.3). A free re-weighting of the score's own terms was
+  priced too and it _fits badly_: a logistic model on the artifact's seven `features` reaches `0.2462` on the held-out
+  half at `k = 5` against the incumbent's `0.3077`, i.e. **the features the score is built from do not separate hits from
+  misses better than the hand-set weights do.**
+- **What remains is discovery.** §162.3 measured the ceiling: our emission names 84 credited goldens at any budget on the
+  board's 158 and the competitor's reaches 109. **No cut, ranker or deduplicator reaches a comment nobody wrote**, so S46
+  - a lane that reads the pull request as a reviewer does, rather than asking six category questions - is now the only
+    device on the list that can move the number the claim is about.
+- **S49 (registered here, `¥0`, and it is the test S46 will have to pass)**: a new lane ships only if the pool ceiling
+  rises by at least the ten credited goldens `k = 5` needs (`2·72/385 = 0.3740` against the competitor's `0.3735`), and it
+  is shown on **both** boards, since 163.4 is what happens when a device is judged on one.
+
+### 163.7 What this section does not establish
+
+- **Not that a severity floor is wrong in the product.** It is refused as a _cut_, because it loses goldens on a board
+  this repository publishes. A product that wants to stop posting trivial findings is making a taste decision, and it
+  should make it without claiming an F1.
+- **Not that the competitor's advantage is ranker-shaped after all.** 163.3 shows our score's seven features are not the
+  constraint; it does not show what is.
+- **Not that a lane cannot be filtered at all.** `drop test` and `drop path test` are filters that survived because they
+  never lost a golden on either board. The rule is not "no filters", it is "no filter that costs a golden somewhere".
