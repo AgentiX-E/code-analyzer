@@ -18631,3 +18631,63 @@ requires `unreadable: 0`.
 never came close. A device that ships off by default had already cost this campaign one `ReferenceError` on its switch-on
 path (§167.8); **this is the second defect that only a real dispatch could find, and both were found by the artefact rather
 than by the tests that were supposed to cover it.**
+
+### 168.7 The reading: the pair question works, the sentences are better than the arm, and the prize is 0 of 27 again
+
+Dispatch `45868061408`, after the reader was repaired. `two-related-names-v1`, 227 comments, one question per comment:
+
+| run   | contract                               |   calls | rewritten | `cannot` | `agree` | `same-side` | `off-anchor` | credited `k = 5` | F1                |
+| ----- | -------------------------------------- | ------: | --------: | -------: | ------: | ----------: | -----------: | ---------------: | ----------------- |
+| 4     | `two-related-names-v1`, reader spoiled |     184 |         0 |        0 |       0 |           0 |            0 |        `58 → 58` | —                 |
+| **5** | `two-related-names-v1`                 | **184** |    **20** |       26 |      93 |          26 |           18 |        `58 → 57` | `0.3013 → 0.2961` |
+
+**The device does what it was built to do.** 20 of 184 answers disagreed, both sides were quoted verbatim from the line they
+were attributed to, and 18 answers were refused because **neither quote stood on the anchor's line** - a refusal the first
+contract could not make. One answer was unreadable in 184. `no-symbol` is 43: those comments name one name, or none the
+change contains, and a pair needs two.
+
+**And the arm goes down, not up.** `58 → 57`, paired **2 gained against 4 lost**, exact McNemar `p = 0.6875`, and **0 of the
+27 plan entries were rewritten**. The fifteen neutral rewrites read as improvements - "the fallback calendar lookup always
+returns undefined" became "the fallback on line 317 searches `event.destinationCalendar` for `externalId === externalCalendarId`,
+but it only runs when `externalCalendarId` is falsy" - and the judge did not care.
+
+**The losses are the measurement, and they are not bad English.** Row 204 restates the same defect more tightly
+(`max_image_size_kb.kilobytes` bypassed by a hardcoded `10.megabytes`) and loses its golden; row 610 restates
+`resolveGroup` returning a UUID instead of a name, shorter and equally true, and loses; row 479 _changes the claim_ - the
+original is about `ctx = klog.NewContext(...)` discarding the request logger, the rewrite is about `name` passed where
+`kind` is expected - and loses. **On this judge a faithful paraphrase can cost a credit**, which is the third independent
+confirmation of §167.7 and the reason §168.3 now registers the paired test rather than reading it afterwards.
+
+### 168.8 Why 0 of 27 twice: the prize was priced on a bag of words
+
+The pass rewrote 20 comments and none of them was one of the 27. The obvious explanation - the pair is chosen badly - is
+wrong. Measured on the run's own artifact:
+
+| how the plan's symbols fare                                       |     entries |
+| ----------------------------------------------------------------- | ----------: |
+| the plan's **first** symbol is a word our comment contains        | **4 of 27** |
+| **any** symbol in the golden's bag is a word our comment contains |    21 of 27 |
+| a pair was found and asked                                        |    20 of 27 |
+
+**The bag is the problem.** `benchmarks/symbol-adjacency.json`'s `symbols` for an entry are the tokens its extractor found in
+the **golden sentence**, and on this board that includes `Potential`, `Calling`, `Accessing`, `Using`, `capping`,
+`upsampling`, `particularly`, `ultimately`, `floor`, `ceil`, `feeds`, `suffix`, `scrub`, `include_`. Those are English
+words, not names: the golden sentence "`Potential` N+1 query" contributes `Potential`, and our comment containing the word
+"potential" is then counted as **naming the same symbol**.
+
+So §166's headline - 27 of 33 goldens only the competitor credits sit on a symbol our comment already names, against a base
+rate of 99 of 125 - is a measurement of **shared vocabulary**, not of shared code names. That does not make it useless: a
+golden and a comment that share a word are more likely to be about the same thing, which is why the rate is above the base.
+**It makes it unusable as a target**, because a device cannot be asked to state a correspondence about `particularly`.
+
+**And the arithmetic above it inherits the defect.** §166.4's `0.3896` is "the same 227 comments with 72 of these 27
+converted", and if the 27 are goldens whose sentence shares a word with ours, then a conversion is a rewrite toward a
+_golden_, which no honest device can see. That is why two contracts, both permitted only to edit, both scoring 0 of 27:
+**the set was never addressable by a correction.**
+
+**What this changes.** Nothing about rows 51-54 - the lane, the counts and the two contracts all stand, and `two-related-names-v1`
+is the better device. What changes is the **target**: before another yuan is spent on the 27, the bag has to be rebuilt from
+**identifiers that occur in the pull request's own changed lines** - which is free, because the diffs are fetched for the
+verifier anyway and `sideLinesByPath` already reads them. `S55` is registered for that: rebuild the adjacency set with a
+rule that a token must be an identifier in the change _and_ in the sentence, recompute the prize, and only then decide
+whether a third contract is worth buying.
