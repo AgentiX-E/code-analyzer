@@ -2,6 +2,12 @@ name: Symbol Crosscheck
 
 # **The two-sided verifier, bought on the arm's own emission.**
 #
+# **Two contracts can be dispatched, and the default is the one that asks the better question.** `two-sides-v1` (§167) asked
+# about the first name a comment puts in backticks and moved nothing: `57 -> 55` credited, 3 of 27 rewritten, 0 credited.
+# `two-related-names-v1` (§168) asks about **a pair the comment already relates**, requires **one of the two quotes to stand
+# on the anchor's line**, and lets the anchor be a declaration - because a function introduced at the top of a hunk is what
+# the comment is about. The old contract stays dispatchable as the ablation, and the record carries which one produced it.
+#
 # `EVAL-CONTRACT.md` §166 read the published Martian artifact and found the deficit is **predicative**: 27 of the 33 goldens
 # only the competitor credits sit on a symbol **our own comment already names**, against a base rate of 79 % on the goldens
 # neither arm credits. So the comments are in the right places and ask a different question about them, and §166.4 priced
@@ -34,6 +40,11 @@ on:
         required: false
         type: string
         default: '3'
+      contract:
+        description: 'Which rule asks the question: two-related-names-v1 (§168) or two-sides-v1 (§167, the ablation)'
+        required: false
+        type: string
+        default: 'two-related-names-v1'
 
 concurrency:
   group: symbol-crosscheck
@@ -83,7 +94,8 @@ jobs:
           pnpm -s bench:symbol-crosscheck:record -- \
             --max-prs "${{ inputs.max_pull_requests }}" \
             --max-calls "${{ inputs.max_calls }}" \
-            --max-usd "${{ inputs.max_usd }}"
+            --max-usd "${{ inputs.max_usd }}" \
+            --contract "${{ inputs.contract }}"
 
       # **The readout, printed from the record this job just made** - the same arithmetic a reader runs, so the log and the
       # artifact cannot disagree about what the run said.
