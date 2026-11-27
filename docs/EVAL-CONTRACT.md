@@ -19331,3 +19331,29 @@ _answer_, which is what `S62` claimed they were.
 | ~~**S62** - a `performance` lane of rules~~                                 | **refused by §174.2**: ceiling 1 of 29 goldens         | saved 3 d   |
 | **S63** - `bug` lane depth on the four defect shapes the corpus publishes   | `code defect` `0.3110 → ≥ 0.40`                        | 4 d, ≈ ¥14  |
 | **S64** - the four new rules wired into the arm                             | proven free; no F1 claim until an arm measures them    | 0.5 d, `$0` |
+
+### 174.6 The same four allocations on the fourteen-pull-request window, and a sign that flips
+
+Dispatch `45951142193` ran the arm again at the workflow's default window - **the proof that the new step executes on a
+runner rather than in a scratch directory** - and its `lane-budget` record is a second reading of the same question:
+
+| allocation          | comments | true positives |     F1 | delta (14 PRs) | delta (50 PRs) |
+| ------------------- | -------: | -------------: | -----: | -------------: | -------------: |
+| shipped             |      105 |             27 | 0.1964 |         0.0000 |         0.0000 |
+| unbudgeted          |      251 |             44 | 0.2090 |    **+0.0127** |        −0.0089 |
+| floor 1 + budget 12 |      105 |             28 | 0.2037 |    **+0.0073** |        −0.0052 |
+| floor 2 + budget 12 |      105 |             27 | 0.1964 |         0.0000 |        −0.0052 |
+| per-lane budget 1   |       43 |             15 | 0.1409 |        −0.0555 |        −0.0899 |
+| per-lane budget 2   |       70 |             21 | 0.1750 |        −0.0214 |        −0.0294 |
+
+**The per-lane floor wins on fourteen pull requests and loses on fifty**, by `+0.0073` and `−0.0052` — the same device, the
+same emission, opposite signs. That is not a defect in either reading; it is what an effect of `±0.008` looks like when
+the sample is 14 pull requests and 170 goldens (`§71`: quote the range, not the point). **The honest statement is not
+"fairness costs two credits" but "the allocation is not a lever in either direction"**, and the fifty-pull-request board
+is the one that decides because it is the larger sample and the one the bar is set on.
+
+**And it is the third time a constant has been the finding rather than a device.** `§157.4` found `budget: 12` right on
+AACR and wrong on Martian; this finds it worth `+0.0127` when it is removed on this window and `−0.0089` when it is
+removed on the wide one. **A budget is a number chosen on one corpus**, and the campaign's remaining steps should stop
+looking for a better one: on the board that matters the whole allocation question is worth less than a tenth of the gap
+it was supposed to close.
