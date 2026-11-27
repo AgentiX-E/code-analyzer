@@ -19176,3 +19176,27 @@ and not volume: we already emit 622 candidates for 127 credits.
 **The bar for the AACR board is `0.3770`, and it is the competitor's own figure under our LLM** - the same DeepSeek endpoint
 and model its CLI was driven with in record mode. It replaces the `0.3106` this campaign has been quoting since S44, which
 was the narrow arm.
+
+### 173.6 The repair, proved on the runner rather than on this machine
+
+Dispatch `45939215409` ran the same arm again after the fix. It is a **different slice** - the workflow's default window is
+14 pull requests, and the 50-pull-request arm needs `max_pull_requests=50` - so its figures are not §173.2's and are not
+comparable to them. What it establishes is the one thing §173.1 could only establish locally:
+
+```
+competitor open-code-review · 14 of 14 scored pull requests have a row · profile all
+  goldens 170 (every golden on the pull requests priced here, so a row that emitted nothing is still counted)
+  as shipped     emitted 152  tp 50  P 0.3289  R 0.2941  F1 0.3106
+  the guard rebuilds P/R/F1 exactly
+```
+
+**The guard rebuilds, the attribution step runs, and the page is drawn** - `aacr-category-gap.json` and
+`docs/aacr-category-gap.html` are both in that run's artifact, which is the difference between "the instrument exists" and
+"the instrument is wired". The run cost `$0.2533` (¥4.35), reviewed 14 pull requests and scored `P 0.2385 / R 0.1529 /
+F1 0.1864` - `0.1242` below the competitor **on this window**, with `p = 0.8642` over 18 ours-only and 16 theirs-only
+pairs: **on 14 pull requests the difference between the two arms is not distinguishable from zero**, which is exactly why
+the arm that matters is the 50-pull-request one.
+
+**`0.3106` is this window's competitor figure, not the board's.** The campaign has quoted it since S44 as _the_ bar; it is
+the same competitor on 14 of the same pull requests, and §173.2's `0.3770` is the same competitor on 50. **A bar is a
+number and a slice**, and the slice was never written beside it until now.
