@@ -1,0 +1,54 @@
+{
+  "version": "aacr-category-gap-v1",
+  "source": "dispatch 45924315931 · aacr-bench.json, advisory, lanes wide, every device off",
+  "corpus": {
+    "pullRequests": 50,
+    "goldens": 452
+  },
+  "emission": {
+    "ours": 311,
+    "theirs": 434
+  },
+  "credited": {
+    "ours": 102,
+    "theirs": 164
+  },
+  "rows": [
+    {
+      "category": "Code Defect",
+      "goldens": 209,
+      "ours": 65,
+      "theirs": 96,
+      "oursRecall": 0.31100478468899523,
+      "theirsRecall": 0.45933014354066987,
+      "gap": 31
+    },
+    {
+      "category": "Maintainability and Readability",
+      "goldens": 191,
+      "ours": 20,
+      "theirs": 45,
+      "oursRecall": 0.10471204188481675,
+      "theirsRecall": 0.2356020942408377,
+      "gap": 25
+    },
+    {
+      "category": "Performance",
+      "goldens": 37,
+      "ours": 8,
+      "theirs": 14,
+      "oursRecall": 0.21621621621621623,
+      "theirsRecall": 0.3783783783783784,
+      "gap": 6
+    },
+    {
+      "category": "Security Vulnerability",
+      "goldens": 15,
+      "ours": 9,
+      "theirs": 9,
+      "oursRecall": 0.6,
+      "theirsRecall": 0.6,
+      "gap": 0
+    }
+  ]
+}

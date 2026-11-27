@@ -965,6 +965,23 @@ jobs:
               --json benchmarks/competitor-cut-core.json
           fi
 
+      # **And where the deficit lives, by the corpus's own taxonomy.** A delta of `-0.11` F1 is a verdict; a plan needs
+      # the shape of it, and the answer key publishes a category on every reference comment. **Both arms are scored by the
+      # corpus's protocol and every bucket adds back up to the figure it decomposes, or the step refuses** (§173.3): a
+      # decomposition whose rows do not sum to their own total is the §124 defect with better formatting.
+      - name: Attribute the gap to the corpus's own categories
+        if: always() && steps.replay.outcome == 'success'
+        run: |
+          set -e
+          corpus="${{ inputs.dataset == 'martian' && format('{0}/benchmarks/martian/positive_samples.json', github.workspace) || '/tmp/aacr-bench/dataset/v1/positive_samples.json' }}"
+          node scripts/aacr-category-gap.mjs \
+            --artifact benchmarks/aacr-bench.json \
+            --corpus "$corpus" \
+            --json benchmarks/aacr-category-gap.json
+          # **And the picture, from the record and not from a second reading of the artifact.** The page refuses a record
+          # whose rows do not sum to its own totals, which is the same guard one layer out.
+          npm run -s docs:aacr-category-gap
+
       # **And `always()` is not decoration on that condition.** A step whose `if` contains no status function is
       # implicitly `success() && …`, so a red step *after* the two proofs still skipped the upload - which is exactly what
       # happened on run 45411086146: the review, both proofs and the competitor comparison all succeeded, the derived
@@ -999,6 +1016,8 @@ jobs:
             benchmarks/cut-curve-core.json
             benchmarks/competitor-cut.json
             benchmarks/competitor-cut-core.json
+            benchmarks/aacr-category-gap.json
+            docs/aacr-category-gap.html
             benchmarks/aacr/competitor-baseline.json
             benchmarks/runnable-competitors-outputs/
           if-no-files-found: warn

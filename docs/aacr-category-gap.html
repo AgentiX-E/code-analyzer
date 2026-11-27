@@ -1,0 +1,82 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Where the missing goldens are — AACR, wide arm</title>
+<style>
+  :root { color-scheme: light dark; --ink:#111; --muted:#666; --rule:#dcdcdc; --ours:#3b6ea5; --theirs:#a5523b; }
+  @media (prefers-color-scheme: dark) { :root { --ink:#eee; --muted:#9a9a9a; --rule:#333; --ours:#7fa9d4; --theirs:#d49a7f; } }
+  body { margin:0; padding:40px; font:15px/1.55 ui-sans-serif,-apple-system,"Segoe UI",Roboto,sans-serif; color:var(--ink); background:transparent; }
+  h1 { font-size:22px; margin:0 0 4px; font-weight:650; letter-spacing:-0.01em; }
+  p.lede { margin:0 0 26px; color:var(--muted); max-width:70ch; }
+  table { border-collapse:collapse; width:100%; max-width:1000px; }
+  th, td { text-align:left; padding:10px 12px; border-bottom:1px solid var(--rule); vertical-align:middle; }
+  thead th { font-size:12px; text-transform:uppercase; letter-spacing:0.06em; color:var(--muted); font-weight:600; }
+  tbody th { font-weight:600; width:19rem; }
+  td.number { font-variant-numeric:tabular-nums; width:5.5rem; }
+  td.bars { width:auto; }
+  .bar { height:16px; border-radius:3px; margin:3px 0; position:relative; min-width:2px; }
+  .bar span { position:absolute; left:8px; top:0; font-size:11px; line-height:16px; color:#fff; white-space:nowrap; }
+  .bar.ours { background:var(--ours); }
+  .bar.theirs { background:var(--theirs); }
+  .behind { color:#b3341f; } .ahead { color:#1f7a44; } .level { color:var(--muted); }
+  footer { margin-top:28px; max-width:1000px; color:var(--muted); font-size:13px; }
+  .swatch { display:inline-block; width:10px; height:10px; border-radius:2px; margin-right:6px; }
+</style>
+</head>
+<body>
+  <h1>Where the missing goldens are</h1>
+  <p class="lede">AACR, wide lane set, 50 pull requests, 452 reference comments.
+  Both arms are scored by the corpus's own protocol — one finding credited with one golden, per pull request — and every
+  bucket below adds back up to the published figure it decomposes.</p>
+  <table>
+    <thead>
+      <tr><th scope="col">Category</th><th scope="col">Goldens</th><th scope="col">Credited (ours / theirs)</th><th scope="col">Gap</th></tr>
+    </thead>
+    <tbody>
+      <tr>
+        <th scope="row">Code Defect</th>
+        <td class="number">209</td>
+        <td class="bars">
+          <div class="bar ours" style="width:51.83%"><span>65 · 31.1%</span></div>
+          <div class="bar theirs" style="width:76.56%"><span>96 · 45.9%</span></div>
+        </td>
+        <td class="number behind">+31</td>
+      </tr>
+      <tr>
+        <th scope="row">Maintainability and Readability</th>
+        <td class="number">191</td>
+        <td class="bars">
+          <div class="bar ours" style="width:17.45%"><span>20 · 10.5%</span></div>
+          <div class="bar theirs" style="width:39.27%"><span>45 · 23.6%</span></div>
+        </td>
+        <td class="number behind">+25</td>
+      </tr>
+      <tr>
+        <th scope="row">Performance</th>
+        <td class="number">37</td>
+        <td class="bars">
+          <div class="bar ours" style="width:36.04%"><span>8 · 21.6%</span></div>
+          <div class="bar theirs" style="width:63.06%"><span>14 · 37.8%</span></div>
+        </td>
+        <td class="number behind">+6</td>
+      </tr>
+      <tr>
+        <th scope="row">Security Vulnerability</th>
+        <td class="number">15</td>
+        <td class="bars">
+          <div class="bar ours" style="width:100.00%"><span>9 · 60.0%</span></div>
+          <div class="bar theirs" style="width:100.00%"><span>9 · 60.0%</span></div>
+        </td>
+        <td class="number level">0</td>
+      </tr>
+    </tbody>
+  </table>
+  <footer>
+    <span class="swatch" style="background:var(--ours)"></span>ours · 311 comments &nbsp;&nbsp;
+    <span class="swatch" style="background:var(--theirs)"></span>the competitor · 434 comments<br>
+    3 categories behind, 1 level, 0 ahead. A category where both arms are near zero
+    is a detection gap, and no cut closes it.
+  </footer>
+</body>
+</html>
