@@ -1,0 +1,85 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>How much of the answer key the diff can reach</title>
+<style>
+  :root { color-scheme: light dark; --ink: #16181d; --dim: #5a6272; --line: #d8dce5; --hit: #2f6f4f; --panel: #f6f7fa; }
+  @media (prefers-color-scheme: dark) { :root { --ink: #e8ebf2; --dim: #9aa3b5; --line: #333a48; --hit: #5fbf8c; --panel: #1b1f27; } }
+  body { margin: 0 auto; max-width: 62rem; padding: 2.5rem 1.5rem 4rem; font: 15px/1.55 -apple-system, BlinkMacSystemFont, "Segoe UI", Helvetica, Arial, sans-serif; color: var(--ink); }
+  h1 { font-size: 1.45rem; line-height: 1.25; margin: 0 0 .4rem; letter-spacing: -.01em; }
+  p.lead { color: var(--dim); margin: 0 0 2rem; }
+  table { border-collapse: collapse; width: 100%; margin: 0 0 1.6rem; }
+  th, td { text-align: left; padding: .55rem .5rem; border-bottom: 1px solid var(--line); vertical-align: middle; }
+  thead th { font-size: .78rem; text-transform: uppercase; letter-spacing: .06em; color: var(--dim); font-weight: 600; }
+  th[scope="row"] { font-weight: 600; }
+  .why { display: block; font-weight: 400; color: var(--dim); font-size: .82rem; }
+  .number { text-align: right; font-variant-numeric: tabular-nums; }
+  .bars { width: 38%; }
+  .track { height: 12px; background: var(--panel); border: 1px solid var(--line); border-radius: 3px; overflow: hidden; }
+  .hit { height: 100%; background: var(--hit); }
+  .figures { display: grid; grid-template-columns: repeat(auto-fit, minmax(13rem, 1fr)); gap: 1rem; margin: 0 0 1.8rem; }
+  .figure { border: 1px solid var(--line); border-radius: 6px; padding: .9rem 1rem; background: var(--panel); }
+  .figure dt { font-size: .78rem; text-transform: uppercase; letter-spacing: .06em; color: var(--dim); margin: 0 0 .25rem; }
+  .figure dd { margin: 0; font-size: 1.5rem; font-variant-numeric: tabular-nums; }
+  .figure dd small { display: block; font-size: .8rem; color: var(--dim); font-variant-numeric: normal; margin-top: .2rem; }
+  footer { color: var(--dim); font-size: .85rem; border-top: 1px solid var(--line); padding-top: 1rem; }
+  code { font-size: .88em; }
+</style>
+</head>
+<body>
+<h1>How much of the answer key the diff can reach</h1>
+<p class="lead">artifact dispatch 45924315931 (50 PRs, 452 goldens) · diffs read 2026-11-27 · live · 452 goldens on 50 pull requests · credited by any finding, before any cut - reach is a property of the pool</p>
+
+<dl class="figures">
+  <div class="figure"><dt>addressable goldens</dt><dd>411<small>90.9% of the slice</small></dd></div>
+  <div class="figure"><dt>ours, on the addressable</dt><dd>29.9%<small>123 credited · 27.2% of the slice</small></dd></div>
+  <div class="figure"><dt>theirs, on the addressable</dt><dd>47.4%<small>195 credited · 43.1% of the slice</small></dd></div>
+</dl>
+
+<table>
+  <thead><tr><th scope="col">where the golden stands</th><th scope="col" class="number">goldens</th><th scope="col" class="number">+added line</th><th scope="col">credited by us</th><th scope="col" class="number">ours</th><th scope="col" class="number">theirs</th></tr></thead>
+  <tbody>
+      <tr>
+        <th scope="row">inHunk<span class="why">inside a hunk of the diff</span></th>
+        <td class="number">359</td>
+        <td class="number">311</td>
+        <td class="bars"><div class="track" style="width:79.42%"><div class="hit" style="width:24.34%"></div></div></td>
+        <td class="number">110</td>
+        <td class="number">153</td>
+      </tr>
+      <tr>
+        <th scope="row">outsideHunks<span class="why">on a path the diff has, outside every hunk</span></th>
+        <td class="number">52</td>
+        <td class="number">0</td>
+        <td class="bars"><div class="track" style="width:11.50%"><div class="hit" style="width:2.43%"></div></div></td>
+        <td class="number">11</td>
+        <td class="number">28</td>
+      </tr>
+      <tr>
+        <th scope="row">absentPath<span class="why">on a path the diff does not contain</span></th>
+        <td class="number">41</td>
+        <td class="number">0</td>
+        <td class="bars"><div class="track" style="width:9.07%"><div class="hit" style="width:0.44%"></div></div></td>
+        <td class="number">2</td>
+        <td class="number">14</td>
+      </tr>
+      <tr>
+        <th scope="row">unread<span class="why">on a pull request whose diff could not be read</span></th>
+        <td class="number">0</td>
+        <td class="number">0</td>
+        <td class="bars"><div class="track" style="width:0.00%"><div class="hit" style="width:0.00%"></div></div></td>
+        <td class="number">0</td>
+        <td class="number">0</td>
+      </tr>
+  </tbody>
+</table>
+
+<footer>
+  <code>+added line</code> is the stricter question our emission rule asks - a comment must cover a line the change wrote.
+  A golden inside a hunk with no added line is reachable by a reviewer and not postable by our gate, which is a product
+  decision and the reason the two columns are not the same column.
+</footer>
+</body>
+</html>

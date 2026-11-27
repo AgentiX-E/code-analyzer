@@ -167,3 +167,7 @@ docs/symbol-crosscheck.html
 # `--check` on every run that regenerates it, which is a formatter opinion about a rendering rather than a defect in it.
 docs/aacr-category-gap.html
 docs/lane-budget.html
+# **And the two reach pages**, for the sixth time and the same reason: `docs/corpus-reach*.html` are emitted by
+# `scripts/corpus-reach.mjs` from a record, and a formatter that reflowed one would be reformatting a measurement.
+docs/corpus-reach.html
+docs/corpus-reach-pinned.html

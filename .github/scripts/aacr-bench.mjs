@@ -67,6 +67,7 @@ import {
 } from './lib/competitor-baseline.mjs';
 import { operatingPointTable } from '../../scripts/lib/operating-point.mjs';
 import { locateLaneFindings } from '../../scripts/lib/lane-attribution.mjs';
+import { commitsOf, fetchPinnedDiff } from '../../scripts/lib/pinned-diff.mjs';
 import { evidenceSummary, quotationOf } from './lib/published-evidence.mjs';
 import { isTransientStatus, withRetry } from '../../scripts/lib/transient-fetch.mjs';
 import { readReviewDefaults } from './lib/review-defaults.mjs';
@@ -3061,14 +3062,57 @@ async function main() {
   let unfetched = 0;
   /** **Which pull requests this run could not read, and why** - a list, not a count. */
   const unfetchedPulls = [];
+  /**
+   * **How many diffs were read at the corpus's commits and how many at the pull request's live state.**
+   *
+   * `§175` is why this is counted rather than assumed: a run whose diffs were pinned and one whose diffs drifted are two
+   * measurements of two documents, and **an artifact that cannot say which it read is an artifact whose figure expires
+   * without a warning.**
+   */
+  const diffReads = { pinned: 0, live: 0, unpinnable: 0, pinFailures: 0, firstPinFailure: null };
   const categories = {};
   const contextLevels = {};
 
-  /** The pull request's unified diff, through the API, because **the corpus stores a URL and not a patch.** */
-  async function fetchPrDiff(url) {
+  /**
+   * **The pull request's unified diff, through the API, because the corpus stores a URL and not a patch.**
+   *
+   * **And at the commits the corpus names when it names them.** `§175` measured the defect this closes: on the fifty
+   * pull requests `§173.2` scored, **93 of 452 goldens stand, against the pull request's diff as it is today, on a path
+   * the diff does not contain or outside every hunk** - and the answer key was written against the diff the corpus's own
+   * `source_commit`/`target_commit` pair describes. A force-push replaces the pull request's text and leaves the key
+   * where it was, so **a run that asks for the live diff is measuring a reviewer against a document that has moved**.
+   *
+   * **The fallback is named rather than silent.** A compare the API refuses - two commits the remote no longer holds,
+   * which is what a squashed re-upload leaves behind - leaves the live diff as the only text there is, and the caller is
+   * told which one it received so the artifact can count them. **A pin that is claimed but not performed is the same
+   * defect one level up**, and the whole point of this change is that the input is stated rather than assumed.
+   */
+  async function fetchPrDiff(url, corpusRow = null) {
     const m = /github\.com\/([^/]+)\/([^/]+)\/pull\/(\d+)/.exec(String(url ?? ''));
     if (!m) return { ok: false, reason: `"${String(url ?? '')}" is not a pull request URL` };
     const [, owner, repo, num] = m;
+    // **The pinned read first, because it is the only text the answer key describes.** `commitsOf` returns `null` for a
+    // row that names no pair - the Martian corpus, where the arm has always read the live diff - and for a pair of equal
+    // commits, which describes no change at all.
+    const commits = commitsOf(corpusRow);
+    let pinFailure = null;
+    if (commits !== null) {
+      const pinned = await fetchPinnedDiff({
+        url,
+        commits,
+        token: process.env['GITHUB_TOKEN'] ?? process.env['GH_TOKEN'] ?? '',
+      });
+      if (pinned.ok) {
+        diffReads.pinned += 1;
+        return { ok: true, diff: pinned.diff, pinned: true };
+      }
+      pinFailure = pinned.reason;
+      diffReads.pinFailures += 1;
+      if (diffReads.firstPinFailure === null)
+        diffReads.firstPinFailure = String(pinFailure).slice(0, 240);
+    } else {
+      diffReads.unpinnable += 1;
+    }
     // **`GH_TOKEN` as well as `GITHUB_TOKEN`**, because the double read of one name is what a copy-paste looks like and
     // **a silently unauthenticated fetch is a sixty-request hour against a five-thousand one**. The run of 2026-11-11
     // lost twelve of fifty pull requests and this line is the reason it could not say why.
@@ -3088,7 +3132,10 @@ async function main() {
               ...(token ? { authorization: `token ${token}` } : {}),
             },
           });
-          if (res.ok) return { ok: true, diff: await res.text() };
+          if (res.ok) {
+            diffReads.live += 1;
+            return { ok: true, diff: await res.text(), pinned: false, pinFailure };
+          }
           // **The status and the remaining budget, because the two failures that look alike here are a typo in the
           // corpus and a rate limit**, and only one of them is repaired by running again later.
           const remaining = res.headers.get('x-ratelimit-remaining');
@@ -3345,7 +3392,7 @@ async function main() {
       startLine: Number(c.from_line ?? c.to_line ?? 0) || null,
       endLine: Number(c.to_line ?? c.from_line ?? 0) || null,
     }));
-    const fetched = await fetchPrDiff(pr.githubPrUrl);
+    const fetched = await fetchPrDiff(pr.githubPrUrl, pr);
     if (!fetched.ok) {
       unfetched += 1;
       // **Named, with the reason, because twelve of fifty pull requests left this run without a word.** A corpus that
@@ -5592,6 +5639,22 @@ async function main() {
     corpusRead: {
       ...unreadCorpus({ requested: rows.length, unread: unfetched }),
       whole: readTheWholeCorpus({ requested: rows.length, unread: unfetched }),
+    },
+    /**
+     * **Which document each diff was read from, because the answer key describes one of them.**
+     *
+     * `pinned` is a diff fetched at the corpus's own `source_commit...target_commit`, `live` is the pull request's state
+     * today, `pinFailures` counts a pin that was attempted and refused (the compare 404s when a squashed re-upload left
+     * the commits unreachable), and `unpinnable` counts a row that names no pair at all. **§175 measured 93 of 452
+     * goldens without a coordinate under the live reading and 5 under the pinned one**, so a figure whose artifact does
+     * not carry this block is a figure a reader cannot place.
+     */
+    diffSource: {
+      pinned: diffReads.pinned,
+      live: diffReads.live,
+      pinFailures: diffReads.pinFailures,
+      unpinnable: diffReads.unpinnable,
+      firstPinFailure: diffReads.firstPinFailure,
     },
     // **And which, and why.** A count says the corpus shrank; a list says whether to fetch again, fix the URL, or raise
     // the token's budget - and **the three repairs are not interchangeable.**

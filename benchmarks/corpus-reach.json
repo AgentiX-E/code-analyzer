@@ -1,0 +1,563 @@
+{
+  "version": "corpus-reach-v1",
+  "source": "artifact dispatch 45924315931 (50 PRs, 452 goldens) · diffs read 2026-11-27 · live",
+  "reading": "live",
+  "basis": "credited by any finding, before any cut - reach is a property of the pool",
+  "corpus": {
+    "path": "/tmp/aacr-bench/dataset/v1/positive_samples.json",
+    "digest": "sha256-02c8561f1c3994a2",
+    "pullRequests": 50,
+    "goldens": 452
+  },
+  "buckets": [
+    {
+      "bucket": "inHunk",
+      "goldens": 359,
+      "addedInSpan": 311,
+      "ours": 110,
+      "theirs": 153
+    },
+    {
+      "bucket": "outsideHunks",
+      "goldens": 52,
+      "addedInSpan": 0,
+      "ours": 11,
+      "theirs": 28
+    },
+    {
+      "bucket": "absentPath",
+      "goldens": 41,
+      "addedInSpan": 0,
+      "ours": 2,
+      "theirs": 14
+    },
+    {
+      "bucket": "unread",
+      "goldens": 0,
+      "addedInSpan": 0,
+      "ours": 0,
+      "theirs": 0
+    }
+  ],
+  "addressable": {
+    "goldens": 411,
+    "share": 0.9092920353982301,
+    "note": "goldens on a path the diff contains - the ones a diff-reading reviewer can address at all"
+  },
+  "credited": {
+    "ours": 123,
+    "theirs": 195
+  },
+  "rate": {
+    "oursOnSlice": 0.2721238938053097,
+    "oursOnAddressable": 0.29927007299270075,
+    "theirsOnSlice": 0.4314159292035398,
+    "theirsOnAddressable": 0.4744525547445255
+  },
+  "unread": {
+    "pullRequests": 0,
+    "reasons": []
+  },
+  "pulls": [
+    {
+      "pr": "https://github.com/FreeCAD/FreeCAD/pull/19411",
+      "goldens": 19,
+      "inHunk": 18,
+      "outsideHunks": 1,
+      "absentPath": 0,
+      "unread": 0,
+      "cached": true,
+      "pinned": false
+    },
+    {
+      "pr": "https://github.com/FreeCAD/FreeCAD/pull/21257",
+      "goldens": 19,
+      "inHunk": 19,
+      "outsideHunks": 0,
+      "absentPath": 0,
+      "unread": 0,
+      "cached": true,
+      "pinned": false
+    },
+    {
+      "pr": "https://github.com/FreeCAD/FreeCAD/pull/22744",
+      "goldens": 3,
+      "inHunk": 3,
+      "outsideHunks": 0,
+      "absentPath": 0,
+      "unread": 0,
+      "cached": true,
+      "pinned": false
+    },
+    {
+      "pr": "https://github.com/FreeCAD/FreeCAD/pull/20612",
+      "goldens": 3,
+      "inHunk": 3,
+      "outsideHunks": 0,
+      "absentPath": 0,
+      "unread": 0,
+      "cached": true,
+      "pinned": false
+    },
+    {
+      "pr": "https://github.com/FreeCAD/FreeCAD/pull/18688",
+      "goldens": 6,
+      "inHunk": 6,
+      "outsideHunks": 0,
+      "absentPath": 0,
+      "unread": 0,
+      "cached": true,
+      "pinned": false
+    },
+    {
+      "pr": "https://github.com/FreeCAD/FreeCAD/pull/22235",
+      "goldens": 6,
+      "inHunk": 5,
+      "outsideHunks": 1,
+      "absentPath": 0,
+      "unread": 0,
+      "cached": true,
+      "pinned": false
+    },
+    {
+      "pr": "https://github.com/FreeCAD/FreeCAD/pull/20336",
+      "goldens": 8,
+      "inHunk": 8,
+      "outsideHunks": 0,
+      "absentPath": 0,
+      "unread": 0,
+      "cached": true,
+      "pinned": false
+    },
+    {
+      "pr": "https://github.com/FreeCAD/FreeCAD/pull/20825",
+      "goldens": 32,
+      "inHunk": 30,
+      "outsideHunks": 0,
+      "absentPath": 2,
+      "unread": 0,
+      "cached": true,
+      "pinned": false
+    },
+    {
+      "pr": "https://github.com/FreeCAD/FreeCAD/pull/19977",
+      "goldens": 5,
+      "inHunk": 5,
+      "outsideHunks": 0,
+      "absentPath": 0,
+      "unread": 0,
+      "cached": true,
+      "pinned": false
+    },
+    {
+      "pr": "https://github.com/FreeCAD/FreeCAD/pull/20156",
+      "goldens": 16,
+      "inHunk": 13,
+      "outsideHunks": 2,
+      "absentPath": 1,
+      "unread": 0,
+      "cached": true,
+      "pinned": false
+    },
+    {
+      "pr": "https://github.com/FreeCAD/FreeCAD/pull/19426",
+      "goldens": 23,
+      "inHunk": 23,
+      "outsideHunks": 0,
+      "absentPath": 0,
+      "unread": 0,
+      "cached": true,
+      "pinned": false
+    },
+    {
+      "pr": "https://github.com/microsoft/typescript-go/pull/1354",
+      "goldens": 2,
+      "inHunk": 2,
+      "outsideHunks": 0,
+      "absentPath": 0,
+      "unread": 0,
+      "cached": true,
+      "pinned": false
+    },
+    {
+      "pr": "https://github.com/microsoft/typescript-go/pull/831",
+      "goldens": 15,
+      "inHunk": 5,
+      "outsideHunks": 9,
+      "absentPath": 1,
+      "unread": 0,
+      "cached": true,
+      "pinned": false
+    },
+    {
+      "pr": "https://github.com/microsoft/typescript-go/pull/1446",
+      "goldens": 13,
+      "inHunk": 9,
+      "outsideHunks": 4,
+      "absentPath": 0,
+      "unread": 0,
+      "cached": true,
+      "pinned": false
+    },
+    {
+      "pr": "https://github.com/microsoft/typescript-go/pull/691",
+      "goldens": 3,
+      "inHunk": 3,
+      "outsideHunks": 0,
+      "absentPath": 0,
+      "unread": 0,
+      "cached": true,
+      "pinned": false
+    },
+    {
+      "pr": "https://github.com/microsoft/typescript-go/pull/1000",
+      "goldens": 1,
+      "inHunk": 1,
+      "outsideHunks": 0,
+      "absentPath": 0,
+      "unread": 0,
+      "cached": true,
+      "pinned": false
+    },
+    {
+      "pr": "https://github.com/microsoft/typescript-go/pull/698",
+      "goldens": 6,
+      "inHunk": 5,
+      "outsideHunks": 1,
+      "absentPath": 0,
+      "unread": 0,
+      "cached": true,
+      "pinned": false
+    },
+    {
+      "pr": "https://github.com/PowerShell/PowerShell/pull/24910",
+      "goldens": 5,
+      "inHunk": 4,
+      "outsideHunks": 1,
+      "absentPath": 0,
+      "unread": 0,
+      "cached": true,
+      "pinned": false
+    },
+    {
+      "pr": "https://github.com/PowerShell/PowerShell/pull/25780",
+      "goldens": 4,
+      "inHunk": 4,
+      "outsideHunks": 0,
+      "absentPath": 0,
+      "unread": 0,
+      "cached": true,
+      "pinned": false
+    },
+    {
+      "pr": "https://github.com/libsdl-org/SDL/pull/12964",
+      "goldens": 7,
+      "inHunk": 6,
+      "outsideHunks": 1,
+      "absentPath": 0,
+      "unread": 0,
+      "cached": true,
+      "pinned": false
+    },
+    {
+      "pr": "https://github.com/libsdl-org/SDL/pull/12718",
+      "goldens": 8,
+      "inHunk": 8,
+      "outsideHunks": 0,
+      "absentPath": 0,
+      "unread": 0,
+      "cached": true,
+      "pinned": false
+    },
+    {
+      "pr": "https://github.com/gofr-dev/gofr/pull/1681",
+      "goldens": 5,
+      "inHunk": 5,
+      "outsideHunks": 0,
+      "absentPath": 0,
+      "unread": 0,
+      "cached": true,
+      "pinned": false
+    },
+    {
+      "pr": "https://github.com/gofr-dev/gofr/pull/1617",
+      "goldens": 5,
+      "inHunk": 3,
+      "outsideHunks": 2,
+      "absentPath": 0,
+      "unread": 0,
+      "cached": true,
+      "pinned": false
+    },
+    {
+      "pr": "https://github.com/gofr-dev/gofr/pull/1325",
+      "goldens": 2,
+      "inHunk": 2,
+      "outsideHunks": 0,
+      "absentPath": 0,
+      "unread": 0,
+      "cached": true,
+      "pinned": false
+    },
+    {
+      "pr": "https://github.com/gofr-dev/gofr/pull/1355",
+      "goldens": 6,
+      "inHunk": 6,
+      "outsideHunks": 0,
+      "absentPath": 0,
+      "unread": 0,
+      "cached": true,
+      "pinned": false
+    },
+    {
+      "pr": "https://github.com/gofr-dev/gofr/pull/1395",
+      "goldens": 8,
+      "inHunk": 5,
+      "outsideHunks": 0,
+      "absentPath": 3,
+      "unread": 0,
+      "cached": true,
+      "pinned": false
+    },
+    {
+      "pr": "https://github.com/gofr-dev/gofr/pull/1696",
+      "goldens": 4,
+      "inHunk": 4,
+      "outsideHunks": 0,
+      "absentPath": 0,
+      "unread": 0,
+      "cached": true,
+      "pinned": false
+    },
+    {
+      "pr": "https://github.com/comfyanonymous/ComfyUI/pull/7952",
+      "goldens": 5,
+      "inHunk": 5,
+      "outsideHunks": 0,
+      "absentPath": 0,
+      "unread": 0,
+      "cached": true,
+      "pinned": false
+    },
+    {
+      "pr": "https://github.com/comfyanonymous/ComfyUI/pull/8446",
+      "goldens": 18,
+      "inHunk": 16,
+      "outsideHunks": 0,
+      "absentPath": 2,
+      "unread": 0,
+      "cached": true,
+      "pinned": false
+    },
+    {
+      "pr": "https://github.com/comfyanonymous/ComfyUI/pull/6033",
+      "goldens": 7,
+      "inHunk": 7,
+      "outsideHunks": 0,
+      "absentPath": 0,
+      "unread": 0,
+      "cached": true,
+      "pinned": false
+    },
+    {
+      "pr": "https://github.com/comfyanonymous/ComfyUI/pull/9560",
+      "goldens": 6,
+      "inHunk": 0,
+      "outsideHunks": 6,
+      "absentPath": 0,
+      "unread": 0,
+      "cached": true,
+      "pinned": false
+    },
+    {
+      "pr": "https://github.com/comfyanonymous/ComfyUI/pull/6542",
+      "goldens": 2,
+      "inHunk": 2,
+      "outsideHunks": 0,
+      "absentPath": 0,
+      "unread": 0,
+      "cached": true,
+      "pinned": false
+    },
+    {
+      "pr": "https://github.com/mrdoob/three.js/pull/31402",
+      "goldens": 10,
+      "inHunk": 8,
+      "outsideHunks": 2,
+      "absentPath": 0,
+      "unread": 0,
+      "cached": true,
+      "pinned": false
+    },
+    {
+      "pr": "https://github.com/mrdoob/three.js/pull/30076",
+      "goldens": 17,
+      "inHunk": 16,
+      "outsideHunks": 1,
+      "absentPath": 0,
+      "unread": 0,
+      "cached": true,
+      "pinned": false
+    },
+    {
+      "pr": "https://github.com/mrdoob/three.js/pull/30750",
+      "goldens": 4,
+      "inHunk": 3,
+      "outsideHunks": 1,
+      "absentPath": 0,
+      "unread": 0,
+      "cached": true,
+      "pinned": false
+    },
+    {
+      "pr": "https://github.com/CherryHQ/cherry-studio/pull/5540",
+      "goldens": 19,
+      "inHunk": 4,
+      "outsideHunks": 9,
+      "absentPath": 6,
+      "unread": 0,
+      "cached": true,
+      "pinned": false
+    },
+    {
+      "pr": "https://github.com/CherryHQ/cherry-studio/pull/5637",
+      "goldens": 23,
+      "inHunk": 4,
+      "outsideHunks": 0,
+      "absentPath": 19,
+      "unread": 0,
+      "cached": true,
+      "pinned": false
+    },
+    {
+      "pr": "https://github.com/opencv/opencv/pull/26815",
+      "goldens": 4,
+      "inHunk": 3,
+      "outsideHunks": 1,
+      "absentPath": 0,
+      "unread": 0,
+      "cached": true,
+      "pinned": false
+    },
+    {
+      "pr": "https://github.com/opencv/opencv/pull/27297",
+      "goldens": 1,
+      "inHunk": 1,
+      "outsideHunks": 0,
+      "absentPath": 0,
+      "unread": 0,
+      "cached": true,
+      "pinned": false
+    },
+    {
+      "pr": "https://github.com/opencv/opencv/pull/27284",
+      "goldens": 14,
+      "inHunk": 14,
+      "outsideHunks": 0,
+      "absentPath": 0,
+      "unread": 0,
+      "cached": true,
+      "pinned": false
+    },
+    {
+      "pr": "https://github.com/nextcloud/server/pull/52846",
+      "goldens": 2,
+      "inHunk": 2,
+      "outsideHunks": 0,
+      "absentPath": 0,
+      "unread": 0,
+      "cached": true,
+      "pinned": false
+    },
+    {
+      "pr": "https://github.com/lvgl/lvgl/pull/8164",
+      "goldens": 5,
+      "inHunk": 5,
+      "outsideHunks": 0,
+      "absentPath": 0,
+      "unread": 0,
+      "cached": true,
+      "pinned": false
+    },
+    {
+      "pr": "https://github.com/lvgl/lvgl/pull/8129",
+      "goldens": 5,
+      "inHunk": 5,
+      "outsideHunks": 0,
+      "absentPath": 0,
+      "unread": 0,
+      "cached": true,
+      "pinned": false
+    },
+    {
+      "pr": "https://github.com/lvgl/lvgl/pull/8689",
+      "goldens": 33,
+      "inHunk": 32,
+      "outsideHunks": 1,
+      "absentPath": 0,
+      "unread": 0,
+      "cached": true,
+      "pinned": false
+    },
+    {
+      "pr": "https://github.com/lvgl/lvgl/pull/7602",
+      "goldens": 2,
+      "inHunk": 2,
+      "outsideHunks": 0,
+      "absentPath": 0,
+      "unread": 0,
+      "cached": true,
+      "pinned": false
+    },
+    {
+      "pr": "https://github.com/cline/cline/pull/5177",
+      "goldens": 2,
+      "inHunk": 2,
+      "outsideHunks": 0,
+      "absentPath": 0,
+      "unread": 0,
+      "cached": true,
+      "pinned": false
+    },
+    {
+      "pr": "https://github.com/cline/cline/pull/5955",
+      "goldens": 8,
+      "inHunk": 8,
+      "outsideHunks": 0,
+      "absentPath": 0,
+      "unread": 0,
+      "cached": true,
+      "pinned": false
+    },
+    {
+      "pr": "https://github.com/cline/cline/pull/4676",
+      "goldens": 15,
+      "inHunk": 1,
+      "outsideHunks": 7,
+      "absentPath": 7,
+      "unread": 0,
+      "cached": true,
+      "pinned": false
+    },
+    {
+      "pr": "https://github.com/cline/cline/pull/2347",
+      "goldens": 9,
+      "inHunk": 7,
+      "outsideHunks": 2,
+      "absentPath": 0,
+      "unread": 0,
+      "cached": true,
+      "pinned": false
+    },
+    {
+      "pr": "https://github.com/cline/cline/pull/4786",
+      "goldens": 7,
+      "inHunk": 7,
+      "outsideHunks": 0,
+      "absentPath": 0,
+      "unread": 0,
+      "cached": true,
+      "pinned": false
+    }
+  ]
+}

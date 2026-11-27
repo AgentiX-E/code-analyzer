@@ -1008,6 +1008,45 @@ jobs:
             --json benchmarks/lane-budget.json
           npm run -s docs:lane-budget
 
+      # **How much of the answer key the diff can reach at all, read twice.**
+      #
+      # `§175` measured the defect this step exists to keep measured: on a corpus whose rows name the commits they were
+      # built on, the harness asked the pull request resource for its diff - **the pull request as it stands today** - and a
+      # force-push since the key was written leaves goldens on paths that diff no longer contains. **Two readings, one
+      # directory**: `live` is what a re-run today faces, `pinned` is the diff at the corpus's own `source_commit` and
+      # `target_commit`, and **the difference between them is drift rather than capability**.
+      #
+      # **Both, every run.** A single reading would answer a question nobody asked - the live one cannot say what the
+      # answer key was written on, and the pinned one cannot say whether a reader today would see the same document.
+      - name: Price the answer key's reach, live and pinned
+        if: always() && steps.replay.outcome == 'success'
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          set -e
+          corpus="${{ inputs.dataset == 'martian' && format('{0}/benchmarks/martian/positive_samples.json', github.workspace) || '/tmp/aacr-bench/dataset/v1/positive_samples.json' }}"
+          # **The baseline is read only when the run had one**, because a corpus without a recorded competitor arm has no
+          # second column and an empty file parsed as a baseline is a crash rather than a missing column.
+          baseline=""
+          if [ "${{ inputs.dataset }}" != "martian" ]; then baseline="--baseline benchmarks/aacr/competitor-baseline.json"; fi
+          node scripts/corpus-reach.mjs \
+            --corpus "$corpus" \
+            --artifact benchmarks/aacr-bench.json \
+            $baseline \
+            --patches /tmp/corpus-reach \
+            --label "dispatch ${{ github.run_id }} · aacr-bench.json, live diffs" \
+            --json benchmarks/corpus-reach.json \
+            --html docs/corpus-reach.html
+          node scripts/corpus-reach.mjs \
+            --corpus "$corpus" \
+            --artifact benchmarks/aacr-bench.json \
+            $baseline \
+            --patches /tmp/corpus-reach \
+            --pinned \
+            --label "dispatch ${{ github.run_id }} · aacr-bench.json, diffs pinned at the corpus commits" \
+            --json benchmarks/corpus-reach-pinned.json \
+            --html docs/corpus-reach-pinned.html
+
       # **And `always()` is not decoration on that condition.** A step whose `if` contains no status function is
       # implicitly `success() && …`, so a red step *after* the two proofs still skipped the upload - which is exactly what
       # happened on run 45411086146: the review, both proofs and the competitor comparison all succeeded, the derived
@@ -1047,6 +1086,10 @@ jobs:
             benchmarks/idiom-reach.json
             benchmarks/lane-budget.json
             docs/lane-budget.html
+            benchmarks/corpus-reach.json
+            benchmarks/corpus-reach-pinned.json
+            docs/corpus-reach.html
+            docs/corpus-reach-pinned.html
             benchmarks/aacr/competitor-baseline.json
             benchmarks/runnable-competitors-outputs/
           if-no-files-found: warn

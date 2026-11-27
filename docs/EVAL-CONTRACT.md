@@ -19357,3 +19357,123 @@ AACR and wrong on Martian; this finds it worth `+0.0127` when it is removed on t
 removed on the wide one. **A budget is a number chosen on one corpus**, and the campaign's remaining steps should stop
 looking for a better one: on the board that matters the whole allocation question is worth less than a tenth of the gap
 it was supposed to close.
+
+## §175 The answer key was written on a document that no longer exists
+
+`§174` left three steps and one bar: `S60` (`maintainability` recall `0.1047 → ≥ 0.16`), `S63` (`code defect`
+`0.3110 → ≥ 0.40`), and `0.3770` as the competitor under our own LLM on fifty pull requests. **This round buys neither
+step and moves the bar's denominator instead**, because pricing `S60`'s rule half found something upstream of both.
+
+### 175.1 The harness asks the pull request, not the corpus
+
+Every row of `Alibaba-Aone/aacr-bench` names the two commits it was built on - `source_commit` and `target_commit`, the
+pair the competitor's harness is invoked `--from … --to …` with. **The harness has always used them for the competitor
+arm and never for the diff.** The diff came from `GET /repos/{o}/{r}/pulls/{n}` with `accept: …v3.diff`, which answers
+with **the pull request as it stands today**.
+
+A force-push, a rebase or a squashed re-upload replaces that text. **The answer key does not move with it.** So a golden
+can name a path the diff no longer contains, and a re-run of the same arm then scores against a document the key was not
+written on - **and nothing in the artifact says so**, because every figure in it is a division between two numbers that
+were both taken from the same run.
+
+### 175.2 The partition, measured
+
+`scripts/corpus-reach.mjs` places every golden of the slice in exactly one bucket, relative to the diff the arm was
+shown: **inside a hunk**, **on a path the diff has but outside every hunk**, **on a path the diff does not contain**, or
+**on a pull request whose diff could not be read**. It refuses to print unless the buckets add back up to the slice, and
+it counts one thing beside the bucket: whether a finding could cover a line the change _added_, which is the stricter
+question our emission rule asks.
+
+Read against the diffs as they are on 2026-11-27, on `§173.2`'s fifty pull requests and 452 goldens:
+
+| where the golden stands                        | goldens | +added line | ours | theirs |
+| ---------------------------------------------- | ------: | ----------: | ---: | -----: |
+| inside a hunk                                  |     359 |     **311** |  110 |    153 |
+| on a path the diff has, outside every hunk     |      52 |           0 |   11 |     28 |
+| on a path the diff does not contain            |  **41** |           0 |    2 | **14** |
+| on a pull request whose diff could not be read |       0 |           0 |    0 |      0 |
+| **addressable**                                | **411** |             |  123 |    195 |
+
+**`93` of `452` goldens - 20.6 % of the answer key - have no coordinate in the live diff at all**, and **our arm credited
+13 of them while theirs credited 42**. That is the drift signature: those credits were earned on a document that existed
+when the arm ran and does not exist now. `FreeCAD#20825`'s `src/Mod/Material/App/Library.cpp` and
+`CherryHQ/cherry-studio#5540`'s `DataSettings.tsx` are two of the files: **the corpus's goldens are on them, the pull
+request's own diff today has fourteen and nine files respectively, and neither file is among them.**
+
+### 175.3 The same partition at the commits the corpus names
+
+`GET /repos/{o}/{r}/compare/{source}...{target}` answers with the diff between exactly the two commits the key was built
+on. `scripts/corpus-reach.mjs --pinned` reads that instead, caching under a second name so one directory holds both
+readings:
+
+| where the golden stands                        | goldens | +added line | ours | theirs |
+| ---------------------------------------------- | ------: | ----------: | ---: | -----: |
+| inside a hunk                                  | **436** |     **414** |  118 |    192 |
+| on a path the diff has, outside every hunk     |       5 |           0 |    0 |      3 |
+| on a path the diff does not contain            |       0 |           0 |    0 |      0 |
+| on a pull request whose diff could not be read |      11 |           0 |    5 |      0 |
+| **addressable**                                | **452** |             |  123 |    195 |
+
+**The forty-one absent paths are gone and the fifty-two out-of-hunk goldens are five.** The remaining eleven are two
+`ComfyUI` pull requests whose commits the remote no longer holds - **a squashed re-upload leaves nothing to compare**, and
+that is the case the fallback exists for rather than a hole in the instrument. **Credited totals are identical in both
+readings** (`123` and `195`), which is the check that the drift moved _where_ the goldens stand and not _which_ of them
+were credited: the arms read the document that existed when they ran, and this instrument is reading it a day later.
+
+### 175.4 What this costs the board, and what it does not
+
+**It does not move the ranking.** Both arms saw one document each; the comparison between them is whatever it was. **What
+it establishes is that neither figure is replayable**: a re-run of our arm today would face 411 addressable goldens and
+could not reproduce `0.2674`, and a re-run of theirs would face the same 411 and could not reproduce `0.3770` either.
+**A benchmark whose input is a live pull request is a benchmark whose figure expires quietly**, and the two arms' runs
+were **one day apart on a moving document** - `2026-11-25` for theirs and `2026-11-26` for ours - which is a difference
+nobody had measured until now.
+
+**And it moves the bar's denominator, not the bar.** `0.3770` is `164 / 436` on the paired subset `§173.1` fixed; the
+addressable denominator is `411` live and `452` pinned. **The fix is not to divide by a different number - it is to stop
+the number from moving**, which is what §175.5 does.
+
+### 175.5 The repair, and where it is wired
+
+| what                                                     | where                              | what it makes readable                                                    |
+| -------------------------------------------------------- | ---------------------------------- | ------------------------------------------------------------------------- |
+| `commitsOf` / `fetchPinnedDiff` / `compareDiffUrl`       | `scripts/lib/pinned-diff.mjs`      | the diff at the corpus's own pair, with a refusal that says why it failed |
+| the harness reads pinned first, live as a named fallback | `.github/scripts/aacr-bench.mjs`   | `diffSource: { pinned, live, pinFailures, unpinnable, firstPinFailure }`  |
+| both readings, every dispatch                            | `.github/workflows/aacr-bench.yml` | `benchmarks/corpus-reach.json` and `corpus-reach-pinned.json` + two pages |
+
+**The fallback is counted rather than silent**, because a pin that is claimed and not performed is the same defect one
+level up. The two `ComfyUI` rows are the natural experiment: their compare returns `404`, the live diff is the only text
+there is, and the artifact says so instead of reporting a pinned run it did not have.
+
+### 175.6 What this does not establish
+
+**That the corpus's commits describe the document the goldens were written on.** They are the best authority available
+and they are the pair the competitor's harness was itself invoked with; whether the corpus's authors wrote each golden
+against exactly that text is not something this repository can check. **What it can check is that the two are consistent
+with the key's own paths where the live diff is not**, and 41 of 41 recovered paths is that check.
+
+**That `S60`'s rule half is worth building.** `§174.2` priced the twelve rules at 8 of 452; this round priced six more
+candidates of the same kind on the same slice - `unicode-ellipsis-in-string` (2 reached of 8 emitted),
+`unused-parameter-comment` (2 of 19), `no-space-after-slashes` (0 of 7), `identifier-case-drift` (0 of 9),
+`stale-doc-params` (0 of 1) and `redundant-size-comparison` (0 of 0). **Four goldens in total, and the two that reach sit
+at or below the pool's own precision** - `2 / 19` is `0.105` against a pool that is `0.20`-`0.28` precise, so shipping
+`unused-parameter-comment` would _lower_ F1 at 19 extra comments. **All six are refused before they are written**, and
+`S60`'s target stands unmoved: the recall is not in arithmetic.
+
+**And it does not say `0.3770` is the bar for the pinned document.** It cannot: the competitor has never been measured
+there. **The bar that may be quoted today is `0.3770`, and the next purchase must re-record both arms on the pinned
+input** (§175.7).
+
+### 175.7 The plan
+
+| step                                                                        | target it must move                                     | cost        |
+| --------------------------------------------------------------------------- | ------------------------------------------------------- | ----------- |
+| **S65** - both arms re-recorded on the pinned input                         | a bar that the same command reproduces tomorrow         | 1 d, ≈ ¥46  |
+| **S63** - `bug` lane depth on the four defect shapes the corpus publishes   | `code defect` `0.3110 → ≥ 0.40`, on the pinned document | 4 d, ≈ ¥14  |
+| **S60** - the boundary condition named from the diff, not from the sentence | `maintainability` recall `0.1047 → ≥ 0.16`              | 2 d, ≈ ¥7   |
+| **S64** - the two rules that reach, wired and priced in one arm             | proven free; no F1 claim until an arm measures them     | 0.5 d, `$0` |
+| ~~**S61**, **S62**, six more rules~~                                        | refused by arithmetic (`§173.2`, `§174.2`, `§175.6`)    | saved 4 d   |
+
+**`S65` is first because every other figure is a comparison of two documents until it is done.** A step measured on a
+pinned run of our arm alone would still be a step measured against a competitor row recorded on a different text, which
+is the defect this round found rather than a smaller version of it.
