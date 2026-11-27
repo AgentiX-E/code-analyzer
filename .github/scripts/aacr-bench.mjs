@@ -1951,7 +1951,21 @@ async function dryRun() {
     await import('../../packages/intelligence/dist/review/idiom-rules.js');
   // **The lane's own wiring, on a patch built the way the harness builds one.** Every rule names the golden it came
   // from, so a rule list that came back empty is a module that failed to load rather than a corpus with nothing to say.
-  assert.equal(IDIOM_RULES.length, 6, 'six rules, each derived from a golden');
+  assert.equal(
+    IDIOM_RULES.length,
+    12,
+    "twelve rules - six from the sample §69.5 measured, six from this slice's own goldens in §174.2",
+  );
+  // **And every row names the line it came from**, which is the assertion that keeps the table honest as it grows: a rule
+  // with no corpus reference is a rule somebody added on taste, and the count above is only here so that a module which
+  // failed to load cannot pass by having no rows to check.
+  for (const rule of IDIOM_RULES) {
+    assert.match(
+      rule.corpus,
+      /^[A-Za-z0-9_./-]+:\d+$/,
+      `${String(rule.id)} names the corpus line it was derived from`,
+    );
+  }
   const idiomPatch = [
     '@@ -10,2 +10,4 @@ export function read(value) {',
     '  const before = value;',

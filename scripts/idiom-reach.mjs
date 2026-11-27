@@ -35,7 +35,6 @@
 import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 
-import { detectIdioms, IDIOM_RULES } from '../packages/intelligence/dist/review/idiom-rules.js';
 import { sideLinesByPath } from './lib/diff-side-lines.mjs';
 
 /** The windows this instrument reports, in the order it prints them. `0` is inside the span the author selected. */
@@ -178,10 +177,16 @@ async function main() {
       : (artifact.coverage?.byPullRequest ?? []).map((row) => row.pr);
   const asked = options.limit === null ? slice : slice.slice(0, options.limit);
 
-  const rows = [];
+  /**
+   * **The diffs first, the lane second, and the order is not cosmetic.**
+   *
+   * `detectIdioms` lives in `packages/intelligence/dist`, which exists only where the packages have been built. **A unit
+   * suite that runs this instrument to check its refusals must not need the build to reach them** - and on the runner it
+   * did not have one, so two cases that assert "no diff could be read" failed with a module-not-found instead. Reading
+   * the network first means a slice that cannot be read is refused before the lane is ever loaded.
+   */
+  const readable = [];
   const holes = [];
-  let findingsTotal = 0;
-  let findingsOnSlice = 0;
   for (const [index, url] of asked.entries()) {
     const row = corpus.find((entry) => entry.githubPrUrl === url);
     if (row === undefined) {
@@ -193,7 +198,23 @@ async function main() {
       holes.push({ pr: url, reason: diff.reason });
       continue;
     }
-    const byPath = sideLinesByPath(diff.diff);
+    readable.push({ url, row, diff: diff.diff, index });
+    if (process.stderr.isTTY)
+      process.stderr.write(
+        `\r${String(index + 1)}/${String(asked.length)} ${url}${' '.repeat(20)}`,
+      );
+  }
+  if (process.stderr.isTTY) process.stderr.write('\n');
+
+  if (readable.length === 0) throw new Error('no diff could be read, so there is nothing to price');
+
+  const { detectIdioms, IDIOM_RULES } =
+    await import('../packages/intelligence/dist/review/idiom-rules.js');
+
+  const rows = [];
+  let findingsTotal = 0;
+  for (const { url, row, diff } of readable) {
+    const byPath = sideLinesByPath(diff);
     const findings = [];
     for (const [path, file] of byPath) {
       if (file.added.length === 0) continue;
@@ -208,16 +229,9 @@ async function main() {
       for (const finding of produced) findings.push({ ...finding, path });
     }
     findingsTotal += findings.length;
-    findingsOnSlice += 1;
-    rows.push({ pr: url, comments: row.comments ?? [], findings, order: index });
-    if (process.stderr.isTTY)
-      process.stderr.write(
-        `\r${String(index + 1)}/${String(asked.length)} ${url}${' '.repeat(20)}`,
-      );
+    rows.push({ pr: url, comments: row.comments ?? [], findings });
   }
-  if (process.stderr.isTTY) process.stderr.write('\n');
 
-  if (findingsOnSlice === 0) throw new Error('no diff could be read, so there is nothing to price');
   if (findingsTotal === 0)
     throw new Error('the lane filed nothing on this slice, so there is nothing to price');
 

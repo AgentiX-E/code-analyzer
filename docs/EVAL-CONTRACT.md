@@ -19254,7 +19254,8 @@ on the same path, on a line inside the span the golden's author selected. **A cr
 pair, so reach is a ceiling and not a score** - but a rule that does not reach cannot credit, which is what a ceiling is
 for.
 
-The six rules as they shipped, on 50 pull requests: **3 of 364 goldens** (8 findings). So six more were written, each
+The six rules as they shipped reach **four** of the twelve goldens below, and three of those four are `commented-out-code`
+and `redundant-async` - which is the whole of what the lane was worth before this round. So six more were written, each
 derived from a golden this slice's reviewers actually wrote - a doubled word, `this don't`, an unresolved `TODO`, a
 `std::string` by value, an enum by `const&`, and a plural written with an `s`:
 
@@ -19276,19 +19277,20 @@ derived from a golden this slice's reviewers actually wrote - a doubled word, `t
 
 | category                        | goldens | reached | reached within 3 lines |
 | ------------------------------- | ------: | ------: | ---------------------: |
-| Code Defect                     |     194 |       0 |                      1 |
-| Maintainability and Readability |     170 |       7 |                     10 |
-| Performance                     |      29 |       1 |                      1 |
-| Security Vulnerability          |      11 |       0 |                      0 |
-| **total**                       | **404** |   **8** |                 **12** |
+| Code Defect                     |     209 |       0 |                      1 |
+| Maintainability and Readability |     191 |       7 |                     10 |
+| Performance                     |      37 |       1 |                      1 |
+| Security Vulnerability          |      15 |       0 |                      0 |
+| **total**                       | **452** |   **8** |                 **12** |
 
-**`0.0198`, or `0.0297` if every finding three lines away is credited too.** Six rules written from this slice's own
-goldens, and the ceiling on the category they were written for is **7 of 170**. The two rules with the widest emission
+**`0.0177`, or `0.0265` if every finding three lines away is credited too** - on the same 452 goldens `§173.2` scored
+both arms against. Twelve rules written from this slice's own goldens, and the ceiling on the category they were written
+for is **7 of 191**. The two rules with the widest emission
 reach least (`parameter-by-value` 6 → 0, `todo-in-code` 5 → 0): **a rule floods where it is least often right**, which is
 the same trade the model makes one order of magnitude up.
 
 **So `S62` - "a `performance` lane with rules rather than prompts" - is refused before it is built.** `performance`
-holds 29 goldens on this slice and the two rules that could touch it reach 1. A lane of rules for it would cost three
+holds 37 goldens on this slice and the two rules that could touch it reach 1. A lane of rules for it would cost three
 days and buy a ceiling under `+0.005`. `S60` and `S63` keep their place and their bar: **the recall is in what the model
 is asked, not in what arithmetic can decide.**
 
@@ -19309,7 +19311,7 @@ and the corpus that found it is `FreeCAD`'s.
 ### 174.4 What this round establishes, and what it does not
 
 **Establishes.** The cut's allocation is not the constraint (−0.0052 at equal emission, −0.0294 for the fairer of the two
-lanes-only arms); the deterministic lane's ceiling is 0.0198 on this slice and 7 of 170 on the category it was written
+lanes-only arms); the deterministic lane's ceiling is 0.0177 on this slice and 7 of 191 on the category it was written
 for; reading the lane's text without normalising line endings is a defect that silences four of twelve rules.
 
 **Does not establish.** That the rules are useless. They reach 2 of the 15 findings they file on `commented-out-code`,

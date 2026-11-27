@@ -2,140 +2,95 @@
   "version": "idiom-reach-v1",
   "source": "dispatch 45924315931 · aacr-bench.json, advisory, lanes wide, every device off",
   "asked": 50,
-  "read": 48,
-  "holes": [
-    {
-      "pr": "https://github.com/lvgl/lvgl/pull/8689",
-      "reason": "the diff request returned 403"
-    },
-    {
-      "pr": "https://github.com/cline/cline/pull/4676",
-      "reason": "the diff request returned 403"
-    }
-  ],
+  "read": 50,
+  "holes": [],
   "rules": [
     {
       "id": "commented-out-code",
-      "languages": [
-        "cxx",
-        "javascript",
-        "other"
-      ],
+      "languages": ["cxx", "javascript", "other"],
       "corpus": "FemVTKTools.cpp:1434",
       "findings": 15,
       "reached": 2
     },
     {
       "id": "float-literal-in-float-arithmetic",
-      "languages": [
-        "cxx"
-      ],
+      "languages": ["cxx"],
       "corpus": "SoDatumLabel.cpp:84",
       "findings": 0,
       "reached": 0
     },
     {
       "id": "redundant-async",
-      "languages": [
-        "javascript"
-      ],
+      "languages": ["javascript"],
       "corpus": "index.ts:460",
       "findings": 1,
       "reached": 1
     },
     {
       "id": "loose-equality",
-      "languages": [
-        "javascript"
-      ],
+      "languages": ["javascript"],
       "corpus": "ExtrudeGeometry.js:406",
       "findings": 2,
       "reached": 0
     },
     {
       "id": "article-agreement-in-comment",
-      "languages": [
-        "cxx",
-        "javascript",
-        "other"
-      ],
+      "languages": ["cxx", "javascript", "other"],
       "corpus": "lv_observer.h:610",
       "findings": 1,
       "reached": 1
     },
     {
       "id": "macro-name-case",
-      "languages": [
-        "cxx"
-      ],
+      "languages": ["cxx"],
       "corpus": "usb_ids.h:63",
       "findings": 0,
       "reached": 0
     },
     {
       "id": "doubled-word",
-      "languages": [
-        "cxx",
-        "javascript",
-        "other"
-      ],
+      "languages": ["cxx", "javascript", "other"],
       "corpus": "DlgOnlineHelpImp.h:35",
-      "findings": 1,
+      "findings": 2,
       "reached": 1
     },
     {
       "id": "subject-verb-agreement",
-      "languages": [
-        "cxx",
-        "javascript",
-        "other"
-      ],
+      "languages": ["cxx", "javascript", "other"],
       "corpus": "DrawTile.cpp:46",
       "findings": 1,
       "reached": 1
     },
     {
       "id": "todo-in-code",
-      "languages": [
-        "cxx",
-        "javascript",
-        "other"
-      ],
+      "languages": ["cxx", "javascript", "other"],
       "corpus": "DrawProjGroup.cpp:1144",
       "findings": 5,
       "reached": 0
     },
     {
       "id": "parameter-by-value",
-      "languages": [
-        "cxx"
-      ],
+      "languages": ["cxx"],
       "corpus": "CommandCreateDims.cpp:2384",
       "findings": 6,
       "reached": 0
     },
     {
       "id": "enum-by-const-reference",
-      "languages": [
-        "cxx"
-      ],
+      "languages": ["cxx"],
       "corpus": "DrawProjGroup.h:133",
       "findings": 4,
       "reached": 1
     },
     {
       "id": "plural-ys",
-      "languages": [
-        "cxx",
-        "javascript",
-        "other"
-      ],
+      "languages": ["cxx", "javascript", "other"],
       "corpus": "DimensionValidators.h:70",
       "findings": 7,
       "reached": 1
     }
   ],
-  "goldens": 404,
+  "goldens": 452,
   "reached": {
     "0": 8,
     "3": 12
@@ -143,25 +98,25 @@
   "byCategory": [
     {
       "category": "Code Defect",
-      "goldens": 194,
+      "goldens": 209,
       "reached": 0,
       "reachedWithin3": 1
     },
     {
       "category": "Maintainability and Readability",
-      "goldens": 170,
+      "goldens": 191,
       "reached": 7,
       "reachedWithin3": 10
     },
     {
       "category": "Performance",
-      "goldens": 29,
+      "goldens": 37,
       "reached": 1,
       "reachedWithin3": 1
     },
     {
       "category": "Security Vulnerability",
-      "goldens": 11,
+      "goldens": 15,
       "reached": 0,
       "reachedWithin3": 0
     }

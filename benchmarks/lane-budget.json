@@ -7,15 +7,11 @@
     "steps": [
       {
         "kind": "drop",
-        "categories": [
-          "test"
-        ]
+        "categories": ["test"]
       },
       {
         "kind": "drop-path-class",
-        "classes": [
-          "test"
-        ]
+        "classes": ["test"]
       },
       {
         "kind": "budget",
