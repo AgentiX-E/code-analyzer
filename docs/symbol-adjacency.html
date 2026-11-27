@@ -39,24 +39,32 @@
 <h1>Where the goldens we never credit were standing</h1>
 <p class="lede">
   33 goldens on <code>core</code> are credited by the competitor's arm and by nothing we
-  emit at any budget. <strong>27 of them sit on an identifier that a comment we already post
-  names</strong>, and 27 of those 27 comments are inside their pull
+  emit at any budget. <strong>26 of them sit on an identifier that a comment we already post
+  names</strong>, and 26 of those 26 comments are inside their pull
   request's first 5. The deficit is not that we did not look; it is that the comment says something
   else.
+</p>
+<p class="note">
+  <strong>A name is what the change writes, not what the sentence spells.</strong> The symbols counted here are the
+  identifiers on the pull request's own added lines, minus keywords and minus anything inside a comment; reading the
+  humans' sentences alone would count <strong>27</strong> of the same
+  33 instead of 26, because prose is mostly not code -
+  <code>Potential</code>, <code>Calling</code>, <code>particularly</code>, <code>capping</code>. Both rows are drawn below,
+  since a set that shrank is only interpretable beside the set it shrank from.
 </p>
 
 <dl class="headline">
   <div><dt>goldens only they credit</dt><dd>33<span class="sub"> of 158</span></dd></div>
-  <div><dt>on a symbol we name</dt><dd>27<span class="sub"> 82 %</span></dd></div>
-  <div><dt>already inside the budget</dt><dd>27<span class="sub"> median rank 1</span></dd></div>
+  <div><dt>on a symbol we name</dt><dd>26<span class="sub"> 79 %</span></dd></div>
+  <div><dt>already inside the budget</dt><dd>26<span class="sub"> median rank 1</span></dd></div>
   <div><dt>the sentences corrected</dt><dd>0.3896<span class="sub"> F1 at k=5</span></dd></div>
 </dl>
 
 <h2>The rate that forbids aiming at it</h2>
 <p class="note warn">
-  <strong>Co-location is the board's base rate.</strong> 99 of the
+  <strong>Co-location is the board's base rate.</strong> 89 of the
   125 goldens that are in neither set sit on a symbol our pool names, by the same rule and
-  on the same pool - <strong>79 % against 82 %</strong>. A device cannot select which comment to rewrite
+  on the same pool - <strong>71 % against 79 %</strong>. A device cannot select which comment to rewrite
   by asking whether it is near a golden we missed; it can only be pointed at every comment it posts.
 </p>
 <table>
@@ -64,15 +72,21 @@
 <tbody>
 <tr>
   <th scope="row">the 33 goldens only they credit</th>
-  <td class="bar"><span class="fill lead" style="width:82%"></span></td>
+  <td class="bar"><span class="fill lead" style="width:79%"></span></td>
+  <td class="n">26 / 33</td>
+  <td class="n">79 %</td>
+</tr>
+<tr>
+  <th scope="row">the same goldens, read off the sentence alone</th>
+  <td class="bar"><span class="fill" style="width:82%"></span></td>
   <td class="n">27 / 33</td>
   <td class="n">82 %</td>
 </tr>
 <tr>
   <th scope="row">the 125 goldens in neither set</th>
-  <td class="bar"><span class="fill" style="width:79%"></span></td>
-  <td class="n">99 / 125</td>
-  <td class="n">79 %</td>
+  <td class="bar"><span class="fill" style="width:71%"></span></td>
+  <td class="n">89 / 125</td>
+  <td class="n">71 %</td>
 </tr>
 </tbody>
 </table>
@@ -80,10 +94,11 @@
 <h2>What the count is worth, read against its own null</h2>
 <p>
   Each row sweeps the one parameter the rule has: how many pull requests' pools may name a token before it stops being a
-  name. The bar is the count, the tick is the 500-permutation null's 95th percentile -
+  name - and the symbol set it counts is <strong>the golden sentence, restricted to names the pull request’s own added lines write</strong>. The bar is the count, the tick
+  is the 500-permutation null's 95th percentile -
   the count the same geometry produces when the symbol sets are swapped between goldens. At the specificity this record
-  uses (≤ 1) the observed count is 27 against a null of
-  2.13. <strong>The loose end of the sweep is why the count was never the finding:</strong> at any
+  uses (≤ 1) the observed count is 26 against a null of
+  1.37. <strong>The loose end of the sweep is why the count was never the finding:</strong> at any
   token every golden is adjacent, which is exactly what the rate above says.
 </p>
 <table>
@@ -91,52 +106,52 @@
 <tbody>
 <tr>
   <th scope="row">≤ 1</th>
-  <td class="n">33</td>
-  <td class="n">27</td>
-  <td class="bar"><span class="fill" style="width:82%"></span><span class="mark" style="left:15%"></span></td>
-  <td class="n muted">2.13 · 5</td>
+  <td class="n">31</td>
+  <td class="n">26</td>
+  <td class="bar"><span class="fill" style="width:79%"></span><span class="mark" style="left:9%"></span></td>
+  <td class="n muted">1.37 · 3</td>
 </tr>
 <tr>
   <th scope="row">≤ 2</th>
-  <td class="n">33</td>
-  <td class="n">29</td>
-  <td class="bar"><span class="fill" style="width:88%"></span><span class="mark" style="left:21%"></span></td>
-  <td class="n muted">3.96 · 7</td>
+  <td class="n">31</td>
+  <td class="n">28</td>
+  <td class="bar"><span class="fill" style="width:85%"></span><span class="mark" style="left:12%"></span></td>
+  <td class="n muted">1.87 · 4</td>
 </tr>
 <tr>
   <th scope="row">≤ 3</th>
-  <td class="n">33</td>
-  <td class="n">30</td>
-  <td class="bar"><span class="fill" style="width:91%"></span><span class="mark" style="left:24%"></span></td>
-  <td class="n muted">5.33 · 8</td>
+  <td class="n">31</td>
+  <td class="n">28</td>
+  <td class="bar"><span class="fill" style="width:85%"></span><span class="mark" style="left:12%"></span></td>
+  <td class="n muted">2.03 · 4</td>
 </tr>
 <tr>
   <th scope="row">≤ 5</th>
-  <td class="n">33</td>
-  <td class="n">30</td>
-  <td class="bar"><span class="fill" style="width:91%"></span><span class="mark" style="left:36%"></span></td>
-  <td class="n muted">8.15 · 12</td>
+  <td class="n">31</td>
+  <td class="n">28</td>
+  <td class="bar"><span class="fill" style="width:85%"></span><span class="mark" style="left:15%"></span></td>
+  <td class="n muted">2.45 · 5</td>
 </tr>
 <tr>
   <th scope="row">≤ 8</th>
   <td class="n">33</td>
-  <td class="n">33</td>
-  <td class="bar"><span class="fill" style="width:100%"></span><span class="mark" style="left:55%"></span></td>
-  <td class="n muted">13.29 · 18</td>
+  <td class="n">28</td>
+  <td class="bar"><span class="fill" style="width:85%"></span><span class="mark" style="left:21%"></span></td>
+  <td class="n muted">3.88 · 7</td>
 </tr>
 <tr>
   <th scope="row">≤ 12</th>
   <td class="n">33</td>
-  <td class="n">33</td>
-  <td class="bar"><span class="fill" style="width:100%"></span><span class="mark" style="left:73%"></span></td>
-  <td class="n muted">20.35 · 24</td>
+  <td class="n">30</td>
+  <td class="bar"><span class="fill" style="width:91%"></span><span class="mark" style="left:27%"></span></td>
+  <td class="n muted">5.72 · 9</td>
 </tr>
 <tr>
   <th scope="row">any token</th>
   <td class="n">33</td>
-  <td class="n">33</td>
-  <td class="bar"><span class="fill" style="width:100%"></span><span class="mark" style="left:100%"></span></td>
-  <td class="n muted">31.32 · 33</td>
+  <td class="n">31</td>
+  <td class="bar"><span class="fill" style="width:94%"></span><span class="mark" style="left:61%"></span></td>
+  <td class="n muted">16.21 · 20</td>
 </tr>
 </tbody>
 </table>
@@ -165,7 +180,7 @@
 </tr>
 <tr>
   <th scope="row">the sentences corrected</th>
-  <td class="n">104</td>
+  <td class="n">103</td>
   <td class="n">227</td>
   <td class="n">75</td>
   <td class="n pass">0.3896</td>
@@ -179,47 +194,47 @@
 
 <h2>How many corrections the bar actually costs</h2>
 <p>
-  A conversion is not a credit - the protocol matches one finding to one golden - so the 27
+  A conversion is not a credit - the protocol matches one finding to one golden - so the 26
   conversions buy 13 credits, not
-  27. The curve is the plan in the order a verifier would apply it, most confident comment first;
-  <strong>18 of 27 corrections clear it</strong>,
+  26. The curve is the plan in the order a verifier would apply it, most confident comment first;
+  <strong>17 of 26 corrections clear it</strong>,
   against an arithmetic floor of 10 that assumes a conversion is a credit.
 </p>
 <table>
 <thead><tr><th>corrections applied</th><th class="n">credited</th><th>of the prize</th><th class="n">F1</th></tr></thead>
 <tbody>
 <tr>
-  <th scope="row">5 of 27</th>
-  <td class="n">65</td>
-  <td class="bar"><span class="fill" style="width:87%"></span></td>
-  <td class="n ">0.3377</td>
+  <th scope="row">4 of 26</th>
+  <td class="n">64</td>
+  <td class="bar"><span class="fill" style="width:85%"></span></td>
+  <td class="n ">0.3325</td>
 </tr>
 <tr>
-  <th scope="row">9 of 27</th>
+  <th scope="row">9 of 26</th>
   <td class="n">68</td>
   <td class="bar"><span class="fill" style="width:91%"></span></td>
   <td class="n ">0.3532</td>
 </tr>
 <tr>
-  <th scope="row">14 of 27</th>
-  <td class="n">71</td>
-  <td class="bar"><span class="fill" style="width:95%"></span></td>
-  <td class="n ">0.3688</td>
+  <th scope="row">13 of 26</th>
+  <td class="n">70</td>
+  <td class="bar"><span class="fill" style="width:93%"></span></td>
+  <td class="n ">0.3636</td>
 </tr>
 <tr>
-  <th scope="row">18 of 27</th>
+  <th scope="row">17 of 26</th>
   <td class="n">72</td>
   <td class="bar"><span class="fill pass" style="width:96%"></span></td>
   <td class="n pass">0.3740</td>
 </tr>
 <tr>
-  <th scope="row">23 of 27</th>
+  <th scope="row">22 of 26</th>
   <td class="n">74</td>
   <td class="bar"><span class="fill pass" style="width:99%"></span></td>
   <td class="n pass">0.3844</td>
 </tr>
 <tr>
-  <th scope="row">27 of 27</th>
+  <th scope="row">26 of 26</th>
   <td class="n">75</td>
   <td class="bar"><span class="fill pass" style="width:100%"></span></td>
   <td class="n pass">0.3896</td>
@@ -232,8 +247,7 @@
 </p>
 
 <footer>
-  Drawn from <code>benchmarks/martian-wide-bench.json</code> against <code>benchmarks/aacr/competitor-baseline.json</code> on <code>benchmarks/martian/positive_samples.json</code>,
-  measured 2026-11-25. Re-derive with <code>npm run bench:symbol-adjacency</code>; CI fails on a byte of
+  Drawn from <code>benchmarks/martian-wide-bench.json</code> against <code>benchmarks/aacr/competitor-baseline.json</code> on <code>benchmarks/martian/positive_samples.json</code>, with the names taken from <code>benchmarks/martian/changed-lines.json</code> (50 pull requests harvested, digest <code>sha256-51b962e16f8b…</code>), measured 2026-11-25. Re-derive with <code>npm run bench:symbol-adjacency</code>; CI fails on a byte of
   difference.
 </footer>
 </body>

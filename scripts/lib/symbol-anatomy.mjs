@@ -101,6 +101,21 @@ export function specificSymbols(text, frequency, cap) {
   return identifiersOf(text).filter((token) => (frequency.get(token) ?? 0) <= cap);
 }
 
+/**
+ * **The sentence's symbols that the change also writes**, which is the set §169 rebuilt and §168.8 asked for.
+ *
+ * A golden's sentence is prose, and prose is mostly not code: `Potential`, `Calling`, `particularly` and `floor` are
+ * identifier-shaped tokens that the rarity rule admitted because no comment happens to repeat them. The change itself is
+ * the only authority on what the pull request is about, so a symbol that survives this filter is a name **the diff
+ * writes and the human names** - which is what "we commented on it and said something else" has to mean.
+ *
+ * Order is preserved and duplicates cannot occur, because the input already has neither.
+ */
+export function symbolsTheDiffNames(symbols, names) {
+  const allowed = new Set(names ?? []);
+  return symbols.filter((symbol) => allowed.has(symbol));
+}
+
 /** **A symbol is named, not contained**: `id` is not a name that `groupId` answers to. */
 export function namesSymbol(text, symbol) {
   const escaped = symbol.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
