@@ -26,7 +26,7 @@ const CORPUS = 'benchmarks/martian/positive_samples.json';
 interface Board {
   profile: string;
   goldens: number;
-  pullRequests: { withARow: number; inCorpus: number };
+  pullRequests: { withARow: number; priced: number; inCorpus: number; scored: number | null };
   asShipped: {
     emitted: number;
     truePositives: number;
@@ -62,7 +62,9 @@ describe('the competitor’s cut is read end to end from the committed record', 
     const { out, board } = price(['--guard', 'P=0.1916,R=0.6821,F1=0.2991']);
     // **Two pull requests of the Martian board have no row**, and their four goldens are still in the denominator: a hole
     // in the pairing is not a zero, and dividing by the 169 the rows hold would read 0.3006 instead of 0.2991.
-    expect(board.pullRequests).toEqual({ withARow: 48, inCorpus: 50 });
+    // **`priced` is every pull request the pricing is about**, which without a selection is the corpus: the two
+    // rows-less pull requests are priced at zero and their goldens stay in the denominator.
+    expect(board.pullRequests).toEqual({ withARow: 48, priced: 50, inCorpus: 50, scored: null });
     expect(board.goldens).toBe(173);
     expect(board.asShipped).toMatchObject({ emitted: 616, truePositives: 118 });
     expect(board.asShipped.f1).toBeCloseTo(0.29911, 4);

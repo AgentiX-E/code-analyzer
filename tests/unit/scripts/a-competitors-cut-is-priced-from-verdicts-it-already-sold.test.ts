@@ -253,3 +253,62 @@ describe('a competitor’s cut is priced from verdicts it already sold', () => {
     expect(out).toContain('all, core');
   });
 });
+
+// **§173.1: a selection narrows the corpus as well as the rows.**
+//
+// The AACR answer key holds 196 pull requests and 1506 goldens; a run scores a slice of 50 and the competitor arm has a row
+// on 47 of them. Dividing by 1506 reported `R 0.1089` where the run's own artifact says `0.3761` - the guard refused it,
+// which is the guard working, but an instrument that needs catching is an instrument with a defect. **The corpus of a
+// pricing is the corpus the run asked about**: a pull request outside the slice is not a hole in the pairing, it is a
+// question this run never put to either arm.
+//
+// These two cases hold the rule in both directions, on a fixture small enough to check by hand: the slice narrows the
+// denominator, and **the hole rule still applies inside it** - narrowing the corpus must not become a way to drop a pull
+// request that was asked about and answered nothing.
+describe('the denominator belongs to the run’s slice, and the hole rule survives inside it', () => {
+  const slice = (coveredKeys: string[], scored: string[]): string => {
+    const directory = mkdtempSync(join(tmpdir(), 'competitor-cut-slice-'));
+    const path = join(directory, 'selection.json');
+    writeFileSync(
+      path,
+      JSON.stringify({
+        secondReviewer: { coveredKeys },
+        coverage: { byPullRequest: scored.map((pr) => ({ pr })) },
+      }),
+    );
+    return path;
+  };
+
+  it('divides by the goldens of the pull requests the run scored, not by the whole corpus', () => {
+    // `C` was never asked of the arm, so its one golden is neither a hit nor a miss: the denominator is `A`'s three plus
+    // `B`'s two. **Dividing by the corpus's six would read 0.5000 where the slice reads 0.6000** - the same defect as the
+    // one that stopped run 45924315931, one order of magnitude smaller.
+    const selection = slice(
+      ['https://example.test/a/pull/1', 'https://example.test/b/pull/2'],
+      ['https://example.test/a/pull/1', 'https://example.test/b/pull/2', 'https://example.test/c/pull/3'],
+    );
+    const { code, out, board } = run({}, ['--selection', selection]);
+    expect(code).toBe(0);
+    expect(out).toContain('2 of 3 scored pull requests have a row');
+    expect(out).toContain('goldens 5');
+    expect(out).toContain('emitted 6  tp 3  P 0.5000  R 0.6000  F1 0.5455');
+    expect(out).toContain('and 1 golden on 1 scored pull request the arm produced nothing for are outside it');
+    expect(board?.pullRequests).toEqual({ withARow: 2, priced: 2, inCorpus: 3, scored: 3 });
+    expect(board?.unmeasured).toEqual({ pullRequests: 1, goldens: 1 });
+  });
+
+  it('keeps a pull request that was asked about and answered nothing in the denominator', () => {
+    // `C` **was** covered by the selection and produced no row: that silence is an observation, so its golden stays in the
+    // denominator. Four goldens, two credited, `R 0.5000` - and no line about anything being outside the figure.
+    const selection = slice(
+      ['https://example.test/a/pull/1', 'https://example.test/c/pull/3'],
+      ['https://example.test/a/pull/1', 'https://example.test/c/pull/3'],
+    );
+    const { code, out, board } = run({}, ['--selection', selection]);
+    expect(code).toBe(0);
+    expect(out).toContain('goldens 4');
+    expect(out).toContain('emitted 4  tp 2  P 0.5000  R 0.5000  F1 0.5000');
+    expect(out).not.toContain('are outside it');
+    expect(board?.unmeasured).toEqual({ pullRequests: 0, goldens: 0 });
+  });
+});

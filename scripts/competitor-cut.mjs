@@ -99,8 +99,9 @@ const rows = baseline?.pulls ?? {};
  *
  * The corpus is the question and the selection is the run that answered part of it. Without `--selection` the pricing is
  * about every corpus row, which is what a reader wants beside a published figure; with it, the pricing is about the rows
- * the run actually covered, which is what a run wants beside its own artifact. **The corpus is still the denominator in
- * both cases** - a selection changes which rows contribute, never what the corpus holds.
+ * the run actually covered, which is what a run wants beside its own artifact. **A selection narrows the corpus as well
+ * as the rows** (§173.1): the goldens of a pull request outside the selection are a question this run never put to either
+ * arm, so they belong to neither denominator.
  */
 const corpusKeys = (Array.isArray(corpus) ? corpus : [])
   .map((row) => (typeof row?.githubPrUrl === 'string' ? row.githubPrUrl : null))
@@ -112,7 +113,15 @@ const selected = Array.isArray(selection?.secondReviewer?.coveredKeys)
   ? selection.secondReviewer.coveredKeys
   : null;
 
-const keys = corpusKeys.filter((key) => (selected === null ? key in rows : selected.includes(key)));
+/**
+ * **Every pull request this pricing is about - not every pull request with a row.**
+ *
+ * The hole rule has to survive this filter, so the filter cannot be the rows: `keys` is the corpus's pull requests narrowed
+ * by the run's selection, and a key whose row emitted nothing is still in it, contributing `0` to the numerator and its
+ * goldens to the denominator (§147.3). What the selection removes is the pull requests outside the run's slice, which
+ * nobody asked either arm about.
+ */
+const keys = corpusKeys.filter((key) => selected === null || selected.includes(key));
 
 if (keys.length === 0) {
   process.stderr.write(
@@ -122,13 +131,34 @@ if (keys.length === 0) {
 }
 
 /**
- * **The denominator, from the corpus.**
+ * **The denominator, from the corpus - and only from the part of it this pricing is about.**
  *
  * Under `all` it is every comment the corpus holds; under `core` it is the eight categories the board scores. **Both
  * count the pull requests a row is missing for**, because a hole is an absence of an observation and not an absence of a
  * reference comment - §147.3's rule, applied to the other arm.
+ *
+ * **`keys` and not `corpus`.** §173.1: the AACR answer key holds `196` pull requests and `1506` goldens, and a run scores
+ * a slice of `50`. Dividing by `1506` reported the competitor at `R 0.1089` where its own artifact says `0.3761` - a
+ * `3.4x` understatement produced by a denominator nobody was ever asked about. The guard caught it, which is what the
+ * guard is for, but the arithmetic should not have needed catching: **the corpus of a pricing is the corpus the run
+ * asked about**, and a pull request outside it is not a hole in the pairing - it is a question this run never put.
+ *
+ * The hole rule survives unchanged one level down: a pull request *inside* `keys` whose row emitted nothing keeps its
+ * goldens in the denominator, because that silence is an observation.
  */
-const { maps, goldens: denominator } = profileMaps(corpus, options.profile);
+const { maps } = profileMaps(corpus, options.profile);
+
+/** The goldens the profile keeps on one pull request, `0` for a pull request the corpus does not hold. */
+const goldensOf = (key) => maps.get(key)?.size ?? 0;
+
+const denominator = keys.reduce((count, key) => count + goldensOf(key), 0);
+
+/** The pull requests the run scored, so the figure can say how much of its own slice it is over. Worth `0` when absent. */
+const scoredKeys = Array.isArray(selection?.coverage?.byPullRequest)
+  ? selection.coverage.byPullRequest
+      .map((row) => (typeof row?.pr === 'string' ? row.pr : null))
+      .filter((key) => key !== null)
+  : null;
 
 /** Every finding the competitor emitted on this selection, in the shape the scorer reads. */
 const findingsOf = (key) =>
@@ -163,11 +193,30 @@ const figure = (point) =>
   `R ${point.recall.toFixed(4)}  F1 ${point.f1.toFixed(4)}`;
 
 const covered = keys.filter((key) => Object.hasOwn(rows, key)).length;
-const line1 = `competitor ${String(baseline?.competitor?.tool ?? 'unknown')} · ${String(covered)} of ${String(corpusKeys.length)} pull requests have a row · profile ${options.profile}`;
-const line2 = `  goldens ${String(denominator)} (the corpus's denominator, so a pull request with no row is a hole and not a zero)`;
-const line3 = `  as shipped     ${figure(shipped)}`;
+const line1 =
+  `competitor ${String(baseline?.competitor?.tool ?? 'unknown')} · ${String(covered)} of ` +
+  `${String(scoredKeys === null ? keys.length : scoredKeys.length)} ` +
+  `${scoredKeys === null ? '' : 'scored '}pull requests have a row · profile ${options.profile}`;
+const line2 = `  goldens ${String(denominator)} (every golden on the pull requests priced here, so a row that emitted nothing is still counted)`;
 
-const lines = [line1, line2, line3];
+/**
+ * **What the arm did not measure, said rather than left to be discovered by division.**
+ *
+ * The three pull requests this competitor arm produced nothing for are outside the figure above, and a reader who divides
+ * `tp` by the slice's `452` will read `0.3628` where the artifact says `0.3761` and conclude one of the two is wrong. Both
+ * are right: they answer different questions, and the question this line names is the one the figure is not.
+ */
+const unmeasured = (scoredKeys ?? []).filter((key) => !keys.includes(key));
+const unmeasuredGoldens = unmeasured.reduce((count, key) => count + goldensOf(key), 0);
+const plural = (count, noun) => `${String(count)} ${noun}${count === 1 ? '' : 's'}`;
+
+const lines = [line1, line2];
+if (unmeasured.length > 0)
+  lines.push(
+    `  and ${plural(unmeasuredGoldens, 'golden')} on ${plural(unmeasured.length, 'scored pull request')} ` +
+      'the arm produced nothing for are outside it',
+  );
+lines.push(`  as shipped     ${figure(shipped)}`);
 if (removed > 0) lines.push(`  at our gate    ${figure(gated)}`);
 else lines.push('  the gate removed nothing, so there is one point and not two');
 
@@ -237,7 +286,13 @@ if (options.json !== null) {
         competitor: baseline?.competitor?.tool ?? null,
         profile: options.profile,
         goldens: denominator,
-        pullRequests: { withARow: covered, inCorpus: corpusKeys.length },
+        pullRequests: {
+          withARow: covered,
+          priced: keys.length,
+          inCorpus: corpusKeys.length,
+          scored: scoredKeys === null ? null : scoredKeys.length,
+        },
+        unmeasured: { pullRequests: unmeasured.length, goldens: unmeasuredGoldens },
         asShipped: shipped,
         atOurGate: removed > 0 ? gated : null,
         guard: guarded,
