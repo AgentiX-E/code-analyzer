@@ -69,11 +69,18 @@ export function renderCorpusReach(record) {
     .map((bucket) => {
       const width = (bucket.goldens / total) * 100;
       const oursWidth = bucket.goldens === 0 ? 0 : (bucket.ours / bucket.goldens) * width;
+      // **Two bars rather than one**, because the question this page draws is a comparison: the dark fill is what our arm
+      // credited there and the pale one what theirs did, both as a share of the same bucket - so a bar that looks short is
+      // a bucket neither arm reaches rather than a bucket only one of them was drawn for.
+      const theirsWidth =
+        bucket.theirs === null || bucket.goldens === 0
+          ? 0
+          : (bucket.theirs / bucket.goldens) * width;
       return `      <tr>
         <th scope="row">${bucket.bucket}<span class="why">${describe(bucket)}</span></th>
         <td class="number">${bucket.goldens}</td>
         <td class="number">${bucket.addedInSpan}</td>
-        <td class="bars"><div class="track" style="width:${width.toFixed(2)}%"><div class="hit" style="width:${oursWidth.toFixed(2)}%"></div></div></td>
+        <td class="bars"><div class="track" style="width:${width.toFixed(2)}%"><div class="hit" style="width:${theirsWidth.toFixed(2)}%"></div><div class="ours" style="width:${oursWidth.toFixed(2)}%"></div></div></td>
         <td class="number">${bucket.ours}</td>
         <td class="number">${bucket.theirs === null ? 'n/a' : bucket.theirs}</td>
       </tr>`;
@@ -105,7 +112,8 @@ export function renderCorpusReach(record) {
   .number { text-align: right; font-variant-numeric: tabular-nums; }
   .bars { width: 38%; }
   .track { height: 12px; background: var(--panel); border: 1px solid var(--line); border-radius: 3px; overflow: hidden; }
-  .hit { height: 100%; background: var(--hit); }
+  .hit { height: 100%; background: var(--hit); opacity: .35; }
+  .ours { position: relative; top: -12px; height: 12px; background: var(--hit); }
   .figures { display: grid; grid-template-columns: repeat(auto-fit, minmax(13rem, 1fr)); gap: 1rem; margin: 0 0 1.8rem; }
   .figure { border: 1px solid var(--line); border-radius: 6px; padding: .9rem 1rem; background: var(--panel); }
   .figure dt { font-size: .78rem; text-transform: uppercase; letter-spacing: .06em; color: var(--dim); margin: 0 0 .25rem; }

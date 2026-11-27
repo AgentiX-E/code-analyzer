@@ -630,7 +630,7 @@
         <td class="cap">A figure names the document it was measured on — the diff is read at the corpus's own commits, and a pin that fails is counted rather than assumed<span class="surface">harness</span></td>
         <td><span class="tag O">ours only</span></td>
         <td class="proof"><code>the-answer-key-is-read-at-the-commits-it-names</code></td>
-        <td class="proof"><code>the-answer-key-is-read-at-the-commits-it-names (unit); the-gap-page-draws-only-what-the-record-holds (e2e)</code></td>
+        <td class="proof"><code>the-answer-key-is-read-at-the-commits-it-names (unit); the same file's CLI cases run the documented command over fixtures and read the page back (e2e)</code></td>
         <td><span class="state DONE">DONE</span></td>
         <td class="why">DONE (§175) — the harness asked the pull request resource for its diff, so the arm was scored against the pull request as it stands today while the answer key was written on the diff between the corpus's own source_commit and target_commit. corpus-reach.mjs partitions the 452 goldens twice: 93 (20.6 %) have no coordinate in the live diff and 5 in the pinned one, and the two arms' recorded credits on the unreachable ones (ours 13, theirs 42) are the drift signature. scripts/lib/pinned-diff.mjs reads the comparison endpoint, the harness records diffSource, and a compare that 404s falls back to the live diff with its reason counted</td>
       </tr>

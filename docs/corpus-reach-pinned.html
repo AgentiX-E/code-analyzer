@@ -18,7 +18,8 @@
   .number { text-align: right; font-variant-numeric: tabular-nums; }
   .bars { width: 38%; }
   .track { height: 12px; background: var(--panel); border: 1px solid var(--line); border-radius: 3px; overflow: hidden; }
-  .hit { height: 100%; background: var(--hit); }
+  .hit { height: 100%; background: var(--hit); opacity: .35; }
+  .ours { position: relative; top: -12px; height: 12px; background: var(--hit); }
   .figures { display: grid; grid-template-columns: repeat(auto-fit, minmax(13rem, 1fr)); gap: 1rem; margin: 0 0 1.8rem; }
   .figure { border: 1px solid var(--line); border-radius: 6px; padding: .9rem 1rem; background: var(--panel); }
   .figure dt { font-size: .78rem; text-transform: uppercase; letter-spacing: .06em; color: var(--dim); margin: 0 0 .25rem; }
@@ -45,7 +46,7 @@
         <th scope="row">inHunk<span class="why">inside a hunk of the diff</span></th>
         <td class="number">436</td>
         <td class="number">414</td>
-        <td class="bars"><div class="track" style="width:96.46%"><div class="hit" style="width:26.11%"></div></div></td>
+        <td class="bars"><div class="track" style="width:96.46%"><div class="hit" style="width:42.48%"></div><div class="ours" style="width:26.11%"></div></div></td>
         <td class="number">118</td>
         <td class="number">192</td>
       </tr>
@@ -53,7 +54,7 @@
         <th scope="row">outsideHunks<span class="why">on a path the diff has, outside every hunk</span></th>
         <td class="number">5</td>
         <td class="number">0</td>
-        <td class="bars"><div class="track" style="width:1.11%"><div class="hit" style="width:0.00%"></div></div></td>
+        <td class="bars"><div class="track" style="width:1.11%"><div class="hit" style="width:0.66%"></div><div class="ours" style="width:0.00%"></div></div></td>
         <td class="number">0</td>
         <td class="number">3</td>
       </tr>
@@ -61,7 +62,7 @@
         <th scope="row">absentPath<span class="why">on a path the diff does not contain</span></th>
         <td class="number">0</td>
         <td class="number">0</td>
-        <td class="bars"><div class="track" style="width:0.00%"><div class="hit" style="width:0.00%"></div></div></td>
+        <td class="bars"><div class="track" style="width:0.00%"><div class="hit" style="width:0.00%"></div><div class="ours" style="width:0.00%"></div></div></td>
         <td class="number">0</td>
         <td class="number">0</td>
       </tr>
@@ -69,7 +70,7 @@
         <th scope="row">unread<span class="why">on a pull request whose diff could not be read</span></th>
         <td class="number">11</td>
         <td class="number">0</td>
-        <td class="bars"><div class="track" style="width:2.43%"><div class="hit" style="width:1.11%"></div></div></td>
+        <td class="bars"><div class="track" style="width:2.43%"><div class="hit" style="width:0.00%"></div><div class="ours" style="width:1.11%"></div></div></td>
         <td class="number">5</td>
         <td class="number">0</td>
       </tr>
