@@ -136,6 +136,23 @@ describe('the attribution is attached to the comment it is about', () => {
     expect(record.attribution.planned).toBe(record.prize.detail.length);
   });
 
+  it('records a reason on every verdict, which is what makes the attribution possible at all', () => {
+    const missing = record.verdicts.filter((verdict) => typeof verdict.reason !== 'string');
+    // **An instrumented run leaves no verdict without a reason.** The three entries whose reason is `null` in the plan
+    // table are the three comments this run never reached, and their absence is stated by the entry rather than by a
+    // verdict that forgot to say anything.
+    expect(missing).toEqual([]);
+    const named = record.attribution.byReason.map((row) => row.reason);
+    // **The two questions §171.4 said the reading would turn on**, both present and named: the pass agreed with eight of
+    // the entries and could not quote two sides of seven.
+    expect(named).toContain('agree');
+    expect(named).toContain('cannot');
+    const agree = record.attribution.byReason.find((row) => row.reason === 'agree')?.count ?? 0;
+    const cannot = record.attribution.byReason.find((row) => row.reason === 'cannot')?.count ?? 0;
+    expect(agree).toBeGreaterThan(cannot - 2);
+    expect(agree + cannot).toBeGreaterThan(record.attribution.planned / 2);
+  });
+
   it('reports two denominators, because twenty-six entries address twenty-three comments', () => {
     const comments = new Set(record.prize.detail.map((entry) => entry.findingAt));
     expect(record.attribution.comments).toBe(comments.size);

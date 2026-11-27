@@ -78,10 +78,10 @@ describe('the run §169 authorised', () => {
     expect(record.contract).toBe('two-related-names-v1');
     expect(record.verifier).toMatchObject({
       considered: 227,
-      called: 183,
-      rewritten: 20,
+      called: 184,
+      rewritten: 22,
       budgetExhausted: false,
-      spendUsd: 0.014981,
+      spendUsd: 0.029596,
     });
     // **The count is unchanged, which is a property of the device's type**: one comment in, one out.
     expect(record.comments).toEqual({ armA: 227, armB: 227, unchanged: true });
@@ -92,9 +92,9 @@ describe('the run §169 authorised', () => {
     const inside = record.prize.detail.filter((entry) => entry.rewritten);
     expect(inside).toHaveLength(1);
     expect(inside[0]?.symbol).toBe('retryCount');
-    // **Nineteen of twenty rewrites were about something other than the golden's symbol**, which is why a rewrite count is
-    // not a prize count and the two are reported apart.
-    expect(record.verifier.rewritten - inside.length).toBe(19);
+    // **Twenty-one of twenty-two rewrites were about something other than the golden's symbol**, which is why a rewrite
+    // count is not a prize count and the two are reported apart.
+    expect(record.verifier.rewritten - inside.length).toBe(21);
   });
 
   it('never asked three of them, because a pair needs two names', () => {
@@ -109,11 +109,14 @@ describe('the run §169 authorised', () => {
     expect(record.verifier.kept['no-symbol']).toBe(43);
   });
 
-  it('moves nothing, and says so with a paired test rather than a delta', () => {
-    expect(record.point.armA).toMatchObject({ truePositives: 56, f1: 0.2909090909090909 });
-    expect(record.point.armB).toEqual(record.point.armA);
-    expect(record.point.delta).toBe(0);
-    expect(record.paired).toEqual({ pairs: 744, broken: 3, fixed: 5, delta: 2, p: 0.7265625 });
+  it('costs a golden rather than moving nothing, and says so with a paired test rather than a delta', () => {
+    // **The second run of this device does not reproduce the first run's arm A**, and that is a fact about the judge
+    // rather than about the device: the same 205 untouched comments scored 56 true positives under §170 and 58 here. On
+    // this run the corrected arm is *below* the arm it came from, which is §167.7's finding a fourth time.
+    expect(record.point.armA).toMatchObject({ truePositives: 58, f1: 0.3012987012987013 });
+    expect(record.point.armB).toMatchObject({ truePositives: 56, f1: 0.2909090909090909 });
+    expect(record.point.delta).toBeLessThan(0);
+    expect(record.paired).toEqual({ pairs: 744, broken: 7, fixed: 5, delta: -2, p: 0.7744140625 });
     expect(record.bar.cleared).toBe(false);
   });
 

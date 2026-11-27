@@ -18890,3 +18890,173 @@ rather than on its own.
 - _the device declines rather than fails_ - is the hypothesis they exist to confirm or refute. If `agree` dominates the
   declines, the campaign's question moves from the rewrite to the claim, and that is a different iteration with a different
   design.
+
+## §171 The reason is written on the comment, and the plan was never wholly addressable
+
+### 171.1 What §170 could not say, and the field that fixes it
+
+§170 ended with a sentence it could not check: _the device declines rather than fails_. The evidence for it was `agree 93`
+
+- a pooled count over the whole pass. **A pooled count cannot be attached to a comment**, so the twenty-two plan entries
+  that were not rewritten had no reason in the record, and the question §170.4 left open could only be answered by reading
+  ninety-three sentences by hand.
+
+Three changes, none of which buys a model call:
+
+| change                                                                                                                | what it makes readable                                                                                        |
+| --------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------- |
+| `CrosscheckReport.outcomes` - one `{ index, key, reason }` per finding, addressed by the position the pass was handed | **why this comment was kept**, in the pass's own vocabulary, joinable to the row that produced it             |
+| `CrosscheckReport.anchors` - `handed` / `own` / `fallback`, counted per question                                      | **which name the pair question was put to**, which §170.5 could only obtain by joining two files by hand      |
+| `AppliedVerdict` as a **union** rather than two independent unions                                                    | `action === 'kept'` narrows the reason, so no caller asserts it; the cast that stood in for this fact is gone |
+
+**The join is by position and is checked, not assumed.** The pass numbers the array it was handed; the script maps that
+number back to the row's own `at` and writes `reason`, `anchor` (the plan's name) and `anchorState` on the verdict. A
+record whose entry reason disagreed with its comment's verdict would be an attribution of the table rather than of the run,
+so `the-attribution-is-attached-to-the-comment-it-is-about.test.ts` asserts the equality for all twenty-six entries.
+
+**Replay derives the state rather than reporting a zero.** `anchorState` is a function of `pair.anchor` and the plan's
+symbol for that comment, both of which a record written before the field existed already holds - so an old artifact is
+re-read with the three states and only the reason is honestly `unrecorded`. That distinction is printed: a page that
+rendered "no reason recorded" as "kept because the sides agreed" would be §170's defect one layer down.
+
+### 171.2 The instrument corrected two published numbers before it bought anything
+
+**First: the plan addresses twenty-six entries with twenty-three comments.** Two comments carry more than one golden
+(`at = 424` carries three, `at = 741` two), and the pass asks **one question per comment** - §168.1's rule, which exists so
+a comment cannot get a second chance at being rewritten. The consequences are arithmetic:
+
+| quantity                                           | value                  |
+| -------------------------------------------------- | ---------------------- |
+| plan entries                                       | **26**                 |
+| distinct comments they address                     | **23**                 |
+| entries on a comment of their own                  | 21                     |
+| entries on a shared comment                        | 5, over **2** comments |
+| entries the pass never called (one-name sentences) | 3                      |
+| **entries this device can reach at all**           | **20**                 |
+
+**Second: §170.5's `eleven handed / nine fallen back` double-counted.** That table was built by joining each plan entry to
+its comment's verdict, so the shared comments were counted once per entry:
+
+| reading                                  | handed | fallback | no pair | never called | adds up to |
+| ---------------------------------------- | -----: | -------: | ------: | -----------: | ---------: |
+| per **entry** (§170.5's join, corrected) |     12 |        8 |       3 |            3 |         26 |
+| per **comment** (what the pass reports)  |  **9** |    **8** |       3 |            3 |         23 |
+
+Both are true and they are answers to different questions: _how many entries were asked about their own name_ and _how many
+comments were asked about the name the plan handed over_. The first is the one an acceptance is stated over; the second is
+the one a device can be held to. **Neither was in the record before this round**, which is why the two readings could sit
+side by side for a day without anyone noticing they disagreed.
+
+### 171.3 What the ceiling does to §169.3's acceptance
+
+§169.3 pre-registered _≥ 17 of the 26 entries rewritten_. Twenty of the twenty-six are reachable at all, so the bar sat
+three inside its own ceiling and read as nine inside it - **a threshold that looks like a 65 % target is an 85 % target**,
+and the difference was invisible because the denominator was taken from the plan instead of from the device.
+
+The acceptance is restated, and it is not relaxed:
+
+| condition                        | §169.3                            | §171.3                                                                 |
+| -------------------------------- | --------------------------------- | ---------------------------------------------------------------------- |
+| entries rewritten                | ≥ 17 of 26                        | ≥ 17 of **20 reachable**, and the reachable count is printed beside it |
+| credited at `k = 5`              | 72                                | 72                                                                     |
+| F1 on Martian Core               | ≥ 0.3735                          | ≥ 0.3735                                                               |
+| paired test                      | more gained than lost, `p < 0.05` | unchanged                                                              |
+| a shared comment's second golden | not stated                        | **not claimable by this device**, and counted out loud                 |
+
+**The six unreachable entries are not a defect to fix here.** Three name one name, which a pair question cannot ask; three
+sit on a comment whose other golden is the one the pass chose to ask about. The second class is the interesting one, and it
+is a design question rather than a bug: **one question per comment is a measurement rule** (§168.1), and a device that
+asked twice would be the device that gets a second chance. What changes is that the record now says so.
+
+### 171.4 What the next run is asked, and what would refute it
+
+The instrument is only worth its lines if the next paid run uses it, so **S58** is registered as the same contract on the
+same plan with the reason recorded - ≈ $0.015, the price run 5 actually produced:
+
+| outcome                                    | reading                                                                                                                                                                            |
+| ------------------------------------------ | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `agree` dominates the 20 reachable entries | the pass believes the sentence already states the correspondence, and the deficit is the **claim** rather than the anchor - a prompt and an evidence question, not a selection one |
+| `cannot` / `off-anchor` dominate           | the evidence is not there, and the next iteration is about what a diff can show rather than about what a sentence says                                                             |
+| `unreadable` / `failed` dominate           | the instrument is failing, and the reading above it is not a reading                                                                                                               |
+
+**What would refute the ceiling**: a run in which an entry on a shared comment is rewritten for the golden the pass did
+_not_ ask about. That would mean the pairing is not one-to-one after all, and the twenty-six denominator is the right one.
+
+## §172 The pair question has now been asked four times, and the answer is no
+
+### 172.1 What was bought
+
+Dispatch `45924312152` on `e943de1`: **`two-related-names-v1` on §169's plan, with the reason recorded**. 227 comments
+considered, **184 called**, 22 rewritten, `$0.029596` (¥0.21), budget not exhausted, 1 unreadable, 0 failed. The record's
+`mode` is `replay`, which is the workflow's own step order: the run was recorded, then re-read from its own verdicts, so
+every figure below is re-derivable from `benchmarks/symbol-crosscheck.json` alone.
+
+### 172.2 The attribution the campaign did not have until now
+
+**Twenty-three of the twenty-six entries are addressed by a comment in this run; three are not reached at all.**
+
+| reason         | entries | what it means                                                              |
+| -------------- | ------: | -------------------------------------------------------------------------- |
+| `agree`        |   **8** | both quoted sides were read and they agreed, so the pass kept the sentence |
+| `cannot`       |   **7** | the model could not quote both sides from the change                       |
+| `no-symbol`    |       3 | the comment names one name, so a pair question cannot be put to it         |
+| `off-anchor`   |       2 | neither quotation stood on the line the anchor is on                       |
+| `same-side`    |       2 | the two quotations were the same text                                      |
+| `rewritten`    |       1 | the sentence was replaced, and the judge credited nothing                  |
+| _(no verdict)_ |       3 | the run never reached these comments                                       |
+
+**Both readings §171.4 named arrived, and that is the finding.** `agree` leads, which is §171.4's first row - _the pass
+believes the sentence already states the correspondence_ - but only by one, because `cannot` is nearly as large: **fifteen
+of the twenty-three entries are decided before any rewrite is attempted**, eight because the sentence was judged right and
+seven because the change could not be quoted from both sides. The three `no-symbol` entries and the three unreached ones
+mean **six of the twenty-six were never askable at all**.
+
+### 172.3 The arm, and the second time it is below the arm it came from
+
+| reading                    | true positives | precision | recall | F1         |
+| -------------------------- | -------------: | --------: | -----: | ---------- |
+| arm A, as emitted          |             58 |    0.2555 | 0.3671 | **0.3013** |
+| arm B, sentences corrected |             56 |    0.2467 | 0.3544 | **0.2909** |
+
+Paired over 744 `(comment, golden)` pairs: **5 fixed, 7 broken, `p = 0.7744`**. The bar is 0.3735; arm B is `0.0826` below
+it and `0.0104` below the arm it was derived from.
+
+**The same 205 untouched comments scored 56 true positives under §170 and 58 here.** That is the judge, not the device, and
+it is the fourth independent confirmation of §167.7's rule: a faithful paraphrase can lose a credit on this judge. **Two
+runs of the same device on the same board now read `0.0000` and `−0.0104`**, and neither is distinguishable from zero - so
+the device's effect is not merely small, it is **smaller than the instrument's own noise**.
+
+### 172.4 The retirement, stated as arithmetic rather than as a mood
+
+| run | dispatch               | contract                               | rewritten | prize entries rewritten | credited | arm B − arm A               |
+| --- | ---------------------- | -------------------------------------- | --------: | ----------------------: | -------: | --------------------------- |
+| 1   | §167.6                 | `two-sides-v1`                         |        28 |                 3 of 27 |    **0** | −0.0104 (`0.2961 → 0.2857`) |
+| 2   | `45866558083` (§168.6) | `two-related-names-v1`, reader spoiled |     **0** |                 0 of 27 |    **0** | 0.0000                      |
+| 3   | `45868061408` (§168.7) | `two-related-names-v1`                 |        20 |                 0 of 27 |    **0** | −0.0052 (`0.3013 → 0.2961`) |
+| 4   | `45914707121` (§170)   | `two-related-names-v1`                 |        20 |                 1 of 26 |    **0** | 0.0000                      |
+| 5   | `45924312152` (§172)   | the same, with reasons                 |        22 |                 1 of 26 |    **0** | −0.0104 (`0.3013 → 0.2909`) |
+
+**Five dispatches, two contracts, ninety rewritten sentences, five of them on a prize entry, and zero credits.** The four
+bills that are in the record add to `$0.0875` (¥0.62). The device is retired as a credit-earning mechanism: it stays in the
+tree as an **ablation reference**, its lane stays switchable off, and no further run of it is bought. This is a refusal and
+not a setback - the campaign's discipline is that a hypothesis is priced once and read, and this one has now been read five
+times.
+
+**What the five runs established, and it is worth as much as the refusal.** Every one of them left the comment count
+exactly unchanged (227 → 227), which is a property of the device's type: it may edit and may not add or remove. A review
+product that can only re-word what it already said cannot close a recall gap, and the gap on this board is a recall gap
+(`0.3544` against the competitor's `0.6821` on their own pipeline). **The next iteration is therefore about which comments
+are emitted, not about how their sentences read** - which is where §166's adjacency, §169's rebuild and this round's
+attribution all point.
+
+### 172.5 What replaces it
+
+| step                                                                                               | why it is now the right one                                                                        | cost      |
+| -------------------------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------- | --------- |
+| **S11** - AACR at `lane_set = wide`, dispatched with this round                                    | the only board where a competitor has a comparable number and where the deficit is coverage        | ≈ $1.1    |
+| **S60** - a finding that names the boundary condition, from the diff rather than from the sentence | §69's measurement: findings naming a boundary condition are accepted at `0.257` against `0.196`    | 2 d, ≈ $1 |
+| **S61** - the cut curve re-priced on the wide arm                                                  | a device that emits more can only be read at a cut, and the cut has not been re-derived since §160 | 0.5 d, 0  |
+
+**§172.4's number is the reason to stop, and §172.5's is the reason to move.** A campaign that kept buying this device
+because its cost was small would be optimising the wrong quantity: `$0.015` four times is nothing, but four iterations of
+attention is the whole budget this board has.

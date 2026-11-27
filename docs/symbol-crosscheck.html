@@ -49,8 +49,8 @@
 
 <ul class="headline">
   <li><b>227 / 227</b><span>comments, before / after</span></li>
-  <li><b>56 → 56</b><span>credited goldens</span></li>
-  <li><b>0.2909 → 0.2909</b><span>F1 at budget 5</span></li>
+  <li><b>58 → 56</b><span>credited goldens</span></li>
+  <li><b>0.3013 → 0.2909</b><span>F1 at budget 5</span></li>
   <li class="fail"><b>0.3735</b><span>the bar · not cleared</span></li>
 </ul>
 
@@ -58,7 +58,7 @@
 <table>
 <thead><tr><th>arm</th><th class="n">comments</th><th class="n">credited</th><th class="n">precision</th><th class="n">recall</th><th class="n">F1</th><th>against the bar</th></tr></thead>
 <tbody>
-  <tr><th>what the arm posts</th><td class="n">227</td><td class="n">56</td><td class="n">24.7 %</td><td class="n">35.4 %</td><td class="n">0.2909</td><td class="bar"><span class="fill " style="width:67.7%"></span><span class="mark" style="left:87.0%"></span></td></tr>
+  <tr><th>what the arm posts</th><td class="n">227</td><td class="n">58</td><td class="n">25.6 %</td><td class="n">36.7 %</td><td class="n">0.3013</td><td class="bar"><span class="fill " style="width:70.1%"></span><span class="mark" style="left:87.0%"></span></td></tr>
   <tr><th>the sentences corrected</th><td class="n">227</td><td class="n">56</td><td class="n">24.7 %</td><td class="n">35.4 %</td><td class="n">0.2909</td><td class="bar"><span class="fill lead" style="width:67.7%"></span><span class="mark" style="left:87.0%"></span></td></tr>
 </tbody>
 </table>
@@ -71,26 +71,24 @@
 <table>
 <thead><tr><th>pairs</th><th class="n">fixed</th><th class="n">broken</th><th class="n">delta</th><th class="n">exact McNemar p</th></tr></thead>
 <tbody>
-<tr><th>the same (comment, golden) pairs, both arms</th><td class="n">744</td><td class="n">5</td><td class="n">3</td><td class="n">2</td><td class="n">0.7266</td></tr>
+<tr><th>the same (comment, golden) pairs, both arms</th><td class="n">744</td><td class="n">5</td><td class="n">7</td><td class="n">-2</td><td class="n">0.7744</td></tr>
 </tbody>
 </table>
 
 <h2>What the pass declined to do</h2>
 <p>
   A verifier that only ever rewrote would be indistinguishable from a verifier that rewrote at random, so every refusal is
-  counted and named. <strong>20 of the 227 comments were rewritten</strong> from 183 calls.
+  counted and named. <strong>22 of the 227 comments were rewritten</strong> from 184 calls.
 </p>
 <table>
 <thead><tr><th>reason</th><th class="n">comments</th><th>what it means</th></tr></thead>
 <tbody>
-  <tr><th><code>agree</code></th><td class="n">93</td><td>both sides were quoted and they agreed, so there was nothing to correct</td></tr>
+  <tr><th><code>agree</code></th><td class="n">91</td><td>both sides were quoted and they agreed, so there was nothing to correct</td></tr>
   <tr><th><code>no-symbol</code></th><td class="n">43</td><td>the comment named nothing the change contains</td></tr>
-  <tr><th><code>same-side</code></th><td class="n">27</td><td>both quotations were the same text, and one side cannot be its own other side</td></tr>
-  <tr><th><code>cannot</code></th><td class="n">24</td><td>the model could not quote both sides from the change</td></tr>
+  <tr><th><code>same-side</code></th><td class="n">28</td><td>both quotations were the same text, and one side cannot be its own other side</td></tr>
+  <tr><th><code>cannot</code></th><td class="n">25</td><td>the model could not quote both sides from the change</td></tr>
   <tr><th><code>off-anchor</code></th><td class="n">17</td><td>neither quotation stood on the line the anchor is on</td></tr>
-  <tr><th><code>no-evidence</code></th><td class="n">1</td><td>the change added no lines around the anchor</td></tr>
   <tr><th><code>unreadable</code></th><td class="n">1</td><td>the answer was not a verdict this pass could read</td></tr>
-  <tr><th><code>unnamed</code></th><td class="n">1</td><td>the replacement did not name the symbol it was about</td></tr>
 </tbody>
 </table>
 
@@ -104,31 +102,31 @@
 <thead><tr><th>pair asked about</th><th class="n">comment</th><th>sentence</th><th>why</th><th>credit</th></tr></thead>
 <tbody>
   <tr><th><code>TopicUser <span class="muted">· no pair</span></code></th><td class="n">213</td><td><span class="muted">kept</span></td><td><span class="muted">—</span></td><td><span class="muted">not credited</span></td></tr>
-  <tr><th><code>website_name → path</code></th><td class="n">305</td><td><span class="muted">kept</span></td><td><span class="muted">—</span></td><td><span class="muted">not credited</span></td></tr>
-  <tr><th><code>user_count → totalPages</code></th><td class="n">345</td><td><span class="muted">kept</span></td><td><span class="muted">—</span></td><td><span class="muted">not credited</span></td></tr>
-  <tr><th><code>data → webauthnAuth</code></th><td class="n">510</td><td><span class="muted">kept</span></td><td><span class="muted">—</span></td><td><span class="muted">not credited</span></td></tr>
-  <tr><th><code>has_global_access → member</code></th><td class="n">741</td><td><span class="muted">kept</span></td><td><span class="muted">—</span></td><td><span class="muted">not credited</span></td></tr>
-  <tr><th><code>has_global_access → member</code></th><td class="n">741</td><td><span class="muted">kept</span></td><td><span class="muted">—</span></td><td><span class="muted">not credited</span></td></tr>
-  <tr><th><code>is_eligible → allowlist</code></th><td class="n">761</td><td><span class="muted">kept</span></td><td><span class="muted">—</span></td><td><span class="muted">not credited</span></td></tr>
-  <tr><th><code>refreshOAuthTokens → axios</code></th><td class="n">117</td><td><span class="muted">kept</span></td><td><span class="muted">—</span></td><td><span class="muted">not credited</span></td></tr>
+  <tr><th><code>website_name → path</code></th><td class="n">305</td><td><span class="muted">kept</span></td><td><code>off-anchor</code></td><td><span class="muted">not credited</span></td></tr>
+  <tr><th><code>user_count → totalPages</code></th><td class="n">345</td><td><span class="muted">kept</span></td><td><code>agree</code></td><td><span class="muted">not credited</span></td></tr>
+  <tr><th><code>data → webauthnAuth</code></th><td class="n">510</td><td><span class="muted">kept</span></td><td><code>off-anchor</code></td><td><span class="muted">not credited</span></td></tr>
+  <tr><th><code>has_global_access → member</code></th><td class="n">741</td><td><span class="muted">kept</span></td><td><code>agree</code></td><td><span class="muted">not credited</span></td></tr>
+  <tr><th><code>has_global_access → member</code></th><td class="n">741</td><td><span class="muted">kept</span></td><td><code>agree</code></td><td><span class="muted">not credited</span></td></tr>
+  <tr><th><code>is_eligible → allowlist</code></th><td class="n">761</td><td><span class="muted">kept</span></td><td><code>agree</code></td><td><span class="muted">not credited</span></td></tr>
+  <tr><th><code>refreshOAuthTokens → axios</code></th><td class="n">117</td><td><span class="muted">kept</span></td><td><code>agree</code></td><td><span class="muted">not credited</span></td></tr>
   <tr><th><code>credentialKey <span class="muted">· no pair</span></code></th><td class="n">134</td><td><span class="muted">kept</span></td><td><span class="muted">—</span></td><td><span class="muted">not credited</span></td></tr>
-  <tr><th><code>uniqueGuests <span class="muted">· no pair</span></code></th><td class="n">152</td><td><span class="muted">kept</span></td><td><span class="muted">—</span></td><td><span class="muted">not credited</span></td></tr>
-  <tr class="moved"><th><code>retryCount → reminders</code></th><td class="n">148</td><td>rewritten</td><td><span class="muted">—</span></td><td><span class="muted">not credited</span></td></tr>
-  <tr><th><code>integration → pipeline</code></th><td class="n">770</td><td><span class="muted">kept</span></td><td><span class="muted">—</span></td><td><span class="muted">not credited</span></td></tr>
-  <tr><th><code>process_to_shards_map → process_index</code></th><td class="n">922</td><td><span class="muted">kept</span></td><td><span class="muted">—</span></td><td><span class="muted">not credited</span></td></tr>
-  <tr><th><code>GrafanaRuleListItem → rule</code></th><td class="n">457</td><td><span class="muted">kept</span></td><td><span class="muted">—</span></td><td><span class="muted">not credited</span></td></tr>
-  <tr><th><code>check → canEditRule</code></th><td class="n">458</td><td><span class="muted">kept</span></td><td><span class="muted">—</span></td><td><span class="muted">not credited</span></td></tr>
-  <tr><th><code>device → RowsAffected</code></th><td class="n">424</td><td><span class="muted">kept</span></td><td><span class="muted">—</span></td><td><span class="muted">not credited</span></td></tr>
-  <tr><th><code>device → RowsAffected</code></th><td class="n">424</td><td><span class="muted">kept</span></td><td><span class="muted">—</span></td><td><span class="muted">not credited</span></td></tr>
-  <tr><th><code>device → RowsAffected</code></th><td class="n">424</td><td><span class="muted">kept</span></td><td><span class="muted">—</span></td><td><span class="muted">not credited</span></td></tr>
-  <tr><th><code>Kind → method</code></th><td class="n">478</td><td><span class="muted">kept</span></td><td><span class="muted">—</span></td><td><span class="muted">not credited</span></td></tr>
-  <tr><th><code>entryPointAssetsCache <span class="muted">· no pair</span></code></th><td class="n">494</td><td><span class="muted">kept</span></td><td><span class="muted">—</span></td><td><span class="muted">not credited</span></td></tr>
-  <tr><th><code>TotalDocs → search</code></th><td class="n">501</td><td><span class="muted">kept</span></td><td><span class="muted">—</span></td><td><span class="muted">not credited</span></td></tr>
-  <tr><th><code>client → ClientModel</code></th><td class="n">576</td><td><span class="muted">kept</span></td><td><span class="muted">—</span></td><td><span class="muted">not credited</span></td></tr>
+  <tr><th><code>uniqueGuests <span class="muted">· no pair</span></code></th><td class="n">152</td><td><span class="muted">kept</span></td><td><code>no-symbol</code></td><td><span class="muted">not credited</span></td></tr>
+  <tr class="moved"><th><code>retryCount → reminders</code></th><td class="n">148</td><td>rewritten</td><td>rewritten</td><td><span class="muted">not credited</span></td></tr>
+  <tr><th><code>integration → pipeline</code></th><td class="n">770</td><td><span class="muted">kept</span></td><td><code>cannot</code></td><td><span class="muted">not credited</span></td></tr>
+  <tr><th><code>process_to_shards_map → process_index</code></th><td class="n">922</td><td><span class="muted">kept</span></td><td><code>agree</code></td><td><span class="muted">not credited</span></td></tr>
+  <tr><th><code>GrafanaRuleListItem → rule</code></th><td class="n">457</td><td><span class="muted">kept</span></td><td><code>agree</code></td><td><span class="muted">not credited</span></td></tr>
+  <tr><th><code>check → canEditRule</code></th><td class="n">458</td><td><span class="muted">kept</span></td><td><code>cannot</code></td><td><span class="muted">not credited</span></td></tr>
+  <tr><th><code>device → RowsAffected</code></th><td class="n">424</td><td><span class="muted">kept</span></td><td><code>cannot</code></td><td><span class="muted">not credited</span></td></tr>
+  <tr><th><code>device → RowsAffected</code></th><td class="n">424</td><td><span class="muted">kept</span></td><td><code>cannot</code></td><td><span class="muted">not credited</span></td></tr>
+  <tr><th><code>device → RowsAffected</code></th><td class="n">424</td><td><span class="muted">kept</span></td><td><code>cannot</code></td><td><span class="muted">not credited</span></td></tr>
+  <tr><th><code>Kind → method</code></th><td class="n">478</td><td><span class="muted">kept</span></td><td><code>agree</code></td><td><span class="muted">not credited</span></td></tr>
+  <tr><th><code>entryPointAssetsCache <span class="muted">· no pair</span></code></th><td class="n">494</td><td><span class="muted">kept</span></td><td><code>no-symbol</code></td><td><span class="muted">not credited</span></td></tr>
+  <tr><th><code>TotalDocs → search</code></th><td class="n">501</td><td><span class="muted">kept</span></td><td><code>same-side</code></td><td><span class="muted">not credited</span></td></tr>
+  <tr><th><code>client → ClientModel</code></th><td class="n">576</td><td><span class="muted">kept</span></td><td><code>cannot</code></td><td><span class="muted">not credited</span></td></tr>
   <tr><th><code>getGroupIdsWithViewPermission <span class="muted">· no pair</span></code></th><td class="n">611</td><td><span class="muted">kept</span></td><td><span class="muted">—</span></td><td><span class="muted">not credited</span></td></tr>
-  <tr><th><code>totpStep1 → Installa</code></th><td class="n">654</td><td><span class="muted">kept</span></td><td><span class="muted">—</span></td><td><span class="muted">not credited</span></td></tr>
-  <tr><th><code>getTokenContextFromTokenId → token</code></th><td class="n">695</td><td><span class="muted">kept</span></td><td><span class="muted">—</span></td><td><span class="muted">not credited</span></td></tr>
-  <tr><th><code>RecoveryAuthnCodesCredentialModel <span class="muted">· no pair</span></code></th><td class="n">724</td><td><span class="muted">kept</span></td><td><span class="muted">—</span></td><td><span class="muted">not credited</span></td></tr>
+  <tr><th><code>totpStep1 → Installa</code></th><td class="n">654</td><td><span class="muted">kept</span></td><td><code>same-side</code></td><td><span class="muted">not credited</span></td></tr>
+  <tr><th><code>getTokenContextFromTokenId → token</code></th><td class="n">695</td><td><span class="muted">kept</span></td><td><code>cannot</code></td><td><span class="muted">not credited</span></td></tr>
+  <tr><th><code>RecoveryAuthnCodesCredentialModel <span class="muted">· no pair</span></code></th><td class="n">724</td><td><span class="muted">kept</span></td><td><code>no-symbol</code></td><td><span class="muted">not credited</span></td></tr>
 </tbody>
 </table>
 <p class="note">
@@ -145,7 +143,13 @@
 <table>
 <thead><tr><th>reason</th><th class="n">entries</th><th>what it means</th></tr></thead>
 <tbody>
-  <tr><th><code>unrecorded</code></th><td class="n">26</td><td>the record was written before the pass reported a reason</td></tr>
+  <tr><th><code>agree</code></th><td class="n">8</td><td>both sides were quoted and they agreed, so there was nothing to correct</td></tr>
+  <tr><th><code>cannot</code></th><td class="n">7</td><td>the model could not quote both sides from the change</td></tr>
+  <tr><th><code>no-symbol</code></th><td class="n">3</td><td>the comment named nothing the change contains</td></tr>
+  <tr><th><code>unrecorded</code></th><td class="n">3</td><td>the record was written before the pass reported a reason</td></tr>
+  <tr><th><code>off-anchor</code></th><td class="n">2</td><td>neither quotation stood on the line the anchor is on</td></tr>
+  <tr><th><code>same-side</code></th><td class="n">2</td><td>both quotations were the same text, and one side cannot be its own other side</td></tr>
+  <tr><th><code>rewritten</code></th><td class="n">1</td><td>the sentence was replaced, and the judge did not credit the golden</td></tr>
 </tbody>
 </table>
 
@@ -161,18 +165,18 @@
 <tbody>
   <tr><th><code>handed</code></th><td class="n">9</td><td>the name the plan handed over, which the sentence writes</td></tr>
   <tr><th><code>fallback</code></th><td class="n">8</td><td>the plan handed a name the sentence does not write, so the first name in backticks was asked</td></tr>
-  <tr><th><code>own</code></th><td class="n">166</td><td>no plan entry, so the sentence chose the name</td></tr>
-  <tr><th><code>no pair</code></th><td class="n">44</td><td>the sentence did not relate two names in one clause</td></tr>
+  <tr><th><code>own</code></th><td class="n">167</td><td>no plan entry, so the sentence chose the name</td></tr>
+  <tr><th><code>no pair</code></th><td class="n">43</td><td>the sentence did not relate two names in one clause</td></tr>
 </tbody>
 </table>
 <p class="note">
-  183 of 227 comments produced a pair, 44 produced none, and <strong>8 asked about a name the plan did not choose</strong>.
+  184 of 227 comments produced a pair, 43 produced none, and <strong>8 asked about a name the plan did not choose</strong>.
 </p>
 
 <h2>What was bought</h2>
 <p class="note">
-  207 judge calls, 183 verifier calls,
-  <strong>$0.014981</strong> priced by the verifier's own ledger (the judge's bill is in the
+  209 judge calls, 184 verifier calls,
+  <strong>$0.029596</strong> priced by the verifier's own ledger (the judge's bill is in the
   run's log). Re-derive every figure from this record with <code>--mode replay</code>: no key, no network, no spend.
 </p>
 
