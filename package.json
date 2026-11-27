@@ -63,6 +63,7 @@
     "gate:actions": "node scripts/action-pin-gate.js",
     "gate:permissions": "node scripts/workflow-permission-gate.js",
     "gate:corpus": "node scripts/corpus-provenance-gate.js",
+    "gate:targets": "node scripts/target-gate.mjs",
     "lint:update": "node scripts/lint-per-file.js --update",
     "coverage:exclusions": "node scripts/coverage-exclusions-gate.js",
     "docs:numbers": "node scripts/numbers-gate.js",

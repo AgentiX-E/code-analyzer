@@ -22,6 +22,9 @@ on:
       - 'benchmarks/competitor-matrix-baseline.json'
       - 'scripts/competitor-matrix-gate.js'
       - 'tests/unit/scripts/competitor-matrix-gate.test.ts'
+      - 'scripts/target-gate.mjs'
+      - 'benchmarks/targets.json'
+      - 'tests/unit/scripts/a-target-is-never-set-below-the-competitor.test.ts'
       - '.github/workflows/competitor-matrix.yml'
   schedule:
     # Weekly, so a cell that has gone stale is found without waiting for a push to that file.
@@ -63,6 +66,16 @@ jobs:
       # the product to compile cannot report on a tree where the product does not compile.
       - name: Contract tests for the gate itself
         run: npx vitest run --config vitest.config.ts tests/unit/scripts/competitor-matrix-gate.test.ts
+
+      # **A target may not be written below the competitor under our own LLM, and a baseline must be the number its
+      # artifact carries.** Both rules were prose until `§178`; this gate makes them executable over one source of
+      # truth, so a stale live baseline or a target under the bar fails the job instead of being copied into five
+      # sections of the contract.
+      - name: Contract tests for the target gate
+        run: npx vitest run --config vitest.config.ts tests/unit/scripts/a-target-is-never-set-below-the-competitor.test.ts
+
+      - name: Every target at or above the competitor
+        run: node scripts/target-gate.mjs
 
       - name: Pull the figures other jobs produced
         uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8

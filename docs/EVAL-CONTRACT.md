@@ -19171,7 +19171,7 @@ and not volume: we already emit 622 candidates for 127 credits.
 | **S60** - the boundary condition named from the diff, not from the sentence | `maintainability` recall `0.1047 → ≥ 0.16`                    | 2 d, ≈ $1   |
 | **S61** - the cut curve re-priced on the wide arm                           | confirms the cut is not the constraint before any device buys | 0.5 d, `$0` |
 | **S62** - a `performance` lane with rules rather than prompts               | `performance` recall `0.2162 → ≥ 0.3784` (level with them)    | 3 d, ≈ $1   |
-| **S63** - `bug` lane depth on the four defect shapes the corpus publishes   | `code defect` `0.3110 → ≥ 0.40`                               | 4 d, ≈ $2   |
+| **S63** - `bug` lane depth on the four defect shapes the corpus publishes   | `code defect` `0.3110 → ≥ 0.40` **(VOID §178)**               | 4 d, ≈ $2   |
 
 **The bar for the AACR board is `0.3770`, and it is the competitor's own figure under our LLM** - the same DeepSeek endpoint
 and model its CLI was driven with in record mode. It replaces the `0.3106` this campaign has been quoting since S44, which
@@ -19329,7 +19329,7 @@ _answer_, which is what `S62` claimed they were.
 | **S60** - the boundary condition named from the diff, not from the sentence | `maintainability` recall `0.1047 → ≥ 0.16`             | 2 d, ≈ ¥7   |
 | **S61** - the cut curve re-priced on the wide arm                           | already read: flat (§173.2); **closed, no run bought** | `$0`        |
 | ~~**S62** - a `performance` lane of rules~~                                 | **refused by §174.2**: ceiling 1 of 29 goldens         | saved 3 d   |
-| **S63** - `bug` lane depth on the four defect shapes the corpus publishes   | `code defect` `0.3110 → ≥ 0.40`                        | 4 d, ≈ ¥14  |
+| **S63** - `bug` lane depth on the four defect shapes the corpus publishes   | `code defect` `0.3110 → ≥ 0.40` **(VOID §178)**        | 4 d, ≈ ¥14  |
 | **S64** - the four new rules wired into the arm                             | proven free; no F1 claim until an arm measures them    | 0.5 d, `$0` |
 
 ### 174.6 The same four allocations on the fourteen-pull-request window, and a sign that flips
@@ -19361,7 +19361,7 @@ it was supposed to close.
 ## §175 The answer key was written on a document that no longer exists
 
 `§174` left three steps and one bar: `S60` (`maintainability` recall `0.1047 → ≥ 0.16`), `S63` (`code defect`
-`0.3110 → ≥ 0.40`), and `0.3770` as the competitor under our own LLM on fifty pull requests. **This round buys neither
+`0.3110 → ≥ 0.40`, **voided in §178**), and `0.3770` as the competitor under our own LLM on fifty pull requests. **This round buys neither
 step and moves the bar's denominator instead**, because pricing `S60`'s rule half found something upstream of both.
 
 ### 175.1 The harness asks the pull request, not the corpus
@@ -19471,13 +19471,13 @@ input** (§175.7).
 
 ### 175.7 The plan
 
-| step                                                                        | target it must move                                     | cost        |
-| --------------------------------------------------------------------------- | ------------------------------------------------------- | ----------- |
-| **S65** - both arms re-recorded on the pinned input                         | a bar that the same command reproduces tomorrow         | 1 d, ≈ ¥46  |
-| **S63** - `bug` lane depth on the four defect shapes the corpus publishes   | `code defect` `0.3110 → ≥ 0.40`, on the pinned document | 4 d, ≈ ¥14  |
-| **S60** - the boundary condition named from the diff, not from the sentence | `maintainability` recall `0.1047 → ≥ 0.16`              | 2 d, ≈ ¥7   |
-| **S64** - the two rules that reach, wired and priced in one arm             | proven free; no F1 claim until an arm measures them     | 0.5 d, `$0` |
-| ~~**S61**, **S62**, six more rules~~                                        | refused by arithmetic (`§173.2`, `§174.2`, `§175.6`)    | saved 4 d   |
+| step                                                                        | target it must move                                  | cost        |
+| --------------------------------------------------------------------------- | ---------------------------------------------------- | ----------- |
+| **S65** - both arms re-recorded on the pinned input                         | a bar that the same command reproduces tomorrow      | 1 d, ≈ ¥46  |
+| **S63** - `bug` lane depth on the four defect shapes the corpus publishes   | `code defect` **`0.3828 → ≥ 0.4641`** (§178)         | 4 d, ≈ ¥14  |
+| **S60** - the boundary condition named from the diff, not from the sentence | `maintainability` recall `0.1047 → ≥ 0.16`           | 2 d, ≈ ¥7   |
+| **S64** - the two rules that reach, wired and priced in one arm             | proven free; no F1 claim until an arm measures them  | 0.5 d, `$0` |
+| ~~**S61**, **S62**, six more rules~~                                        | refused by arithmetic (`§173.2`, `§174.2`, `§175.6`) | saved 4 d   |
 
 **`S65` is first because every other figure is a comparison of two documents until it is done.** A step measured on a
 pinned run of our arm alone would still be a step measured against a competitor row recorded on a different text, which
@@ -19686,14 +19686,115 @@ rather than choosing which of its own two sources to believe.
 
 ### 177.5 The plan
 
-| step                                                                      | target it must move                                                  | cost        |
-| ------------------------------------------------------------------------- | -------------------------------------------------------------------- | ----------- |
-| **S63** - `bug` lane depth on the four defect shapes, on the pinned board | `code defect` `0.3110 → ≥ 0.40`; pool coverage `192 → ≥ 220` goldens | 4 d, ≈ ¥14  |
-| **S66** - the board's artifacts regenerated as one set                    | derived records quoting one reading                                  | 0.5 d, `$0` |
-| **S60** - the boundary condition named from the diff                      | `maintainability` recall `0.1047 → ≥ 0.16`                           | 2 d, ≈ ¥7   |
-| **S64** - the two rules that reach, wired and priced in one arm           | proven free; no F1 claim until an arm measures them                  | 0.5 d, `$0` |
-| **S65** - both arms re-recorded on the pinned input                       | **done**: `0.2674 → 0.3274`, the bar rebuilt at `0.3739`/`0.3786`    | spent $1.67 |
+| step                                                                      | target it must move                                               | cost        |
+| ------------------------------------------------------------------------- | ----------------------------------------------------------------- | ----------- |
+| **S63** - `bug` lane depth on the four defect shapes, on the pinned board | `code defect` **`0.3828 → ≥ 0.4641`** (§178); pool `192 → ≥ 220`  | 4 d, ≈ ¥14  |
+| **S66** - the board's artifacts regenerated as one set                    | derived records quoting one reading                               | 0.5 d, `$0` |
+| **S60** - the boundary condition named from the diff                      | `maintainability` recall `0.1047 → ≥ 0.16`                        | 2 d, ≈ ¥7   |
+| **S64** - the two rules that reach, wired and priced in one arm           | proven free; no F1 claim until an arm measures them               | 0.5 d, `$0` |
+| **S65** - both arms re-recorded on the pinned input                       | **done**: `0.2674 → 0.3274`, the bar rebuilt at `0.3739`/`0.3786` | spent $1.67 |
 
 **`S63` is first because the table above says where the gap is**: we cover as many goldens as they do and convert all of
 them through the gate, and the remaining `0.0465` is their precision at a quarter of our volume. **A pool step moves both
 numbers; a ranking step moves precision only**, and precision is not what the corpus is short of.
+
+## §178 A target is a number another artifact already published
+
+`§177` put both arms on the document the answer key was written on. **This round asks what the targets on that board
+are made of**, and finds that the board's most prominent target was written on the board that was repaired away.
+
+### 178.1 The `S63` target named a document that no longer exists, and a bar below the competitor
+
+`§173.5` registered `S63` as `code defect 0.3110 → ≥ 0.40`, and the sentence was copied verbatim into `§174`, `§175`,
+`§176` and `§177` - five sections, one number, no source. Re-reading it against the pinned artifact:
+
+| figure                                   | the prose | the artifact carries | where                                                         |
+| ---------------------------------------- | --------: | -------------------: | ------------------------------------------------------------- |
+| **our `code defect` recall, baseline**   |  `0.3110` |             `0.3828` | `aacr-category-gap-pinned-50.json`, `oursRecall` 80/209       |
+| **the competitor, our DeepSeek, pinned** |         — |             `0.4641` | the same file, `theirsRecall` 97/209                          |
+| **`S63`'s target**                       |   `≥0.40` |            `≥0.4641` | the铁律: a target is never below the competitor under our LLM |
+
+Two defects, and neither is a matter of taste:
+
+1. **`0.3110` is the live board's reading.** It is the number `§173.3` printed before `§175` repaired the diff - the
+   same F1 `0.2674` reading that the pinned document moved to `0.3274`. **A baseline that names a document the harness
+   no longer reads is the corpus-side twin of the defect `§175` fixed in the harness.** The right starting point on the
+   pinned board is `0.3828`, and the target has to move `0.3828 → ≥ 0.4641`, not `0.3110 → ≥ 0.40`.
+2. **`0.40` is below the competitor's `0.4641`.** The campaign's rule, restated in every plan section, is that a target
+   is at or above the competitor **under our own LLM**. `0.40` is below that bar on the same pinned document, so the
+   target was written in direct violation of the rule it sat beneath. **A target below the bar is not an ambitious
+   target; it is a decision to stop short already recorded as a goal.**
+
+**Neither number was ever checked against a file.** That is the defect this round closes.
+
+### 178.2 The铁律 becomes a gate over one source of truth
+
+`benchmarks/targets.json` is now the single place a target is written. Each entry names its id, its metric, a baseline
+and a competitor figure each with `value` and a `file#path` source, and the target. `scripts/target-gate.mjs` re-reads
+every source on each run and enforces two rules:
+
+| rule                                                          | refusal when                                                      | the defect it would have caught                  |
+| ------------------------------------------------------------- | ----------------------------------------------------------------- | ------------------------------------------------ |
+| **R1 - a target is never below its competitor under our LLM** | `target + 5e-5 < competitor-from-artifact`                        | `S63`'s `0.40` against `0.4641`                  |
+| **R2 - a baseline is the number the artifact carries**        | recorded baseline differs from its source at 4-decimal resolution | `S63`'s `0.3110` against the artifact's `0.3828` |
+
+Four properties keep the gate from passing by accident: a source that does not exist or is not readable JSON is a
+refusal, not a zero; a selector such as `rows[category=Code Defect].oursRecall` that matches no row is a refusal, not an
+undefined; a registry with no targets fails on the same floor as `numbers-gate`'s claim count; and the competitor value
+is re-read from the artifact even when the registry's own copy has been edited - **a gate that trusted the registry
+could be talked down by changing one field**.
+
+Nine cases in `tests/unit/scripts/a-target-is-never-set-below-the-competitor.test.ts` hold each refusal and the honest
+path. The gate is wired into `competitor-matrix.yml` beside the matrix gate, so a stale baseline or a target under the
+bar fails a pull request rather than surviving as prose in five sections.
+
+### 178.3 The four defect shapes, from a paragraph to a partition
+
+`§175.7` described the four shapes `S63` targets in prose. `§177`'s artifact carries 452 `missedGoldens.records`, each
+with a golden's own `note`, so the shapes can now be counted rather than asserted. Joining each record to the corpus's
+category index (all 452 join; the category histogram reproduces `reviewCategories` exactly) and classifying the 209
+`Code Defect` goldens by keyword over the note gives:
+
+| shape                                         | hit | miss | miss rate |
+| --------------------------------------------- | --: | ---: | --------: |
+| **an error path left unhandled**              |  23 |   35 | **0.603** |
+| a boundary check missing before a dereference |  26 |   27 |     0.509 |
+| the change and its counterpart disagreeing    |  38 |   22 |     0.367 |
+| state never initialised, released or locked   |  13 |    8 |     0.381 |
+
+46 notes match more than one shape and 71 match none - a keyword partition, not a verdict - **so this table names where
+to look and does not claim a device**. What it says is that the unhandled-error-path shape has the highest miss rate of
+the four and the counterpart shape the lowest. Two facts follow, and both are measured rather than argued:
+
+- **The per-language checklist is not the answer.** It was registered as a targeting aid and measured in three paired
+  readings in `§15.3`: emission halved (357 → 202), recall fell (0.2412 → 0.1647), and the paired test found it lost
+  12 then 13 goldens at p = 0.029 and 0.0146. **`findingOnPathRejected` stayed at 84/100/98/97 across all four arms** -
+  a search-side device left the bucket it was aimed at untouched. Re-enabling it to chase error paths would repeat a
+  replicated harm; its absence is a measured decision, not an "刻意省略" that was never built.
+- **The counterpart question was not asked on this board.** `LANE_SETS.wide` is `security, architecture, performance,
+maintainability, testing, behaviour` - **`crosscheck`, the lane `§164` built to name the two sides of a
+  correspondence, is not in it.** The pinned board was recorded at `lane_set=wide`. So of the four shapes, the one with
+  the lowest miss rate is nevertheless the one lane the board never bought. Whether adding it moves `code defect` is a
+  question for a paired arm, registered in `§178.5`, and no F1 claim is made here.
+
+### 178.4 What this round establishes and what it does not
+
+- **Established:** the target on the board was below the bar and off the document, and both are now refused by code.
+- **Established:** the four shapes can be counted from an existing artifact at $0, and the error-path shape is the
+  largest remaining bucket while the counterpart lane was absent from the recorded arm.
+- **Not established:** that `crosscheck` raises `code defect` recall. The paired arm is running; its figure is quoted
+  only when its artifact exists, under its own run id.
+- **Not established:** that the keyword partition is the corpus's own taxonomy. It is a reading of the golden notes,
+  and the 71 no-shape notes are the reason it is a pointer rather than a score.
+
+### 178.5 Registered before the pair's readout
+
+**Claim R-178.** Adding `crosscheck` to the pinned arm (`lane_set=reviewer`, `crosscheck` swapped for `testing` - six
+calls either way, so the bill does not change) raises the number of credited `Code Defect` goldens above the `wide`
+arm's 80 on the same 50 pull requests and the same judge.
+
+**Falsified if** the credited count is not above 80, or if overall F1 falls by more than 0.01 - the second clause
+because a lane swap that buys recall by spending precision is a different device than the one registered.
+
+The pair is dispatch `46001226979` (`reviewer`, head `5ad03b44`) against `benchmarks/aacr-bench-pinned-50.json`
+(`wide`, head `114ee112`'s successor on the same trunk). Every input but `lane_set` is verbatim identical.

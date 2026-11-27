@@ -1,0 +1,54 @@
+{
+  "version": "aacr-category-gap-v1",
+  "source": "benchmarks/aacr-bench-pinned-50.json",
+  "corpus": {
+    "pullRequests": 50,
+    "goldens": 452
+  },
+  "emission": {
+    "ours": 281,
+    "theirs": 436
+  },
+  "credited": {
+    "ours": 120,
+    "theirs": 166
+  },
+  "rows": [
+    {
+      "category": "Code Defect",
+      "goldens": 209,
+      "ours": 80,
+      "theirs": 97,
+      "oursRecall": 0.3827751196172249,
+      "theirsRecall": 0.46411483253588515,
+      "gap": 17
+    },
+    {
+      "category": "Maintainability and Readability",
+      "goldens": 191,
+      "ours": 26,
+      "theirs": 46,
+      "oursRecall": 0.13612565445026178,
+      "theirsRecall": 0.24083769633507854,
+      "gap": 20
+    },
+    {
+      "category": "Performance",
+      "goldens": 37,
+      "ours": 9,
+      "theirs": 14,
+      "oursRecall": 0.24324324324324326,
+      "theirsRecall": 0.3783783783783784,
+      "gap": 5
+    },
+    {
+      "category": "Security Vulnerability",
+      "goldens": 15,
+      "ours": 5,
+      "theirs": 9,
+      "oursRecall": 0.3333333333333333,
+      "theirsRecall": 0.6,
+      "gap": 4
+    }
+  ]
+}

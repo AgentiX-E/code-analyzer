@@ -1,0 +1,88 @@
+{
+  "version": "targets-v1",
+  "board": {
+    "dataset": "aacr",
+    "reading": "pinned",
+    "pullRequests": 50,
+    "goldens": 452,
+    "llm": "deepseek-chat",
+    "rule": "A target is never set below the competitor measured under the same LLM on the same document, and a baseline is the number the source artifact actually carries."
+  },
+  "targets": [
+    {
+      "id": "aacr.f1",
+      "metric": "F1",
+      "scope": "overall",
+      "baseline": {
+        "value": 0.3274,
+        "from": "benchmarks/aacr-bench-pinned-50.json#f1"
+      },
+      "competitor": {
+        "value": 0.3738738738738739,
+        "from": "benchmarks/competitor-cut-pinned-50.json#asShipped.f1"
+      },
+      "target": 0.3738738738738739,
+      "note": "Our shipped cut versus the competitor replayed through our DeepSeek on the same pinned document. The bar may not be set below the competitor under our LLM."
+    },
+    {
+      "id": "aacr.category.code-defect.recall",
+      "metric": "recall",
+      "scope": "Code Defect",
+      "baseline": {
+        "value": 0.3827751196172249,
+        "from": "benchmarks/aacr-category-gap-pinned-50.json#rows[category=Code Defect].oursRecall"
+      },
+      "competitor": {
+        "value": 0.46411483253588515,
+        "from": "benchmarks/aacr-category-gap-pinned-50.json#rows[category=Code Defect].theirsRecall"
+      },
+      "target": 0.46411483253588515,
+      "note": "Level with the competitor under our LLM is the floor; a target below it is refused, not argued."
+    },
+    {
+      "id": "aacr.category.maintainability.recall",
+      "metric": "recall",
+      "scope": "Maintainability and Readability",
+      "baseline": {
+        "value": 0.13612565445026178,
+        "from": "benchmarks/aacr-category-gap-pinned-50.json#rows[category=Maintainability and Readability].oursRecall"
+      },
+      "competitor": {
+        "value": 0.24083769633507854,
+        "from": "benchmarks/aacr-category-gap-pinned-50.json#rows[category=Maintainability and Readability].theirsRecall"
+      },
+      "target": 0.24083769633507854,
+      "note": "Level with the competitor under our LLM is the floor; a target below it is refused, not argued."
+    },
+    {
+      "id": "aacr.category.performance.recall",
+      "metric": "recall",
+      "scope": "Performance",
+      "baseline": {
+        "value": 0.24324324324324326,
+        "from": "benchmarks/aacr-category-gap-pinned-50.json#rows[category=Performance].oursRecall"
+      },
+      "competitor": {
+        "value": 0.3783783783783784,
+        "from": "benchmarks/aacr-category-gap-pinned-50.json#rows[category=Performance].theirsRecall"
+      },
+      "target": 0.3783783783783784,
+      "note": "Level with the competitor under our LLM is the floor; a target below it is refused, not argued."
+    },
+    {
+      "id": "aacr.category.security.recall",
+      "metric": "recall",
+      "scope": "Security Vulnerability",
+      "baseline": {
+        "value": 0.3333333333333333,
+        "from": "benchmarks/aacr-category-gap-pinned-50.json#rows[category=Security Vulnerability].oursRecall"
+      },
+      "competitor": {
+        "value": 0.6,
+        "from": "benchmarks/aacr-category-gap-pinned-50.json#rows[category=Security Vulnerability].theirsRecall"
+      },
+      "target": 0.6,
+      "note": "Level with the competitor under our LLM is the floor; a target below it is refused, not argued."
+    }
+  ]
+}
