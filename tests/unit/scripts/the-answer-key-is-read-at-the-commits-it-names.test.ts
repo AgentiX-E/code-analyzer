@@ -10,7 +10,7 @@
 // a partition that does not add up to its slice, and a page that would draw rows disagreeing with their own total.
 
 import { execFileSync } from 'node:child_process';
-import { mkdtempSync, writeFileSync } from 'node:fs';
+import { mkdtempSync, readFileSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 
@@ -199,7 +199,7 @@ describe('the reach partition', () => {
       out,
     ]);
     expect(result.code).toBe(0);
-    const record = JSON.parse(execFileSync('cat', [out], { encoding: 'utf8' }));
+    const record = JSON.parse(readFileSync(out, 'utf8'));
     expect(record.version).toBe('corpus-reach-v1');
     expect(record.reading).toBe('live');
     expect(record.buckets).toEqual([
@@ -233,7 +233,7 @@ describe('the reach partition', () => {
       out,
     ]);
     expect(result.code).toBe(0);
-    const record = JSON.parse(execFileSync('cat', [out], { encoding: 'utf8' }));
+    const record = JSON.parse(readFileSync(out, 'utf8'));
     expect(record.reading).toBe('pinned');
     // **A pinned reading is a different document, and the record has to say so** - otherwise two files from one
     // instrument are comparable by accident.
