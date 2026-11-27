@@ -1,0 +1,131 @@
+<!doctype html>
+<html lang="en">
+  <meta charset="utf-8" /><title>Defect shapes: a golden category, not a note guess</title>
+  <style>
+    body {
+      font: 14px system-ui;
+      margin: 2rem;
+      color: #222;
+      max-width: 900px;
+    }
+    h1 {
+      font-size: 1.4rem;
+    }
+    .sub {
+      color: #666;
+    }
+    table {
+      border-collapse: collapse;
+      width: 100%;
+      margin-top: 1rem;
+    }
+    td,
+    th {
+      border: 1px solid #ddd;
+      padding: 6px 10px;
+      text-align: left;
+    }
+    .bar {
+      background: #eee;
+      height: 14px;
+      min-width: 120px;
+      display: inline-flex;
+    }
+    .hit {
+      background: #4a7;
+    }
+    .miss {
+      background: #d55;
+    }
+    .alert {
+      background: #fff4e5;
+      border-left: 4px solid #e80;
+      padding: 10px 14px;
+      margin: 1rem 0;
+    }
+    .legend small {
+      color: #666;
+    }
+  </style>
+  <h1>Defect shapes: a golden category, not a note guess</h1>
+  <div class="sub">
+    Source: benchmarks/aacr-bench-pinned-50.json · /tmp/aacr/dataset/v1/positive_samples.json
+  </div>
+  <div class="alert">
+    <strong>243 of 452 missed-golden records (54%) are not <code>Code Defect</code>.</strong> The
+    §178.3 table counted them as defect shapes because it classified notes before joining the
+    corpus's own category.
+  </div>
+  <p>
+    <strong>209</strong> Code Defect goldens · <strong>83</strong> rejected on a path we commented
+    on · reconciled <strong>true</strong>
+  </p>
+  <table>
+    <thead>
+      <tr>
+        <th>shape</th>
+        <th>hit</th>
+        <th>miss</th>
+        <th>miss rate</th>
+        <th></th>
+      </tr>
+    </thead>
+    <tbody>
+      <tr>
+        <td>error_path</td>
+        <td>14</td>
+        <td>18</td>
+        <td>56%</td>
+        <td>
+          <div class="bar">
+            <span class="hit" style="width: 25%"></span
+            ><span class="miss" style="width: 32%"></span>
+          </div>
+        </td>
+      </tr>
+      <tr>
+        <td>boundary</td>
+        <td>30</td>
+        <td>26</td>
+        <td>46%</td>
+        <td>
+          <div class="bar">
+            <span class="hit" style="width: 54%"></span
+            ><span class="miss" style="width: 46%"></span>
+          </div>
+        </td>
+      </tr>
+      <tr>
+        <td>counterpart</td>
+        <td>28</td>
+        <td>16</td>
+        <td>36%</td>
+        <td>
+          <div class="bar">
+            <span class="hit" style="width: 50%"></span
+            ><span class="miss" style="width: 29%"></span>
+          </div>
+        </td>
+      </tr>
+      <tr>
+        <td>state</td>
+        <td>14</td>
+        <td>21</td>
+        <td>60%</td>
+        <td>
+          <div class="bar">
+            <span class="hit" style="width: 25%"></span
+            ><span class="miss" style="width: 38%"></span>
+          </div>
+        </td>
+      </tr>
+    </tbody>
+  </table>
+  <p class="legend">
+    <small
+      >green = hit · red = miss · width = shape size. A note matching more than one shape is counted
+      in each (36); a note matching none (81) is left unclassified. Generated from the record; no
+      arithmetic in the renderer.</small
+    >
+  </p>
+</html>

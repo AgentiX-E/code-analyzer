@@ -1,0 +1,43 @@
+{
+  "measuredAt": "2026-11-27T15:58:00.960Z",
+  "artifact": "benchmarks/aacr-bench-pinned-50.json",
+  "corpus": "/tmp/aacr/dataset/v1/positive_samples.json",
+  "allRecords": 452,
+  "contamination": 243,
+  "codeDefect": {
+    "total": 209,
+    "buckets": {
+      "hit": 112,
+      "findingOnPathRejected": 83,
+      "noFindingOnPath": 3,
+      "pathNotInPull": 11
+    },
+    "rejected": 83,
+    "shapes": {
+      "error_path": {
+        "hit": 14,
+        "miss": 18,
+        "rate": 0.563
+      },
+      "boundary": {
+        "hit": 30,
+        "miss": 26,
+        "rate": 0.464
+      },
+      "counterpart": {
+        "hit": 28,
+        "miss": 16,
+        "rate": 0.364
+      },
+      "state": {
+        "hit": 14,
+        "miss": 21,
+        "rate": 0.6
+      }
+    },
+    "multi": 36,
+    "none": 81,
+    "reconciled": true
+  },
+  "description": "Code Defect 209 goldens · 83 rejected · error_path 14/18 (56.3 %) · boundary 30/26 (46.4 %) · counterpart 28/16 (36.4 %) · state 14/21 (60.0 %) · contamination 243"
+}

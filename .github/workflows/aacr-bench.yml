@@ -982,6 +982,20 @@ jobs:
           # whose rows do not sum to its own totals, which is the same guard one layer out.
           npm run -s docs:aacr-category-gap
 
+      # **And the four S63 shapes, read from the golden's own category rather than from a keyword over every note**
+      # (§180). The §178.3 table poured 243 non-Code-Defect goldens into a "209 Code Defect" partition; this step
+      # recomputes it on the same corpus with the join that table skipped. No model call - both inputs are already on
+      # disk - and the partition refuses to print if its rows do not add back up.
+      - name: Attribute defect shapes from the corpus category
+        if: always() && steps.replay.outcome == 'success'
+        run: |
+          set -e
+          corpus="${{ inputs.dataset == 'martian' && format('{0}/benchmarks/martian/positive_samples.json', github.workspace) || '/tmp/aacr-bench/dataset/v1/positive_samples.json' }}"
+          node scripts/defect-shapes.mjs \
+            --artifact benchmarks/aacr-bench.json \
+            --corpus "$corpus" \
+            --json benchmarks/defect-shapes.json
+
       # **And the two hypotheses §173 left open, priced on the same artifact with no further model call.** The cut's
       # allocation is arithmetic over rows the run already ranked, and the deterministic lane's reach is arithmetic over
       # the diffs the run already fetched - so both are `$0` beside the arm, and both are refutations rather than

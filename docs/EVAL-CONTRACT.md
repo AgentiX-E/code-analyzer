@@ -19847,3 +19847,57 @@ Two cases were written first and seen red before the rule was changed: one artif
 typecheck ratchet (0 errors) and the lint ratchet (13 improved) are green. What is **not** established: that `crosscheck`
 closes the remaining `−0.0459` overall and `−0.0622` `Code Defect` gaps — it does not, and the next step is `S63` depth
 on the four defect shapes with the error-path bucket first.
+
+## §180 The shape table was reading notes it had no right to count
+
+`§178.3` named the unhandled-error-path shape the largest remaining bucket (`0.603`) and made it the target of `S63`.
+This round reads the same artifact again and finds that the table was built on a join it never made: it classified the
+note of every one of the 452 `missedGoldens.records` by keyword and published the result as a partition of the 209
+`Code Defect` goldens. It never joined the corpus's own `category`.
+
+### 180.1 What the join actually shows
+
+Joining each record to `positive_samples.json` on `pr#goldenIndex` and keeping only `Code Defect`:
+
+| reading                                      | records | `Code Defect` | `hit` | `findingOnPathRejected` | silent | unreachable |
+| -------------------------------------------- | ------: | ------------: | ----: | ----------------------: | -----: | ----------: |
+| §178.3, keyword over every note              |     452 | (209 claimed) |   192 |                     206 |     31 |          23 |
+| with the corpus category joined (this round) |     452 |           209 |   112 |                      83 |      3 |          11 |
+
+**243 of the 452 records (53.8 %) are not `Code Defect` at all.** Of the 150 actionable-but-rejected goldens the old
+table spoke about, 73 are labelled `Maintainability and Readability` by the corpus, 62 `Code Defect`, 13 `Performance`
+and 2 `Security Vulnerability`. Their notes are what a reviewer would expect from that label: "typo in variable name
+`acceptableDimensionGeometrys`", "use `std::ranges::find_if` for clarity", "add parentheses … for readability".
+`§178.3` counted these as defect-shape misses because it read the note before the category. The corrected
+`Code Defect` partition is `hit 112 / rejected 83 / silent 3 / unreachable 11`; the error-path shape is `14 hit / 18
+miss` (`0.562`), not `23 / 35` (`0.603`), and the state shape — not the error path — is the largest miss rate
+(`14 / 21`, `0.600`). **`S63`'s "error path first" was aimed at a bucket inflated by another category.**
+
+### 180.2 Why the remaining rejects are not an actionability bug
+
+206 goldens are `findingOnPathRejected`. **150 of their nearest findings are already `actionable: true`** — they passed
+our gate, reached the judge, and were still judged not to describe the same defect. The other 56 are not a `no quoted
+code` filter story either: the `why` strings come from the score term (`actionability.ts:353`), and `actionable` is
+`grounded && (proposesChange || quotesDiff)`. Rewriting the scorer cannot touch the 150. Four device directions are
+now closed by measurement, not by argument: the per-language checklist lost three paired readings
+(`§15.3`, `findingOnPathRejected` 84/100/98/97 unchanged); `AACR_PROFILE=defect` gained `0.0079` against a registered
+`0.02` (`§R-17`); the `idioms` lane gained `0.0148` and stayed off (`§R-21`, §47.7); and the `crosscheck` lane, the one
+device that did move the defect count, banked `+3` in R-178 and is already in the `reviewer` set. A new "error path"
+lane would duplicate `behaviour`, which already asks for "a return this line does not check: an error, a missing row,
+a partial write" and is already in `wide`.
+
+### 180.3 What was built, and what is deliberately not claimed
+
+`scripts/lib/defect-shapes.mjs` makes the join the table skipped, classifies only the corpus's `Code Defect` goldens,
+reports the contamination the unfiltered reading would add, and refuses a partition that does not reconcile. Its CLI
+(`scripts/defect-shapes.mjs --artifact … --corpus …`) is wired into `aacr-bench.yml` beside the category-gap step, so
+the figure is recomputed on the GitHub Runner from the artifact and the corpus the run actually used — no local
+environment, no second reading of the note. Six cases were written first and seen red; the pinned board now replays
+as `452 records · 243 contamination · 209 Code Defect · 83 rejected · reconciled true`. The self-contained page
+`docs/defect-shapes.html` draws that record with no script and no network.
+
+**Not claimed:** that this raises `Code Defect` recall. It does not change a single review, and no F1 figure is attached
+to a diagnostic. What it changes is the target: `S63` is re-aimed at the corrected partition (state `0.600`, error
+path `0.562`), and the remaining real deficit — 97 `Code Defect` goldens of 209 uncredited — is now located in a
+category the corpus itself defines instead of a keyword guess. The next device must be registered against that
+partition and paid for in a paired arm; this round prices the target, not the device.

@@ -57,20 +57,20 @@
   point — a row without one is not accepted, whatever its unit coverage, because the last three defects here were joins
   between components that each passed their own tests.</p>
   <ul class="tiles">
-    <li><b>61</b><span>capabilities</span></li>
-    <li><b>52</b><span>done</span></li>
+    <li><b>62</b><span>capabilities</span></li>
+    <li><b>53</b><span>done</span></li>
     <li><b>7</b><span>partial</span></li>
     <li><b>2</b><span>not built</span></li>
-    <li><b>51</b><span>with an end-to-end case</span></li>
-    <li><b>47</b><span>ours only</span></li>
+    <li><b>52</b><span>with an end-to-end case</span></li>
+    <li><b>48</b><span>ours only</span></li>
     <li><b>2</b><span>competitor only</span></li>
   </ul>
 </header>
 <nav>
-  <button data-filter="all" aria-pressed="true">All <span style="opacity:.6">61</span></button>
+  <button data-filter="all" aria-pressed="true">All <span style="opacity:.6">62</span></button>
   <button data-filter="NONE" aria-pressed="false">Not built <span style="opacity:.6">2</span></button>
   <button data-filter="PART" aria-pressed="false">Partial <span style="opacity:.6">7</span></button>
-  <button data-filter="DONE" aria-pressed="false">Done <span style="opacity:.6">52</span></button>
+  <button data-filter="DONE" aria-pressed="false">Done <span style="opacity:.6">53</span></button>
   <button data-filter="C" aria-pressed="false">Competitor only <span style="opacity:.6">2</span></button>
   <button data-filter="no-e2e" aria-pressed="false">No end-to-end case <span style="opacity:.6">10</span></button>
   <input id="q" type="search" placeholder="filter by capability, file or surface" aria-label="filter">
@@ -423,7 +423,7 @@
     </table>
   </section>
   <section>
-    <h2>researcher, I want every number to be reproducible and every difference to be real<span class="count">27</span></h2>
+    <h2>researcher, I want every number to be reproducible and every difference to be real<span class="count">28</span></h2>
     <table>
       <thead><tr><th>#</th><th>Capability</th><th>Ships at</th><th>Unit</th><th>End-to-end</th><th>State</th><th>What the state means</th></tr></thead>
       <tbody>
@@ -669,6 +669,15 @@
         <td class="proof"><code>the-detail-layers-add-up-to-the-figure-they-decompose (two cases written red before the fix, then the real artifact replayed through the CLI)</code></td>
         <td><span class="state DONE">DONE</span></td>
         <td class="why">DONE (§179) — the R-178 pair's final audit step read 0 counted, 2 named and failed a run whose accounting was correct: the two names are pull requests whose source_commit the remote no longer holds, filed under stage: 'range' and deliberately not counted in prsFailed. Rule 9 compared the counter with the whole failure list; it now compares it with stage: 'run' names only, keeps the unreachable count readable, and still fails a counted-but-unnamed run. The real artifact replays as 15 checks · all consistent; 36 cases in the detail-layer file, 1925 unit tests across 182 files</td>
+      </tr>
+      <tr data-state="DONE" data-who="O" data-e2e="true">
+        <td class="id">62</td>
+        <td class="cap">A defect shape is a golden's own category, not a keyword guess over every note — the instrument joins the corpus before it partitions<span class="surface">harness</span></td>
+        <td><span class="tag O">ours only</span></td>
+        <td class="proof"><code>a-shape-is-a-goldens-own-category-not-a-guess-from-its-note</code></td>
+        <td class="proof"><code>a-shape-is-a-goldens-own-category-not-a-guess-from-its-note (CLI replayed against the pinned artifact and the real corpus on the Runner)</code></td>
+        <td><span class="state DONE">DONE</span></td>
+        <td class="why">DONE (§180) — §178.3 classified all 452 missed-golden notes by keyword and published them as a partition of 209 Code Defect goldens, never joining the corpus category: 243 records (53.8 %) were from other categories, and &quot;error path first&quot; was aimed at a bucket inflated by Maintainability notes. The new module joins on pr#goldenIndex, keeps only Code Defect (hit 112 / rejected 83 / silent 3 / unreachable 11), reports contamination, and refuses a partition that does not reconcile. Six cases written red first; wired into aacr-bench.yml so the figure is recomputed on the Runner; self-contained docs/defect-shapes.html. No F1 claim — this prices the S63 target, not a device.</td>
       </tr>
       </tbody>
     </table>
