@@ -51,7 +51,13 @@ describe('a commented-out statement is something to delete, not something to rea
     // parenthesis" as code fires on most doc comments in `FreeCAD`, and a lane that produces forty of those per pull
     // request is a lane that costs precision on every pull request.
     expect(fired(patch(['// Returns the scale of a section.']))).toEqual([]);
-    expect(fired(patch(['// TODO: revisit this once the schema is published']))).toEqual([]);
+    // **A task marker is not code that was commented out; it is a task, and `todo-in-code` is the row that answers
+    // for it.** The case is about this rule, so it is asserted about this rule - the lane firing `todo-in-code` here
+    // is the other rule doing its job, and a shared negative assertion would have made the two rules each other's
+    // alibi.
+    expect(fired(patch(['// TODO: revisit this once the schema is published']))).toEqual([
+      'todo-in-code',
+    ]);
     expect(fired(patch(['/// <summary>Reads the value.</summary>']))).toEqual([]);
     expect(fired(patch(['# See the spec (section 4) for the units.']))).toEqual([]);
   });
@@ -231,5 +237,190 @@ describe('every finding is a review comment a positioner can place', () => {
       expect(finding.endLine).toBeGreaterThanOrEqual(finding.startLine);
       expect(finding.lane).toBe('idioms');
     }
+  });
+});
+
+// ---------------------------------------------------------------------------
+// **The six rules this file was missing, calibrated on the slice they are for.**
+//
+// `scripts/idiom-reach.mjs` priced the six rules above against the AACR answer key on the wide arm's own fifty pull
+// requests and found them reaching **3 of 364 goldens**. The gap is not determinism - `commented-out-code` reached two
+// of its five findings - it is that the table was calibrated on a sample of `Alibaba-Aone/aacr-bench` whose goldens are
+// `const auto&` and `2.0f`, while **this slice's maintainability goldens are comments with a doubled word, a `don't`
+// agreeing with `this`, an unresolved `TODO`, an enum passed by `const&`, a `std::string` passed by value, and an
+// identifier whose plural was written with an `s`.** Every describe below names the golden it came from.
+// ---------------------------------------------------------------------------
+
+describe('a word written twice is the one typo a reader cannot help seeing', () => {
+  // corpus: `DlgOnlineHelpImp.h:35` - "Typo: \"an an\" should likely be \"and an\"" - and the same line drew a second
+  // golden from another reviewer ("The phrase \"an an external browser\" likely should be ..."). **One line, two
+  // independent reviewers, is the strongest evidence in the key that this is a shape worth a rule.**
+  it('fires on a doubled word in an added comment, in every comment syntax', () => {
+    expect(
+      fired(patch(['// specify location of the start page an an external browser'])),
+    ).toContain('doubled-word');
+    expect(fired(patch(['# the the cache is cleared on exit']))).toContain('doubled-word');
+    expect(fired(script(['// it is is only read here']))).toContain('doubled-word');
+  });
+
+  it('does not fire on a legitimate repetition, a doubled article in a string, or prose that ends a sentence', () => {
+    // `that that` is legal English and common in C++ comments; `long long` is a type. **The words excluded here are the
+    // ones English really does double**, and a rule that fired on `long long` would fire on every declaration of one.
+    expect(fired(patch(['// the value that that guard protects']))).toEqual([]);
+    expect(fired(patch(['// a long long counter']))).toEqual([]);
+    expect(fired(patch(['const char* s = "is is";']))).toEqual([]);
+    // A quote and its closing quote are not a repetition, and neither is a word after a sentence's full stop.
+    expect(fired(patch(['// "stop." "Stop." is what the message says']))).toEqual([]);
+  });
+
+  it('reports the line the doubled word is on, and names both words', () => {
+    const findings = detectIdioms(
+      patch(['int a = 1;', '// keep it in in the list', 'int b = 2;'], 40),
+    );
+    const doubled = findings.find((finding) => finding.id === 'doubled-word');
+    expect(doubled?.startLine).toBe(41);
+    expect(doubled?.description).toContain('in in');
+  });
+});
+
+describe('a plural subject with `don’t` is a verb that does not agree', () => {
+  // corpus: `DrawTile.cpp:46` - "The comment still contains grammatical error. 'don't' should be 'doesn't' for proper
+  // subject-verb agreement with 'this'." And `ViewProviderProjGroupItem.cpp:157` - the same sentence, one revision
+  // later, still uncorrected: **a golden nobody acted on is a golden a rule should still file.**
+  it('fires when a third-person singular subject takes `don’t`', () => {
+    expect(
+      fired(patch(["// there is currently only one column, this don't allow one to edit"])),
+    ).toContain('subject-verb-agreement');
+    expect(fired(patch(["// it don't matter for the first frame"]))).toContain(
+      'subject-verb-agreement',
+    );
+    expect(fired(patch(["// That don't compile on MSVC"]))).toContain('subject-verb-agreement');
+  });
+
+  it('does not fire on a plural subject, a contraction in code, or `doesn’t`', () => {
+    expect(fired(patch(["// these don't allow editing"]))).toEqual([]);
+    expect(fired(patch(["// they don't allow editing"]))).toEqual([]);
+    expect(fired(patch(["// this doesn't allow editing"]))).toEqual([]);
+    expect(
+      fired(patch(["const ok = !values.don't;"])).filter((id) => id === 'subject-verb-agreement'),
+    ).toEqual([]);
+  });
+});
+
+describe('a TODO left in an added line is a promise with no owner', () => {
+  // corpus: `DrawProjGroup.cpp:1144` - "Unresolved TODO comment left in code regarding potential refactoring of
+  // identical functions to DrawView."
+  it('fires on an added task marker, and carries what it promises', () => {
+    const findings = detectIdioms(
+      patch([
+        '// TODO: should these functions identical to those',
+        '// in DrawViewPart be moved to DrawView?',
+      ]),
+    );
+    const todo = findings.find((finding) => finding.id === 'todo-in-code');
+    expect(todo?.startLine).toBe(10);
+    expect(todo?.description).toContain('moved to DrawView');
+    expect(todo?.category).toBe('maintainability');
+  });
+
+  it('fires on FIXME, XXX and HACK as well, because they are the same promise', () => {
+    expect(fired(patch(['# FIXME: this drops the trailing newline']))).toContain('todo-in-code');
+    expect(fired(patch(['// XXX: the cache is never invalidated']))).toContain('todo-in-code');
+    expect(fired(patch(['/* HACK: works around the loader */']))).toContain('todo-in-code');
+  });
+
+  it('does not fire on a marker the change removed, or on a sentence that mentions one', () => {
+    expect(fired(patch(['// the TODO above is handled by the caller']))).toEqual([]);
+    expect(fired(patch(['const note = "TODO";']))).toEqual([]);
+  });
+});
+
+describe('a parameter of a heap-owning type passed by value is a copy nobody asked for', () => {
+  // corpus: `CommandCreateDims.cpp:2384` / `DimensionValidators.h:70` - `std::string type` by value, and
+  // "The string parameter in `isCosmeticVertex` should be passed by const reference instead of by value to avoid
+  // unnecessary copying."
+  it('fires on a string or a container declared as a parameter', () => {
+    expect(
+      fired(patch(['void execDim(Gui::Command* cmd, std::string type, int count);'])),
+    ).toContain('parameter-by-value');
+    expect(fired(patch(['virtual bool isCosmeticVertex(std::string element) const;']))).toContain(
+      'parameter-by-value',
+    );
+    expect(fired(patch(['void visit(const std::vector<int> items, int n) {']))).toContain(
+      'parameter-by-value',
+    );
+    expect(fired(patch(['DimensionGeometry validate(QString label);']))).toContain(
+      'parameter-by-value',
+    );
+  });
+
+  it('does not fire when the parameter is already a reference, a pointer or a small type', () => {
+    expect(fired(patch(['void take(const std::string& name);']))).toEqual([]);
+    expect(fired(patch(['void take(std::string* name);']))).toEqual([]);
+    expect(fired(patch(['void take(const std::string&& name);']))).toEqual([]);
+    expect(fired(patch(['void take(int count);']))).toEqual([]);
+    expect(fired(patch(['void take(const Base::Vector3d point);']))).toEqual([]);
+  });
+
+  it('does not fire on a local variable, which is a declaration and not a parameter', () => {
+    // **The `,` or `)` after the name is the whole evidence**, and a declaration ends in `;`, `=` or `{`. Without this
+    // the rule would fire on every `std::string s = ...` in the patch, which is most of them.
+    expect(fired(patch(['std::string type = getType();']))).toEqual([]);
+    expect(fired(patch(['std::string label{defaultLabel};']))).toEqual([]);
+    expect(fired(patch(['std::string name;']))).toEqual([]);
+  });
+});
+
+describe('an enum passed by const reference is indirection around an int', () => {
+  // corpus: `DrawProjGroup.h:133` - "Enums should typically be passed by value (they are small integral types).
+  // Passing by `const&` adds indirection and can complicate usage."
+  it('fires when the patch declares the type as an enum', () => {
+    const input = patch([
+      'enum class RotationMotion { CW, CCW };',
+      'void rotate(const TechDraw::RotationMotion& motion);',
+    ]);
+    expect(fired(input)).toContain('enum-by-const-reference');
+  });
+
+  it('does not fire when the type is not an enum, or is already by value', () => {
+    expect(fired(patch(['void rotate(const TechDraw::Rotation& motion);']))).toEqual([]);
+    expect(fired(patch(['enum class Mode { A, B };', 'void set(Mode mode);']))).toEqual([]);
+  });
+});
+
+describe('a plural written with an `s` on a consonant is a name the reader trips over', () => {
+  // corpus: `DimensionValidators.h:70` - "`acceptableDimensionGeometrys` is an incorrect plural (should be
+  // `acceptableDimensionGeometries`). Since this is part of the function signature in a header, the typo propagates."
+  it('fires on an identifier whose segment ends in consonant + `ys` after a long stem', () => {
+    expect(
+      fired(patch(['void validate(const std::vector<int>& acceptableDimensionGeometrys);'])),
+    ).toContain('plural-ys');
+    expect(fired(script(['const entries = parse(directoryEntrys);']))).toContain('plural-ys');
+  });
+
+  it('does not fire on a word that is not a plural, or on a short stem', () => {
+    // `sys`, `keys`, `toys`: the first is not a stem at all and the other two end in a vowel plus `y`.
+    expect(fired(script(['const fd = sys.open();']))).toEqual([]);
+    expect(fired(script(['const keys = Object.keys(row);']))).toEqual([]);
+    expect(fired(script(['const toys = 2;']))).toEqual([]);
+  });
+});
+
+describe('a CRLF file is a file, not a reason for every rule to go silent', () => {
+  // **This one is a defect the reach instrument found before any figure was published.** A patch fetched from GitHub
+  // hands each line over with the `\r` the file's own line ending put there, and four of these rules anchor on `$`.
+  // On `FreeCAD`'s `DlgOnlineHelpImp.h` the doubled `an an` is on an added line, and the lane filed nothing - the only
+  // difference between the text the rule was written against and the text it was handed being one character.
+  it('reads a line the same way whether or not it ends in a carriage return', () => {
+    const crlf = patch(['// It is is not found.\r', "// this don't allow editing\r"]);
+    const lf = patch(['// It is is not found.', "// this don't allow editing"]);
+    expect(fired(crlf)).toEqual(fired(lf));
+    expect(fired(crlf)).toContain('doubled-word');
+    expect(fired(crlf)).toContain('subject-verb-agreement');
+  });
+
+  it('keeps the line numbers the patch gave the lines', () => {
+    const findings = detectIdioms(patch(['// It is is not found.\r'], 77));
+    expect(findings[0]?.startLine).toBe(77);
   });
 });

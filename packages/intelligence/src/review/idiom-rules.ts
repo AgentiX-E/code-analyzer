@@ -73,9 +73,11 @@ function group(match: ReadonlyArray<string>, index: number): string {
   return match[index] as string;
 }
 
-/** What a rule may read besides its own line: the patch's `float` declarations, and the lines that follow it. */
+/** What a rule may read besides its own line: the patch's `float` and `enum` declarations, and the lines after it. */
 interface RuleContext {
   readonly floats: ReadonlySet<string>;
+  /** **The enums the patch declares**, which is the only evidence that makes a `const X&` parameter wrong. */
+  readonly enums: ReadonlySet<string>;
   readonly lines: readonly string[];
 }
 
@@ -406,6 +408,312 @@ function macroNameCase(line: number, text: string): Draft[] {
 }
 
 // ---------------------------------------------------------------------------
+// Reading a comment's body, including the block syntaxes
+// ---------------------------------------------------------------------------
+
+/**
+ * **The text of a comment in any of the five syntaxes the corpus uses, or `null`.**
+ *
+ * `commentBody` above reads the three line markers. **A block comment is a comment too** - `/* HACK: ... *&#47;` and a
+ * generated file's leading ` * ` continuation line are how half of this corpus writes prose - and a rule that only saw
+ * `//` would be a rule blind to C and to every doc-comment header.
+ */
+function anyCommentBody(line: string): string | null {
+  const block = /^\s*\/\*(.*?)(?:\*\/)?\s*$/.exec(line);
+  if (block !== null)
+    return group(block, 1)
+      .replace(/\*\/\s*$/, '')
+      .trim();
+  const continuation = /^\s*\*(?!\/)\s?(.*)$/.exec(line);
+  if (continuation !== null) return group(continuation, 1);
+  return commentBody(line);
+}
+
+// ---------------------------------------------------------------------------
+// Rule: a word written twice
+// ---------------------------------------------------------------------------
+
+/**
+ * **Words English really does double**, which a rule that fired on them would be wrong about.
+ *
+ * `that that` and `had had` are correct in a subordinate clause, `long long` is a type, and `ha ha` is a laugh. **The
+ * list is short on purpose**: every word on it is one a reviewer would have to dismiss, and the rule's value is that it
+ * is almost never wrong.
+ */
+const DOUBLED_LEGITIMATELY = new Set(['that', 'had', 'long', 'ha', 'no', 'so', 'very', 'blah']);
+
+/** A word repeated with only whitespace between the two copies. */
+const DOUBLED_WORD = /\b([A-Za-z][A-Za-z']*)\s+\1\b/i;
+
+/**
+ * **Corpus: `DlgOnlineHelpImp.h:35` - "Typo: \"an an\" should likely be \"and an\"" - and the same line drew a second
+ * independent golden from another reviewer.** One line, two reviewers, is the strongest evidence in the key that this
+ * shape is worth a rule rather than a reading.
+ */
+function doubledWord(line: number, text: string): Draft[] {
+  const body = anyCommentBody(text);
+  if (body === null) return [];
+  const match = DOUBLED_WORD.exec(body);
+  if (match === null) return [];
+  const word = group(match, 1);
+  if (DOUBLED_LEGITIMATELY.has(word.toLowerCase())) return [];
+  return [
+    {
+      id: 'doubled-word',
+      line,
+      category: 'maintainability',
+      severity: 'low',
+      title: `The word \`${word}\` appears twice in a row`,
+      description:
+        `The added comment reads \`${word} ${word}\`. A word written twice is the one typo a reader cannot help ` +
+        'seeing, and it is the kind of slip that survives a review because everybody reads what they meant.',
+      suggestion: `Delete one of the two \`${word}\`s.`,
+    },
+  ];
+}
+
+// ---------------------------------------------------------------------------
+// Rule: a third-person subject with `don't`
+// ---------------------------------------------------------------------------
+
+/** The subjects that take `doesn't`, and the contraction that does not agree with them. **Anchored on the subject**, so
+ * a plural one is out of scope by construction rather than by a second pattern. */
+const DISAGREEING_CONTRACTION = /\b(this|that|it|he|she)\s+don['’]t\b/gi;
+
+/**
+ * **Corpus: `DrawTile.cpp:46` - "'don't' should be 'doesn't' for proper subject-verb agreement with 'this'."**
+ *
+ * And `ViewProviderProjGroupItem.cpp:157` carries the same sentence, one revision later, still uncorrected: **a golden
+ * nobody acted on is a golden a rule should still file**, which is the case for reading this from syntax rather than
+ * from a habit.
+ */
+function subjectVerbAgreement(line: number, text: string): Draft[] {
+  const body = anyCommentBody(text);
+  if (body === null) return [];
+  DISAGREEING_CONTRACTION.lastIndex = 0;
+  const match = DISAGREEING_CONTRACTION.exec(body);
+  if (match === null) return [];
+  const subject = group(match, 1);
+  return [
+    {
+      id: 'subject-verb-agreement',
+      line,
+      category: 'maintainability',
+      severity: 'low',
+      title: `\`${subject} don't\` does not agree`,
+      description:
+        `The added comment says \`${subject} don't\`, and \`${subject}\` is singular. The verb a reader expects is ` +
+        "`doesn't`. A comment is the part of a change nobody compiles, so a slip in it is a slip that stays.",
+      suggestion: `Write \`${subject} doesn't\`.`,
+    },
+  ];
+}
+
+// ---------------------------------------------------------------------------
+// Rule: a TODO left in the change
+// ---------------------------------------------------------------------------
+
+/** A task marker at the start of a comment, which is what makes it a promise rather than a mention. */
+const TASK_MARKER = /^(TODO|FIXME|XXX|HACK)\b\s*[:(]?\s*(.*)$/;
+
+/**
+ * **Corpus: `DrawProjGroup.cpp:1144` - "Unresolved TODO comment left in code regarding potential refactoring of
+ * identical functions to DrawView."**
+ *
+ * **The promise is read from the marker's own block**, because "moved to DrawView" - the half of the sentence that says
+ * what is owed - is on the next comment line, and a finding that quoted only the first line would be quoting a word.
+ */
+function todoInCode(
+  line: number,
+  text: string,
+  at: number,
+  context: RuleContext,
+): readonly Draft[] {
+  const body = anyCommentBody(text);
+  if (body === null) return [];
+  const match = TASK_MARKER.exec(body.trim());
+  if (match === null) return [];
+  const marker = group(match, 1);
+  const said = [group(match, 2).trim()];
+  // **The rest of the block, at most two more lines**, because a TODO's content is a paragraph and the finding has to
+  // carry the paragraph rather than its first clause.
+  for (let next = at + 1; next < context.lines.length && said.length < 3; next += 1) {
+    const following = anyCommentBody(context.lines[next] as string);
+    if (following === null) break;
+    if (following.trim().length > 0) said.push(following.trim());
+  }
+  const promise = said.filter((part) => part.length > 0).join(' ');
+  return [
+    {
+      id: 'todo-in-code',
+      line,
+      category: 'maintainability',
+      severity: 'low',
+      title: `A ${marker} is left in the change`,
+      description:
+        `The change adds a \`${marker}\`${promise.length === 0 ? '' : `: ${promise}`} A task marker in code is a ` +
+        'promise with no owner and no date, and the next reader cannot tell whether it is a plan or a note to self.',
+      suggestion:
+        'File the task where it can be tracked, and say in the code what the reader should do meanwhile.',
+    },
+  ];
+}
+
+// ---------------------------------------------------------------------------
+// Rule: a parameter of a heap-owning type, by value
+// ---------------------------------------------------------------------------
+
+/**
+ * **The types whose copy is a heap allocation**, per family and per language.
+ *
+ * A `Base::Vector3d` is three doubles and passing it by value is right, so it is not on the list; **the rule's whole
+ * claim is that the copy is expensive**, and a rule that fired on every by-value parameter would be reporting a
+ * convention rather than a cost.
+ */
+const HEAP_OWNING_TEMPLATES = [
+  'vector',
+  'map',
+  'set',
+  'unordered_map',
+  'unordered_set',
+  'list',
+  'deque',
+  'multimap',
+]
+  .map((name) => `(?:std::)?${name}`)
+  .concat(['QList', 'QVector', 'QMap', 'QHash', 'QSet', 'QStringList'])
+  .join('|');
+
+/** A parameter is a name followed by `,` or `)` - **the only two characters that can follow one**, and the reason a
+ * local declaration is out of reach: a declaration is followed by `;`, `=` or `{`. */
+const BY_VALUE_PARAMETER = new RegExp(
+  `\\b(?:const\\s+)?(?:(?:std::|Q)[A-Za-z_]\\w*::)*(?:${HEAP_OWNING_TEMPLATES})\\b` +
+    `(?:\\s*<[^;{}()]*>)?\\s+([A-Za-z_]\\w*)\\s*[,)]`,
+  'g',
+);
+
+/** The non-template class types with the same property, written out because they have no `<>` to recognise them by. */
+const BY_VALUE_NAMED =
+  /\b(?:const\s+)?(?:std::)?(?:string|wstring|u16string|u32string|QString|QByteArray)\s+([A-Za-z_]\w*)\s*[,)]/g;
+
+/**
+ * **Corpus: `CommandCreateDims.cpp:2384` - `std::string type` by value - and `DimensionValidators.h`'s "The string
+ * parameter in `isCosmeticVertex` should be passed by const reference instead of by value to avoid unnecessary
+ * copying."**
+ */
+function parameterByValue(line: number, text: string): Draft[] {
+  for (const pattern of [BY_VALUE_PARAMETER, BY_VALUE_NAMED]) {
+    pattern.lastIndex = 0;
+    const match = pattern.exec(text);
+    if (match === null) continue;
+    const name = group(match, 1);
+    const declared = match[0].replace(/[,)]\s*$/, '').trim();
+    return [
+      {
+        id: 'parameter-by-value',
+        line,
+        category: 'performance',
+        severity: 'medium',
+        title: `\`${name}\` is passed by value`,
+        description:
+          `\`${declared}\` declares \`${name}\` by value, and this type owns a buffer: every call copies it. ` +
+          'A reference costs an indirection and no allocation, and the callee cannot tell the difference unless it ' +
+          'means to modify its own copy.',
+        suggestion: `Take it as \`const ${declared.split(/\s+/).slice(0, -1).join(' ')}& ${name}\`.`,
+      },
+    ];
+  }
+  return [];
+}
+
+// ---------------------------------------------------------------------------
+// Rule: an enum passed by const reference
+// ---------------------------------------------------------------------------
+
+/**
+ * **Corpus: `DrawProjGroup.h:133` - "Enums should typically be passed by value (they are small integral types).
+ * Passing by `const&` adds indirection and can complicate usage."**
+ *
+ * **The evidence has to be in the patch**, the same rule `float-literal-in-float-arithmetic` applies: the type's
+ * `enum` declaration is what makes the reference wrong, and a rule that assumed every `const X&` was an enum would fire
+ * on every string parameter in the corpus - the exact opposite finding.
+ */
+function enumByConstReference(line: number, text: string, enums: ReadonlySet<string>): Draft[] {
+  if (enums.size === 0) return [];
+  for (const name of enums) {
+    const pattern = new RegExp(
+      `\\bconst\\s+(?:(?:[A-Za-z_]\\w*)::)*${name}\\s*&\\s*([A-Za-z_]\\w*)\\s*[,)]`,
+    );
+    const match = pattern.exec(text);
+    if (match === null) continue;
+    const parameter = group(match, 1);
+    return [
+      {
+        id: 'enum-by-const-reference',
+        line,
+        category: 'maintainability',
+        severity: 'low',
+        title: `Enum \`${name}\` is passed by const reference`,
+        description:
+          `\`${name}\` is an enum declared in this change, and it is four or eight bytes. Passing it as ` +
+          `\`const ${name}&\` makes every call dereference a pointer to an integer and makes the parameter's ` +
+          'lifetime look like something the callee has to think about.',
+        suggestion: `Take it by value: \`${name} ${parameter}\`.`,
+      },
+    ];
+  }
+  return [];
+}
+
+// ---------------------------------------------------------------------------
+// Rule: a plural written with an `s`
+// ---------------------------------------------------------------------------
+
+/** An identifier, which is the only place this rule looks. */
+const IDENTIFIER = /\b[A-Za-z_]\w*\b/g;
+
+/**
+ * **A name whose plural was written with an `s` on a consonant**, which is the one morphology error an identifier can
+ * carry that no compiler will ever mention: `Geometry` + `s` is `Geometrys`, and English wants `Geometries`.
+ *
+ * **The stem has to be four letters or more**, which excludes `sys` (a stem of `s`), and **the letter before `ys` has to
+ * be a consonant**, which excludes `keys` and `toys`. Between the two guards the rule is silent on names that are not
+ * plurals, and `directoryEntrys` and `acceptableDimensionGeometrys` both survive.
+ */
+const CONSONANT_PLURAL = /([A-Za-z]{4,}[bcdfghjklmnpqrstvwxz])ys$/;
+
+/**
+ * **Corpus: `DimensionValidators.h:70` - "`acceptableDimensionGeometrys` is an incorrect plural (should be
+ * `acceptableDimensionGeometries`). Since this is part of the function signature in a header, the typo propagates."**
+ */
+function pluralYs(line: number, text: string): Draft[] {
+  // A string literal is not a name, and a comment is not code: **both are removed rather than skipped**, so a line that
+  // mentions `Geometrys` in prose is still read for the identifier beside it.
+  const code = text.replace(/(['"])(?:\\.|(?!\1).)*\1/g, '""');
+  if (anyCommentBody(code) !== null) return [];
+  for (const match of code.matchAll(IDENTIFIER)) {
+    const name = match[0];
+    const stem = CONSONANT_PLURAL.exec(name);
+    if (stem === null) continue;
+    const fixed = `${group(stem, 1)}ies`;
+    return [
+      {
+        id: 'plural-ys',
+        line,
+        category: 'maintainability',
+        severity: 'low',
+        title: `\`${name}\` pluralises a consonant with an \`s\``,
+        description:
+          `\`${name}\` ends in \`${group(stem, 1)}ys\`. A word ending in a consonant and a \`y\` takes \`ies\`, and an ` +
+          'identifier in a signature carries the slip to every call site that autocompletes it.',
+        suggestion: `Rename it to \`${fixed}\`.`,
+      },
+    ];
+  }
+  return [];
+}
+
+// ---------------------------------------------------------------------------
 // The lane
 // ---------------------------------------------------------------------------
 
@@ -461,6 +769,45 @@ const RULE_TABLE: readonly RuleRow[] = [
     run: articleAgreement,
   },
   { id: 'macro-name-case', languages: ['cxx'], corpus: 'usb_ids.h:63', run: macroNameCase },
+  // **The six that this slice's goldens are actually about.** `scripts/idiom-reach.mjs` priced the six rows above at
+  // 3 of 364 goldens on the wide arm, because they were derived from a sample whose remarks were `const auto&` and
+  // `2.0f`. These are derived from the remarks this slice's reviewers wrote, each naming the golden it came from.
+  {
+    id: 'doubled-word',
+    languages: ['cxx', 'javascript', 'other'],
+    corpus: 'DlgOnlineHelpImp.h:35',
+    run: doubledWord,
+  },
+  {
+    id: 'subject-verb-agreement',
+    languages: ['cxx', 'javascript', 'other'],
+    corpus: 'DrawTile.cpp:46',
+    run: subjectVerbAgreement,
+  },
+  {
+    id: 'todo-in-code',
+    languages: ['cxx', 'javascript', 'other'],
+    corpus: 'DrawProjGroup.cpp:1144',
+    run: todoInCode,
+  },
+  {
+    id: 'parameter-by-value',
+    languages: ['cxx'],
+    corpus: 'CommandCreateDims.cpp:2384',
+    run: parameterByValue,
+  },
+  {
+    id: 'enum-by-const-reference',
+    languages: ['cxx'],
+    corpus: 'DrawProjGroup.h:133',
+    run: (line, text, _at, context) => enumByConstReference(line, text, context.enums),
+  },
+  {
+    id: 'plural-ys',
+    languages: ['cxx', 'javascript', 'other'],
+    corpus: 'DimensionValidators.h:70',
+    run: pluralYs,
+  },
 ];
 
 /** The rule table as the lane and the artifact read it: frozen, so a caller cannot add a rule to a shared array. */
@@ -470,6 +817,15 @@ export const IDIOM_RULES: readonly RuleRow[] = Object.freeze(RULE_TABLE);
 function floatDeclarations(patch: string): ReadonlySet<string> {
   const names = new Set<string>();
   for (const match of patch.matchAll(FLOAT_DECLARATION)) names.add(group(match, 1));
+  return names;
+}
+
+/** The `enum` names the patch declares, which are the evidence that a `const X&` parameter is indirection around an int. */
+const ENUM_DECLARATION = /\benum\s+(?:class\s+|struct\s+)?([A-Za-z_]\w*)/g;
+
+function enumDeclarations(patch: string): ReadonlySet<string> {
+  const names = new Set<string>();
+  for (const match of patch.matchAll(ENUM_DECLARATION)) names.add(group(match, 1));
   return names;
 }
 
@@ -483,9 +839,22 @@ function floatDeclarations(patch: string): ReadonlySet<string> {
  */
 export function detectIdioms(input: IdiomInput): LLMFinding[] {
   const language = languageOf(input.path);
-  const entries = [...input.addedLines.entries()].sort((left, right) => left[0] - right[0]);
+  /**
+   * **A line's text, with the carriage return a CRLF file leaves on it removed.**
+   *
+   * `numberedAddedLines` reads the patch format and does not touch the bytes, so a file authored on Windows arrives with
+   * `\r` at the end of every line - and **four of these rules anchor on `$`**, which without the multiline flag matches
+   * only at the very end of a string that no longer ends where the line does. Measured: on `FreeCAD`'s `DlgOnlineHelpImp.h`
+   * the doubled `an an` is on an added line and every rule stayed silent, because the only difference between the text the
+   * rule was written against and the text it was handed was one character. **The lane is where the rules live, so the
+   * lane is where the line ends.**
+   */
+  const entries = [...input.addedLines.entries()]
+    .map(([line, text]) => [line, text.replace(/\r$/, '')] as const)
+    .sort((left, right) => left[0] - right[0]);
   const context: RuleContext = {
     floats: floatDeclarations(input.patch),
+    enums: enumDeclarations(input.patch),
     lines: entries.map(([, text]) => text),
   };
 
