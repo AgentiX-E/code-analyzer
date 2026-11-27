@@ -19809,11 +19809,11 @@ Dispatch `46001226979` (`lane_set=reviewer`, `crosscheck` swapped for `testing`,
 
 | figure                         | pinned `wide` (§177) | reviewer pair (R-178) | competitor, our DeepSeek |
 | ------------------------------ | -------------------: | --------------------: | -----------------------: |
-| overall precision              |              0.4270  |               0.4128  |              (see §177)  |
-| overall recall                 |              0.2655  |               0.2721  |              (see §177)  |
-| **overall F1**                 |              0.3274  |           **0.3280**  |                  0.3739  |
-| credited `Code Defect` goldens |                 80   |             **83**    |                     96   |
-| `Code Defect` recall           |              0.3828  |           0.3971      |                0.4593    |
+| overall precision              |               0.4270 |                0.4128 |               (see §177) |
+| overall recall                 |               0.2655 |                0.2721 |               (see §177) |
+| **overall F1**                 |               0.3274 |            **0.3280** |                   0.3739 |
+| credited `Code Defect` goldens |                   80 |                **83** |                       96 |
+| `Code Defect` recall           |               0.3828 |                0.3971 |                   0.4593 |
 
 **Claim R-178 is confirmed, not disproved:** 83 > 80 credited `Code Defect` goldens on the same 50 pull requests and
 judge, and overall F1 moved +0.0006 (the falsifier was a fall of more than 0.01). The lane swap bought three defect

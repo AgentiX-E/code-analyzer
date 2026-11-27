@@ -57,20 +57,20 @@
   point — a row without one is not accepted, whatever its unit coverage, because the last three defects here were joins
   between components that each passed their own tests.</p>
   <ul class="tiles">
-    <li><b>60</b><span>capabilities</span></li>
-    <li><b>51</b><span>done</span></li>
+    <li><b>61</b><span>capabilities</span></li>
+    <li><b>52</b><span>done</span></li>
     <li><b>7</b><span>partial</span></li>
     <li><b>2</b><span>not built</span></li>
-    <li><b>50</b><span>with an end-to-end case</span></li>
-    <li><b>46</b><span>ours only</span></li>
+    <li><b>51</b><span>with an end-to-end case</span></li>
+    <li><b>47</b><span>ours only</span></li>
     <li><b>2</b><span>competitor only</span></li>
   </ul>
 </header>
 <nav>
-  <button data-filter="all" aria-pressed="true">All <span style="opacity:.6">60</span></button>
+  <button data-filter="all" aria-pressed="true">All <span style="opacity:.6">61</span></button>
   <button data-filter="NONE" aria-pressed="false">Not built <span style="opacity:.6">2</span></button>
   <button data-filter="PART" aria-pressed="false">Partial <span style="opacity:.6">7</span></button>
-  <button data-filter="DONE" aria-pressed="false">Done <span style="opacity:.6">51</span></button>
+  <button data-filter="DONE" aria-pressed="false">Done <span style="opacity:.6">52</span></button>
   <button data-filter="C" aria-pressed="false">Competitor only <span style="opacity:.6">2</span></button>
   <button data-filter="no-e2e" aria-pressed="false">No end-to-end case <span style="opacity:.6">10</span></button>
   <input id="q" type="search" placeholder="filter by capability, file or surface" aria-label="filter">
@@ -423,7 +423,7 @@
     </table>
   </section>
   <section>
-    <h2>researcher, I want every number to be reproducible and every difference to be real<span class="count">26</span></h2>
+    <h2>researcher, I want every number to be reproducible and every difference to be real<span class="count">27</span></h2>
     <table>
       <thead><tr><th>#</th><th>Capability</th><th>Ships at</th><th>Unit</th><th>End-to-end</th><th>State</th><th>What the state means</th></tr></thead>
       <tbody>
@@ -660,6 +660,15 @@
         <td class="proof"><span class="none">no end-to-end case</span></td>
         <td><span class="state DONE">DONE</span></td>
         <td class="why">DONE (§178) — S63 was registered as code defect 0.3110 → ≥ 0.40: 0.3110 was the live board's reading after the diff repair moved it to 0.3828, and 0.40 sat below the competitor's 0.4641 under our DeepSeek. benchmarks/targets.json is now the single source; scripts/target-gate.mjs re-reads each artifact and refuses a target below its competitor, a baseline that disagrees with its source, an unreadable source, a selector matching no row, and an empty registry. Nine cases; wired into competitor-matrix.yml so a stale target fails a pull request</td>
+      </tr>
+      <tr data-state="DONE" data-who="O" data-e2e="true">
+        <td class="id">61</td>
+        <td class="cap">An audit that fails says so about itself — a range the remote dropped is a corpus fact, not a counted reviewer failure, and the check that reads them keeps the two apart<span class="surface">harness</span></td>
+        <td><span class="tag O">ours only</span></td>
+        <td class="proof"><code>the-detail-layers-add-up-to-the-figure-they-decompose</code></td>
+        <td class="proof"><code>the-detail-layers-add-up-to-the-figure-they-decompose (two cases written red before the fix, then the real artifact replayed through the CLI)</code></td>
+        <td><span class="state DONE">DONE</span></td>
+        <td class="why">DONE (§179) — the R-178 pair's final audit step read 0 counted, 2 named and failed a run whose accounting was correct: the two names are pull requests whose source_commit the remote no longer holds, filed under stage: 'range' and deliberately not counted in prsFailed. Rule 9 compared the counter with the whole failure list; it now compares it with stage: 'run' names only, keeps the unreachable count readable, and still fails a counted-but-unnamed run. The real artifact replays as 15 checks · all consistent; 36 cases in the detail-layer file, 1925 unit tests across 182 files</td>
       </tr>
       </tbody>
     </table>

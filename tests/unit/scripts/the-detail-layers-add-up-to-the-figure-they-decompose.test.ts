@@ -484,7 +484,11 @@ describe('every scored pull request is accounted for', () => {
         stage: 'range',
       };
       artifact.secondReviewer.failedPullRequests.push(row);
-      artifact.secondReviewer.missing.push({ key: row.key, goldens: row.goldens, reason: row.reason });
+      artifact.secondReviewer.missing.push({
+        key: row.key,
+        goldens: row.goldens,
+        reason: row.reason,
+      });
     }
     expect(failuresOf(artifact)).not.toContain(
       'the failures that were counted are the failures that were named',
