@@ -1,0 +1,35 @@
+{
+  "competitor": "open-code-review",
+  "profile": "all",
+  "goldens": 452,
+  "pullRequests": {
+    "withARow": 48,
+    "priced": 50,
+    "inCorpus": 196,
+    "scored": 50
+  },
+  "unmeasured": {
+    "pullRequests": 0,
+    "goldens": 0,
+    "keys": []
+  },
+  "asShipped": {
+    "emitted": 436,
+    "truePositives": 166,
+    "falsePositives": 270,
+    "falseNegatives": 286,
+    "precision": 0.38073394495412843,
+    "recall": 0.3672566371681416,
+    "f1": 0.3738738738738739
+  },
+  "atOurGate": {
+    "emitted": 112,
+    "truePositives": 60,
+    "falsePositives": 52,
+    "falseNegatives": 392,
+    "precision": 0.5357142857142857,
+    "recall": 0.13274336283185842,
+    "f1": 0.2127659574468085
+  },
+  "guard": true
+}

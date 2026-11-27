@@ -186,7 +186,7 @@ ${lines.join('\n')}
 <body>
 <header>
   <h1>Capability register</h1>
-  <p class="lede">Forty capabilities, grouped by the person who needs them. <b>Ships at</b> says whether a named competitor
+  <p class="lede">Every capability, grouped by the person who needs it. <b>Ships at</b> says whether a named competitor
   has it, this repository has it alone, or everyone does. <b>End-to-end</b> names the case that drives the public entry
   point — a row without one is not accepted, whatever its unit coverage, because the last three defects here were joins
   between components that each passed their own tests.</p>

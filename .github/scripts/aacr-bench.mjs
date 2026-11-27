@@ -68,6 +68,7 @@ import {
 import { operatingPointTable } from '../../scripts/lib/operating-point.mjs';
 import { locateLaneFindings } from '../../scripts/lib/lane-attribution.mjs';
 import { commitsOf, fetchPinnedDiff } from '../../scripts/lib/pinned-diff.mjs';
+import { classifyCompetitorFailure, failureReason } from '../../scripts/lib/competitor-failure.mjs';
 import { evidenceSummary, quotationOf } from './lib/published-evidence.mjs';
 import { isTransientStatus, withRetry } from '../../scripts/lib/transient-fetch.mjs';
 import { readReviewDefaults } from './lib/review-defaults.mjs';
@@ -2964,6 +2965,19 @@ async function main() {
     // resting on fourteen fingerprint-checked rows**, even though both are called "replayed".
     verifiedBy: { fingerprint: 0, count: 0 },
     missing: [],
+    /**
+     * **The pull requests it could not read at all, with the reason — a fourth state beside `missing`.**
+     *
+     * `missing` is a hole this run did not fill (no baseline row and no attempt); `failedPullRequests` is an attempt that
+     * ran and failed; **this is a pull request whose range the remote no longer holds**, which is a fact about the corpus
+     * and not about the reviewer. `§177` priced the collapse: two `ComfyUI` pull requests answered
+     * `fatal: remote error: upload-pack: not our ref`, the harness filed a scored row with zero findings for each, and
+     * **eleven goldens entered the competitor's denominator as false negatives** — recall `0.3673` where the rows it
+     * actually held rebuild `0.3764`. The same two pull requests answer `404` to the pinned compare (`§175`) and stand in
+     * the reach partition's `unread` bucket, so this is the third instrument to see one corpus defect and the first to
+     * have been reading it as a result.
+     */
+    unread: [],
     baselinePath: competitorChoice.mode === 'record' ? COMPETITOR_BASELINE_PATH : null,
     prsAttempted: 0,
     prsFailed: 0,
@@ -3509,13 +3523,23 @@ async function main() {
         // **So it is named rather than folded into a generic sentence**, because **a run that had credit and a run
         // that did not produce the same zero and mean different things** - **the same distinction `prsFailed` draws one
         // level up.**
-        const creditFailure = /402|Insufficient Balance|Payment Required/i.test(raw);
-        const reason = creditFailure
-          ? `the provider refused the call for want of credit: ${raw.slice(0, 300)}`
-          : raw !== ''
-            ? raw
-            : '(the tool reported a failure with no message)';
-        if (creditFailure) competitor.creditExhausted = true;
+        /**
+         * **Three outcomes, because there are three repairs** (`scripts/lib/competitor-failure.mjs`).
+         *
+         * This branch used to recognise one way of not running - the provider refusing for want of credit - and scored
+         * **every other failure as "ran and found nothing"**. The run of `§177` then paid for it: two pull requests whose
+         * commits the remote no longer holds failed at `git` with `upload-pack: not our ref`, took a scored row with zero
+         * findings each, and **eleven goldens entered the competitor's denominator as misses**. The pricing beside the
+         * board (`scripts/competitor-cut.mjs`) rebuilt `0.3764` from the rows actually held while the run published
+         * `0.3673`, and the guard refused the pricing - which is the guard doing its job on a figure that was wrong.
+         *
+         * **A range the remote does not hold is not a reviewer's failure**, so it is filed where the other facts about
+         * this run's own reach are filed: `missing`, named, with its goldens. **A crash is still an observation** and
+         * still scores a zero.
+         */
+        const kind = classifyCompetitorFailure(raw);
+        const reason = failureReason(kind, raw);
+        if (kind === 'credit') competitor.creditExhausted = true;
         if (
           !competitor.firstFailure ||
           competitor.firstFailure === '(the tool reported a failure with no message)'
@@ -3536,11 +3560,25 @@ async function main() {
         // environment fact and is filed as `missing` instead, because the two have different repairs and only one of
         // them is about the competitor. The credit case is the one this repository has already paid for: the tool was
         // installed, the range resolved, and the provider refused the call, which says nothing about the reviewer.
-        if (creditFailure) {
+        if (kind !== 'ran') {
           // **Filed as a hole in the pairing rather than as a failure of the reviewer**, and therefore not counted in
-          // `prsFailed` either: the two lists are one fact written twice, and a run whose provider refused the call did
-          // not observe the competitor at all.
-          competitor.missing.push({ key: competitorKey, reason });
+          // `prsFailed` either: the two lists are one fact written twice, and a run whose provider refused the call - or
+          // whose range the remote no longer holds - did not observe the competitor at all.
+          competitor.missing.push({ key: competitorKey, goldens: issueTexts.length, reason });
+          if (kind === 'unreachable') {
+            competitor.unread.push({
+              key: competitorKey,
+              goldens: issueTexts.length,
+              reason: reason.slice(0, 200),
+            });
+            competitor.failedPullRequests.push({
+              key: competitorKey,
+              goldens: issueTexts.length,
+              reason: reason.slice(0, 200),
+              // **Which of the ways it failed**, so a later run can tell a range that does not exist from a refusal.
+              stage: 'range',
+            });
+          }
         } else {
           competitor.prsFailed += 1;
           competitorPerPr.push({

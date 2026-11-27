@@ -266,23 +266,45 @@ describe('a competitor’s cut is priced from verdicts it already sold', () => {
 // denominator, and **the hole rule still applies inside it** - narrowing the corpus must not become a way to drop a pull
 // request that was asked about and answered nothing.
 describe('the denominator belongs to the run’s slice, and the hole rule survives inside it', () => {
-  const slice = (coveredKeys: string[], scored: string[]): string => {
+  const slice = (coveredKeys: string[], scored: string[], unread: string[] = []): string => {
     const directory = mkdtempSync(join(tmpdir(), 'competitor-cut-slice-'));
     const path = join(directory, 'selection.json');
     writeFileSync(
       path,
       JSON.stringify({
-        secondReviewer: { coveredKeys },
+        secondReviewer: {
+          coveredKeys,
+          unread: unread.map((key) => ({ key, goldens: 1, reason: 'unreachable' })),
+        },
         coverage: { byPullRequest: scored.map((pr) => ({ pr })) },
       }),
     );
     return path;
   };
 
-  it('divides by the goldens of the pull requests the run scored, not by the whole corpus', () => {
-    // `C` was never asked of the arm, so its one golden is neither a hit nor a miss: the denominator is `A`'s three plus
-    // `B`'s two. **Dividing by the corpus's six would read 0.5000 where the slice reads 0.6000** - the same defect as the
-    // one that stopped run 45924315931, one order of magnitude smaller.
+  it('narrows to the slice the run asked about, so a pull request nobody asked about is in neither denominator', () => {
+    // `C` was never in the run's slice, so its golden is neither a hit nor a miss: the denominator is `A`'s three plus
+    // `B`'s two. **Dividing by the corpus's six would read 0.5000 where the slice reads 0.6000** - the defect that stopped
+    // run `45924315931`, one order of magnitude smaller.
+    const selection = slice(
+      ['https://example.test/a/pull/1', 'https://example.test/b/pull/2'],
+      ['https://example.test/a/pull/1', 'https://example.test/b/pull/2'],
+    );
+    const { code, out, board } = run({}, ['--selection', selection]);
+    expect(code).toBe(0);
+    expect(out).toContain('2 of 2 scored pull requests have a row');
+    expect(out).toContain('goldens 5');
+    expect(out).toContain('emitted 6  tp 3  P 0.5000  R 0.6000  F1 0.5455');
+    expect(out).not.toContain('are outside it');
+    expect(board?.['pullRequests']).toEqual({ withARow: 2, priced: 2, inCorpus: 3, scored: 2 });
+    expect(board?.['unmeasured']).toEqual({ pullRequests: 0, goldens: 0, keys: [] });
+  });
+
+  it('keeps a pull request inside the slice that produced no row, because that silence is an observation', () => {
+    // **This case is the `§177` repair.** `C` is in the run's slice and has no row. The pricing used to take its universe
+    // from `coveredKeys`, which is the arm's own coverage - so `C` left the denominator and the pricing reported `0.6000`
+    // where the run charged `C`'s golden and published `0.5000`. **Two instruments over one row set disagreed, and the
+    // guard blamed the rows.**
     const selection = slice(
       ['https://example.test/a/pull/1', 'https://example.test/b/pull/2'],
       [
@@ -294,27 +316,47 @@ describe('the denominator belongs to the run’s slice, and the hole rule surviv
     const { code, out, board } = run({}, ['--selection', selection]);
     expect(code).toBe(0);
     expect(out).toContain('2 of 3 scored pull requests have a row');
-    expect(out).toContain('goldens 5');
-    expect(out).toContain('emitted 6  tp 3  P 0.5000  R 0.6000  F1 0.5455');
-    expect(out).toContain(
-      'and 1 golden on 1 scored pull request the arm produced nothing for are outside it',
-    );
-    expect(board?.['pullRequests']).toEqual({ withARow: 2, priced: 2, inCorpus: 3, scored: 3 });
-    expect(board?.['unmeasured']).toEqual({ pullRequests: 1, goldens: 1 });
+    // `C`'s golden stays in the denominator and contributes nothing to the numerator: the hole rule, at full strength.
+    expect(out).toContain('goldens 6');
+    expect(out).toContain('emitted 6  tp 3  P 0.5000  R 0.5000  F1 0.5000');
+    expect(out).not.toContain('are outside it');
+    expect(board?.['pullRequests']).toEqual({ withARow: 2, priced: 3, inCorpus: 3, scored: 3 });
   });
 
-  it('keeps a pull request that was asked about and answered nothing in the denominator', () => {
-    // `C` **was** covered by the selection and produced no row: that silence is an observation, so its golden stays in the
-    // denominator. Four goldens, two credited, `R 0.5000` - and no line about anything being outside the figure.
+  it('leaves out a pull request the run could not read, and says so in the terms the run used', () => {
+    // **`ComfyUI#7952` and `#9560` name commits the remote no longer holds**, so their `git` range fails before either arm
+    // runs. Charging their eleven goldens to the competitor's recall is charging it for a pull request it was never able
+    // to open - so they leave the denominator, and the record names them with the reason.
     const selection = slice(
-      ['https://example.test/a/pull/1', 'https://example.test/c/pull/3'],
-      ['https://example.test/a/pull/1', 'https://example.test/c/pull/3'],
+      ['https://example.test/a/pull/1', 'https://example.test/b/pull/2'],
+      [
+        'https://example.test/a/pull/1',
+        'https://example.test/b/pull/2',
+        'https://example.test/c/pull/3',
+      ],
+      ['https://example.test/c/pull/3'],
     );
     const { code, out, board } = run({}, ['--selection', selection]);
     expect(code).toBe(0);
-    expect(out).toContain('goldens 4');
-    expect(out).toContain('emitted 4  tp 2  P 0.5000  R 0.5000  F1 0.5000');
-    expect(out).not.toContain('are outside it');
-    expect(board?.['unmeasured']).toEqual({ pullRequests: 0, goldens: 0 });
+    expect(out).toContain('goldens 5');
+    expect(out).toContain('emitted 6  tp 3  P 0.5000  R 0.6000  F1 0.5455');
+    expect(out).toContain('the arm could not read');
+    expect(board?.['unmeasured']).toMatchObject({
+      pullRequests: 1,
+      goldens: 1,
+      keys: [{ key: 'https://example.test/c/pull/3', goldens: 1, reason: 'unread' }],
+    });
+  });
+
+  it('refuses a run that calls a pull request unread while the baseline holds a row for it', () => {
+    // Two instruments, two answers, and no way from here to know which: **the pricing says so instead of picking one.**
+    const selection = slice(
+      ['https://example.test/a/pull/1', 'https://example.test/b/pull/2'],
+      ['https://example.test/a/pull/1', 'https://example.test/b/pull/2'],
+      ['https://example.test/a/pull/1'],
+    );
+    const { code, out } = run({}, ['--selection', selection]);
+    expect(code).toBe(2);
+    expect(out).toContain('named unread and have a baseline row');
   });
 });

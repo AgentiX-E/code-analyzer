@@ -109,9 +109,25 @@ const corpusKeys = (Array.isArray(corpus) ? corpus : [])
 
 const selection =
   options.selection === null ? null : JSON.parse(readFileSync(options.selection, 'utf8'));
-const selected = Array.isArray(selection?.secondReviewer?.coveredKeys)
-  ? selection.secondReviewer.coveredKeys
+
+/**
+ * **The run's own scored slice, not the arm's own coverage - and this was the `§177` defect.**
+ *
+ * The filter used to be `secondReviewer.coveredKeys`, which is the pull requests the arm *had a row for*. So a pricing
+ * with `--selection` silently shrank its denominator to whatever the arm had covered, **and a pricing and the run it
+ * exists to rebuild could not agree whenever a row was missing**: the run charged the missing pull request's goldens as
+ * false negatives (`0.3673`) while the pricing left them out (`0.3764`), and the guard refused the pricing with
+ * *"these are not the rows that figure came from"* - about two row sets that were the same rows.
+ *
+ * **`coverage.byPullRequest` is the run's slice**, which is the denominator §173.1 registered: a pull request outside it
+ * is a question nobody asked, and a pull request inside it without a row is a hole that keeps its goldens.
+ */
+const scoredSelection = Array.isArray(selection?.coverage?.byPullRequest)
+  ? selection.coverage.byPullRequest
+      .map((row) => (typeof row?.pr === 'string' ? row.pr : null))
+      .filter((key) => key !== null)
   : null;
+const selected = scoredSelection;
 
 /**
  * **Every pull request this pricing is about - not every pull request with a row.**
@@ -121,7 +137,39 @@ const selected = Array.isArray(selection?.secondReviewer?.coveredKeys)
  * goldens to the denominator (§147.3). What the selection removes is the pull requests outside the run's slice, which
  * nobody asked either arm about.
  */
-const keys = corpusKeys.filter((key) => selected === null || selected.includes(key));
+/**
+ * **The pull requests the arm could not read at all, named by the run that tried** (`§177`).
+ *
+ * A hole nobody could fill and a hole this run did not fill are the same arithmetic and two different facts: the first is
+ * about the corpus - `ComfyUI#7952` and `#9560` name commits the remote no longer holds, so their `git` range fails
+ * before either arm runs - and the second is about the run. **Only the first may leave a denominator**, because charging
+ * a reviewer for a pull request it was never able to open is the defect `§173.1` found one level up.
+ */
+const unreadKeys = new Set(
+  (Array.isArray(selection?.secondReviewer?.unread) ? selection.secondReviewer.unread : [])
+    .map((row) => (typeof row?.key === 'string' ? row.key : null))
+    .filter((key) => key !== null),
+);
+
+/**
+ * **A run cannot call a pull request unread while the baseline holds a row for it.**
+ *
+ * The two fields are written by different instruments - `unread` by the harness that failed to open the range, the row by
+ * the record that succeeded - and a pricing that met both and picked one would be choosing which of two of its own
+ * sources to believe. **One of them is wrong and the run is the only place that can be said.**
+ */
+const contradictory = [...unreadKeys].filter((key) => Object.hasOwn(rows, key));
+if (contradictory.length > 0) {
+  process.stderr.write(
+    `${options.selection}: ${String(contradictory.length)} pull request(s) are named unread and have a baseline row ` +
+      `(${contradictory.slice(0, 3).join(', ')}), so one of the two records is wrong and neither can be priced\n`,
+  );
+  process.exit(2);
+}
+
+const keys = corpusKeys.filter(
+  (key) => (selected === null || selected.includes(key)) && !unreadKeys.has(key),
+);
 
 if (keys.length === 0) {
   process.stderr.write(
@@ -208,12 +256,22 @@ const line2 = `  goldens ${String(denominator)} (every golden on the pull reques
  */
 const unmeasured = (scoredKeys ?? []).filter((key) => !keys.includes(key));
 const unmeasuredGoldens = unmeasured.reduce((count, key) => count + goldensOf(key), 0);
+/** The same list split by *why* it is outside, because the two have different repairs and only one is about the corpus. */
+const outsideUnread = unmeasured.filter((key) => unreadKeys.has(key));
+const outsideSilent = unmeasured.filter((key) => !unreadKeys.has(key));
+const goldensOfKeys = (list) => list.reduce((count, key) => count + goldensOf(key), 0);
 const plural = (count, noun) => `${String(count)} ${noun}${count === 1 ? '' : 's'}`;
 
 const lines = [line1, line2];
-if (unmeasured.length > 0)
+if (outsideUnread.length > 0)
   lines.push(
-    `  and ${plural(unmeasuredGoldens, 'golden')} on ${plural(unmeasured.length, 'scored pull request')} ` +
+    `  and ${plural(goldensOfKeys(outsideUnread), 'golden')} on ${plural(outsideUnread.length, 'scored pull request')} ` +
+      'the arm could not read - a range the remote no longer holds - are outside it, because charging them to its recall ' +
+      'is charging it for a pull request it was never able to open',
+  );
+if (outsideSilent.length > 0)
+  lines.push(
+    `  and ${plural(goldensOfKeys(outsideSilent), 'golden')} on ${plural(outsideSilent.length, 'scored pull request')} ` +
       'the arm produced nothing for are outside it',
   );
 lines.push(`  as shipped     ${figure(shipped)}`);
@@ -292,7 +350,24 @@ if (options.json !== null) {
           inCorpus: corpusKeys.length,
           scored: scoredKeys === null ? null : scoredKeys.length,
         },
-        unmeasured: { pullRequests: unmeasured.length, goldens: unmeasuredGoldens },
+        /**
+         * **The pull requests outside the figure, named rather than counted.**
+         *
+         * A count is enough to explain a denominator and not enough to check one: `§177`'s guard refused a pricing
+         * because the run had charged eleven goldens on two unread pull requests to the competitor's recall, and the
+         * pricing could say how many without saying which. **A reader - and the guard above - can only join two
+         * instruments on a name.**
+         */
+        unmeasured: {
+          pullRequests: unmeasured.length,
+          goldens: unmeasuredGoldens,
+          keys: unmeasured.map((key) => ({
+            key,
+            goldens: goldensOf(key),
+            // **Why it is outside**, so a reader can tell a corpus the remote no longer holds from a run that stopped.
+            reason: unreadKeys.has(key) ? 'unread' : 'no-row',
+          })),
+        },
         asShipped: shipped,
         atOurGate: removed > 0 ? gated : null,
         guard: guarded,

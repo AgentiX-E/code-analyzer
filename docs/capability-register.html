@@ -52,25 +52,25 @@
 <body>
 <header>
   <h1>Capability register</h1>
-  <p class="lede">Forty capabilities, grouped by the person who needs them. <b>Ships at</b> says whether a named competitor
+  <p class="lede">Every capability, grouped by the person who needs it. <b>Ships at</b> says whether a named competitor
   has it, this repository has it alone, or everyone does. <b>End-to-end</b> names the case that drives the public entry
   point — a row without one is not accepted, whatever its unit coverage, because the last three defects here were joins
   between components that each passed their own tests.</p>
   <ul class="tiles">
-    <li><b>58</b><span>capabilities</span></li>
-    <li><b>49</b><span>done</span></li>
+    <li><b>59</b><span>capabilities</span></li>
+    <li><b>50</b><span>done</span></li>
     <li><b>7</b><span>partial</span></li>
     <li><b>2</b><span>not built</span></li>
-    <li><b>49</b><span>with an end-to-end case</span></li>
-    <li><b>44</b><span>ours only</span></li>
+    <li><b>50</b><span>with an end-to-end case</span></li>
+    <li><b>45</b><span>ours only</span></li>
     <li><b>2</b><span>competitor only</span></li>
   </ul>
 </header>
 <nav>
-  <button data-filter="all" aria-pressed="true">All <span style="opacity:.6">58</span></button>
+  <button data-filter="all" aria-pressed="true">All <span style="opacity:.6">59</span></button>
   <button data-filter="NONE" aria-pressed="false">Not built <span style="opacity:.6">2</span></button>
   <button data-filter="PART" aria-pressed="false">Partial <span style="opacity:.6">7</span></button>
-  <button data-filter="DONE" aria-pressed="false">Done <span style="opacity:.6">49</span></button>
+  <button data-filter="DONE" aria-pressed="false">Done <span style="opacity:.6">50</span></button>
   <button data-filter="C" aria-pressed="false">Competitor only <span style="opacity:.6">2</span></button>
   <button data-filter="no-e2e" aria-pressed="false">No end-to-end case <span style="opacity:.6">9</span></button>
   <input id="q" type="search" placeholder="filter by capability, file or surface" aria-label="filter">
@@ -423,7 +423,7 @@
     </table>
   </section>
   <section>
-    <h2>researcher, I want every number to be reproducible and every difference to be real<span class="count">24</span></h2>
+    <h2>researcher, I want every number to be reproducible and every difference to be real<span class="count">25</span></h2>
     <table>
       <thead><tr><th>#</th><th>Capability</th><th>Ships at</th><th>Unit</th><th>End-to-end</th><th>State</th><th>What the state means</th></tr></thead>
       <tbody>
@@ -642,6 +642,15 @@
         <td class="proof"><code>a-dispatch-names-the-trunk-it-means (unit, twelve cases against a fake API; the CLI case asserts the exit code through a local server)</code></td>
         <td><span class="state DONE">DONE</span></td>
         <td class="why">DONE (§176) — §175's repair was pushed to master and the next dispatch named main, so the run started on a tree where scripts/lib/pinned-diff.mjs answers 404; the workflow's 204 carries no run identifier, so nothing in the response said which commit had been bought. Three checks, two of them before the request: the ref must be the default branch, the tip must hold the instrument, and the run's head_sha is read back and compared with the tip dispatched (#45972009374 on 23410c5d cancelled, #45972380798 on 114ee112 bought). A run counts only when its created_at is not older than the request, floored to the second, and a tree the check cannot read is a refusal rather than a pass</td>
+      </tr>
+      <tr data-state="DONE" data-who="O" data-e2e="true">
+        <td class="id">59</td>
+        <td class="cap">A run names the pull requests it could not read, and no arm is charged for them — a range the remote no longer holds is neither a reviewer's miss nor a competitor's<span class="surface">harness</span></td>
+        <td><span class="tag O">ours only</span></td>
+        <td class="proof"><code>a-failure-that-could-not-run-is-not-a-zero, a-competitors-cut-is-priced-from-verdicts-it-already-sold</code></td>
+        <td class="proof"><code>the-competitors-cut-is-read-from-a-record-the-run-published (the cut's denominator and its two refusals, driven through the command)</code></td>
+        <td><span class="state DONE">DONE</span></td>
+        <td class="why">DONE (§177) — ComfyUI#7952 and #9560 name commits the remote no longer holds, so the competitor's git range fails before it reviews anything; the failure branch recognised only a credit refusal and scored every other failure as &quot;ran and found nothing&quot;, charging 11 goldens to its recall (R 0.3673 where the 48 rows it held rebuild 0.3764). The pricing shrank its own denominator to the arm's coverage at the same time, so the two instruments could not agree and the guard blamed the rows. Three outcomes are now named (credit, unreachable, ran), only the third scores a zero, the pricing's universe is the run's slice minus the unread keys it names, and a run that calls a pull request unread while a row exists for it is refused rather than believed</td>
       </tr>
       </tbody>
     </table>

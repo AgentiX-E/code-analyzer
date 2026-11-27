@@ -19586,3 +19586,114 @@ deciding which lineage is the record**, and that decision belongs in the docs re
 **And that a dispatch through the web interface is checked.** Nothing here can intercept one. What the guard buys is that
 `scripts/dispatch-bench.mjs` is how this repository's paid runs are bought, and that a run bought any other way still has
 to name its `head_sha` before its figure is quoted - which is `§175`'s rule, applied to the instrument's own provenance.
+
+## §177 Both arms on the document the answer key was written on
+
+`§175` repaired the diff and `§176` made sure the run measuring it lands on the commit that carries the repair. **This
+round is the first readout of the repaired instrument on the board `§174` quotes**: fifty pull requests, 452 goldens,
+both arms on the pinned document.
+
+### 177.1 The board the repair produces
+
+| arm                                                       | emitted |  tp |      P |      R |         F1 |
+| --------------------------------------------------------- | ------: | --: | -----: | -----: | ---------: |
+| ours, shipped cut (50 PRs / 452 goldens)                  |     281 | 120 | 0.4270 | 0.2655 | **0.3274** |
+| ours, full emission                                       |     513 | 149 | 0.2904 | 0.3296 |     0.3088 |
+| competitor, as its run publishes it (452 goldens)         |     436 | 166 | 0.3807 | 0.3673 |     0.3739 |
+| competitor, over the 48 pull requests it could read (441) |     436 | 166 | 0.3807 | 0.3764 |     0.3786 |
+| competitor at its own gate (112 of 436 comments)          |     112 |  60 | 0.5357 | 0.1361 |     0.2170 |
+| **the same live reading, for the size of the repair**     |     311 | 102 | 0.3280 | 0.2257 | **0.2674** |
+
+**`0.2674 → 0.3274`, `+0.0600`**, on the same fifty pull requests, the same configuration, the same judge (`diffSource:
+pinned 48 · live 2 · unpinnable 0`). The fourteen-pull-request window `§175.8` measured moved `+0.0914`; **the repair is
+worth different amounts on different slices, and both readings are now on the record** rather than one of them being
+quoted as if it were the device.
+
+**The gap to the competitor is `0.0465` against the figure its run publishes and `0.0512` against the 441 goldens it
+could read** - and the three rows above say something a single number cannot: **we cover more goldens and they are more
+precise at the top.**
+
+| where the difference lives         | ours | theirs |
+| ---------------------------------- | ---: | -----: |
+| goldens with a finding at all      |  192 |    198 |
+| goldens after each side's own gate |  192 | **80** |
+| comments emitted                   |  513 |    436 |
+| comments after that gate           |  281 |    112 |
+
+**`192` against `198` is the pool, and `192` against `80` is the gate.** Their own cut keeps 112 of 436 comments and 80 of
+the 198 goldens it covered; ours keeps 281 of 513 and all 192 it covered. **So the next step is a pool step and not a
+ranking step** - which is what `S63` already was, now with a number under it.
+
+### 177.2 The guard refused, and both refusals were right
+
+The run's job went red at `Price the competitor's own cut`, with
+
+```
+the guard refuses this pricing: the rows do not rebuild the published figure
+(R=0.3673 against 0.3764, F1=0.3739 against 0.3786), so these are not the rows that figure came from
+```
+
+One row set, two denominators, and **two different defects produced the gap**:
+
+1. **The harness charges the competitor for pull requests it could not open.** `ComfyUI#7952` and `ComfyUI#9560` name
+   commits the remote no longer holds, so the competitor's `git` range fails before it reviews anything
+   (`fatal: remote error: upload-pack: not our ref 4936d01…`). The failure branch recognised one way of not running - the
+   provider refusing for want of credit - and **scored every other failure as "ran and found nothing"**: two rows with
+   zero findings, and **eleven goldens entered its denominator as false negatives**. Those are the same eleven goldens
+   that `§175.2` counts in the pinned reading's `unread` bucket, so **one corpus defect now has three instruments and, from
+   this round, one word for it.**
+2. **The pricing shrank its own denominator to the arm's coverage.** `competitor-cut` took its universe from
+   `secondReviewer.coveredKeys` - the pull requests with a row - so a pricing and the run it exists to rebuild could not
+   agree whenever a row was missing: the run charged `0.3673`, the pricing left the two holes out and reported `0.3764`,
+   and **the guard's message blamed the rows.**
+
+**Neither number was wrong to compute and both were wrong to print**, which is why the repair is in the accounting rather
+than in the guard.
+
+### 177.3 The invariant that replaces the refusal
+
+`scripts/lib/competitor-failure.mjs` names the three outcomes a failed attempt can have - `credit` (the account),
+`unreachable` (the corpus's commits are gone), `ran` (the tool) - and only the third scores a zero. The pricing's universe
+is now **the run's own scored slice minus the pull requests the run names `unread`**, so a hole that somebody could have
+filled keeps its goldens and a hole nobody could fill leaves the denominator with its reason attached.
+
+The two worlds, both accepted by the guard on the real artifacts:
+
+```
+# the artifact as published (no unread rows): the run's own figure rebuilt exactly
+goldens 452 · shipped 436 166 P 0.3807 R 0.3673 F1 0.3739 · the guard rebuilds P/R/F1 exactly
+
+# the same artifact with the two ComfyUI pull requests named unread: 441 goldens, and the corrected attribution
+goldens 441 · shipped 436 166 P 0.3807 R 0.3764 F1 0.3786 · the guard rebuilds P/R/F1 exactly
+and 11 goldens on 2 scored pull requests the arm could not read - a range the remote no longer holds - are outside it
+```
+
+**A run cannot call a pull request unread while the baseline holds a row for it**, and a pricing that met both refuses
+rather than choosing which of its own two sources to believe.
+
+### 177.4 What it does not establish
+
+- **That the board's committed artifact has moved.** `benchmarks/aacr-bench-pinned-50.json` and
+  `benchmarks/competitor-cut-pinned-50.json` are this reading under their own names, the way `corpus-reach-pinned.json`
+  sits beside `corpus-reach.json`. **Every derived record that still quotes the live board** - `competitor-board.json`,
+  `aacr-like-for-like.json`, the cut curves - is unchanged and therefore one reading behind, and the next dispatch is what
+  replaces them together rather than one at a time.
+- **That the corrected `unread` block is in an artifact yet.** The fix is in the harness and tested; the artifact this
+  round read was produced before it. Its `secondReviewer` therefore still charges the two pull requests, which is why the
+  table carries both denominators.
+- **That Martian moved.** Its rows name no commits, so `diffSource` there is `unpinnable` by construction and the pin
+  cannot reach it; the Martian figure remains the live reading until a corpus that names its commits is used.
+
+### 177.5 The plan
+
+| step                                                                      | target it must move                                                  | cost        |
+| ------------------------------------------------------------------------- | -------------------------------------------------------------------- | ----------- |
+| **S63** - `bug` lane depth on the four defect shapes, on the pinned board | `code defect` `0.3110 → ≥ 0.40`; pool coverage `192 → ≥ 220` goldens | 4 d, ≈ ¥14  |
+| **S66** - the board's artifacts regenerated as one set                    | derived records quoting one reading                                  | 0.5 d, `$0` |
+| **S60** - the boundary condition named from the diff                      | `maintainability` recall `0.1047 → ≥ 0.16`                           | 2 d, ≈ ¥7   |
+| **S64** - the two rules that reach, wired and priced in one arm           | proven free; no F1 claim until an arm measures them                  | 0.5 d, `$0` |
+| **S65** - both arms re-recorded on the pinned input                       | **done**: `0.2674 → 0.3274`, the bar rebuilt at `0.3739`/`0.3786`    | spent $1.67 |
+
+**`S63` is first because the table above says where the gap is**: we cover as many goldens as they do and convert all of
+them through the gate, and the remaining `0.0465` is their precision at a quarter of our volume. **A pool step moves both
+numbers; a ranking step moves precision only**, and precision is not what the corpus is short of.
