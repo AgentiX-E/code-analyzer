@@ -5,6 +5,8 @@
   "basis": "credited by any finding, before any cut - reach is a property of the pool",
   "corpus": {
     "path": "/tmp/aacr-bench/dataset/v1/positive_samples.json",
+    "snapshot": "remote",
+    "source": "Alibaba-Aone/aacr-bench · dataset/v1/positive_samples.json (Apache-2.0)",
     "digest": "sha256-02c8561f1c3994a2",
     "pullRequests": 50,
     "goldens": 452

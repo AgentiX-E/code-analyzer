@@ -278,8 +278,16 @@ async function main() {
      */
     reading: options.pinned ? 'pinned' : 'live',
     basis: 'credited by any finding, before any cut - reach is a property of the pool',
+    /**
+     * **The corpus, in the one state this repository has a vocabulary for.** `remote` says two things at once: the file
+     * was fetched at run time and is not held here - `Alibaba-Aone/aacr-bench` is read from a checkout the workflow makes
+     * - and the bytes that were read are identified by digest, so `corpus-provenance-gate` can refuse a record whose
+     * corpus moved instead of shrugging at a `/tmp` path it cannot walk.
+     */
     corpus: {
       path: options.corpus,
+      snapshot: 'remote',
+      source: 'Alibaba-Aone/aacr-bench · dataset/v1/positive_samples.json (Apache-2.0)',
       digest: `sha256-${createHash('sha256').update(corpusText).digest('hex').slice(0, 16)}`,
       pullRequests: rows.length,
       goldens,

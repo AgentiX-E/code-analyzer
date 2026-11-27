@@ -15,6 +15,10 @@
  *                 a digest would be a lie.
  *   `superseded`  a corpus that changed under a figure which cannot be re-derived today. It must say why, and the
  *                 reason is printed on every run so the number is never quoted as if it were current.
+ *   `remote`      a corpus fetched at run time from a named source and never committed here, identified by the digest of
+ *                 the bytes that were read. It must name the source and the digest, because **a figure measured on a
+ *                 corpus this repository does not hold is a figure whose input nobody can open** - and the two honest
+ *                 answers are to name what was read or to say nothing was measured.
  *
  * An artifact that names a corpus and no state fails, because the omission is exactly what let 5 735 and 3 257 sit
  * in the same repository without anyone asking which was true.
@@ -69,7 +73,7 @@ function analyse(repo) {
 
   const failures = [];
   const notes = [];
-  const states = { pinned: [], live: [], superseded: [] };
+  const states = { pinned: [], live: [], superseded: [], remote: [] };
   const corpora = {};
   const digestCache = new Map();
 
@@ -82,6 +86,23 @@ function analyse(repo) {
     }
     const corpus = artifact && typeof artifact === 'object' ? artifact.corpus : undefined;
     if (!corpus || typeof corpus.path !== 'string') continue;
+
+    // **A remote corpus is checked before the existence test**, because its path is on the runner and the point of the
+    // state is that this repository never holds it. What is required instead is what a reader can check without it: the
+    // source it came from and the digest of the bytes that were read.
+    if (corpus.snapshot === 'remote') {
+      const named = typeof corpus.source === 'string' && corpus.source.trim() !== '';
+      const digested = typeof corpus.digest === 'string' && corpus.digest.trim() !== '';
+      if (!named || !digested) {
+        failures.push(
+          `${name}: corpus.snapshot is "remote" with ${named ? 'no digest' : 'no source'} — a corpus this repository ` +
+            'does not hold has to name where it came from and which bytes were read.',
+        );
+      } else {
+        states.remote.push(name);
+      }
+      continue;
+    }
 
     const absolute = path.join(repo, corpus.path);
     if (!fs.existsSync(absolute)) {
@@ -124,8 +145,8 @@ function analyse(repo) {
       }
     } else {
       failures.push(
-        `${name}: names ${corpus.path} and no snapshot state — say "pinned", "live" or "superseded", because the ` +
-          'omission is what let two node counts for one directory coexist.',
+        `${name}: names ${corpus.path} and no snapshot state — say "pinned", "live", "superseded" or "remote", ` +
+          'because the omission is what let two node counts for one directory coexist.',
       );
     }
   }
@@ -144,7 +165,8 @@ function main() {
 
   console.log(
     `${result.states.pinned.length} pinned · ${result.states.live.length} live · ` +
-      `${result.states.superseded.length} superseded · ${result.scanned} artifacts scanned`,
+      `${result.states.superseded.length} superseded · ${result.states.remote.length} remote · ` +
+      `${result.scanned} artifacts scanned`,
   );
   for (const note of result.notes) console.log(`  superseded: ${note}`);
   if (result.failures.length > 0) {

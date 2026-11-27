@@ -19435,14 +19435,19 @@ the number from moving**, which is what §175.5 does.
 
 ### 175.5 The repair, and where it is wired
 
-| what                                                     | where                              | what it makes readable                                                    |
-| -------------------------------------------------------- | ---------------------------------- | ------------------------------------------------------------------------- |
-| `commitsOf` / `fetchPinnedDiff` / `compareDiffUrl`       | `scripts/lib/pinned-diff.mjs`      | the diff at the corpus's own pair, with a refusal that says why it failed |
-| the harness reads pinned first, live as a named fallback | `.github/scripts/aacr-bench.mjs`   | `diffSource: { pinned, live, pinFailures, unpinnable, firstPinFailure }`  |
-| both readings, every dispatch                            | `.github/workflows/aacr-bench.yml` | `benchmarks/corpus-reach.json` and `corpus-reach-pinned.json` + two pages |
+| what                                                     | where                               | what it makes readable                                                                             |
+| -------------------------------------------------------- | ----------------------------------- | -------------------------------------------------------------------------------------------------- |
+| `commitsOf` / `fetchPinnedDiff` / `compareDiffUrl`       | `scripts/lib/pinned-diff.mjs`       | the diff at the corpus's own pair, with a refusal that says why it failed                          |
+| the harness reads pinned first, live as a named fallback | `.github/scripts/aacr-bench.mjs`    | `diffSource: { pinned, live, pinFailures, unpinnable, firstPinFailure }`                           |
+| both readings, every dispatch                            | `.github/workflows/aacr-bench.yml`  | `benchmarks/corpus-reach.json` and `corpus-reach-pinned.json` + two pages                          |
+| a fourth corpus state, `remote`                          | `scripts/corpus-provenance-gate.js` | a figure measured on a corpus this repository does not hold, checked for its source and its digest |
 
 **The fallback is counted rather than silent**, because a pin that is claimed and not performed is the same defect one
-level up. The two `ComfyUI` rows are the natural experiment: their compare returns `404`, the live diff is the only text
+level up - **and the record names its corpus in a state the provenance gate can check.** `Alibaba-Aone/aacr-bench` is
+fetched at run time and never committed here, so `corpus-reach.json` first failed `gate:corpus` for naming a `/tmp` path
+nobody could walk, which is the gate doing the job it was written for. The repair is a fourth state rather than a string:
+`remote` requires a `source` and the `digest` of the bytes that were read, and refuses a block that has one and not the
+other. The two `ComfyUI` rows are the natural experiment: their compare returns `404`, the live diff is the only text
 there is, and the artifact says so instead of reporting a pinned run it did not have.
 
 ### 175.6 What this does not establish

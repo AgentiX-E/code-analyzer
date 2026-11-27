@@ -126,6 +126,51 @@ describe('corpus-provenance-gate', () => {
     expect(result.stderr).toContain('digest');
   });
 
+  it('passes a remote artifact that names its source and the bytes it read', () => {
+    // **The state this round added, because the alternative was a lie or a dodge.** `Alibaba-Aone/aacr-bench` is fetched
+    // at run time and never committed here, so `corpus-reach.json` named a `/tmp` path the gate could not walk - and the
+    // two honest answers to a figure measured on a corpus this repository does not hold are *name what was read* or
+    // *say nothing was measured*. A remote block names the corpus and the digest of its bytes and is checked for both.
+    const result = runGate({
+      corpus,
+      artifacts: {
+        'figure.json': {
+          corpus: {
+            path: '/tmp/aacr-bench/dataset/v1/positive_samples.json',
+            snapshot: 'remote',
+            source: 'Alibaba-Aone/aacr-bench · dataset/v1/positive_samples.json (Apache-2.0)',
+            digest: 'sha256-0123456789abcdef',
+          },
+        },
+      },
+    });
+
+    expect(result.ok).toBe(true);
+    expect(result.stdout).toContain('1 remote');
+  });
+
+  it('fails a remote artifact with no source or no digest, and names which one is missing', () => {
+    const noSource = runGate({
+      corpus,
+      artifacts: {
+        'figure.json': {
+          corpus: { path: '/tmp/x.json', snapshot: 'remote', digest: 'sha256-0123' },
+        },
+      },
+    });
+    expect(noSource.ok).toBe(false);
+    expect(noSource.stderr).toContain('no source');
+
+    const noDigest = runGate({
+      corpus,
+      artifacts: {
+        'figure.json': { corpus: { path: '/tmp/x.json', snapshot: 'remote', source: 'o/r' } },
+      },
+    });
+    expect(noDigest.ok).toBe(false);
+    expect(noDigest.stderr).toContain('no digest');
+  });
+
   it('passes a live artifact, which measures this repository and moves with it', () => {
     const result = runGate({
       corpus: { ...corpus, 'x.ts': 'export const x = 1;\n' },
