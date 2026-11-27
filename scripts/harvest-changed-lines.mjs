@@ -159,7 +159,10 @@ async function mapLimit(items, limit, run) {
       const at = next;
       next += 1;
       if (at >= items.length) return;
-      out[at] = await run(items[at], at);
+      // **One argument, because the worker takes one.** Passing the index here would be a parameter the anonymous
+      // function does not declare, which CodeQL reports as a superfluous trailing argument - the same shape as §167.8's
+      // alert in the runner, and the fix is at the call rather than in the signature.
+      out[at] = await run(items[at]);
     }
   });
   await Promise.all(workers);
