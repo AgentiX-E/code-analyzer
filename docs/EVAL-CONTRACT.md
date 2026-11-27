@@ -19200,3 +19200,132 @@ the arm that matters is the 50-pull-request one.
 **`0.3106` is this window's competitor figure, not the board's.** The campaign has quoted it since S44 as _the_ bar; it is
 the same competitor on 14 of the same pull requests, and §173.2's `0.3770` is the same competitor on 50. **A bar is a
 number and a slice**, and the slice was never written beside it until now.
+
+## §174 Two hypotheses excluded for free, and a defect a lens found in its own instrument
+
+`§173.5` planned four steps: `S60` (a boundary condition named from the diff), `S61` (the cut curve re-priced),
+`S62` (a `performance` lane of rules) and `S63` (deeper `bug` coverage). **Three of the four are answers to the question
+"where is the missing recall", and this round buys none of them** - it tests two of the hypotheses they assume, at zero
+LLM cost, and both are false. The plan is shorter by two steps and the remaining one is better aimed.
+
+### 174.1 Is the cut lane-blind?
+
+The cut ranks every finding of a pull request against every other, whatever lane filed it. **A lane that emits three
+times as many findings therefore takes three times as many of the twelve slots, whatever its precision per slot** - and
+`§173.3` showed one lane (`architecture`) emitting 321 findings for 88 credits while another (`security`) emits 75 for 37.
+
+`scripts/lane-budget.mjs` prices that, and prices four allocations against it. Every arm applies the same `drop` steps,
+so the budget is the only thing that varies:
+
+| lane            | emitted | credited (no cut) |    kept | credits lost to the cut |
+| --------------- | ------: | ----------------: | ------: | ----------------------: |
+| architecture    |     321 |                88 |     172 |                  **39** |
+| maintainability |     101 |                33 |      51 |                      13 |
+| testing         |      94 |                18 |       7 |                      15 |
+| security        |      75 |                37 |      64 |                       2 |
+| performance     |      18 |                 4 |       8 |                       2 |
+| behaviour       |      13 |                 4 |       9 |                       0 |
+| **total**       | **622** |           **184** | **311** |                  **71** |
+
+| allocation                                         | comments | true positives |         F1 | against shipped |
+| -------------------------------------------------- | -------: | -------------: | ---------: | --------------: |
+| **shipped** (`drop › drop-path-class › budget 12`) |  **311** |        **102** | **0.2674** |      **0.0000** |
+| unbudgeted (all 492 rows the drops leave)          |      492 |            122 |     0.2585 |         −0.0089 |
+| per-lane budget 1                                  |      134 |             52 |     0.1775 |         −0.0899 |
+| per-lane budget 2                                  |      212 |             79 |     0.2380 |         −0.0294 |
+| floor 1, then the global order, budget 12          |      311 |            100 |     0.2621 |         −0.0052 |
+| floor 2, then the global order, budget 12          |      311 |            100 |     0.2621 |         −0.0052 |
+
+**`−0.0052` at the same 311 comments is the answer: fairness costs two credits.** The floor arms are the only ones that
+add nothing to the emission, so they are the only ones that test the claim - and giving each lane a guaranteed slot buys
+`maintainability` the comments it was losing, at the price of two slots that the ranking had put on goldens. **The
+ranking is not the problem; there is not enough in the pool for a fair allocation to be worth its cost.**
+
+That is the fourth independent exclusion of the cut (`§173.2` found the curve flat, the ablation silent, and the volume
+insufficient), and this one is the strongest because it is the only one that tested the _allocation_ rather than the
+size.
+
+### 174.2 Can rules reach the maintainability goldens?
+
+`§69.5`'s `idioms` lane is deterministic, free and **was switched off in the wide arm** (`AACR_IDIOMS=off`). Its six
+rules were derived from a sample of `Alibaba-Aone/aacr-bench` whose remarks are `const auto&` and `2.0f`.
+`scripts/idiom-reach.mjs` prices its reach against this slice's answer key: a finding reaches a golden when it is filed
+on the same path, on a line inside the span the golden's author selected. **A credit on this board is an LLM verdict on a
+pair, so reach is a ceiling and not a score** - but a rule that does not reach cannot credit, which is what a ceiling is
+for.
+
+The six rules as they shipped, on 50 pull requests: **3 of 364 goldens** (8 findings). So six more were written, each
+derived from a golden this slice's reviewers actually wrote - a doubled word, `this don't`, an unresolved `TODO`, a
+`std::string` by value, an enum by `const&`, and a plural written with an `s`:
+
+| rule                                | findings | reached | what it was derived from     |
+| ----------------------------------- | -------: | ------: | ---------------------------- |
+| `commented-out-code`                |       15 |       2 | `FemVTKTools.cpp:1434`       |
+| `plural-ys`                         |        7 |       1 | `DimensionValidators.h:70`   |
+| `parameter-by-value`                |        6 |       0 | `CommandCreateDims.cpp:2384` |
+| `todo-in-code`                      |        5 |       0 | `DrawProjGroup.cpp:1144`     |
+| `enum-by-const-reference`           |        4 |       1 | `DrawProjGroup.h:133`        |
+| `loose-equality`                    |        2 |       0 | `ExtrudeGeometry.js:406`     |
+| `redundant-async`                   |        1 |       1 | `index.ts:460`               |
+| `article-agreement-in-comment`      |        1 |       1 | `lv_observer.h:610`          |
+| `doubled-word`                      |        1 |       1 | `DlgOnlineHelpImp.h:35`      |
+| `subject-verb-agreement`            |        1 |       1 | `DrawTile.cpp:46`            |
+| `float-literal-in-float-arithmetic` |        0 |       0 | `SoDatumLabel.cpp:84`        |
+| `macro-name-case`                   |        0 |       0 | `usb_ids.h:63`               |
+| **total**                           |   **43** |   **8** | 50 asked, 48 read, 2 holes   |
+
+| category                        | goldens | reached | reached within 3 lines |
+| ------------------------------- | ------: | ------: | ---------------------: |
+| Code Defect                     |     194 |       0 |                      1 |
+| Maintainability and Readability |     170 |       7 |                     10 |
+| Performance                     |      29 |       1 |                      1 |
+| Security Vulnerability          |      11 |       0 |                      0 |
+| **total**                       | **404** |   **8** |                 **12** |
+
+**`0.0198`, or `0.0297` if every finding three lines away is credited too.** Six rules written from this slice's own
+goldens, and the ceiling on the category they were written for is **7 of 170**. The two rules with the widest emission
+reach least (`parameter-by-value` 6 → 0, `todo-in-code` 5 → 0): **a rule floods where it is least often right**, which is
+the same trade the model makes one order of magnitude up.
+
+**So `S62` - "a `performance` lane with rules rather than prompts" - is refused before it is built.** `performance`
+holds 29 goldens on this slice and the two rules that could touch it reach 1. A lane of rules for it would cost three
+days and buy a ceiling under `+0.005`. `S60` and `S63` keep their place and their bar: **the recall is in what the model
+is asked, not in what arithmetic can decide.**
+
+### 174.3 A defect this instrument found in the lane, and the reading it changed
+
+The first twelve-rule run filed **zero** `doubled-word`, **zero** `subject-verb-agreement` and **zero** `todo-in-code`
+findings - on a slice whose goldens are, verbatim, `an an external browser`, `this don't allow one to edit` and an
+unresolved `TODO`. The three rules were not wrong; **the text they were handed was**. `numberedAddedLines` reads the
+patch format and does not touch the bytes, so a file authored on Windows arrives with `\r` at the end of every line, and
+four of these rules anchor on `$` - which without the multiline flag matches only at the very end of a string that no
+longer ends where the line does. **One character, and every rule that anchors silently declined.**
+
+The repair is one `replace` at the lane's entry, with the defect named where it happened (`idiom-rules.ts`,
+`detectIdioms`), and two cases that feed the same line with and without the carriage return. After it: `commented-out-code`
+15 findings, `todo-in-code` 5, `plural-ys` 7. **The lane had been quiet on every CRLF file since the day it shipped** -
+and the corpus that found it is `FreeCAD`'s.
+
+### 174.4 What this round establishes, and what it does not
+
+**Establishes.** The cut's allocation is not the constraint (−0.0052 at equal emission, −0.0294 for the fairer of the two
+lanes-only arms); the deterministic lane's ceiling is 0.0198 on this slice and 7 of 170 on the category it was written
+for; reading the lane's text without normalising line endings is a defect that silences four of twelve rules.
+
+**Does not establish.** That the rules are useless. They reach 2 of the 15 findings they file on `commented-out-code`,
+which is a precision no model lane matched on this board, and **they cost nothing** - so a rule that reaches 7 goldens
+for `$0` is worth more per dollar than a lane that reaches 60 for `$1.04`. It establishes that they cannot be the
+_answer_, which is what `S62` claimed they were.
+
+**And it does not touch the bar.** `0.3770` remains the competitor under our own LLM on 50 pull requests; the arm is
+`0.2674` with the lane off. The next purchase is `S60`, and §174.5 is what it has to move.
+
+### 174.5 The plan, shortened
+
+| step                                                                        | target it must move                                    | cost        |
+| --------------------------------------------------------------------------- | ------------------------------------------------------ | ----------- |
+| **S60** - the boundary condition named from the diff, not from the sentence | `maintainability` recall `0.1047 → ≥ 0.16`             | 2 d, ≈ ¥7   |
+| **S61** - the cut curve re-priced on the wide arm                           | already read: flat (§173.2); **closed, no run bought** | `$0`        |
+| ~~**S62** - a `performance` lane of rules~~                                 | **refused by §174.2**: ceiling 1 of 29 goldens         | saved 3 d   |
+| **S63** - `bug` lane depth on the four defect shapes the corpus publishes   | `code defect` `0.3110 → ≥ 0.40`                        | 4 d, ≈ ¥14  |
+| **S64** - the four new rules wired into the arm                             | proven free; no F1 claim until an arm measures them    | 0.5 d, `$0` |
