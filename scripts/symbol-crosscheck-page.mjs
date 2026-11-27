@@ -123,6 +123,9 @@ function describe(reason) {
     identical: 'the replacement was the sentence it already had',
     toolong: 'the replacement was over the bound',
     unnamed: 'the replacement did not name the symbol it was about',
+    rewritten: 'the sentence was replaced, and the judge did not credit the golden',
+    unrecorded: 'the record was written before the pass reported a reason',
+    'not-asked': 'no verdict covers this comment, so the pass never reached it',
   };
   return sentences[reason] ?? '';
 }
@@ -142,6 +145,15 @@ const pairLabel = (entry) => {
   return `${escape(pair.anchor)} → ${escape(pair.other)}`;
 };
 
+// **The reason an entry did not move, in the pass's own word for it.** A record written before the pass reported one says
+// `unrecorded` rather than a zero: the difference between "it was kept because the sides agreed" and "nobody wrote down
+// why" is the whole reason the field exists, and a page that printed the second as the first would be the §170 defect.
+const reasonLabel = (reason) => {
+  if (typeof reason !== 'string' || reason === '') return '<span class="muted">—</span>';
+  if (reason === 'rewritten') return 'rewritten';
+  return `<code>${escape(reason)}</code>`;
+};
+
 const conversionRows = (prize?.detail ?? [])
   .map(
     (entry) =>
@@ -150,7 +162,33 @@ const conversionRows = (prize?.detail ?? [])
       // so the mark is a rule in the stylesheet rather than a second string in a cell.
       `  <tr${entry.rewritten ? ' class="moved"' : ''}><th><code>${pairLabel(entry)}</code></th><td class="n">${String(entry.findingAt)}</td><td>${
         entry.rewritten ? 'rewritten' : '<span class="muted">kept</span>'
-      }</td><td>${entry.credited ? 'credited' : '<span class="muted">not credited</span>'}</td></tr>`,
+      }</td><td>${reasonLabel(entry.reason)}</td><td>${entry.credited ? 'credited' : '<span class="muted">not credited</span>'}</td></tr>`,
+  )
+  .join('\n');
+
+const attributionRows = (record.attribution?.byReason ?? [])
+  .map(
+    (row) =>
+      `  <tr><th><code>${escape(row.reason)}</code></th><td class="n">${String(row.count)}</td><td>${describe(row.reason)}</td></tr>`,
+  )
+  .join('\n');
+
+// **The three ways the pair question found its name**, and the count that was wrong before the pass reported it.
+const anchorStates = record.anchors ?? { handed: 0, own: 0, fallback: 0, noPair: 0, recorded: 0 };
+const anchorRows = [
+  ['handed', 'the name the plan handed over, which the sentence writes'],
+  [
+    'fallback',
+    'the plan handed a name the sentence does not write, so the first name in backticks was asked',
+  ],
+  ['own', 'no plan entry, so the sentence chose the name'],
+  ['no pair', 'the sentence did not relate two names in one clause'],
+]
+  .map(
+    ([key, sentence]) =>
+      `  <tr><th><code>${escape(key)}</code></th><td class="n">${String(
+        key === 'no pair' ? anchorStates.noPair : anchorStates[key],
+      )}</td><td>${sentence}</td></tr>`,
   )
   .join('\n');
 
@@ -255,7 +293,7 @@ ${keepRows}
   comment the golden.
 </p>
 <table>
-<thead><tr><th>pair asked about</th><th class="n">comment</th><th>sentence</th><th>credit</th></tr></thead>
+<thead><tr><th>pair asked about</th><th class="n">comment</th><th>sentence</th><th>why</th><th>credit</th></tr></thead>
 <tbody>
 ${conversionRows}
 </tbody>
@@ -265,6 +303,40 @@ ${conversionRows}
     prize?.credited ?? 0,
   )} credited.</strong> The acceptance §167.3 pre-registered is ≥ 18 of the 27 rewritten with the comment count unchanged
   and F1 ≥ the bar; a conversion is not a credit, because the protocol matches one finding to one golden.
+</p>
+
+<h2>Why the entries did not move</h2>
+<p>
+  The remainder is not one number. An entry whose comment the pass read and <em>agreed with</em> is a different fact from one
+  whose comment could not be asked at all, and a table that pooled them would be a count nobody can disagree with because it
+  does not say what it counted. <strong>${String(record.attribution?.planned ?? 0)} entries address ${String(
+    record.attribution?.comments ?? 0,
+  )} distinct comments</strong> - the two denominators differ, which is why a per-comment join double-counts three of them.
+</p>
+<table>
+<thead><tr><th>reason</th><th class="n">entries</th><th>what it means</th></tr></thead>
+<tbody>
+${attributionRows}
+</tbody>
+</table>
+
+<h2>Which name the question was put to</h2>
+<p>
+  The plan hands the pass one name per entry, and the pass substitutes the sentence's own first name when the sentence does
+  not write it. That substitution used to be invisible: it was found by joining two files by hand, and the join counted a
+  comment twice where the plan addressed two goldens with one comment. The pass now counts its own anchors, so the three
+  states are read rather than reconstructed.
+</p>
+<table>
+<thead><tr><th>state</th><th class="n">comments</th><th>what it means</th></tr></thead>
+<tbody>
+${anchorRows}
+</tbody>
+</table>
+<p class="note">
+  ${String(anchorStates.recorded)} of ${String((record.verdicts ?? []).length)} comments produced a pair, ${String(
+    anchorStates.noPair,
+  )} produced none, and <strong>${String(anchorStates.fallback)} asked about a name the plan did not choose</strong>.
 </p>
 
 <h2>What was bought</h2>

@@ -269,11 +269,9 @@ async function recordRun() {
   // **The plan's symbol is handed to the device as the anchor**, because that is the name the prize §166 priced was
   // computed on: an entry exists because the competitor's comment sits on a name ours already writes, and a pass that
   // ignored it would be answering a different question than the one the acceptance is stated over.
-  const anchorOf = new Map();
-  for (const entry of planRecord?.plan ?? []) {
-    const symbol = entry?.symbols?.[0];
-    if (typeof symbol === 'string' && symbol !== '') anchorOf.set(Number(entry.findingAt), symbol);
-  }
+  // **One map, built once at module scope**, so the anchor handed to the device and the anchor a replay compares that
+  // pair against cannot drift apart - the second would be a re-derivation of the first with its own idea of the plan.
+  const anchorOf = anchorOfPlan;
   const findings = inScope.map((row) => ({
     pr: String(row?.pr ?? ''),
     path: String(row?.path ?? ''),
@@ -313,17 +311,35 @@ async function recordRun() {
 
   const rewrites = new Map();
   const verdicts = [];
+  // **The reason travels with the verdict it belongs to.** The pass reports one outcome per finding by the position it
+  // was handed, and the position is the only identity the pass has - so the join happens here, where the row is.
+  const outcomeOf = new Map((report.outcomes ?? []).map((entry) => [entry.index, entry]));
   inScope.forEach((row, at) => {
     const before = String(row?.text ?? '');
     const after = String(verified[at]?.description ?? before);
     if (after !== before) rewrites.set(Number(row.at), after);
+    const pair = pairOf(row);
+    const anchor = anchorOf.get(Number(row.at)) ?? null;
     verdicts.push({
       at: Number(row.at),
       pr: String(row?.pr ?? ''),
       path: String(row?.path ?? ''),
       startLine: Number(row?.startLine ?? 0),
       symbol: symbolsInComment(before, evidence.get(Number(row.at))?.lines ?? [])[0] ?? null,
-      pair: pairOf(row),
+      pair,
+      // **The plan's name, the name the pair question was actually put to, and why nothing happened.** Three fields
+      // rather than one, because §170.5's finding was that the first and the second disagree and the record could not
+      // say so: `anchor` was nowhere in it.
+      anchor,
+      anchorState:
+        pair === null
+          ? null
+          : anchor === null
+            ? 'own'
+            : pair.anchor === anchor
+              ? 'handed'
+              : 'fallback',
+      reason: outcomeOf.get(at)?.reason ?? null,
       rewritten: after !== before,
       before,
       after,
@@ -502,8 +518,99 @@ function pointsFrom(bits, rewrites) {
   return point;
 }
 
+/**
+ * **The three-way anchor state, added to a record that was written before it existed.**
+ *
+ * The state is not a new measurement: it is `pair.anchor` compared with the plan's symbol for the same comment, both of
+ * which the old record holds. What was missing was the join, and a join done by hand at read time is a figure nobody can
+ * reproduce a week later.
+ */
+function withAnchorStates(verdicts) {
+  return verdicts.map((verdict) => {
+    const anchor = anchorOfPlan.get(Number(verdict.at)) ?? null;
+    const pair = verdict.pair ?? null;
+    const state =
+      pair === null
+        ? null
+        : anchor === null
+          ? 'own'
+          : pair.anchor === anchor
+            ? 'handed'
+            : 'fallback';
+    return {
+      ...verdict,
+      anchor: verdict.anchor ?? anchor,
+      anchorState: verdict.anchorState ?? state,
+    };
+  });
+}
+
+/** The plan's first symbol per comment, which is the name the device is handed as the anchor. */
+const anchorOfPlan = new Map(
+  (planRecord?.plan ?? [])
+    .map((entry) => [Number(entry?.findingAt), entry?.symbols?.[0]])
+    .filter(([, symbol]) => typeof symbol === 'string' && symbol !== ''),
+);
+
+/**
+ * **Why each of the plan's entries did not move, in the pass's own vocabulary.**
+ *
+ * The remainder is not a single number. An entry whose comment was never asked is a different fact from one the pass read
+ * and agreed with, and a table that pooled them would be the §170 defect in the other direction: a count that cannot be
+ * disagreed with because it does not say what it counted.
+ *
+ * `never-asked` is reserved for an entry the verdicts do not cover at all - a comment outside the slice, or one the pass
+ * never reached. It is **not** the same as `no-symbol`, which is a verdict the pass wrote down.
+ */
+function attributePrize(detail) {
+  const counts = new Map();
+  let rewritten = 0;
+  let credited = 0;
+  for (const entry of detail) {
+    const reason = entry.reason ?? 'unrecorded';
+    counts.set(reason, (counts.get(reason) ?? 0) + 1);
+    if (entry.rewritten) rewritten += 1;
+    if (entry.credited) credited += 1;
+  }
+  return {
+    planned: detail.length,
+    // **The distinct comments the entries address, which is not the number of entries.** This plan addresses twenty-six
+    // goldens with twenty-three comments, and a count that reported the two as one number let §170.5's join count three
+    // comments twice - the correction S57's per-verdict field made visible.
+    comments: new Set(detail.map((entry) => Number(entry.findingAt))).size,
+    rewritten,
+    credited,
+    // **Sorted by count and then by name**, so the table reads as the largest refusal first and a tie is not decided by
+    // the order the plan happened to iterate in.
+    byReason: [...counts.entries()]
+      .map(([reason, count]) => ({ reason, count }))
+      .sort((left, right) => right.count - left.count || left.reason.localeCompare(right.reason)),
+  };
+}
+
+/**
+ * **How many comments the pair question asked about the plan's name, and how many it asked about another.**
+ *
+ * Computed from the verdicts so a replay of an older record reports `null` rather than a zero it did not measure.
+ */
+function anchorTally(verdicts) {
+  const tally = { handed: 0, own: 0, fallback: 0, noPair: 0, recorded: 0 };
+  for (const verdict of verdicts) {
+    if (verdict.pair === null || verdict.pair === undefined) {
+      tally.noPair += 1;
+      continue;
+    }
+    const state = verdict.anchorState;
+    if (state === 'handed' || state === 'own' || state === 'fallback') {
+      tally[state] += 1;
+      tally.recorded += 1;
+    }
+  }
+  return tally;
+}
+
 /** The 27 goldens §166 priced, addressed by the row the plan chose for each. */
-function prizeConversions(rewrites, armB) {
+function prizeConversions(rewrites, armB, reasonOf) {
   const plan = planRecord?.plan ?? [];
   const rewrittenRows = new Set(rewrites.keys());
   let rewritten = 0;
@@ -520,6 +627,10 @@ function prizeConversions(rewrites, armB) {
       golden: entry.golden,
       findingAt: entry.findingAt,
       symbol: entry.symbols?.[0] ?? null,
+      // **The reason this entry did not move**, or `null` for a record written before the pass reported one - a
+      // distinction the page prints rather than hides, because `null` on a 2026-11-25 artifact is a fact about the
+      // instrument that produced it.
+      reason: reasonOf.get(Number(entry.findingAt)) ?? null,
       rewritten: wasRewritten,
       credited: gained,
     });
@@ -538,8 +649,12 @@ async function main() {
       process.exit(2);
     }
     const stored = read(options.out);
+    // **The anchor is re-derived on replay, because it is a function of fields the record already holds.** A record
+    // written before the pass reported which anchor it used carries the pair and the plan carries the name that was
+    // handed over, so `handed`/`own`/`fallback` is computable from the artifact as it stands - which is why §170.5's
+    // measurement is repeatable without buying the run again, and why the reason is the one field that is not.
     record = {
-      verdicts: stored.verdicts ?? [],
+      verdicts: withAnchorStates(stored.verdicts ?? []),
       rewrites: (stored.verdicts ?? []).filter((v) => v.rewritten).map((v) => [v.at, v.after]),
       report: stored.verifier ?? null,
       judged: {
@@ -560,7 +675,16 @@ async function main() {
     keys.map((key) => record.judged.bitsA.get(key) === true),
     keys.map((key) => record.judged.bitsB.get(key) === true),
   );
-  const prize = prizeConversions(rewrites, armB.rows);
+  // **The reason per comment, read off the verdicts rather than off the report**, so a replay of a record that carries
+  // reasons reconstructs the attribution without buying anything and a record that does not carries the nulls it made.
+  const reasonOf = new Map(
+    record.verdicts
+      .filter((verdict) => typeof verdict.reason === 'string')
+      .map((verdict) => [Number(verdict.at), verdict.reason]),
+  );
+  const prize = prizeConversions(rewrites, armB.rows, reasonOf);
+  const attribution = attributePrize(prize.detail);
+  const anchorsUsed = anchorTally(record.verdicts);
 
   const result = {
     version: VERSION,
@@ -613,6 +737,19 @@ async function main() {
     },
     paired: change,
     prize,
+    /**
+     * **Why the plan's entries did not move, counted from the verdicts rather than from the run.**
+     *
+     * §170 could report *one of twenty-six rewritten* and could not report the other twenty-five as anything but a
+     * remainder. This is that remainder split by the reason the pass itself gives, and it is computed here so a replay
+     * of the committed artifact prints it too - the alternative is a table that only exists on the day it was bought.
+     */
+    attribution,
+    /**
+     * **The three ways the pair question found its anchor**, which is §170.5's finding promoted from a join between two
+     * files to a field of the record.
+     */
+    anchors: anchorsUsed,
     // **Which rule produced the sentence, carried beside the reading rather than only inside it.** §167's record says
     // `two-sides-v1` and this one says `two-related-names-v1`, so two records of the same board can be told apart without
     // a git blame.
@@ -647,6 +784,14 @@ async function main() {
         `${String(change.fixed)} / ${String(change.broken)} · p ${change.p.toFixed(4)}`,
       ),
       line('prize credited', `${String(prize.credited)} of ${String(prize.planned)}`),
+      line(
+        'prize reasons',
+        attribution.byReason.map((row) => `${row.reason} ${String(row.count)}`).join(' · '),
+      ),
+      line(
+        'anchors used',
+        `handed ${String(anchorsUsed.handed)} · own ${String(anchorsUsed.own)} · fallback ${String(anchorsUsed.fallback)} · no pair ${String(anchorsUsed.noPair)}`,
+      ),
       '',
     ].join('\n'),
   );

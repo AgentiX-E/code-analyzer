@@ -131,12 +131,16 @@ export type KeepReason =
   | 'toolong'
   | 'unnamed';
 
-/** The verdict applied to one comment. */
-export interface AppliedVerdict {
-  finding: TwoSidedFinding;
-  action: 'rewritten' | 'kept';
-  reason: 'rewritten' | KeepReason;
-}
+/**
+ * **The verdict applied to one comment, as a union rather than as two loose fields.**
+ *
+ * The pair `action`/`reason` was written as independent unions, so `action === 'kept'` narrowed nothing and every caller
+ * that wanted the reason had to assert it - which is a cast standing in for a fact the type could state. A kept verdict's
+ * reason is one of the refuses and a rewritten one's is `rewritten`, and that is now what the type says.
+ */
+export type AppliedVerdict =
+  | { finding: TwoSidedFinding; action: 'rewritten'; reason: 'rewritten' }
+  | { finding: TwoSidedFinding; action: 'kept'; reason: KeepReason };
 
 /** What a run of the pass did, including everything it declined to do. */
 export interface CrosscheckReport {
@@ -153,6 +157,27 @@ export interface CrosscheckReport {
   kept: Record<KeepReason, number>;
   /** Per-symbol tallies, because "which names does this device actually work on" is the next iteration's input. */
   bySymbol: Array<{ symbol: string; called: number; rewritten: number }>;
+  /**
+   * **One outcome per finding, by the position it was given in.**
+   *
+   * §170 could say *twenty-two of the twenty-three plan entries were never rewritten* and could not say **why** any of
+   * them was: the report carried pooled counts, so a comment's reason was unrecoverable once the tally was summed. An
+   * attribution that cannot be joined to a comment is an attribution of the run and not of the entries the acceptance is
+   * stated over - and the difference is exactly the question §170.4 left open.
+   *
+   * `index` is the position in the array this pass was handed, not a pull request or a line: the caller already holds
+   * that mapping and re-deriving it here would be a second opinion about identity.
+   */
+  outcomes: Array<{ index: number; key: string | null; reason: 'rewritten' | KeepReason }>;
+  /**
+   * **Which name the pair question was put to**, counted three ways for the relation contract and zeroed otherwise.
+   *
+   * `handed` is a pair whose anchor is the name the caller passed in; `own` is a pair chosen from the sentence when no
+   * anchor was handed over; `fallback` is a handed anchor the sentence does not write, which the pass replaces with the
+   * first name in backticks. **The third was measured at nine of twenty-three in §170.5 by joining two files**, and a
+   * device that reports it can be read without the join.
+   */
+  anchors: { handed: number; own: number; fallback: number };
 }
 
 /** Where the lines a comment is about come from. Supplied by the caller, so this module does no IO. */
@@ -762,6 +787,14 @@ function emptyKept(): Record<KeepReason, number> {
 interface Question {
   /** The tally key: the name for `two-sides-v1`, the pair for `two-related-names-v1`. */
   key: string;
+  /**
+   * **The name a pair question was put to, and which of the three ways it was chosen.**
+   *
+   * `handed` is the caller's name, `own` is a name the sentence reached a backtick for when no caller named one, and
+   * `fallback` is the case §170.5 found nine times: a caller's name the sentence does not write, replaced by the first
+   * name in backticks. `null` under the first contract, which asks about a name rather than a pair.
+   */
+  anchor: { name: string; state: 'handed' | 'own' | 'fallback' } | null;
   prompt: { system: string; user: string };
   /**
    * **The reader for this question's own answer.**
@@ -800,6 +833,15 @@ export class SymbolCrosscheck {
         anchor: finding.anchor,
       }).map((pair) => ({
         key: `${pair.anchor}→${pair.other}`,
+        anchor: {
+          name: pair.anchor,
+          state:
+            finding.anchor === undefined
+              ? ('own' as const)
+              : pair.anchor === finding.anchor
+                ? ('handed' as const)
+                : ('fallback' as const),
+        },
         prompt: buildRelationPrompt({
           comment: sentence,
           anchor: pair.anchor,
@@ -822,6 +864,7 @@ export class SymbolCrosscheck {
       minLength: this.options.minSymbolLength,
     }).map((symbol) => ({
       key: symbol,
+      anchor: null,
       prompt: buildCrosscheckPrompt({ comment: sentence, symbol, lines, maxRewriteChars: bound }),
       parse: parseVerdict,
       decide: (current, verdict) =>
@@ -843,36 +886,51 @@ export class SymbolCrosscheck {
     let callsPriced = 0;
     let spendUsd = 0;
     let budgetExhausted = false;
+    const outcomes: CrosscheckReport['outcomes'] = [];
+    const anchors = { handed: 0, own: 0, fallback: 0 };
 
-    for (const finding of findings) {
+    for (const [index, finding] of findings.entries()) {
       const lines = evidenceOf(finding);
       if (lines.length === 0) {
         kept['no-evidence'] += 1;
+        outcomes.push({ index, key: null, reason: 'no-evidence' });
         out.push(finding);
         continue;
       }
       const questions = this.questionsFor(finding, lines);
       if (questions.length === 0) {
         kept['no-symbol'] += 1;
+        outcomes.push({ index, key: null, reason: 'no-symbol' });
         out.push(finding);
         continue;
+      }
+      // **Counted per question rather than per comment**, because the three states are properties of the question that
+      // was asked and a comment that produced no question is the `no-symbol` path taken above.
+      for (const question of questions) {
+        if (question.anchor !== null) anchors[question.anchor.state] += 1;
       }
       const pull = String(finding.pr ?? '');
       if ((perPullRequest.get(pull) ?? 0) >= this.options.maxPerPullRequest) {
         kept['pull-request-cap'] += 1;
+        outcomes.push({ index, key: questions[0]?.key ?? null, reason: 'pull-request-cap' });
         out.push(finding);
         continue;
       }
 
+      // **The last thing that happened to this comment**, so a comment's reason is the one that stopped it rather than
+      // the first one the loop met - a budget refusal after an `agree` is a budget refusal.
+      let reason: 'rewritten' | KeepReason = 'no-rewrite';
       let current = finding;
       for (const question of questions) {
         if (called >= this.options.maxCalls) {
           kept['budget'] += 1;
           budgetExhausted = true;
+          reason = 'budget';
           break;
         }
         if ((perPullRequest.get(pull) ?? 0) >= this.options.maxPerPullRequest) {
           kept['pull-request-cap'] += 1;
+          reason = 'pull-request-cap';
           break;
         }
         const tally = bySymbol.get(question.key) ?? { called: 0, rewritten: 0 };
@@ -897,6 +955,7 @@ export class SymbolCrosscheck {
         } catch {
           failed += 1;
           kept['failed'] += 1;
+          reason = 'failed';
           break;
         }
         if (typeof result.costUsd === 'number') {
@@ -906,6 +965,7 @@ export class SymbolCrosscheck {
         const verdict = question.parse(result.content);
         if (verdict === null) {
           kept['unreadable'] += 1;
+          reason = 'unreadable';
           break;
         }
         const applied = question.decide(current, verdict);
@@ -913,10 +973,13 @@ export class SymbolCrosscheck {
           current = applied.finding;
           rewritten += 1;
           tally.rewritten += 1;
+          reason = 'rewritten';
           break;
         }
-        kept[applied.reason as KeepReason] += 1;
+        reason = applied.reason;
+        kept[applied.reason] += 1;
       }
+      outcomes.push({ index, key: questions[0]?.key ?? null, reason });
       out.push(current);
     }
 
@@ -932,6 +995,8 @@ export class SymbolCrosscheck {
         spendUsd: Number(spendUsd.toFixed(6)),
         budgetExhausted,
         kept,
+        outcomes,
+        anchors,
         bySymbol: [...bySymbol.entries()]
           .map(([symbol, tally]) => ({ symbol, ...tally }))
           .sort(

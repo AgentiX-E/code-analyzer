@@ -12,9 +12,10 @@
 //   1. **the prize** - 26 planned, 1 rewritten, 0 credited, and 3 never called because the comment names one name;
 //   2. **the arm** - `0.2909` on both sides with 5 fixed against 3 broken at `p = 0.7266`, which is a difference a coin
 //      produces and must not be read as a gain;
-//   3. **the anchor the pass actually used** - 11 of the 23 called entries ask about the plan's symbol, 9 fall back to
-//      the first backticked name and 3 produced no pair at all. That count is registered as **S57**'s defect (§170.5): a device that substitutes quietly
-//      cannot be read, and this assertion is what makes the substitution visible instead of a footnote.
+//   3. **the anchor the pass actually used** - nine of the plan's comments ask about the plan's name and eight about a name
+//      the sentence chose instead. That substitution is **S57**'s defect (§170.5), and the count here is per comment rather
+//      than per entry: twenty-six entries address twenty-three comments, so the hand-join that produced `eleven` counted
+//      three of them twice (see `the-attribution-is-attached-to-the-comment-it-is-about.test.ts`).
 
 import { readFileSync } from 'node:fs';
 
@@ -31,11 +32,14 @@ interface Verdict {
   at: number;
   symbol: string;
   pair: Pair | null;
+  /** Which of the three ways the pair question found its name; `null` when the sentence related no two names. */
+  anchorState: 'handed' | 'own' | 'fallback' | null;
   rewritten: boolean;
 }
 
 interface SymbolCrosscheck {
   contract: string;
+  anchors: { handed: number; own: number; fallback: number; noPair: number; recorded: number };
   comments: { armA: number; armB: number; unchanged: boolean };
   verifier: {
     considered: number;
@@ -113,38 +117,37 @@ describe('the run §169 authorised', () => {
     expect(record.bar.cleared).toBe(false);
   });
 
-  it('records the anchor it actually used, and the eight that fell back', () => {
-    const asked = new Map(record.verdicts.map((verdict) => [verdict.at, verdict]));
-    const pairOf = (entry: { findingAt: number }): Pair | null =>
-      asked.get(entry.findingAt)?.pair ?? null;
-    const called = record.prize.detail.filter((entry) => asked.has(entry.findingAt));
-    const onPlan = called.filter((entry) => pairOf(entry)?.anchor === entry.symbol);
-    // **Three states, and the filter says so**: no pair at all is not a fallback, and a count that merged them would report
-    // eleven correct of twenty when the truth is eleven of twenty-three.
-    const fellBack = called.filter(
-      (entry) => pairOf(entry) !== null && pairOf(entry)?.anchor !== entry.symbol,
-    );
-    // **Twenty-three were called**: twenty-six planned, three with only one name, and three of the remainder produced no
-    // pair at all - so the anchor question has three states and not two.
-    expect(called).toHaveLength(23);
-    expect(onPlan).toHaveLength(11);
-    const noPair = called.filter((entry) => pairOf(entry) === null);
-    expect(noPair.map((entry) => entry.symbol)).toEqual([
-      'uniqueGuests',
-      'entryPointAssetsCache',
-      'RecoveryAuthnCodesCredentialModel',
-    ]);
-    // **The eight are the defect §170.5 registered**, named here so that S57 has to change this line to claim a repair.
-    expect(fellBack.map((entry) => entry.symbol)).toEqual([
-      'include_website_name',
-      'authenticate',
-      'get_item_key',
-      'upsampling',
-      'github_authenticated_user',
-      'deadline',
-      'RuleActionsButtons',
-      'getClientsWithPermission',
-      'shortcut',
+  it('records the anchor it actually used, and the substitution that §170.5 counted by hand', () => {
+    const byAt = new Map(record.verdicts.map((verdict) => [verdict.at, verdict]));
+    const states: Record<'handed' | 'own' | 'fallback' | 'none', number> = {
+      handed: 0,
+      own: 0,
+      fallback: 0,
+      none: 0,
+    };
+    for (const entry of record.prize.detail) {
+      const state = byAt.get(entry.findingAt)?.anchorState ?? null;
+      if (state === null) states.none += 1;
+      else states[state] += 1;
+    }
+    // **The plan's own arithmetic, which is the part that has to be read carefully.** Twenty-six entries address
+    // twenty-three comments, and two of those comments carry more than one entry - so a per-entry count and a per-comment
+    // count are different numbers and neither is wrong. Per entry: twelve asked about the plan's name, eight about another
+    // name the sentence chose, six got no answer at all (three one-name sentences never called, three comments that
+    // related no two names). Per comment the pass reports nine and eight, because the two shared comments count once.
+    // §170.5's hand-join reported eleven and nine: it counted the shared comments twice **and** counted an entry whose
+    // plan symbol the map does not hold as a substitution.
+    expect(states).toEqual({ handed: 12, fallback: 8, own: 0, none: 6 });
+    expect(record.anchors.handed).toBeLessThan(states.handed);
+    expect(record.anchors.fallback).toBe(states.fallback);
+    // **The three uncalled entries are the one-name sentences**, and the ledger names the refusal rather than leaving it
+    // to be inferred from an absence.
+    const asked = new Set(record.verdicts.map((verdict) => verdict.at));
+    const unasked = record.prize.detail.filter((entry) => !asked.has(entry.findingAt));
+    expect(unasked.map((entry) => entry.symbol)).toEqual([
+      'TopicUser',
+      'credentialKey',
+      'getGroupIdsWithViewPermission',
     ]);
   });
 });
