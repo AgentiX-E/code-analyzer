@@ -85,6 +85,7 @@ export function specificSymbols(
   cap: number,
 ): string[];
 export function namesSymbol(text: unknown, symbol: string): boolean;
+export function symbolsTheDiffNames(symbols: string[], names: Iterable<string>): string[];
 export function goldenKey(pullRequest: string, index: number): string;
 export function splitKey(key: string): [string, number];
 export function creditedGoldens(

@@ -27,7 +27,18 @@
  *   other arm's name (`exit 2`);
  * - a sweep whose loose end is adjacent to everything is published with the fact that it is, rather than as a reading.
  *
- * **Nothing here costs anything.** It reads three committed files and buys no model call.
+ * **§169 rebuilt the symbol set, and the record now carries both readings.** §168.8 found that the sentence's rare tokens
+ * are mostly English - `Potential`, `particularly`, `floor` - so twenty-one of the twenty-seven plan entries named a word
+ * a human happened to write rather than a name the change had written. `--changed` restricts each golden's symbols to the
+ * identifiers **the pull request's own added lines** write (`scripts/lib/code-names.mjs`, harvested by
+ * `scripts/harvest-changed-lines.mjs`), and the sentence-only reading is kept beside it: a reading is replaced by a better
+ * one, never by silence, and the difference between the two is the size of the defect the first one had.
+ *
+ * A golden whose pull request is missing from the changed-line record is a hole in a record this command depends on, so
+ * the run **refuses** rather than counting it as a golden whose change names nothing - the same distinction the coverage
+ * field in `changed-lines.json` exists to make.
+ *
+ * **Nothing here costs anything.** It reads four committed files and buys no model call.
  */
 
 import { readFileSync, writeFileSync } from 'node:fs';
@@ -50,6 +61,7 @@ import {
   rewriteOracle,
   specificSymbols,
   splitKey,
+  symbolsTheDiffNames,
   wrongPullRequest,
 } from './lib/symbol-anatomy.mjs';
 
@@ -60,6 +72,7 @@ function parseArgs(argv) {
     arm: null,
     reference: null,
     corpus: null,
+    changed: null,
     profile: 'core',
     budget: 5,
     cap: 1,
@@ -91,8 +104,8 @@ const options = parseArgs(process.argv.slice(2));
 if (options.arm === null || options.reference === null || options.corpus === null) {
   process.stderr.write(
     'usage: symbol-adjacency.mjs --arm <artifact.json> --reference <competitor-baseline.json> ' +
-      '--corpus <positive_samples.json> [--profile core|all] [--budget k] [--cap n] ' +
-      '[--permutations n] [--seed n] [--target f1] [--json out]\n',
+      '--corpus <positive_samples.json> [--changed <changed-lines.json>] [--profile core|all] ' +
+      '[--budget k] [--cap n] [--permutations n] [--seed n] [--target f1] [--json out]\n',
   );
   process.exit(2);
 }
@@ -101,6 +114,7 @@ const read = (path) => JSON.parse(readFileSync(resolve(REPO, path), 'utf8'));
 const arm = read(options.arm);
 const reference = read(options.reference);
 const corpus = read(options.corpus);
+const changed = options.changed === null ? null : read(options.changed);
 
 /**
  * **Guard: the pool has to be this run's pool, on the run's own denominator, before the profile is applied to it.**
@@ -182,18 +196,47 @@ if (sets.shared === 0) {
 
 const frequency = documentFrequency(poolByPullRequest);
 
+/**
+ * **The names each pull request's own change writes**, keyed the way a golden is keyed.
+ *
+ * A golden's pull request that the record does not cover is refused rather than treated as a change that names nothing:
+ * the two are different facts and the difference is the whole of §169. The refusal names the pull requests, because a
+ * harvest that missed one is a command to run and not an artifact to interpret.
+ */
+const namesByPullRequest = new Map();
+if (changed !== null) {
+  for (const [pullRequest, pull] of Object.entries(changed.pulls ?? {})) {
+    namesByPullRequest.set(pullRequest, new Set(Array.isArray(pull?.names) ? pull.names : []));
+  }
+  const uncovered = [...new Set(sets.onlyTheirs.map((key) => splitKey(key)[0]))].filter(
+    (pullRequest) => !namesByPullRequest.has(pullRequest),
+  );
+  if (uncovered.length > 0) {
+    process.stderr.write(
+      `refusing: ${options.changed} covers no added lines for ${String(uncovered.length)} pull request(s) the set is ` +
+        `measured on, starting with ${uncovered.slice(0, 3).join(', ')}\n`,
+    );
+    process.exit(2);
+  }
+}
+
 /** **The nineteen characters a golden's text needs**, in the one shape the rest of this file reads. */
 function goldensOf(cap) {
   return sets.onlyTheirs.map((key) => {
     const [pullRequest, remapped] = splitKey(key);
     const full = reverse.get(pullRequest)?.get(remapped);
     const note = String(noteOf.get(`${pullRequest}#${String(full)}`)?.note ?? '');
+    const anywhere = specificSymbols(note, frequency, cap);
+    const names = namesByPullRequest.get(pullRequest);
     return {
       key,
       pullRequest,
       index: remapped,
       category: String(noteOf.get(`${pullRequest}#${String(full)}`)?.category ?? ''),
-      symbols: specificSymbols(note, frequency, cap),
+      // **`anywhere` is what the sentence says; `symbols` is what the change writes.** The second is the claim §169 prices
+      // and the first is kept so a reader can see the size of the difference without rerunning the old command.
+      anywhere,
+      symbols: names === undefined ? anywhere : symbolsTheDiffNames(anywhere, names),
       note,
     };
   });
@@ -236,12 +279,15 @@ function everyGolden(cap) {
   for (const [pullRequest, index] of maps) {
     for (const [full, remapped] of index) {
       const note = String(noteOf.get(`${pullRequest}#${String(full)}`)?.note ?? '');
+      const anywhere = specificSymbols(note, frequency, cap);
+      const names = namesByPullRequest.get(pullRequest);
       out.push({
         key: goldenKey(pullRequest, remapped),
         pullRequest,
         index: remapped,
         category: String(noteOf.get(`${pullRequest}#${String(full)}`)?.category ?? ''),
-        symbols: specificSymbols(note, frequency, cap),
+        anywhere,
+        symbols: names === undefined ? anywhere : symbolsTheDiffNames(anywhere, names),
         note,
       });
     }
@@ -257,6 +303,21 @@ const nullDistribution = permutationNull({
   permutations: options.permutations,
   seed: options.seed,
 });
+
+/**
+ * **The reading this one replaces, computed on the same rows so that the difference is a difference in the symbol set.**
+ *
+ * §164.3's count was "a symbol appears in our text", and §168.8 showed what it was counting. Publishing the old reading
+ * beside the new one is not politeness: **a set that shrank from twenty-seven to a handful is only interpretable if the
+ * twenty-seven is visible next to it**, and a reader who wants to know whether the rebuild was a repair or an over-correction
+ * needs both numbers on one page. When no changed-line record is given the two readings coincide by construction, and the
+ * record says so rather than printing the same number twice under two names.
+ */
+const asTheSentenceSaidIt = (golden) => ({ ...golden, symbols: golden.anywhere });
+const sentenceFound =
+  changed === null
+    ? null
+    : adjacency({ goldens: found.map(asTheSentenceSaidIt), poolByPullRequest });
 
 /**
  * **The plan: one comment per adjacent golden, and the comment is the highest-scoring one that names its symbol.**
@@ -345,7 +406,20 @@ const record = {
   rule: {
     identifier: 'four or more characters, identifier-shaped',
     specificity: 'the number of pull requests whose pool names it',
+    symbolSet:
+      changed === null
+        ? 'the golden sentence'
+        : 'the golden sentence, restricted to names the pull request’s own added lines write',
     cap: options.cap,
+    changedLines:
+      changed === null
+        ? null
+        : {
+            path: options.changed,
+            corpusDigest: String(changed.corpusDigest ?? ''),
+            harvested: Number(changed.summary?.harvested ?? 0),
+            failed: Number(changed.summary?.failed ?? 0),
+          },
     sweep,
   },
   base: {
@@ -366,6 +440,24 @@ const record = {
       const rest = everyGolden(options.cap).filter((golden) => !inside.has(golden.key));
       return baseRate({ goldens: rest, poolByPullRequest });
     })(),
+    // **The old reading, kept as a row.** Absent when no changed-line record was given, because two names for one number
+    // is a table that invites a reader to see a difference that is not there.
+    comparison:
+      sentenceFound === null
+        ? null
+        : {
+            sentence: {
+              withSymbols: sentenceFound.filter((golden) => golden.symbols.length > 0).length,
+              adjacent: sentenceFound.filter((golden) => golden.matches.length > 0).length,
+              baseRate: (() => {
+                const inside = new Set(sets.onlyTheirs);
+                const rest = everyGolden(options.cap)
+                  .filter((golden) => !inside.has(golden.key))
+                  .map(asTheSentenceSaidIt);
+                return baseRate({ goldens: rest, poolByPullRequest });
+              })(),
+            },
+          },
   },
   ranks: {
     within: ranked.filter((entry) => entry.rank !== null && entry.rank <= options.budget).length,
@@ -425,6 +517,15 @@ process.stdout.write(
       'adjacent',
       `${String(adjacent)} of ${String(record.sets.onlyTheirs)} (${String(record.adjacency.goldensWithSymbols)} carried a specific symbol)`,
     ),
+    ...(record.adjacency.comparison === null
+      ? []
+      : [
+          line(
+            'the sentence alone',
+            `${String(record.adjacency.comparison.sentence.adjacent)} of ${String(record.sets.onlyTheirs)} ` +
+              `(${String(record.adjacency.comparison.sentence.withSymbols)} carried a specific token)`,
+          ),
+        ]),
     line(
       'null',
       `mean ${String(nulls.mean)} · p95 ${String(nulls.p95)} · max ${String(nulls.max)} over ${String(nulls.permutations)} permutations`,

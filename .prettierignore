@@ -149,6 +149,12 @@ docs/lane-discovery.html
 benchmarks/symbol-adjacency.json
 docs/symbol-adjacency.html
 
+# **A harvest is an input, and a formatted input is a different input.** `benchmarks/martian/changed-lines.json` is what
+# `scripts/harvest-changed-lines.mjs` wrote from fifty pull requests' diffs, and `bench:symbol-adjacency` reads it by the
+# names it holds - so a formatter pass would make the committed file differ from the harvested one, and the digest the
+# record carries would name bytes no run produced. Excluded for the reason every artifact above is.
+benchmarks/martian/changed-lines.json
+
 # **The verifier's record and the page drawn from it, by the rule every artifact above states.** The record is
 # `JSON.stringify(…, null, 2)` from `scripts/symbol-crosscheck.mjs` in `--mode replay`, the page from
 # `scripts/symbol-crosscheck-page.mjs`, and CI regenerates both and fails on a difference - so a formatter opinion about

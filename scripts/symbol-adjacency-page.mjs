@@ -66,6 +66,14 @@ if (adjacency.baseRate.adjacent > adjacency.baseRate.goldens) {
   );
   process.exit(1);
 }
+if (adjacency.comparison != null && adjacency.comparison.sentence.adjacent > sets.onlyTheirs) {
+  // **The old reading is still a count of goldens**, so it cannot exceed the set it was taken over - the same bound the
+  // two guards above apply to the new one, applied to the row that exists to be compared with it.
+  process.stderr.write(
+    `the sentence-only reading reports ${String(adjacency.comparison.sentence.adjacent)} of a set of ${String(sets.onlyTheirs)}\n`,
+  );
+  process.exit(1);
+}
 for (const entry of record.plan) {
   if (entry.findingAt !== null && (!Number.isInteger(entry.findingAt) || entry.findingAt < 0)) {
     process.stderr.write(
@@ -94,6 +102,10 @@ const clearing = curve.find((point) => point.f1 >= target)?.converted ?? null;
 const insideRate = percent(adjacency.adjacent, sets.onlyTheirs);
 const outsideRate = percent(adjacency.baseRate.adjacent, adjacency.baseRate.goldens);
 
+// **The reading this one replaced, when the record carries it** (§169). A symbol set that shrank is only interpretable
+// beside the set it shrank from, and a page that dropped the old number would make a repair look like a discovery.
+const comparison = adjacency.comparison ?? null;
+
 /** **The two rates as two bars of one scale**, because the second is the first's denominator and not a footnote. */
 const rateRows = [
   {
@@ -101,6 +113,15 @@ const rateRows = [
     part: adjacency.adjacent,
     whole: sets.onlyTheirs,
   },
+  ...(comparison === null
+    ? []
+    : [
+        {
+          label: 'the same goldens, read off the sentence alone',
+          part: comparison.sentence.adjacent,
+          whole: sets.onlyTheirs,
+        },
+      ]),
   {
     label: `the ${String(adjacency.baseRate.goldens)} goldens in neither set`,
     part: adjacency.baseRate.adjacent,
@@ -205,6 +226,18 @@ const html = `<!doctype html>
   request's first ${String(record.budget)}. The deficit is not that we did not look; it is that the comment says something
   else.
 </p>
+${
+  comparison === null
+    ? ''
+    : `<p class="note">
+  <strong>A name is what the change writes, not what the sentence spells.</strong> The symbols counted here are the
+  identifiers on the pull request's own added lines, minus keywords and minus anything inside a comment; reading the
+  humans' sentences alone would count <strong>${String(comparison.sentence.adjacent)}</strong> of the same
+  ${String(sets.onlyTheirs)} instead of ${String(adjacency.adjacent)}, because prose is mostly not code -
+  <code>Potential</code>, <code>Calling</code>, <code>particularly</code>, <code>capping</code>. Both rows are drawn below,
+  since a set that shrank is only interpretable beside the set it shrank from.
+</p>`
+}
 
 <dl class="headline">
   <div><dt>goldens only they credit</dt><dd>${String(sets.onlyTheirs)}<span class="sub"> of ${String(record.goldens)}</span></dd></div>
@@ -230,7 +263,8 @@ ${rateRows}
 <h2>What the count is worth, read against its own null</h2>
 <p>
   Each row sweeps the one parameter the rule has: how many pull requests' pools may name a token before it stops being a
-  name. The bar is the count, the tick is the ${String(adjacency.null.permutations)}-permutation null's 95th percentile -
+  name - and the symbol set it counts is <strong>${String(record.rule.symbolSet)}</strong>. The bar is the count, the tick
+  is the ${String(adjacency.null.permutations)}-permutation null's 95th percentile -
   the count the same geometry produces when the symbol sets are swapped between goldens. At the specificity this record
   uses (≤ ${String(record.rule.cap)}) the observed count is ${String(adjacency.adjacent)} against a null of
   ${String(adjacency.null.mean)}. <strong>The loose end of the sweep is why the count was never the finding:</strong> at any
@@ -286,8 +320,11 @@ ${curveRows}
 </p>
 
 <footer>
-  Drawn from <code>${record.arm}</code> against <code>${record.reference}</code> on <code>${record.corpus}</code>,
-  measured ${record.measuredAt}. Re-derive with <code>npm run bench:symbol-adjacency</code>; CI fails on a byte of
+  Drawn from <code>${record.arm}</code> against <code>${record.reference}</code> on <code>${record.corpus}</code>${
+    record.rule.changedLines == null
+      ? ''
+      : `, with the names taken from <code>${String(record.rule.changedLines.path)}</code> (${String(record.rule.changedLines.harvested)} pull requests harvested, digest <code>${String(record.rule.changedLines.corpusDigest).slice(0, 19)}…</code>)`
+  }, measured ${record.measuredAt}. Re-derive with <code>npm run bench:symbol-adjacency</code>; CI fails on a byte of
   difference.
 </footer>
 </body>
