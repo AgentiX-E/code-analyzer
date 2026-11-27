@@ -982,6 +982,32 @@ jobs:
           # whose rows do not sum to its own totals, which is the same guard one layer out.
           npm run -s docs:aacr-category-gap
 
+      # **And the two hypotheses §173 left open, priced on the same artifact with no further model call.** The cut's
+      # allocation is arithmetic over rows the run already ranked, and the deterministic lane's reach is arithmetic over
+      # the diffs the run already fetched - so both are `$0` beside the arm, and both are refutations rather than
+      # confirmations (§174): the cut's allocation is not the constraint, and a lane of rules reaches 8 of 404 goldens.
+      # **A step that only ever confirms is a step nobody reads**, which is why the instruments refuse to print rather
+      # than print a decomposition that does not add up.
+      - name: Price the deterministic lane and the cut's allocation
+        if: always() && steps.replay.outcome == 'success'
+        env:
+          # **The diff requests this step makes are authenticated**, because sixty an hour is a corpus of fifty and a
+          # failure that looks like a hole would be the instrument's own.
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          set -e
+          corpus="${{ inputs.dataset == 'martian' && format('{0}/benchmarks/martian/positive_samples.json', github.workspace) || '/tmp/aacr-bench/dataset/v1/positive_samples.json' }}"
+          node scripts/idiom-reach.mjs \
+            --corpus "$corpus" \
+            --artifact benchmarks/aacr-bench.json \
+            --patches /tmp/idiom-patches \
+            --label "dispatch ${{ github.run_id }} · aacr-bench.json, ${{ inputs.profile }}, lanes ${{ inputs.lane_set }}, every device off" \
+            --json benchmarks/idiom-reach.json
+          node scripts/lane-budget.mjs benchmarks/aacr-bench.json \
+            --label "dispatch ${{ github.run_id }} · aacr-bench.json, ${{ inputs.profile }}, lanes ${{ inputs.lane_set }}" \
+            --json benchmarks/lane-budget.json
+          npm run -s docs:lane-budget
+
       # **And `always()` is not decoration on that condition.** A step whose `if` contains no status function is
       # implicitly `success() && …`, so a red step *after* the two proofs still skipped the upload - which is exactly what
       # happened on run 45411086146: the review, both proofs and the competitor comparison all succeeded, the derived
@@ -1018,6 +1044,9 @@ jobs:
             benchmarks/competitor-cut-core.json
             benchmarks/aacr-category-gap.json
             docs/aacr-category-gap.html
+            benchmarks/idiom-reach.json
+            benchmarks/lane-budget.json
+            docs/lane-budget.html
             benchmarks/aacr/competitor-baseline.json
             benchmarks/runnable-competitors-outputs/
           if-no-files-found: warn

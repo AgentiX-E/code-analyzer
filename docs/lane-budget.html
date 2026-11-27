@@ -1,0 +1,158 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Who takes the budget — AACR, wide arm</title>
+<style>
+  :root { color-scheme: light dark; --ink:#111; --muted:#666; --rule:#dcdcdc; --kept:#3b6ea5; --tried:#a5523b; }
+  @media (prefers-color-scheme: dark) { :root { --ink:#eee; --muted:#9a9a9a; --rule:#333; --kept:#7fa9d4; --tried:#d49a7f; } }
+  body { margin:0; padding:40px; font:15px/1.55 ui-sans-serif,-apple-system,"Segoe UI",Roboto,sans-serif; color:var(--ink); background:transparent; }
+  h1 { font-size:22px; margin:0 0 4px; font-weight:650; letter-spacing:-0.01em; }
+  h2 { font-size:15px; margin:34px 0 8px; font-weight:650; }
+  p.lede { margin:0 0 6px; color:var(--muted); max-width:74ch; }
+  table { border-collapse:collapse; width:100%; max-width:1000px; }
+  th, td { text-align:left; padding:9px 12px; border-bottom:1px solid var(--rule); vertical-align:middle; }
+  thead th { font-size:12px; text-transform:uppercase; letter-spacing:0.06em; color:var(--muted); font-weight:600; }
+  tbody th { font-weight:600; width:19rem; }
+  td.number { font-variant-numeric:tabular-nums; width:5.5rem; }
+  .bar { height:16px; border-radius:3px; margin:3px 0; position:relative; min-width:2px; }
+  .bar span { position:absolute; left:8px; top:0; font-size:11px; line-height:16px; color:#fff; white-space:nowrap; }
+  .bar.kept { background:var(--kept); }
+  .bar.tried { background:var(--tried); }
+  .behind { color:#b3341f; } .ahead { color:#1f7a44; } .level { color:var(--muted); }
+  tr.best th { text-decoration:underline; text-decoration-thickness:1px; text-underline-offset:3px; }
+  .tag { font-size:10px; letter-spacing:0.06em; text-transform:uppercase; color:var(--muted); border:1px solid var(--rule); border-radius:3px; padding:1px 5px; margin-left:6px; }
+  footer { margin-top:30px; max-width:1000px; color:var(--muted); font-size:13px; }
+  .swatch { display:inline-block; width:10px; height:10px; border-radius:2px; margin-right:6px; }
+</style>
+</head>
+<body>
+  <h1>Who takes the budget</h1>
+  <p class="lede">AACR, wide lane set — 622 ranked rows, 452 goldens.
+  The shipped cut keeps 311 of them, credits 102,
+  and reads P 0.3280 · R 0.2257 · F1 0.2674.</p>
+
+  <h2>What each lane pays for the slots</h2>
+  <p class="lede">A lane's column of <em>kept</em> is how many of its findings survive; <em>lost</em> is credited findings the
+  budget dropped. The cut ranks globally, so a lane that emits more takes more slots whatever its precision per slot.</p>
+  <table>
+    <thead><tr><th scope="col">Lane</th><th scope="col">Emitted</th><th scope="col">Credited (no cut)</th><th scope="col">Kept</th><th scope="col">Credits lost to the cut</th></tr></thead>
+    <tbody>
+      <tr>
+        <th scope="row">architecture</th>
+        <td class="number">321</td>
+        <td class="number">88</td>
+        <td class="bars">
+          <div class="bar kept" style="width:100.00%"><span>172 kept</span></div>
+        </td>
+        <td class="number behind">−39</td>
+      </tr>
+      <tr>
+        <th scope="row">maintainability</th>
+        <td class="number">101</td>
+        <td class="number">33</td>
+        <td class="bars">
+          <div class="bar kept" style="width:29.65%"><span>51 kept</span></div>
+        </td>
+        <td class="number behind">−13</td>
+      </tr>
+      <tr>
+        <th scope="row">testing</th>
+        <td class="number">94</td>
+        <td class="number">18</td>
+        <td class="bars">
+          <div class="bar kept" style="width:4.07%"><span>7 kept</span></div>
+        </td>
+        <td class="number behind">−15</td>
+      </tr>
+      <tr>
+        <th scope="row">security</th>
+        <td class="number">75</td>
+        <td class="number">37</td>
+        <td class="bars">
+          <div class="bar kept" style="width:37.21%"><span>64 kept</span></div>
+        </td>
+        <td class="number behind">−2</td>
+      </tr>
+      <tr>
+        <th scope="row">performance</th>
+        <td class="number">18</td>
+        <td class="number">4</td>
+        <td class="bars">
+          <div class="bar kept" style="width:4.65%"><span>8 kept</span></div>
+        </td>
+        <td class="number behind">−2</td>
+      </tr>
+      <tr>
+        <th scope="row">behaviour</th>
+        <td class="number">13</td>
+        <td class="number">4</td>
+        <td class="bars">
+          <div class="bar kept" style="width:5.23%"><span>9 kept</span></div>
+        </td>
+        <td class="number level">0</td>
+      </tr>
+    </tbody>
+  </table>
+
+  <h2>The four allocations, at the same emission</h2>
+  <p class="lede">Every arm applies the same drop steps, so the budget is the only thing that varies.
+  <strong>71</strong> credited findings are lost to the budget as it ships, and every fairer allocation that
+  recovers them pays more in precision than it gets back.</p>
+  <table>
+    <thead><tr><th scope="col">Allocation</th><th scope="col">Comments</th><th scope="col">True positives</th><th scope="col">F1</th><th scope="col">Against the shipped point</th></tr></thead>
+    <tbody>
+      <tr class="best">
+        <th scope="row">shipped (drop>drop-path-class>budget) <span class="tag">best</span></th>
+        <td class="number">311</td>
+        <td class="number">102</td>
+        <td class="bars"><div class="bar kept" style="width:100.00%"><span>0.2674</span></div></td>
+        <td class="number level">0.0000</td>
+      </tr>
+      <tr class="">
+        <th scope="row">unbudgeted</th>
+        <td class="number">492</td>
+        <td class="number">122</td>
+        <td class="bars"><div class="bar tried" style="width:96.67%"><span>0.2585</span></div></td>
+        <td class="number behind">-0.0089</td>
+      </tr>
+      <tr class="">
+        <th scope="row">per-lane budget 1</th>
+        <td class="number">134</td>
+        <td class="number">52</td>
+        <td class="bars"><div class="bar tried" style="width:66.38%"><span>0.1775</span></div></td>
+        <td class="number behind">-0.0899</td>
+      </tr>
+      <tr class="">
+        <th scope="row">per-lane budget 2</th>
+        <td class="number">212</td>
+        <td class="number">79</td>
+        <td class="bars"><div class="bar tried" style="width:89.00%"><span>0.2380</span></div></td>
+        <td class="number behind">-0.0294</td>
+      </tr>
+      <tr class="">
+        <th scope="row">floor 1 + budget 12</th>
+        <td class="number">311</td>
+        <td class="number">100</td>
+        <td class="bars"><div class="bar tried" style="width:98.04%"><span>0.2621</span></div></td>
+        <td class="number behind">-0.0052</td>
+      </tr>
+      <tr class="">
+        <th scope="row">floor 2 + budget 12</th>
+        <td class="number">311</td>
+        <td class="number">100</td>
+        <td class="bars"><div class="bar tried" style="width:98.04%"><span>0.2621</span></div></td>
+        <td class="number behind">-0.0052</td>
+      </tr>
+    </tbody>
+  </table>
+
+  <footer>
+    <span class="swatch" style="background:var(--kept)"></span>the allocation that ships &nbsp;&nbsp;
+    <span class="swatch" style="background:var(--tried)"></span>an allocation that was tried and did not &nbsp;&nbsp;
+    best: <strong>shipped (drop>drop-path-class>budget)</strong> at 0.2674<br>
+    Generated from <code>dispatch 45924315931 · aacr-bench.json, advisory, lanes wide, every device off</code> by <code>scripts/lane-budget-page.mjs</code>; no figure on this page is
+    computed here.
+  </footer>
+</body>
+</html>

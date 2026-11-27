@@ -1,0 +1,124 @@
+{
+  "version": "lane-budget-v1",
+  "source": "dispatch 45924315931 · aacr-bench.json, advisory, lanes wide, every device off",
+  "rankedRows": 622,
+  "goldens": 452,
+  "shipped": {
+    "steps": [
+      {
+        "kind": "drop",
+        "categories": [
+          "test"
+        ]
+      },
+      {
+        "kind": "drop-path-class",
+        "classes": [
+          "test"
+        ]
+      },
+      {
+        "kind": "budget",
+        "k": 12
+      }
+    ],
+    "emitted": 311,
+    "truePositives": 102,
+    "precision": 0.3279742765273312,
+    "recall": 0.22566371681415928,
+    "f1": 0.2673656618610747
+  },
+  "lanes": [
+    {
+      "lane": "architecture",
+      "emitted": 321,
+      "credited": 88,
+      "kept": 172,
+      "keptCredited": 49
+    },
+    {
+      "lane": "maintainability",
+      "emitted": 101,
+      "credited": 33,
+      "kept": 51,
+      "keptCredited": 20
+    },
+    {
+      "lane": "testing",
+      "emitted": 94,
+      "credited": 18,
+      "kept": 7,
+      "keptCredited": 3
+    },
+    {
+      "lane": "security",
+      "emitted": 75,
+      "credited": 37,
+      "kept": 64,
+      "keptCredited": 35
+    },
+    {
+      "lane": "performance",
+      "emitted": 18,
+      "credited": 4,
+      "kept": 8,
+      "keptCredited": 2
+    },
+    {
+      "lane": "behaviour",
+      "emitted": 13,
+      "credited": 4,
+      "kept": 9,
+      "keptCredited": 4
+    }
+  ],
+  "allocations": [
+    {
+      "label": "shipped (drop>drop-path-class>budget)",
+      "emitted": 311,
+      "truePositives": 102,
+      "f1": 0.2673656618610747,
+      "delta": 0
+    },
+    {
+      "label": "unbudgeted",
+      "emitted": 492,
+      "truePositives": 122,
+      "f1": 0.2584745762711864,
+      "delta": -0.00889108558988827
+    },
+    {
+      "label": "per-lane budget 1",
+      "emitted": 134,
+      "truePositives": 52,
+      "f1": 0.17747440273037543,
+      "delta": -0.08989125913069926
+    },
+    {
+      "label": "per-lane budget 2",
+      "emitted": 212,
+      "truePositives": 79,
+      "f1": 0.23795180722891565,
+      "delta": -0.029413854632159037
+    },
+    {
+      "label": "floor 1 + budget 12",
+      "emitted": 311,
+      "truePositives": 100,
+      "f1": 0.2621231979030144,
+      "delta": -0.005242463958060273
+    },
+    {
+      "label": "floor 2 + budget 12",
+      "emitted": 311,
+      "truePositives": 100,
+      "f1": 0.2621231979030144,
+      "delta": -0.005242463958060273
+    }
+  ],
+  "best": {
+    "label": "shipped (drop>drop-path-class>budget)",
+    "f1": 0.2673656618610747,
+    "delta": 0
+  }
+}

@@ -71,6 +71,7 @@
     "docs:competitor-board": "node scripts/competitor-board.mjs --check",
     "docs:cut-curve": "node scripts/cut-curve-page.mjs",
     "docs:aacr-category-gap": "node scripts/aacr-category-gap-page.mjs --record benchmarks/aacr-category-gap.json --out docs/aacr-category-gap.html",
+    "docs:lane-budget": "node scripts/lane-budget-page.mjs --record benchmarks/lane-budget.json --out docs/lane-budget.html",
     "bench:density": "node scripts/pool-density.mjs benchmarks/martian-bench.json --corpus benchmarks/martian/positive_samples.json --profile core --budget 5 --split-half --json benchmarks/pool-density.json && node scripts/pool-density.mjs benchmarks/martian-bench.json --corpus benchmarks/martian/positive_samples.json --profile core --budget 5 --group category --split-half --json benchmarks/pool-density-category.json",
     "docs:density": "node scripts/pool-density-page.mjs",
     "docs:decomposition:aacr": "node scripts/aacr-decomposition.mjs --check",

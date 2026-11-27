@@ -166,3 +166,4 @@ docs/symbol-crosscheck.html
 # `scripts/aacr-category-gap-page.mjs` from a record the AACR workflow writes; a formatter that reflowed it would fail
 # `--check` on every run that regenerates it, which is a formatter opinion about a rendering rather than a defect in it.
 docs/aacr-category-gap.html
+docs/lane-budget.html
