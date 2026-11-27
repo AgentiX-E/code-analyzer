@@ -1,0 +1,78 @@
+{
+  "version": "symbol-crosscheck-history-v1",
+  "what": "Every paid dispatches of the sentence-editing pass, in the order they were bought. One row per dispatch, and the last row is the committed record - so this file cannot drift from benchmarks/symbol-crosscheck.json without a test failing.",
+  "runs": [
+    {
+      "run": 1,
+      "dispatch": null,
+      "reference": "§167.6",
+      "contract": "two-sides-v1",
+      "question": "one name, its two sides",
+      "rewritten": 28,
+      "prizeEntries": 3,
+      "planned": 27,
+      "credited": 0,
+      "armA": 0.2961,
+      "armB": 0.2857
+    },
+    {
+      "run": 2,
+      "dispatch": "45866558083",
+      "reference": "§168.6",
+      "contract": "two-related-names-v1",
+      "question": "a pair the sentence relates (reader spoiled)",
+      "rewritten": 0,
+      "prizeEntries": 0,
+      "planned": 27,
+      "credited": 0,
+      "armA": 0.2961,
+      "armB": 0.2961
+    },
+    {
+      "run": 3,
+      "dispatch": "45868061408",
+      "reference": "§168.7",
+      "contract": "two-related-names-v1",
+      "question": "a pair the sentence relates",
+      "rewritten": 20,
+      "prizeEntries": 0,
+      "planned": 27,
+      "credited": 0,
+      "armA": 0.3013,
+      "armB": 0.2961
+    },
+    {
+      "run": 4,
+      "dispatch": "45914707121",
+      "reference": "§170",
+      "contract": "two-related-names-v1",
+      "question": "the same, against the rebuilt plan",
+      "rewritten": 20,
+      "prizeEntries": 1,
+      "planned": 26,
+      "credited": 0,
+      "armA": 0.2909,
+      "armB": 0.2909
+    },
+    {
+      "run": 5,
+      "dispatch": "45924312152",
+      "reference": "§172",
+      "contract": "two-related-names-v1",
+      "question": "the same, with the reason recorded",
+      "rewritten": 22,
+      "prizeEntries": 1,
+      "planned": 26,
+      "credited": 0,
+      "armA": 0.3013,
+      "armB": 0.2909
+    }
+  ],
+  "conclusion": {
+    "retired": true,
+    "reason": "Five dispatches, two contracts, ninety rewritten sentences, five of them on a prize entry, and zero credits. Every run left the comment count at 227, which is a property of the device's type: a pass that may only re-word cannot close a recall gap.",
+    "recorded": "§172.4",
+    "spendUsd": 0.0875,
+    "runs": 5
+  }
+}

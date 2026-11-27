@@ -41,6 +41,11 @@ if (!Number.isFinite(TARGET)) {
 }
 
 const record = JSON.parse(readFileSync(RECORD, 'utf8'));
+// **Every dispatch this pass was ever bought for**, so the page says what the device is worth rather than what the last
+// run of it read. A reader who saw only this run would conclude the device is neutral; five rows of it are the argument
+// that it is retired, and an argument that lives only in a document is one a chart cannot disagree with.
+const HISTORY = argument('--history', join(REPO, 'benchmarks', 'symbol-crosscheck-history.json'));
+const history = JSON.parse(readFileSync(HISTORY, 'utf8'));
 if (record.version !== 'symbol-crosscheck-v1') {
   process.stderr.write(
     `symbol-crosscheck.json is version ${String(record.version)}; this page reads symbol-crosscheck-v1\n`,
@@ -166,6 +171,21 @@ const conversionRows = (prize?.detail ?? [])
   )
   .join('\n');
 
+const historyRows = (history.runs ?? [])
+  .map((run) => {
+    const delta = run.armB - run.armA;
+    return `  <tr${run.credited > 0 ? ' class="moved"' : ''}><td class="n">${String(run.run)}</td><th><code>${escape(
+      run.contract,
+    )}</code><br><span class="muted">${escape(run.reference)}${run.dispatch === null ? '' : ` · ${escape(run.dispatch)}`}</span></th><td>${escape(
+      run.question,
+    )}</td><td class="n">${String(run.rewritten)}</td><td class="n">${String(run.prizeEntries)} of ${String(
+      run.planned,
+    )}</td><td class="n">${String(run.credited)}</td><td class="n">${number(run.armA)} → ${number(run.armB)} <span class="muted">(${
+      delta === 0 ? '±0' : (delta > 0 ? '+' : '') + delta.toFixed(4)
+    })</span></td></tr>`;
+  })
+  .join('\n');
+
 const attributionRows = (record.attribution?.byReason ?? [])
   .map(
     (row) =>
@@ -285,6 +305,27 @@ ${armRows}
 ${keepRows}
 </tbody>
 </table>
+
+<h2>Every dispatch of this device</h2>
+<p>
+  The pass was bought five times before it was retired. <strong>${String(
+    (history.runs ?? []).reduce((total, run) => total + run.rewritten, 0),
+  )} sentences were rewritten, ${String(
+    (history.runs ?? []).reduce((total, run) => total + run.prizeEntries, 0),
+  )} of them on a prize entry, and none of them earned a credit.</strong> No run changed the comment count, which is a
+  property of the device's type rather than a result: it may edit a sentence and may not add one.
+</p>
+<table>
+<thead><tr><th class="n">run</th><th>contract</th><th>question</th><th class="n">rewritten</th><th class="n">prize</th><th class="n">credited</th><th class="n">F1, arm A → B</th></tr></thead>
+<tbody>
+${historyRows}
+</tbody>
+</table>
+<p class="note">
+  ${escape(history.conclusion?.reason ?? '')} The four bills that are in the record add to
+  <strong>$${number(history.conclusion?.spendUsd ?? 0, 4)}</strong>, recorded in
+  ${escape(history.conclusion?.recorded ?? '')}.
+</p>
 
 <h2>The plan §166 priced, entry by entry</h2>
 <p>
