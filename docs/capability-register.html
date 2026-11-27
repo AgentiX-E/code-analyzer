@@ -57,20 +57,20 @@
   point — a row without one is not accepted, whatever its unit coverage, because the last three defects here were joins
   between components that each passed their own tests.</p>
   <ul class="tiles">
-    <li><b>57</b><span>capabilities</span></li>
-    <li><b>48</b><span>done</span></li>
+    <li><b>58</b><span>capabilities</span></li>
+    <li><b>49</b><span>done</span></li>
     <li><b>7</b><span>partial</span></li>
     <li><b>2</b><span>not built</span></li>
-    <li><b>48</b><span>with an end-to-end case</span></li>
-    <li><b>43</b><span>ours only</span></li>
+    <li><b>49</b><span>with an end-to-end case</span></li>
+    <li><b>44</b><span>ours only</span></li>
     <li><b>2</b><span>competitor only</span></li>
   </ul>
 </header>
 <nav>
-  <button data-filter="all" aria-pressed="true">All <span style="opacity:.6">57</span></button>
+  <button data-filter="all" aria-pressed="true">All <span style="opacity:.6">58</span></button>
   <button data-filter="NONE" aria-pressed="false">Not built <span style="opacity:.6">2</span></button>
   <button data-filter="PART" aria-pressed="false">Partial <span style="opacity:.6">7</span></button>
-  <button data-filter="DONE" aria-pressed="false">Done <span style="opacity:.6">48</span></button>
+  <button data-filter="DONE" aria-pressed="false">Done <span style="opacity:.6">49</span></button>
   <button data-filter="C" aria-pressed="false">Competitor only <span style="opacity:.6">2</span></button>
   <button data-filter="no-e2e" aria-pressed="false">No end-to-end case <span style="opacity:.6">9</span></button>
   <input id="q" type="search" placeholder="filter by capability, file or surface" aria-label="filter">
@@ -423,7 +423,7 @@
     </table>
   </section>
   <section>
-    <h2>researcher, I want every number to be reproducible and every difference to be real<span class="count">23</span></h2>
+    <h2>researcher, I want every number to be reproducible and every difference to be real<span class="count">24</span></h2>
     <table>
       <thead><tr><th>#</th><th>Capability</th><th>Ships at</th><th>Unit</th><th>End-to-end</th><th>State</th><th>What the state means</th></tr></thead>
       <tbody>
@@ -633,6 +633,15 @@
         <td class="proof"><code>the-answer-key-is-read-at-the-commits-it-names (unit); the same file's CLI cases run the documented command over fixtures and read the page back (e2e)</code></td>
         <td><span class="state DONE">DONE</span></td>
         <td class="why">DONE (§175) — the harness asked the pull request resource for its diff, so the arm was scored against the pull request as it stands today while the answer key was written on the diff between the corpus's own source_commit and target_commit. corpus-reach.mjs partitions the 452 goldens twice: 93 (20.6 %) have no coordinate in the live diff and 5 in the pinned one, and the two arms' recorded credits on the unreachable ones (ours 13, theirs 42) are the drift signature. scripts/lib/pinned-diff.mjs reads the comparison endpoint, the harness records diffSource, and a compare that 404s falls back to the live diff with its reason counted</td>
+      </tr>
+      <tr data-state="DONE" data-who="O" data-e2e="true">
+        <td class="id">58</td>
+        <td class="cap">A paid run names the trunk it measures — the ref is checked against the default branch, the tip for the instrument, and a run on another head is cancelled rather than read<span class="surface">harness</span></td>
+        <td><span class="tag O">ours only</span></td>
+        <td class="proof"><code>a-dispatch-names-the-trunk-it-means</code></td>
+        <td class="proof"><code>a-dispatch-names-the-trunk-it-means (unit, twelve cases against a fake API; the CLI case asserts the exit code through a local server)</code></td>
+        <td><span class="state DONE">DONE</span></td>
+        <td class="why">DONE (§176) — §175's repair was pushed to master and the next dispatch named main, so the run started on a tree where scripts/lib/pinned-diff.mjs answers 404; the workflow's 204 carries no run identifier, so nothing in the response said which commit had been bought. Three checks, two of them before the request: the ref must be the default branch, the tip must hold the instrument, and the run's head_sha is read back and compared with the tip dispatched (#45972009374 on 23410c5d cancelled, #45972380798 on 114ee112 bought). A run counts only when its created_at is not older than the request, floored to the second, and a tree the check cannot read is a refusal rather than a pass</td>
       </tr>
       </tbody>
     </table>

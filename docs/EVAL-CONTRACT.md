@@ -19523,3 +19523,66 @@ is that they and we were both reading a document that had moved. `S65` is what t
 
 **Cost: `$0.6364` (¥9.2) against a registered ceiling of `$7.50`, 1 860 calls, 71 % cache hit** - down from 90.5 % because
 every prompt's diff text changed, which is the price of the repair and worth stating beside the gain.
+
+## §176 A dispatch names a branch, and a branch is not a tree
+
+`§175` repaired the diff and pushed it to `master`. **The next dispatch named `main`**, and the run started on a tree in
+which `scripts/lib/pinned-diff.mjs` does not exist - `404` at that ref. The workflow answered `204 No Content`, which
+carries no run identifier, **so nothing in the response said which commit had been bought**, and the artifact would have
+carried a figure measured without the repair it was dispatched to measure. The run was found by reading `head_sha` back
+and cancelled (`45972009374`, head `23410c5d`), and re-dispatched on the trunk (`45972380798`, head `114ee112`).
+
+### 176.1 Why a name is not a tree
+
+`AgentiX-E/code-analyzer`'s default branch is `master`. `main` exists, was updated until `2026-11-27T00:04:19Z`, and
+holds the **same content** as `master` at that moment under **different commit identifiers** - the push path rebuilds a
+range through the Git Data API, so the same tree is two lineages. `compare/23410c5d...7442b0d` reports
+`diverged, 122 ahead, 101 behind` between two branches whose files differ only where the last three iterations' work
+does. **A branch that stopped receiving is a tree that looks current and is not**, and a dispatch input of `ref` is a name
+somebody types.
+
+### 176.2 Two refusals before the money, one read-back after it
+
+`scripts/dispatch-bench.mjs` exists so that the three checks are the same three every time:
+
+| check                                      | when               | refusal                                                                            |
+| ------------------------------------------ | ------------------ | ---------------------------------------------------------------------------------- |
+| the ref is the default branch              | before the request | `ref "main" is not the default branch ("master")`, naming both                     |
+| the trunk's tip holds the instrument       | before the request | `"scripts/lib/pinned-diff.mjs" is not in aaaaaaaa`, naming the path and the commit |
+| the run's `head_sha` is the tip dispatched | after the request  | a run on another head is **cancelled**, not read: it is paying for the wrong tree  |
+
+**The third check is not belt-and-braces; it is the only check that can see the answer.** `POST …/dispatches` answers
+`204`, so the identifier of the run it bought is not in the response - it has to be read out of the run list, and the
+list is returned newest first over every dispatch the workflow has ever had. A reader that took the first row would
+attribute the previous dispatch's figure to this request; **so a run counts only when its `created_at` is not older than
+the request**, floored to the second because that is the resolution GitHub reports. A tree the check cannot read
+(`503`, a rate limit) is a refusal and never a pass - `§175.5`'s fourth state, one level up from the corpus.
+
+### 176.3 The check against the branch that cost the run
+
+```
+$ node scripts/dispatch-bench.mjs --repo AgentiX-E/code-analyzer --workflow aacr-bench.yml \
+      --ref main --expect scripts/lib/pinned-diff.mjs --input dataset=aacr --dry-run
+dispatch refused at ref: ref "main" is not the default branch ("master"), and a branch that is not the
+trunk is a tree nobody is maintaining                       # exit 2, no request sent
+
+$ node scripts/dispatch-bench.mjs --repo AgentiX-E/code-analyzer --workflow aacr-bench.yml \
+      --expect scripts/lib/pinned-diff.mjs --input dataset=aacr --input max_pull_requests=50 --dry-run
+dispatch ok (dry run) · master at 114ee112 · 2 inputs        # exit 0
+```
+
+Twelve cases in `tests/unit/scripts/a-dispatch-names-the-trunk-it-means.test.ts`, against a fake API: each refusal is
+shown to have stopped **before** the `POST`, the inputs are shown to be posted **verbatim** (`off` stays the string
+`off`, because YAML 1.1 reads an unquoted one as a boolean and a coerced dispatch buys a different arm), and a stray run
+is shown to be cancelled. The command line's exit code is asserted through a local server, because a refusal that exits
+`0` is a refusal a shell chain walks past.
+
+### 176.4 What it does not establish
+
+**That two branches with one content are harmless.** They are not - they are how this happened - and the guard treats the
+symptom. `main` should be deleted or fast-forwarded onto the trunk; **this repository cannot do that from a script without
+deciding which lineage is the record**, and that decision belongs in the docs repo rather than in a commit message.
+
+**And that a dispatch through the web interface is checked.** Nothing here can intercept one. What the guard buys is that
+`scripts/dispatch-bench.mjs` is how this repository's paid runs are bought, and that a run bought any other way still has
+to name its `head_sha` before its figure is quoted - which is `§175`'s rule, applied to the instrument's own provenance.
