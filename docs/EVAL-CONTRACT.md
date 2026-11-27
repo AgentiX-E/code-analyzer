@@ -18691,3 +18691,98 @@ is the better device. What changes is the **target**: before another yuan is spe
 verifier anyway and `sideLinesByPath` already reads them. `S55` is registered for that: rebuild the adjacency set with a
 rule that a token must be an identifier in the change _and_ in the sentence, recompute the prize, and only then decide
 whether a third contract is worth buying.
+
+## §169 The name in the sentence and the name in the change
+
+### 169.1 What §168.8 asked for, and how it was built
+
+§168.8 refused the target rather than the device: `benchmarks/symbol-adjacency.json`'s `symbols` were the tokens its
+extractor found in the **golden sentence**, and on this board that admits `Potential`, `Calling`, `Accessing`, `Using`,
+`capping`, `particularly`, `floor`. A device cannot be asked to state a correspondence about `particularly`, so **S55**
+registered the rebuild: a symbol must be an identifier **the pull request's own added lines write** _and_ one the human's
+sentence uses.
+
+**It is free, and it is now mechanical.** `scripts/lib/code-names.mjs` reads a unified diff through `sideLinesByPath`, takes
+the added side only, strips each line's comments, and drops keywords - because `await` is in every diff and in every
+English sentence about one, and a set that admitted it would re-import the bag of words through the front door.
+`scripts/harvest-changed-lines.mjs` runs it over the corpus once and writes `benchmarks/martian/changed-lines.json`:
+
+| what the harvest states      | value                                                                      |
+| ---------------------------- | -------------------------------------------------------------------------- |
+| pull requests                | **50 of 50**, 0 failures                                                   |
+| names                        | **8 917** across the fifty diffs                                           |
+| the corpus it was taken over | by digest, `sha256-51b962e1…` (checked by a test against the corpus bytes) |
+| the rule                     | added lines, comments stripped, keywords excluded, identifier-shaped ≥ 4   |
+
+**The extractor is tested where it can be wrong**, not where it is convenient: a keyword in a statement, prose inside a
+line comment, a block comment crossing lines, a `#` comment in Python and a `<!-- -->` in XML, a `--` in SQL, a removed
+line that must not contribute, and the one rule that would pass a weaker test and break a real run - **`https://` is not a
+line comment**, so a line holding a URL keeps the identifiers on both sides of it.
+
+### 169.2 The prediction that failed, and the one that held
+
+Both readings, on the same artifact, the same pool, the same 500-permutation null and the same seed:
+
+| reading of "a symbol"            | goldens carrying one | adjacent | null mean · p95 | rate outside the set | ceiling | at `k = 5` | F1       | corrections for the bar |
+| -------------------------------- | -------------------: | -------: | --------------: | -------------------: | ------: | ---------: | -------- | ----------------------: |
+| the sentence alone (§166)        |                   33 |   **27** |      `2.13 · 5` |          `99 of 125` |     104 |         75 | `0.3896` |                  **18** |
+| the sentence ∩ the change (§169) |                   31 |   **26** |      `1.37 · 3` |          `89 of 125` |     103 |         75 | `0.3896` |                  **17** |
+
+**§168.8 predicted the prize would not survive the rebuild. It survives it, and the reason is worth stating.** The words
+§168.8 caught - `Potential`, `Calling`, `Accessing`, `capping` - are one token per golden, and a golden usually carries
+another: `TopicUser` beside `Potential`, `user_count` beside `capping`, `has_global_access` beside `Accessing`. `floor` and
+`ceil` are not English here at all; they are `math.floor` in the diff. **So the adjacency was never mostly vocabulary** -
+it was vocabulary _and_ names, and removing the vocabulary costs one golden of thirty-three and one plan entry of
+twenty-seven. The rate outside the set moves further than the set does (`99 → 89` of 125), which is the same fact from the
+other side: ten of the old coincidences were shared English.
+
+**What the rebuild does cost is the anchor, and that is the finding.** Of the twenty-six plan entries, **fourteen now point
+at a different first symbol** - and the first symbol is what `two-related-names-v1` asks about:
+
+| pull request                | §166 anchor (a word) | §169 anchor (a name the change writes) |
+| --------------------------- | -------------------- | -------------------------------------- |
+| `discourse-graphite/pull/2` | `Potential`          | `TopicUser`                            |
+| `discourse-graphite/pull/8` | `capping`            | `user_count`                           |
+| `sentry-greptile/pull/2`    | `Accessing`          | `has_global_access`                    |
+
+**So S54's two paid runs were asking about the right comments and, in more than half the entries, about the wrong name.**
+§168.1's "24 of the 27 entries were never asked about" was read as a defect of the _question selector_ - the pass picked
+the first backticked name, usually the subject. It was also a defect of the _data_: the plan's `symbols[0]` was, fourteen
+times out of twenty-six, an English word that no comment could name. Both are now fixed, and they were two different bugs.
+
+### 169.3 The next action is a re-run and not a third contract
+
+A third contract was priced at ≈ ¥0.25 and one day. It is not what the evidence asks for:
+
+| action                                           | why                                                                                              | cost                 |
+| ------------------------------------------------ | ------------------------------------------------------------------------------------------------ | -------------------- |
+| **re-run `two-related-names-v1` on §169's plan** | the device is unchanged and the target is now legal; 227 verifier calls reproduce run 5's ledger | **≈ $0.015** (¥0.11) |
+| a third contract                                 | would ask a better question of a plan that had never been asked a legal one                      | ≈ ¥0.25, 1 d         |
+
+The acceptance is §168.3 with §169's denominator, registered before the call:
+
+| condition                                   | threshold                                           |
+| ------------------------------------------- | --------------------------------------------------- |
+| prize entries rewritten                     | **≥ 17 of 26**                                      |
+| credited goldens at `k = 5`                 | **72**, comments unchanged at 227                   |
+| F1 on Martian Core                          | **≥ 0.3735** from `0.2961`                          |
+| paired test over shared `(comment, golden)` | **more gained than lost**, exact McNemar `p < 0.05` |
+| spend                                       | **≤ $0.60** verifier, 222 judge calls, ceiling `$3` |
+
+**Seventeen, not eighteen, and the difference is not slack.** §168.3 asked for eighteen of twenty-seven because
+`2·72/385 = 0.3740` is the first point above the bar; on twenty-six entries the same seventy-two credits are reached at
+seventeen conversions (`benchmarks/symbol-adjacency.json`'s `bar.clearing`), so the number follows the curve rather than
+the other way round.
+
+### 169.4 What would refute it
+
+**If seventeen of twenty-six corrections still credit nothing, the anchor was not the reason and the deficit is
+predication.** Fifty-four comments have now been re-read against a name they relate; if the two runs differ only in which
+name was quoted and neither moves a credit, then the pass is failing to _assert_ the relation rather than failing to
+_select_ it, and the next iteration belongs to the prompt's claim rather than to its anchor. That is a different
+experiment with a different cost, and §169 does not pre-authorise it.
+
+**And if the paired test loses more than it gains, the editing device is the problem.** §167.7 has three independent
+confirmations that a faithful paraphrase can cost a credit on this judge; a fourth would move the campaign's question from
+_which comment to rewrite_ to _whether a rewrite can be judged better than the sentence it replaced_, which is a judge
+question and not a review-engine one.
