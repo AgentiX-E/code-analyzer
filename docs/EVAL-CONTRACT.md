@@ -19060,3 +19060,120 @@ attribution all point.
 **§172.4's number is the reason to stop, and §172.5's is the reason to move.** A campaign that kept buying this device
 because its cost was small would be optimising the wrong quantity: `$0.015` four times is nothing, but four iterations of
 attention is the whole budget this board has.
+
+## §173 The wide arm: a defect the guard caught, a loss that is not a ranking loss
+
+### 173.1 First, a denominator that was three times too large
+
+Dispatch `45924315931` bought S11 - the AACR board at `lane_set = wide`, `advisory` profile, every device off - and its last
+step failed:
+
+```
+the guard refuses this pricing: the rows do not rebuild the published figure
+(R=0.3761 against 0.1089, F1=0.3770 against 0.1691), so these are not the rows that figure came from
+```
+
+**The rows were the rows.** The denominator was not: `scripts/competitor-cut.mjs` built it from the whole corpus file, and
+the AACR answer key holds **196 pull requests and 1506 goldens** while the run asked about **50**. `164 / 1506 = 0.1089` is
+a correct division of the competitor's true positives by a corpus nobody scored. The instrument's own docstring already
+said a selection "changes which rows contribute, never what the corpus holds" - which is the rule for a *hole*, and wrong
+for a *question the run never put*.
+
+The repair is one filter and one sentence: **`keys` is now the corpus narrowed by the run's selection**, and the hole rule
+survives one level down - a pull request inside the slice whose row emitted nothing keeps its goldens in the denominator,
+because that silence is an observation. The figure the arm did not measure is printed rather than left to be discovered by
+division:
+
+```
+competitor open-code-review · 47 of 50 scored pull requests have a row · profile all
+  goldens 436 (every golden on the pull requests priced here, so a row that emitted nothing is still counted)
+  and 16 goldens on 3 scored pull requests the arm produced nothing for are outside it
+  as shipped     emitted 434  tp 164  P 0.3779  R 0.3761  F1 0.3770
+  at our gate    emitted 110  tp 58  P 0.5273  R 0.1330  F1 0.2125
+  the guard rebuilds P/R/F1 exactly
+```
+
+**`436` and `452` are both right and they answer different questions.** The competitor's `0.3770` is over the 436 goldens of
+the 47 pull requests it produced output for; our `0.2674` is over the slice's 452. The paired comparison - the only one
+where both arms hold the same rows - is `0.2642` against `0.3770`, and it is printed by the run itself. **Two denominators
+in one paragraph is how a comparison becomes unfair by accident**, so §173.2 uses the paired one.
+
+### 173.2 The reading, and the first board where we are behind
+
+| arm                                          | emitted | true positives | precision | recall | F1         |
+| -------------------------------------------- | ------: | -------------: | --------: | -----: | ---------- |
+| ours, shipped cut (50 PRs / 452)             |     311 |            102 |    0.3280 | 0.2257 | **0.2674** |
+| ours, everything (no cut, 622 candidates)    |     622 |            127 |    0.2042 | 0.2810 | 0.2365     |
+| ours, paired subset (47 PRs / 436)           |     306 |             98 |    0.3203 | 0.2248 | **0.2642** |
+| the competitor, as it ships (434 findings)   |     434 |            164 |    0.3779 | 0.3761 | **0.3770** |
+| the competitor, through our actionability gate |   110 |             58 |    0.5273 | 0.1330 | 0.2125     |
+
+**`-0.1128` F1 on the paired subset, and there is no fifth column in which it disappears.** The run cost `$1.7093`
+(¥29.39); the judge cost `$0.9962`; 3834 review calls and 12978 judge calls, none unanswered.
+
+**What the run also establishes, and it is the reason the loss is diagnosable.** The same competitor rows, cut by *our*
+gate, fall to `0.2125` - below our own `0.2642` on the same 436 goldens. **Our ranking is better than theirs on their own
+emission**; their advantage is that there is more to rank:
+
+- **The cut is not the constraint.** Budget 12 ships `0.2674`; the best point on the whole curve is budget 14 at `0.2685`.
+  A wider cut buys `+0.0011` and would cost 19 more comments.
+- **No score term is the constraint.** The ablation finds no term whose removal moves F1 by more than the run's own
+  resolution (`0.0073`); the largest is `proposesChange` at `-0.0105`, which costs six true positives and buys nothing.
+- **Detection is the constraint.** With no cut at all - all 622 candidates - we credit `127` goldens against their `164`.
+
+### 173.3 Where the missing goldens live
+
+`scripts/aacr-category-gap.mjs` splits the same verdicts by the category the corpus publishes on every reference comment.
+Both arms are scored by the corpus's protocol (one finding credited with one golden, per pull request) and every bucket adds
+back up - ours to `102`, theirs to `164`, the denominators to `452` - or the instrument prints nothing.
+
+| category                           | goldens | ours | ours R     | theirs | theirs R   | gap    |
+| ---------------------------------- | ------: | ---: | ---------: | -----: | ---------: | -----: |
+| Code Defect                        |     209 |   65 |     0.3110 |     96 |     0.4593 | **+31** |
+| Maintainability and Readability    |     191 |   20 |     0.1047 |     45 |     0.2356 | **+25** |
+| Performance                        |      37 |    8 |     0.2162 |     14 |     0.3784 |   +6   |
+| Security Vulnerability             |      15 |    9 |     0.6000 |      9 |     0.6000 |    0   |
+| **total**                          | **452** |  102 | **0.2257** |    164 |     0.3628 | **+62** |
+
+**Three findings, and each one is a different next step.**
+
+1. **Security is level** (`9 = 9`). The lane whose rules are the most literal is the one that holds its ground; nothing about
+   this board says the engine cannot read a diff.
+2. **`maintainability` is the relative failure**: `0.1047` against `0.2356` on the corpus's second-largest category (42 % of
+   the answer key). We emit maintainability comments - 101 candidates, 33 of them credited before the cut - but at a third
+   of the rate the competitor reaches.
+3. **`code defect` is the absolute failure**: 31 of the 62 missing true positives. Our `bug` lane emits the most (183
+   comments) and credits the least per comment on this corpus.
+
+**The 242 rejections say the same thing from the other side.** Of 350 missed goldens, 242 sat on a path we had a finding
+on, and 142 of those had a finding on the *same line* - judged and not credited. A sample of 49 (`rejectedGoldens`, stride
+5) shows the notes are different concerns on adjacent lines: *"this call is redundant in the loop"* beside *"rotate() no
+longer updates anchor direction before recompute"*. **These are not matching failures and not judge leniency; they are
+findings we did not make.**
+
+### 173.4 What this does not establish
+
+**That `wide` is better than `narrow`.** S11 changed the lane set and the board moved from a reading in the `0.28` band to
+`0.2674`; the paired test against the previous narrow run has not been computed, and a change of lane set is not a device
+that can be priced from one artifact.
+
+**That `S60` fixes it.** `S60`'s prior (`0.257` against `0.196` for findings that name a boundary condition) was measured on
+a different board and a different judge. What this round adds is a target it must move: `maintainability` recall, and
+`+25` true positives to be level there.
+
+**That the competitor's `0.3770` is reachable.** Their 434 findings on 46 pull requests is 9.4 per request against our 6.2,
+at a precision 0.05 higher. Closing `-0.11` F1 needs **more true positives at equal precision**, which is emission breadth
+and not volume: we already emit 622 candidates for 127 credits.
+
+### 173.5 The plan this reading sets
+
+| step                                                                         | target it must move                                          | cost       |
+| ---------------------------------------------------------------------------- | ------------------------------------------------------------ | ---------- |
+| **S60** - the boundary condition named from the diff, not from the sentence  | `maintainability` recall `0.1047 → ≥ 0.16`                   | 2 d, ≈ $1  |
+| **S61** - the cut curve re-priced on the wide arm                            | confirms the cut is not the constraint before any device buys | 0.5 d, `$0` |
+| **S62** - a `performance` lane with rules rather than prompts                | `performance` recall `0.2162 → ≥ 0.3784` (level with them)    | 3 d, ≈ $1  |
+| **S63** - `bug` lane depth on the four defect shapes the corpus publishes    | `code defect` `0.3110 → ≥ 0.40`                              | 4 d, ≈ $2  |
+
+**The bar for the AACR board is `0.3770`, and it is the competitor's own figure under our LLM** - the same DeepSeek endpoint
+and model its CLI was driven with in record mode. It replaces the `0.3106` this campaign has been quoting since S44, which
+was the narrow arm.
