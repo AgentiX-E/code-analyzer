@@ -19798,3 +19798,52 @@ because a lane swap that buys recall by spending precision is a different device
 
 The pair is dispatch `46001226979` (`reviewer`, head `5ad03b44`) against `benchmarks/aacr-bench-pinned-50.json`
 (`wide`, head `114ee112`'s successor on the same trunk). Every input but `lane_set` is verbatim identical.
+
+## §179 The pair was read, the claim held, and the check that read it was wrong
+
+### 179.1 What the pair actually says
+
+Dispatch `46001226979` (`lane_set=reviewer`, `crosscheck` swapped for `testing`, head `5ad03b44`) finished at
+2026-11-27T13:47:09Z with artifact `15203661416`. Every input but the lane set is verbatim identical to the pinned
+`wide` board of `§177`.
+
+| figure                         | pinned `wide` (§177) | reviewer pair (R-178) | competitor, our DeepSeek |
+| ------------------------------ | -------------------: | --------------------: | -----------------------: |
+| overall precision              |              0.4270  |               0.4128  |              (see §177)  |
+| overall recall                 |              0.2655  |               0.2721  |              (see §177)  |
+| **overall F1**                 |              0.3274  |           **0.3280**  |                  0.3739  |
+| credited `Code Defect` goldens |                 80   |             **83**    |                     96   |
+| `Code Defect` recall           |              0.3828  |           0.3971      |                0.4593    |
+
+**Claim R-178 is confirmed, not disproved:** 83 > 80 credited `Code Defect` goldens on the same 50 pull requests and
+judge, and overall F1 moved +0.0006 (the falsifier was a fall of more than 0.01). The lane swap bought three defect
+goldens **without** spending precision. But the pair does not reach the target: `0.3280 < 0.3739` overall and
+`0.3971 < 0.4593` on `Code Defect`. The `crosscheck` lane is a real, measured gain — and it is not the whole gap.
+The other categories are mixed: `Maintainability` fell `0.1361 → 0.1204`, `Performance` rose `0.2432 → 0.2703` and
+`Security Vulnerability` rose `0.3333 → 0.4667` — so the swap is not a defect-only reallocation, but neither is it a
+uniform gain.
+
+### 179.2 The run was green except for a check whose premise was stale
+
+The run concluded `failure`, but only at step 24 — `node scripts/aacr-bench-audit.mjs --check`, after the artifact had
+already been written and uploaded. The failing line read `0 counted, 2 named`. In the artifact the two named rows are
+pull requests whose `source_commit` the remote no longer holds (`not our ref 4936d018…`, `cfc31229…`). The harness
+(`§175`, `competitor-failure.mjs`) classifies these as `unreachable`: it files them under `failedPullRequests` with
+`stage: 'range'` **and** under `missing`, and deliberately leaves `prsFailed` at zero, because a range nobody can
+resolve is a fact about the corpus, not an observation of the reviewer.
+
+Audit rule 9 predates the `stage` field. It compared `prsFailed` with the length of the whole `failedPullRequests`
+list, so it demanded that an unreachable range be counted as a reviewer failure. **A check whose premise is wrong
+reports a defect in the artifact rather than in itself** — the exact failure mode this audit module's own §8 comment
+warns about. The rule now compares the counter with the `stage: 'run'` rows only and keeps the unreachable count
+readable beside it; against the real artifact it reads `0 counted, 0 run, 2 unreachable` and all 15 checks pass.
+The guard that matters is retained: a `stage: 'run'` failure that was counted but not named still fails the audit.
+
+### 179.3 Verification and what is not established
+
+Two cases were written first and seen red before the rule was changed: one artifact with two `stage: 'range'` names and
+`prsFailed: 0` (must pass), one with `prsFailed: 2` and a single `stage: 'run'` name (must fail). Both now pass;
+36 tests in `the-detail-layers-add-up-to-the-figure-they-decompose.test.ts`, 1925 unit tests across 182 files, the
+typecheck ratchet (0 errors) and the lint ratchet (13 improved) are green. What is **not** established: that `crosscheck`
+closes the remaining `−0.0459` overall and `−0.0622` `Code Defect` gaps — it does not, and the next step is `S63` depth
+on the four defect shapes with the error-path bucket first.

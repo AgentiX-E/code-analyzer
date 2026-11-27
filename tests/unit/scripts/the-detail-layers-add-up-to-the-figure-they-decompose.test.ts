@@ -129,7 +129,9 @@ function consistentArtifact() {
       prsFailed: 1,
       recorded: 2,
       replayed: 0,
-      missing: [],
+      // **Typed, not a bare `[]`:** a test below names the pull requests whose range the remote dropped, and a literal
+      // empty array would infer `never[]` and refuse to accept their keys.
+      missing: [] as Array<{ key: string; goldens: number; reason: string }>,
       failedPullRequests: [{ key: 'k', goldens: 1, reason: 'it produced nothing', stage: 'run' }],
       // **Widened, because the tests below replace it with rows that carry coordinates and may or may not carry a
       // sentence** - the shape the artifact actually publishes.
@@ -457,6 +459,47 @@ describe('every scored pull request is accounted for', () => {
   it('fails when the failures that were counted are not the failures that were named', () => {
     const artifact = consistentArtifact();
     artifact.secondReviewer.prsFailed = 2;
+    expect(failuresOf(artifact)).toContain(
+      'the failures that were counted are the failures that were named',
+    );
+  });
+
+  it('accepts named pull requests whose range the remote no longer holds, because an unreachable range is a fact about the corpus and not a counted failure', () => {
+    // **The reviewer arm of 2026-11-27 named two pull requests whose `source_commit` the remote no longer holds.**
+    // The harness filed them under `failedPullRequests` with `stage: 'range'` AND under `missing`, and — because a
+    // range nobody can resolve is not an observation of the competitor — deliberately left `prsFailed` at zero. The
+    // check below read `0 counted, 2 named` and failed a run whose accounting was correct: the wrong premise was that
+    // every named failure is a counted one. A run that ran and failed is counted; a range the remote dropped is not.
+    const artifact = consistentArtifact();
+    artifact.secondReviewer.prsFailed = 0;
+    artifact.secondReviewer.failedPullRequests = [];
+    artifact.secondReviewer.missing = [];
+    artifact.secondReviewer.recorded = 1;
+    artifact.secondReviewer.replayed = 0;
+    for (const at of [0, 1]) {
+      const row = {
+        key: `https://github.com/comfyanonymous/ComfyUI/pull/${7952 + at}`,
+        goldens: 5,
+        reason: 'the corpus names a range this remote no longer holds: not our ref',
+        stage: 'range',
+      };
+      artifact.secondReviewer.failedPullRequests.push(row);
+      artifact.secondReviewer.missing.push({ key: row.key, goldens: row.goldens, reason: row.reason });
+    }
+    expect(failuresOf(artifact)).not.toContain(
+      'the failures that were counted are the failures that were named',
+    );
+  });
+
+  it('still fails when a failure that actually ran was counted but not named', () => {
+    // **The guard that stays.** Relaxing the check for unreachable ranges must not open the hole of 2026-11-11:
+    // a `stage: 'run'` failure is an observation, it belongs in `prsFailed`, and a count of two with only one name is
+    // still the drift this check exists to catch.
+    const artifact = consistentArtifact();
+    artifact.secondReviewer.prsFailed = 2;
+    artifact.secondReviewer.failedPullRequests = [
+      { key: 'only-one', goldens: 1, reason: 'it produced nothing', stage: 'run' },
+    ];
     expect(failuresOf(artifact)).toContain(
       'the failures that were counted are the failures that were named',
     );

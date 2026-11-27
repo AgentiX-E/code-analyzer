@@ -270,12 +270,23 @@ export function auditArtifact(artifact) {
           : `${String(accounted)} accounted for of ${String(corpusSize)} scored (${String(theirs.recorded ?? 0)} recorded, ${String(theirs.replayed ?? 0)} replayed, ${String(failed)} failed, ${String(missing)} missing)`,
   );
 
-  // **9. And every failure that was counted is a failure that can be read.** `prsFailed` and the length of the failure
-  // list are two writers of one fact, which is exactly the drift this module exists to catch.
+  // **9. Every failure that was counted is a failure that can be read, and an unreachable range is not a counted
+  // failure.** `prsFailed` increments for one way an attempt can fail and not for the other: `stage: 'run'` is an
+  // observation of the reviewer — it ran, produced nothing, and is scored as a zero — while `stage: 'range'` is a fact
+  // about the corpus — the `source_commit` the answer key names no longer exists on the remote, so nothing ran at all.
+  // The harness files both under `failedPullRequests` because both are readable names, but only the first is a failure
+  // of the reviewer. The reviewer arm of 2026-11-27 named two ranges the remote had dropped and left `prsFailed` at
+  // zero; a check that compared the counter with the whole list reported `0 counted, 2 named` and failed a run whose
+  // accounting was correct. **The count must match the observations, and the environment facts stay legible beside
+  // them rather than being silently folded into the count.**
+  const runFailures = Array.isArray(theirs.failedPullRequests)
+    ? theirs.failedPullRequests.filter((row) => row?.stage === 'run').length
+    : 0;
+  const rangeFacts = failed - runFailures;
   record(
     'the failures that were counted are the failures that were named',
-    corpusSize === 0 || Number(theirs.prsFailed ?? 0) === failed,
-    `${String(theirs.prsFailed ?? 0)} counted, ${String(failed)} named`,
+    corpusSize === 0 || Number(theirs.prsFailed ?? 0) === runFailures,
+    `${String(theirs.prsFailed ?? 0)} counted, ${String(runFailures)} run, ${String(rangeFacts)} unreachable`,
   );
 
   return { ok: findings.every((finding) => finding.ok), findings };
