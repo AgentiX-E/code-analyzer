@@ -19076,8 +19076,8 @@ the guard refuses this pricing: the rows do not rebuild the published figure
 **The rows were the rows.** The denominator was not: `scripts/competitor-cut.mjs` built it from the whole corpus file, and
 the AACR answer key holds **196 pull requests and 1506 goldens** while the run asked about **50**. `164 / 1506 = 0.1089` is
 a correct division of the competitor's true positives by a corpus nobody scored. The instrument's own docstring already
-said a selection "changes which rows contribute, never what the corpus holds" - which is the rule for a *hole*, and wrong
-for a *question the run never put*.
+said a selection "changes which rows contribute, never what the corpus holds" - which is the rule for a _hole_, and wrong
+for a _question the run never put_.
 
 The repair is one filter and one sentence: **`keys` is now the corpus narrowed by the run's selection**, and the hole rule
 survives one level down - a pull request inside the slice whose row emitted nothing keeps its goldens in the denominator,
@@ -19100,18 +19100,18 @@ in one paragraph is how a comparison becomes unfair by accident**, so §173.2 us
 
 ### 173.2 The reading, and the first board where we are behind
 
-| arm                                          | emitted | true positives | precision | recall | F1         |
-| -------------------------------------------- | ------: | -------------: | --------: | -----: | ---------- |
-| ours, shipped cut (50 PRs / 452)             |     311 |            102 |    0.3280 | 0.2257 | **0.2674** |
-| ours, everything (no cut, 622 candidates)    |     622 |            127 |    0.2042 | 0.2810 | 0.2365     |
-| ours, paired subset (47 PRs / 436)           |     306 |             98 |    0.3203 | 0.2248 | **0.2642** |
-| the competitor, as it ships (434 findings)   |     434 |            164 |    0.3779 | 0.3761 | **0.3770** |
-| the competitor, through our actionability gate |   110 |             58 |    0.5273 | 0.1330 | 0.2125     |
+| arm                                            | emitted | true positives | precision | recall | F1         |
+| ---------------------------------------------- | ------: | -------------: | --------: | -----: | ---------- |
+| ours, shipped cut (50 PRs / 452)               |     311 |            102 |    0.3280 | 0.2257 | **0.2674** |
+| ours, everything (no cut, 622 candidates)      |     622 |            127 |    0.2042 | 0.2810 | 0.2365     |
+| ours, paired subset (47 PRs / 436)             |     306 |             98 |    0.3203 | 0.2248 | **0.2642** |
+| the competitor, as it ships (434 findings)     |     434 |            164 |    0.3779 | 0.3761 | **0.3770** |
+| the competitor, through our actionability gate |     110 |             58 |    0.5273 | 0.1330 | 0.2125     |
 
 **`-0.1128` F1 on the paired subset, and there is no fifth column in which it disappears.** The run cost `$1.7093`
 (¥29.39); the judge cost `$0.9962`; 3834 review calls and 12978 judge calls, none unanswered.
 
-**What the run also establishes, and it is the reason the loss is diagnosable.** The same competitor rows, cut by *our*
+**What the run also establishes, and it is the reason the loss is diagnosable.** The same competitor rows, cut by _our_
 gate, fall to `0.2125` - below our own `0.2642` on the same 436 goldens. **Our ranking is better than theirs on their own
 emission**; their advantage is that there is more to rank:
 
@@ -19127,13 +19127,13 @@ emission**; their advantage is that there is more to rank:
 Both arms are scored by the corpus's protocol (one finding credited with one golden, per pull request) and every bucket adds
 back up - ours to `102`, theirs to `164`, the denominators to `452` - or the instrument prints nothing.
 
-| category                           | goldens | ours | ours R     | theirs | theirs R   | gap    |
-| ---------------------------------- | ------: | ---: | ---------: | -----: | ---------: | -----: |
-| Code Defect                        |     209 |   65 |     0.3110 |     96 |     0.4593 | **+31** |
-| Maintainability and Readability    |     191 |   20 |     0.1047 |     45 |     0.2356 | **+25** |
-| Performance                        |      37 |    8 |     0.2162 |     14 |     0.3784 |   +6   |
-| Security Vulnerability             |      15 |    9 |     0.6000 |      9 |     0.6000 |    0   |
-| **total**                          | **452** |  102 | **0.2257** |    164 |     0.3628 | **+62** |
+| category                        | goldens | ours |     ours R | theirs | theirs R |     gap |
+| ------------------------------- | ------: | ---: | ---------: | -----: | -------: | ------: |
+| Code Defect                     |     209 |   65 |     0.3110 |     96 |   0.4593 | **+31** |
+| Maintainability and Readability |     191 |   20 |     0.1047 |     45 |   0.2356 | **+25** |
+| Performance                     |      37 |    8 |     0.2162 |     14 |   0.3784 |      +6 |
+| Security Vulnerability          |      15 |    9 |     0.6000 |      9 |   0.6000 |       0 |
+| **total**                       | **452** |  102 | **0.2257** |    164 |   0.3628 | **+62** |
 
 **Three findings, and each one is a different next step.**
 
@@ -19146,9 +19146,8 @@ back up - ours to `102`, theirs to `164`, the denominators to `452` - or the ins
    comments) and credits the least per comment on this corpus.
 
 **The 242 rejections say the same thing from the other side.** Of 350 missed goldens, 242 sat on a path we had a finding
-on, and 142 of those had a finding on the *same line* - judged and not credited. A sample of 49 (`rejectedGoldens`, stride
-5) shows the notes are different concerns on adjacent lines: *"this call is redundant in the loop"* beside *"rotate() no
-longer updates anchor direction before recompute"*. **These are not matching failures and not judge leniency; they are
+on, and 142 of those had a finding on the _same line_ - judged and not credited. A sample of 49 (`rejectedGoldens`, stride 5) shows the notes are different concerns on adjacent lines: _"this call is redundant in the loop"_ beside _"rotate() no
+longer updates anchor direction before recompute"_. **These are not matching failures and not judge leniency; they are
 findings we did not make.**
 
 ### 173.4 What this does not establish
@@ -19167,12 +19166,12 @@ and not volume: we already emit 622 candidates for 127 credits.
 
 ### 173.5 The plan this reading sets
 
-| step                                                                         | target it must move                                          | cost       |
-| ---------------------------------------------------------------------------- | ------------------------------------------------------------ | ---------- |
-| **S60** - the boundary condition named from the diff, not from the sentence  | `maintainability` recall `0.1047 → ≥ 0.16`                   | 2 d, ≈ $1  |
-| **S61** - the cut curve re-priced on the wide arm                            | confirms the cut is not the constraint before any device buys | 0.5 d, `$0` |
-| **S62** - a `performance` lane with rules rather than prompts                | `performance` recall `0.2162 → ≥ 0.3784` (level with them)    | 3 d, ≈ $1  |
-| **S63** - `bug` lane depth on the four defect shapes the corpus publishes    | `code defect` `0.3110 → ≥ 0.40`                              | 4 d, ≈ $2  |
+| step                                                                        | target it must move                                           | cost        |
+| --------------------------------------------------------------------------- | ------------------------------------------------------------- | ----------- |
+| **S60** - the boundary condition named from the diff, not from the sentence | `maintainability` recall `0.1047 → ≥ 0.16`                    | 2 d, ≈ $1   |
+| **S61** - the cut curve re-priced on the wide arm                           | confirms the cut is not the constraint before any device buys | 0.5 d, `$0` |
+| **S62** - a `performance` lane with rules rather than prompts               | `performance` recall `0.2162 → ≥ 0.3784` (level with them)    | 3 d, ≈ $1   |
+| **S63** - `bug` lane depth on the four defect shapes the corpus publishes   | `code defect` `0.3110 → ≥ 0.40`                               | 4 d, ≈ $2   |
 
 **The bar for the AACR board is `0.3770`, and it is the competitor's own figure under our LLM** - the same DeepSeek endpoint
 and model its CLI was driven with in record mode. It replaces the `0.3106` this campaign has been quoting since S44, which

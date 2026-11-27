@@ -28,8 +28,24 @@ const FIXTURE = {
   emission: { ours: 6, theirs: 4 },
   credited: { ours: 3, theirs: 2 },
   rows: [
-    { category: 'Code Defect', goldens: 4, ours: 3, theirs: 2, oursRecall: 0.75, theirsRecall: 0.5, gap: -1 },
-    { category: 'Performance', goldens: 1, ours: 0, theirs: 0, oursRecall: 0, theirsRecall: 0, gap: 0 },
+    {
+      category: 'Code Defect',
+      goldens: 4,
+      ours: 3,
+      theirs: 2,
+      oursRecall: 0.75,
+      theirsRecall: 0.5,
+      gap: -1,
+    },
+    {
+      category: 'Performance',
+      goldens: 1,
+      ours: 0,
+      theirs: 0,
+      oursRecall: 0,
+      theirsRecall: 0,
+      gap: 0,
+    },
   ],
 };
 
@@ -50,7 +66,11 @@ function run(record: unknown = FIXTURE): Run {
     return { code: 0, out, html: readFileSync(outPath, 'utf8') };
   } catch (error) {
     const failed = error as { status?: number; stdout?: string; stderr?: string };
-    return { code: failed.status ?? 1, out: `${failed.stdout ?? ''}${failed.stderr ?? ''}`, html: null };
+    return {
+      code: failed.status ?? 1,
+      out: `${failed.stdout ?? ''}${failed.stderr ?? ''}`,
+      html: null,
+    };
   }
 }
 
@@ -93,7 +113,12 @@ describe('the gap page draws what the record holds, and refuses what it cannot',
   });
 
   it('refuses a record with no categories, rather than drawing an empty table', () => {
-    const { code, out } = run({ ...FIXTURE, rows: [], credited: { ours: 0, theirs: 0 }, corpus: { pullRequests: 0, goldens: 0 } });
+    const { code, out } = run({
+      ...FIXTURE,
+      rows: [],
+      credited: { ours: 0, theirs: 0 },
+      corpus: { pullRequests: 0, goldens: 0 },
+    });
     expect(code).toBe(2);
     expect(out).toContain('no categories');
   });

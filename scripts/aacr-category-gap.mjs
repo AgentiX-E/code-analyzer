@@ -153,7 +153,7 @@ const theirFindings = Array.isArray(artifact?.secondReviewer?.findingsAtItsOwnOp
 if (theirFindings.length === 0) {
   process.stderr.write(
     `${options.artifact}: the artifact holds no competitor emission, so there is nothing to compare a decomposition of ` +
-      "ours with - a run that did not buy the arm has no rows here\n",
+      'ours with - a run that did not buy the arm has no rows here\n',
   );
   process.exit(2);
 }
@@ -200,8 +200,7 @@ const totals = [...categories.values()].reduce(
 );
 
 const publishedTheirs = Number(artifact?.secondReviewer?.truePositives ?? -1);
-const publishedGoldens =
-  Number(artifact.truePositives ?? 0) + Number(artifact.falseNegatives ?? 0);
+const publishedGoldens = Number(artifact.truePositives ?? 0) + Number(artifact.falseNegatives ?? 0);
 const mismatches = [
   ['ours', totals.ours, ourPoint.truePositives],
   ['theirs', totals.theirs, publishedTheirs],
@@ -210,7 +209,9 @@ const mismatches = [
 
 if (mismatches.length > 0) {
   const said = mismatches
-    .map(([name, computed, published]) => `${name} ${String(computed)} against ${String(published)}`)
+    .map(
+      ([name, computed, published]) => `${name} ${String(computed)} against ${String(published)}`,
+    )
     .join(', ');
   process.stderr.write(
     `the buckets do not add back up (${said}), so at least one golden was filed under a category the corpus does not ` +

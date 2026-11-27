@@ -44,7 +44,7 @@ const CORPUS = [
   { githubPrUrl: 'https://example.test/c/pull/3', comments: [{ category: 'bug' }] },
 ];
 
-const finding = (pr, matchedGoldens) => ({
+const finding = (pr: string, matchedGoldens: number[]) => ({
   pr,
   path: 'src/lib.rs',
   startLine: 1,
@@ -127,7 +127,11 @@ function run(files: { artifact?: string; corpus?: string } = {}): Run {
     return { code: 0, out, board: JSON.parse(readFileSync(jsonPath, 'utf8')) };
   } catch (error) {
     const failed = error as { status?: number; stdout?: string; stderr?: string };
-    return { code: failed.status ?? 1, out: `${failed.stdout ?? ''}${failed.stderr ?? ''}`, board: null };
+    return {
+      code: failed.status ?? 1,
+      out: `${failed.stdout ?? ''}${failed.stderr ?? ''}`,
+      board: null,
+    };
   }
 }
 

@@ -161,3 +161,8 @@ benchmarks/martian/changed-lines.json
 # either would be a third author of a reading that two commands already agree on.
 benchmarks/symbol-crosscheck.json
 docs/symbol-crosscheck.html
+
+# **And the fifth page, for the same reason.** `docs/aacr-category-gap.html` is emitted by
+# `scripts/aacr-category-gap-page.mjs` from a record the AACR workflow writes; a formatter that reflowed it would fail
+# `--check` on every run that regenerates it, which is a formatter opinion about a rendering rather than a defect in it.
+docs/aacr-category-gap.html

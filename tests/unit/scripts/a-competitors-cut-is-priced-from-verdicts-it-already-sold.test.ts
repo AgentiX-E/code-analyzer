@@ -285,16 +285,22 @@ describe('the denominator belongs to the run’s slice, and the hole rule surviv
     // one that stopped run 45924315931, one order of magnitude smaller.
     const selection = slice(
       ['https://example.test/a/pull/1', 'https://example.test/b/pull/2'],
-      ['https://example.test/a/pull/1', 'https://example.test/b/pull/2', 'https://example.test/c/pull/3'],
+      [
+        'https://example.test/a/pull/1',
+        'https://example.test/b/pull/2',
+        'https://example.test/c/pull/3',
+      ],
     );
     const { code, out, board } = run({}, ['--selection', selection]);
     expect(code).toBe(0);
     expect(out).toContain('2 of 3 scored pull requests have a row');
     expect(out).toContain('goldens 5');
     expect(out).toContain('emitted 6  tp 3  P 0.5000  R 0.6000  F1 0.5455');
-    expect(out).toContain('and 1 golden on 1 scored pull request the arm produced nothing for are outside it');
-    expect(board?.pullRequests).toEqual({ withARow: 2, priced: 2, inCorpus: 3, scored: 3 });
-    expect(board?.unmeasured).toEqual({ pullRequests: 1, goldens: 1 });
+    expect(out).toContain(
+      'and 1 golden on 1 scored pull request the arm produced nothing for are outside it',
+    );
+    expect(board?.['pullRequests']).toEqual({ withARow: 2, priced: 2, inCorpus: 3, scored: 3 });
+    expect(board?.['unmeasured']).toEqual({ pullRequests: 1, goldens: 1 });
   });
 
   it('keeps a pull request that was asked about and answered nothing in the denominator', () => {
@@ -309,6 +315,6 @@ describe('the denominator belongs to the run’s slice, and the hole rule surviv
     expect(out).toContain('goldens 4');
     expect(out).toContain('emitted 4  tp 2  P 0.5000  R 0.5000  F1 0.5000');
     expect(out).not.toContain('are outside it');
-    expect(board?.unmeasured).toEqual({ pullRequests: 0, goldens: 0 });
+    expect(board?.['unmeasured']).toEqual({ pullRequests: 0, goldens: 0 });
   });
 });
