@@ -19482,3 +19482,44 @@ input** (§175.7).
 **`S65` is first because every other figure is a comparison of two documents until it is done.** A step measured on a
 pinned run of our arm alone would still be a step measured against a competitor row recorded on a different text, which
 is the defect this round found rather than a smaller version of it.
+
+### 175.8 The runner reading, and what the drift was costing
+
+Dispatch `45966807816` ran the wide arm at the workflow's default window with the repair in place, and its artifact is
+the control `§175.2` could not be:
+
+```
+diffSource { pinned: 14, live: 0, pinFailures: 0, unpinnable: 0, firstPinFailure: null }
+```
+
+**Fourteen of fourteen diffs read at the corpus's own commits, no fallback, no unpinnable row.** The previous dispatch on
+the same window (`45951142193`, `§173.6`) read the same fourteen pull requests, the same 170 goldens, with the same judge
+and the same configuration - `configuration`, `judge`, `route` and `dedupThreshold` are byte-identical between the two
+artifacts - and differed in one thing: the diff came from the pull request.
+
+| arm                        | emitted | true positives | false positives | precision | recall |         F1 |
+| -------------------------- | ------: | -------------: | --------------: | --------: | -----: | ---------: |
+| live diff (`45951142193`)  |     287 |             27 |              78 |    0.2571 | 0.1588 |     0.1964 |
+| **pinned (`45966807816`)** | **219** |         **39** |          **62** |    0.3861 | 0.2294 | **0.2878** |
+
+**`+0.0914` F1, and it is not the paths coming back.** The two runs' own attribution of the 170 goldens:
+
+| bucket                | live | pinned |
+| --------------------- | ---: | -----: |
+| hit                   |   54 | **65** |
+| pathNotInPull         |    4 |      4 |
+| noFindingOnPath       |   19 |     19 |
+| findingOnPathRejected |   93 | **82** |
+
+**Eleven goldens moved out of `findingOnPathRejected` and none out of `pathNotInPull`** - so on this window the drift cost
+was not a missing file but a **misread one**: the reviewer was handed a document whose hunks had moved, spoke about what
+it saw there, and the judge - reading the answer key's own sentences - declined. **It emitted 68 fewer findings and was
+right 11 more times**, which is the same fact from the other side.
+
+**What this does not establish.** That the 50-pull-request board moves by the same amount: this is 14 pull requests and
+170 goldens, and the wide board (`0.2674`) has never been measured pinned. **And it does not touch the bar**: the
+competitor's `0.3106` on this window was recorded on the live diff, so the gap here is `0.0228` and the honest statement
+is that they and we were both reading a document that had moved. `S65` is what turns this into a comparison.
+
+**Cost: `$0.6364` (¥9.2) against a registered ceiling of `$7.50`, 1 860 calls, 71 % cache hit** - down from 90.5 % because
+every prompt's diff text changed, which is the price of the repair and worth stating beside the gain.
