@@ -62,6 +62,14 @@ benchmarks/multirepo-qa*.json
 # Verified: the only difference Prettier finds in any of these files is array layout.
 benchmarks/aacr-*.json
 
+# **The competitor's recorded rows are written by the harness, not by hand.** `.github/scripts/aacr-bench.mjs` writes
+# `benchmarks/aacr/competitor-baseline*.json` with `JSON.stringify(…, null, 2)`, and a re-record rewrites the whole file -
+# so a formatter pass here would be undone by the next run and would fail this check on a file nobody edited. **The
+# contents are the record**: the rows, their verdicts and the provenance block, checked by `gate:corpus` and read by
+# `scripts/competitor-cut.mjs`. The first baseline was formatted by hand before that rule was written down, which is why
+# the exception is stated here rather than left to the next person to rediscover.
+benchmarks/aacr/competitor-baseline*.json
+
 # **The replay's artifact, for the same reason and one more.** `benchmarks/gate-replay.json` is written by
 # `scripts/gate-replay.mjs` with `JSON.stringify(…, null, 2)`, and `--check` re-derives it and compares: **a formatter
 # that re-laid the arrays out would make the committed file differ from the one the tool produces**, so the check would
