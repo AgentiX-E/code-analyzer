@@ -18786,3 +18786,107 @@ experiment with a different cost, and §169 does not pre-authorise it.
 confirmations that a faithful paraphrase can cost a credit on this judge; a fourth would move the campaign's question from
 _which comment to rewrite_ to _whether a rewrite can be judged better than the sentence it replaced_, which is a judge
 question and not a review-engine one.
+
+## §170 The anchor was made legal, and the arm still did not move
+
+### 170.1 What was bought
+
+Dispatch `45914707121` on `23410c5`: **`two-related-names-v1` against §169's plan**, which is the device unchanged and the
+target rebuilt. `benchmarks/symbol-crosscheck.json` carries the record.
+
+| quantity                     | value                                                                                                                         |
+| ---------------------------- | ----------------------------------------------------------------------------------------------------------------------------- |
+| comments considered / called | 227 / **183**                                                                                                                 |
+| rewritten                    | **20**                                                                                                                        |
+| spend                        | `$0.014981` (¥0.11), budget not exhausted, 0 failed                                                                           |
+| kept, by reason              | `agree 93` · `no-symbol 43` · `same-side 27` · `cannot 24` · `off-anchor 17` · `unreadable 1` · `unnamed 1` · `no-evidence 1` |
+
+### 170.2 The prize: one of twenty-six
+
+| quantity                   | value                            |
+| -------------------------- | -------------------------------- |
+| plan entries               | **26**                           |
+| never called (`no-symbol`) | **3**                            |
+| called                     | 23                               |
+| **rewritten**              | **1** — `retryCount → reminders` |
+| **credited**               | **0**                            |
+| rewrites outside the plan  | **19 of 20**                     |
+
+So the pass rewrote twenty comments, nineteen of them about something other than the golden's symbol, and the one it did
+rewrite earned nothing. **§169's repair made the anchor a name the change writes; it did not make the device rewrite the
+comment that carries the prize.** The two facts are separate, and the first was necessary for the second to be worth
+measuring - it was not sufficient.
+
+### 170.3 The point, and the paired test
+
+| reading                    | true positives | precision | recall | F1         |
+| -------------------------- | -------------: | --------: | -----: | ---------- |
+| arm A, as emitted          |             56 |    0.2467 | 0.3544 | **0.2909** |
+| arm B, sentences corrected |             56 |    0.2467 | 0.3544 | **0.2909** |
+
+Paired over 744 `(comment, golden)` pairs: **5 fixed, 3 broken, `p = 0.7266`**. The bar is 0.3735 and the reading is 0.0826
+below it. **The two arms do not differ, which is the honest statement of a device that rewrote twenty sentences and moved
+nothing.**
+
+### 170.4 The refutation §169.4 registered, arriving
+
+§169.4 said: _if seventeen of twenty-six corrections still credit nothing, the anchor was not the reason and the deficit is
+predication._ The run credits nothing at **one** of twenty-six, which is stronger than the refutation needed. But the
+wording has to be tightened, because the measurement says something more specific than "the pass fails to assert":
+
+- **22 of the 23 called entries were not rewritten at all.** The device did not rewrite them badly; it declined to rewrite
+  them. `agree` (93 across the call) is the largest single reason, and a comment the model believes already states the
+  relation is not a comment it will correct.
+- **Three entries were never called**, because the comment names fewer than two names - `TopicUser`,
+  `credentialKey`, `getGroupIdsWithViewPermission`. A pair question cannot be put to a one-name sentence, and §168.2's
+  `no-symbol` refusal is doing its job.
+
+### 170.5 A second defect the artefact exposes: the anchor is passed and not used
+
+The plan hands the pass one symbol per entry, and `relatedPairs` is supposed to anchor on it whenever the sentence writes
+it. Measured on this run:
+
+| plan symbol                                                                                                                                 | anchor the pass used         | correct   |
+| ------------------------------------------------------------------------------------------------------------------------------------------- | ---------------------------- | --------- |
+| `user_count`, `has_global_access`, `refreshOAuthTokens`, `retryCount`, `GrafanaRuleListItem`, `device` ×3, `Kind`, `TotalDocs`, `totpStep1` | the plan's symbol            | **11**    |
+| `include_website_name`                                                                                                                      | `website_name`               | no        |
+| `authenticate`                                                                                                                              | `data`                       | no        |
+| `get_item_key`                                                                                                                              | `has_global_access`          | no        |
+| `upsampling`                                                                                                                                | `is_eligible`                | no        |
+| `github_authenticated_user`                                                                                                                 | `integration`                | no        |
+| `deadline`                                                                                                                                  | `process_to_shards_map`      | no        |
+| `RuleActionsButtons`                                                                                                                        | `check`                      | no        |
+| `getClientsWithPermission`                                                                                                                  | `client`                     | no        |
+| `shortcut`                                                                                                                                  | `getTokenContextFromTokenId` | no        |
+| `uniqueGuests`, `entryPointAssetsCache`, `RecoveryAuthnCodesCredentialModel`                                                                | — (no pair at all)           | not asked |
+
+**Nine of the twenty-three called entries asked about a name the plan did not choose**, which is the §168.1 defect
+surviving inside the repair: when the sentence's identifier set and the plan's symbol disagree, the pass silently falls
+back to the first backticked name. The three rows with no pair at all are a third state and are not counted as failures -
+a verdict exists, the question was asked, and the sentence did not relate two names. That fallback is worth one line of
+code and one named keep reason (`anchor-fallback`), and it is registered as **S57** rather than patched into a paid run -
+because a device that reports which anchor it used can be read, and a device that substitutes quietly cannot.
+
+### 170.6 Two numbers that must not be read as movement
+
+**The judge is not deterministic across runs.** The same 207 unrewritten comments scored 57 true positives last round and 56
+this one (`0.2961 → 0.2909`). That is ±1 golden of noise on a single pass, which is why the paired test exists and why the
+bar's 0.0826 gap is not explained by it in either direction.
+
+**And the 3 broken / 5 fixed are not a small win.** `p = 0.7266` on 744 pairs is a difference that a coin produces; §167.7's
+three confirmations that a faithful paraphrase can lose a credit are the reason the number is reported with its test
+rather than on its own.
+
+### 170.7 What S57 is, and what it costs
+
+| step                                                                      | what it produces                                                           | cost |
+| ------------------------------------------------------------------------- | -------------------------------------------------------------------------- | ---- |
+| record the keep reason on every verdict                                   | the 22 declines become attributable instead of a pooled count              | 0    |
+| make `anchor-fallback` a named reason and report the anchor actually used | §170.5's eight become visible in the record rather than in a post-hoc join | 0    |
+| re-derive the 26 entries' attribution from the existing artifact          | how many declined as `agree`, `same-side`, `cannot`, `off-anchor`          | 0    |
+
+**No model call is bought by any of the three.** They change what the next paid run can be read for, and §170.4's sentence
+
+- _the device declines rather than fails_ - is the hypothesis they exist to confirm or refute. If `agree` dominates the
+  declines, the campaign's question moves from the rewrite to the claim, and that is a different iteration with a different
+  design.
