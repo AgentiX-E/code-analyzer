@@ -19901,3 +19901,62 @@ to a diagnostic. What it changes is the target: `S63` is re-aimed at the correct
 path `0.562`), and the remaining real deficit — 97 `Code Defect` goldens of 209 uncredited — is now located in a
 category the corpus itself defines instead of a keyword guess. The next device must be registered against that
 partition and paid for in a paired arm; this round prices the target, not the device.
+
+## §181 A state that is set and never cleared is a question no lane was asking
+
+§180 re-aimed `S63` at the corrected `Code Defect` partition and named `state` the largest miss-rate shape
+(`14 hit / 21 miss`, `0.600`). This round registers the device that partition asks for, builds it red-first, wires it
+to the Runner, and **claims no F1** — claim R-179 is bought by an arm, not by a paragraph.
+
+### 181.1 The question is in the corpus, not in a category name
+
+Reading the 19 actionable-but-rejected `state` goldens of the pinned board shows they are not one defect but one
+question: is the piece of state this line touches whole on every path that reaches it? Four families recur, each
+named in the notes:
+
+| family                                          | goldens                        | what the note asks                                                        |
+| ----------------------------------------------- | ------------------------------ | ------------------------------------------------------------------------- |
+| a member with no in-class initialiser           | `20825#12`, `19411#17`         | a constructor can leave it indeterminate, and a later read sees garbage   |
+| a resource acquired and not released on a path  | `19426#0`, `8689#4`, `8689#14` | a throw, an early return or a failed callback leaks it                    |
+| a flag set on failure and never reset           | `12718#6`, `1617#1`            | `defragInProgress` / `connManager` stay set and every later attempt fails |
+| shared state outside its lock, a partial record | `12718#4`, `31402#6`, `6542#0` | cleanup races the allocator, or only `dispatchSize.x` is filled           |
+
+None of the seven shipped-and-registered lanes asks it. `behaviour` asks what the _value_ at the line does when it is
+empty; `crosscheck` asks whether _two places_ still agree; `architecture` asks whether a _boundary_ was crossed. A
+question about whether one piece of state is complete across the paths that reach it is distinct from all three, and
+§180.2 measured the six directions that are not this one: the per-language checklist, the `defect` profile, the
+`idioms` lane, a new `error path` lane (a duplicate of `behaviour`), the actionability scorer, and `crosscheck`
+(already banked in R-178).
+
+### 181.2 What was built, and why the bill did not move
+
+`STATE_REVIEW_PROMPT` names the four families as state-plus-path pairs to inspect, refuses a finding that cannot quote
+both the state and the path that leaves it incomplete, permits an empty answer (the clean-control study priced
+accusation at 93.8 % without it and 0 % with it), and carries two worked examples taken from the corpus. It is stated
+in the "name what is wrong" framing §69.4 priced at `0.343` against `0.183` for narration.
+
+`LANE_SETS.stateful` swaps `crosscheck` for `state` in the six-call `reviewer` set. **Six calls either way**, so the
+device is not a 17 % dearer reviewer that cannot be priced against a cheaper one; `state` is deliberately absent from
+`FUSED_QUESTIONS`, because adding it there would re-price every figure R-47 measured, and the harness refuses a fused
+`stateful` run rather than buying a question the call never puts. The workflow offers `stateful` but keeps its
+`pair-stateful` companion in the planner, the R-178 precedent: a dispatch option whose pair step never fires uploads
+an arm nobody downloads.
+
+### 181.3 Claim R-179, registered before the arm
+
+**Claim R-179.** On the pinned 50-pull-request artifact, `lane_set=stateful` raises credited `Code Defect` goldens over
+the pinned `reviewer` arm (R-178's `83`) by at least the paired arm's resolution, with overall F1 not falling by more
+than `0.01`, at the same budget and judge. The falsifier is the one every device in this campaign is bought against:
+a paired comparison on the rows both arms covered, `p ≤ 0.05`, and a delta above the instrument's own resolution —
+not a one-day same-configuration drift, which has measured `0.07` apart on two days.
+
+**The target is unchanged and is still the competitor under our LLM.** Overall F1 `0.3739`, `Code Defect` recall
+`0.4641`; no figure below either bar is a target, and R-179 does not move `benchmarks/targets.json`. **No F1 is
+claimed here.** The device is built, dispatchable, priced and guarded; its effect is a number the Runner must produce.
+
+### 181.4 What this round does not establish
+
+That the state lane closes the gap. It may repeat the six measured refusals of §180.2, or find that the 19 notes are an
+error-path story told in state vocabulary. That the keyword partition is the corpus's taxonomy — it is a reading of
+`Code Defect` notes, and the module says so. That the swap is free in the product: `crosscheck` is the lane R-178
+banked, and `stateful` is a device under test, not a new default; the shipped set is untouched.

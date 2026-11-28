@@ -452,7 +452,11 @@ describe('the matrix is one experiment', () => {
       // alternative that appeared by accident would be a dispatch nobody chose, and at eight rows it would be eight
       // dispatches nobody chose.
     ).toEqual([
-      1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 8,
+      // **And one single and one pair for the state-lifecycle lane**, which is §181 / R-179's device: `stateful` is
+      // the six-call swap of `crosscheck` for `state`, dispatched alone against the pinned R-178 artifact, and
+      // `pair-stateful` is the same device priced against a same-day baseline. Both stay in the planner as a budget.
+      1,
+      1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 8,
     ]);
   });
 

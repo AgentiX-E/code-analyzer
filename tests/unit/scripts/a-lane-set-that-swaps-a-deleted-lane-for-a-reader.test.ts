@@ -23,7 +23,7 @@ const BENCH = readFileSync(join(ROOT, '.github', 'scripts', 'aacr-bench.mjs'), '
 
 describe('the reviewer arm', () => {
   it('is a value a dispatch can choose, beside the sets that ship', () => {
-    const options = /lane_set:[\s\S]*?options: \[([^\]]*)\]/u.exec(WORKFLOW);
+    const options = /lane_set:[\s\S]*?options:\s*\[([^\]]*)\]/u.exec(WORKFLOW);
     expect(
       options,
       'the workflow no longer declares the lane_set options in one list',
@@ -61,7 +61,7 @@ describe('the reviewer arm', () => {
     // `0.3735` and whether its pool names ten more goldens than `72`, and both are absolute readings of one artifact.
     // So this round buys one arm, and an option whose pair step never fires - which uploads one arm and reports a
     // comparison of one against nothing - is not offered until the device has something to price.
-    const options = /lane_set:[\s\S]*?options: \[([^\]]*)\]/u.exec(WORKFLOW);
+    const options = /lane_set:[\s\S]*?options:\s*\[([^\]]*)\]/u.exec(WORKFLOW);
     expect(options![1]).not.toContain("'pair-reviewer'");
   });
 

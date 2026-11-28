@@ -139,6 +139,10 @@ export const ALL_DISPATCHES = Object.freeze([
   { second_concern: 'on' },
   { lane_set: 'pair-reviewer' },
   { lane_set: 'reviewer' },
+  // **§181 / R-179's device**: an equipollent pair of the two six-call sets, differing in exactly one lane
+  // (`crosscheck` -> `state`), so the delta is one question and not a change of bill.
+  { lane_set: 'pair-stateful' },
+  { lane_set: 'stateful' },
   { lane_set: 'pair-lean' },
   { lane_set: 'lean' },
   { lane_set: 'pair-wide' },
@@ -204,6 +208,11 @@ export function planMatrix(inputs = {}) {
   // --- lane set: `on` means the behaviour lanes, which is a historical name the dispatch cannot change -------------
   if (is(inputs.lane_set, 'pair-reviewer')) return [row(), row({ lane_set: 'reviewer' })];
   if (is(inputs.lane_set, 'reviewer')) return [row({ lane_set: 'reviewer' })];
+  // **The two arms differ only in lane_set, and each is six calls**: `reviewer` buys `crosscheck`, `stateful` buys
+  // `state` in its place. Pairing against the 5-lane baseline would confound the device with a change of bill.
+  if (is(inputs.lane_set, 'pair-stateful'))
+    return [row({ lane_set: 'reviewer' }), row({ lane_set: 'stateful' })];
+  if (is(inputs.lane_set, 'stateful')) return [row({ lane_set: 'stateful' })];
   if (is(inputs.lane_set, 'pair-lean')) return [row(), row({ lane_set: 'lean' })];
   if (is(inputs.lane_set, 'lean')) return [row({ lane_set: 'lean' })];
   if (is(inputs.lane_set, 'pair-wide')) return [row(), row({ lane_set: 'wide' })];

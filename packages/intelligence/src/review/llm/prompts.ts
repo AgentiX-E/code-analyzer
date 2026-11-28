@@ -923,6 +923,97 @@ Respond ONLY with the JSON object. Do not include any markdown formatting, expla
 }
 
 // ---------------------------------------------------------------------------
+// State lifecycle lane — §181 / claim R-179
+// ---------------------------------------------------------------------------
+
+/**
+ * **A question about whether the state a change touches is whole on every path that reaches it.**
+ *
+ * `EVAL-CONTRACT.md` §180 joins every missed golden to the corpus's `category` and keeps only `Code Defect`; of the
+ * 209, `state` is the largest miss-rate shape at 14 hit / 21 miss (`0.600`). Reading the 19 actionable-but-rejected
+ * state notes shows they are not one defect but one question: is the piece of state this line touches initialised,
+ * released, reset and guarded on every path. §180.2 priced the six directions that are *not* this one, so this lane
+ * is the next registered device, not a repetition of them.
+ *
+ * **What it is not.** `behaviour` asks what the value at the line does when it is empty; `crosscheck` asks whether two
+ * places still agree; `architecture` asks whether a boundary was crossed. None of them asks whether one piece of
+ * state is complete across the paths that reach it. Like `crosscheck`, it names a thing to inspect rather than handing
+ * over a category checklist, because §69.4 priced the "name what is wrong" framing at 0.343 against 0.183 for a
+ * narration of the change.
+ */
+export function STATE_REVIEW_PROMPT(ctx: PromptContext): string {
+  const head = `You are reviewing a change that touches state, the way an engineer checks an invariant. The patch writes a
+field, acquires a resource, sets a flag, takes a lock or fills a record. **Your question is whether that piece of state
+is whole on every path that reaches it.** It is not what the value at the line does when it is empty - another reviewer
+is asking that - and it is not whether two places still agree.
+
+For every piece of state the patch touches, **name the state and the path** that leaves it incomplete:
+
+- **a member with no initialiser**: a field introduced without an in-class default that a constructor path can leave
+  indeterminate, so a later read observes an undefined value on that path;
+- **a resource acquired on one path and not released**: memory, a handle, a duplicated string or a stream allocated here
+  and freed only on the success path, so a throw, an early return or a failed callback leaves it leaked;
+- **a flag set on failure and never reset**: a status, a busy marker or a defragmentation flag cleared to "in progress"
+  and not restored on the error exit, so every future attempt is refused;
+- **shared state mutated outside the lock that guards it**: a cleanup loop or a check that reads or writes the state
+  without holding the mutex the rest of the code uses, so the two race;
+- **a record only partly filled**: a descriptor or a size whose one component is set while the others stay undefined,
+  consumed downstream as if it were complete.
+
+**Quote both the state and the path.** A finding that cannot name the field, resource, flag or record and the path that
+leaves it incomplete has not answered the question, and the right output is to leave it out rather than to describe the
+change.
+
+**Do not report an improvement here.** A naming problem, a long function, a missing test and a layer violation are all
+real, all the other reviewers' business, and all cost a comment that a state defect needed.
+
+**Most changes leave the state they touch whole.** A rename, a reformat, a comment, a test fixture and most configuration
+changes carry nothing this lane can say, and an empty findings array is the expected answer for them rather than a
+failure of the exercise.
+
+`;
+  const tail = `Return a JSON object with this exact structure:
+${defectChecklist(ctx)}${selectionContract(ctx)}
+
+Few-shot example — a member with no in-class initialiser:
+Input: diff adding \`bool _local;\` to a class whose \`isLocal()\` reads it
+Output:
+{
+  "findings": [
+    {
+      "startLine": 18,
+      "endLine": 18,
+      "severity": "high",
+      "category": "bug",
+      "title": "_local has no in-class initialiser and isLocal can read it indeterminate",
+      "description": "The new member _local has no in-class default. Two existing constructors do not mention it, so on those paths isLocal() reads an indeterminate value and the branch it guards is taken at random. The other members all carry in-class defaults.",
+      "suggestion": "Give the member a default at its declaration: bool _local = false;"
+    }
+  ]
+}
+
+Few-shot example — a flag set on failure and never reset:
+Input: diff adding \`renderer->defragInProgress = 1;\` before a buffer allocation that can fail
+Output:
+{
+  "findings": [
+    {
+      "startLine": 57,
+      "endLine": 57,
+      "severity": "critical",
+      "category": "bug",
+      "title": "defragInProgress is never reset when the allocation fails",
+      "description": "The flag is set to 1 before allocation. On the failure path the function returns without clearing it, so every later defragmentation attempt sees the flag still set and is refused for the lifetime of the renderer. The success path clears it; the error path does not.",
+      "suggestion": "Reset the flag on the failure exit: renderer->defragInProgress = 0; before returning."
+    }
+  ]
+}
+
+Respond ONLY with the JSON object. Do not include any markdown formatting, explanations, or additional text.`;
+  return composeLanePrompt(ctx, head, tail);
+}
+
+// ---------------------------------------------------------------------------
 // Prompt Registry
 // ---------------------------------------------------------------------------
 
@@ -934,7 +1025,8 @@ export type ReviewLane =
   | 'testing'
   | 'architecture'
   | 'behaviour'
-  | 'crosscheck';
+  | 'crosscheck'
+  | 'state';
 
 export const LANE_PROMPTS: Record<ReviewLane, (ctx: PromptContext) => string> = {
   security: SECURITY_REVIEW_PROMPT,
@@ -944,6 +1036,7 @@ export const LANE_PROMPTS: Record<ReviewLane, (ctx: PromptContext) => string> = 
   architecture: ARCHITECTURE_REVIEW_PROMPT,
   behaviour: BEHAVIOUR_REVIEW_PROMPT,
   crosscheck: CROSSCHECK_REVIEW_PROMPT,
+  state: STATE_REVIEW_PROMPT,
 };
 
 /** Labels for each review lane (human-readable). */
@@ -955,6 +1048,7 @@ export const LANE_LABELS: Record<ReviewLane, string> = {
   architecture: 'Architecture Review',
   behaviour: 'Behaviour Review',
   crosscheck: 'Cross-check Review',
+  state: 'State Review',
 };
 
 /**
@@ -1021,6 +1115,15 @@ export const LANE_SETS = {
     'crosscheck',
   ],
   /**
+   * **The reviewed set with `crosscheck` swapped for the state-lifecycle lane (§181, claim R-179).**
+   *
+   * Six calls either way, so a paired dispatch of `reviewer` and `stateful` prices one question against one question
+   * and not a 17 % dearer reviewer against a cheaper one. `crosscheck` is the lane the R-178 pair banked; `state` is
+   * the direction §180.2 left untested and the largest corrected miss-rate shape (`state` 14/21, `0.600`). The pair
+   * decides whether the swap earns its slot; until then this set is a device under test, not a new default.
+   */
+  stateful: ['security', 'architecture', 'performance', 'maintainability', 'behaviour', 'state'],
+  /**
    * **The four questions this corpus scores, and the one it pays for and deletes.**
    *
    * On two artifacts of fifty pull requests `testing` filed **152 findings whose category is `test`** - 73 and 79 - and
@@ -1049,6 +1152,7 @@ export const LANE_PRIORITIES: ReviewLane[] = [
   'testing',
   'behaviour',
   'crosscheck',
+  'state',
 ];
 
 // ---------------------------------------------------------------------------

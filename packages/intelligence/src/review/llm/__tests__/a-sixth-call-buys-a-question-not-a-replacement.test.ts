@@ -42,6 +42,7 @@ const OPENINGS: Record<ReviewLane, string> = {
   architecture: 'expert software architect',
   behaviour: 'what a change does to the values that reach it',
   crosscheck: 'the way a reviewer reads a pull request',
+  state: 'the way an engineer checks an invariant',
 };
 
 /** A provider that answers every lane with an empty list and counts the calls it was given. */

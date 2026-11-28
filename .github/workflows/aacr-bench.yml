@@ -272,9 +272,14 @@ on:
         # **`reviewer` is §164's arm**: the wide set with `testing` - whose every finding the cut's first step deletes -
         # swapped for `crosscheck`, the lane that asks whether the call, the key or the write still agrees with the place
         # that defines it. Six calls either way, so the difference between `wide` and `reviewer` is one question.
-        description: 'Lane set: the five lanes every figure was measured under (off), the behaviour lane in place of testing (on), both arms (pair), the union of both (wide), the union priced against the five (pair-wide), or the wide set with testing swapped for the cross-check lane (reviewer)'
+        # **§181 / R-179's device**: `stateful` swaps `crosscheck` for the state-lifecycle lane at an unchanged six
+        # calls, so the arm is priced against the pinned `reviewer` artifact (R-178) as R-178 was priced against §177.
+        # Its `pair-stateful` companion stays in the planner, not on this dispatch, for the same reason R-178's
+        # `pair-reviewer` does: an option whose pair step never fires uploads an arm nobody downloads.
+        description: 'Lane set: the five lanes every figure was measured under (off), the behaviour lane in place of testing (on), both arms (pair), the union of both (wide), the union priced against the five (pair-wide), the wide set with testing swapped for the cross-check lane (reviewer), or the reviewed set with cross-check swapped for the state-lifecycle lane (stateful)'
         type: choice
-        options: ['off', 'on', 'pair', 'wide', 'pair-wide', 'lean', 'pair-lean', 'reviewer']
+        options:
+          ['off', 'on', 'pair', 'wide', 'pair-wide', 'lean', 'pair-lean', 'reviewer', 'stateful']
         default: 'off'
 
       lane_mode:

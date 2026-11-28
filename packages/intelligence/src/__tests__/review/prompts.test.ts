@@ -205,12 +205,12 @@ describe('Lane Registry', () => {
   });
 
   it('should have every lane in priorities, once', () => {
-    // **Seven since §164's `crosscheck`**, and the count is still asserted rather than derived: a lane that appears in
-    // the registry and not here is a lane no ordering places, and a count read off the registry would pass whichever
-    // list was short.
-    expect(LANE_PRIORITIES).toHaveLength(7);
+    // **Seven since §164's `crosscheck`, eight since §181's `state`**, and the count is still asserted rather than
+    // derived: a lane that appears in the registry and not here is a lane no ordering places, and a count read off the
+    // registry would pass whichever list was short.
+    expect(LANE_PRIORITIES).toHaveLength(8);
     const set = new Set(LANE_PRIORITIES);
-    expect(set.size).toBe(7);
+    expect(set.size).toBe(8);
     // **And the registry and the priority list name the same lanes**, because a lane in one and not the other is a lane
     // the engine could run but no ordering would place, or a priority entry for a prompt that does not exist.
     expect(new Set(LANE_PRIORITIES)).toEqual(new Set(Object.keys(LANE_PROMPTS)));

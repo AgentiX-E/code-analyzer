@@ -202,7 +202,7 @@ const PROFILE = (() => {
  * right failure, on an input the workflow had just declared valid**, which is the pair a reader cannot tell apart without
  * opening both files. `tests/unit/scripts/a-lane-set-the-bench-refuses-is-a-set-that-exists.test.ts` keeps them equal.
  */
-const LANE_SET_NAMES = ['shipped', 'behaviour', 'wide', 'lean', 'reviewer'];
+const LANE_SET_NAMES = ['shipped', 'behaviour', 'wide', 'lean', 'reviewer', 'stateful'];
 
 function parseLaneSet(raw) {
   const value = String(raw ?? 'shipped');
@@ -1714,7 +1714,17 @@ async function dryRun() {
     // A run is bought against another run only when the two ask the same number of questions of the same diff, so
     // `shipped` and `behaviour` are pinned at five; `wide` asks six and `lean` asks four, and **a `lean` that somehow
     // carried five lanes would be a run whose 19.9 % saving had been silently re-bought**.
-    const expected = { shipped: 5, behaviour: 5, wide: 6, lean: 4, reviewer: 6 }[LANE_SET];
+    // **`stateful` is §181's six-call substitution**: `state` in the slot `crosscheck` held in `reviewer`, so a paired
+    // dispatch prices one question against one question at an unchanged bill. It is separate-mode only, because `state`
+    // is deliberately not in `FUSED_QUESTIONS` - adding it there would re-price every figure R-47 measured.
+    const expected = {
+      shipped: 5,
+      behaviour: 5,
+      wide: 6,
+      lean: 4,
+      reviewer: 6,
+      stateful: 6,
+    }[LANE_SET];
     assert.equal(
       lanes.length,
       expected,

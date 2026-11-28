@@ -55,7 +55,7 @@ describe('the lane set the corpus does not score', () => {
   it('is offered beside the shipped set rather than instead of it', () => {
     // **The default is a published figure.** A switch that moved it would re-price every table in `EVAL-CONTRACT.md`,
     // so the workflow must offer `lean` as an option on a choice whose default is still `off`.
-    const options = /lane_set:[\s\S]*?options: \[([^\]]*)\]/u.exec(WORKFLOW);
+    const options = /lane_set:[\s\S]*?options:\s*\[([^\]]*)\]/u.exec(WORKFLOW);
     expect(
       options,
       'the workflow no longer declares the lane_set options in one list',
