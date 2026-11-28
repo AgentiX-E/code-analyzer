@@ -19960,3 +19960,88 @@ That the state lane closes the gap. It may repeat the six measured refusals of �
 error-path story told in state vocabulary. That the keyword partition is the corpus's taxonomy — it is a reading of
 `Code Defect` notes, and the module says so. That the swap is free in the product: `crosscheck` is the lane R-178
 banked, and `stateful` is a device under test, not a new default; the shipped set is untouched.
+
+## §182 The price is read from the artifact, and two fields the field publishes are not in ours
+
+This section records what was learned while preparing to read R-179's arm. None of it depends on that arm's number;
+the verdict it buys is appended when the Runner publishes it.
+
+### 182.1 The reconciled Code Defect TP is the price, not a figure re-typed from a report
+
+The reports say R-178 credited `83` `Code Defect` goldens. Reading the pinned artifact (`15203661416`) to price R-179
+against it finds **no field with that value**. The artifact's reconciled `byCategory` decomposition has a `bug` row at
+`truePositives = 86` with `totals.agrees = true`, and its published point is `truePositives = 123`, overall F1 `0.3280`.
+The `83` lives in a report, not in the rows. A device priced against a number that cannot be re-derived from the
+artifact is a device priced against an assertion.
+
+`scripts/lib/device-price.mjs` therefore reads the price only from fields the two artifacts declare about themselves:
+`byCategory.rows[category='bug'].truePositives` (guarded by `totals.agrees`) and top-level `f1`. It refuses a pair whose
+configurations differ in more than `lane_set`, refuses a pair whose covered `(pull request, golden)` rows differ, and
+labels a two-day comparison `cross-dispatch` with the campaign's measured `0.07` F1 drift beside it - so a reader
+cannot mistake a cross-job delta for the within-dispatch McNemar that `pairArms` computes. Seven cases were written
+red first. **This does not revise R-178's published `83`** - it says where a future price must come from, so the next
+device is measured against rows rather than against a sentence.
+
+### 182.2 What the field published this month, against what we already ship
+
+Two papers and one cross-tool study were read to look for a device that attacks recall, our binding gap (`0.2721`
+against the competitor's `0.4593` under our DeepSeek):
+
+- **MCR-Bench** (arXiv:2608.27442) moves review from a static snapshot to a multi-turn PR. It attributes `32.5 %` of
+  false positives to _state-time misalignment_ - flagging a defect already fixed in an earlier commit - and `25.1 %` of
+  false negatives to _cross-round defect forgetting_, where an unresolved defect stops being mentioned in later turns.
+  It names dedicated state tracking and long-term memory as the open directions. This **corroborates §181's state
+  question** (a value or flag must be whole across the paths and turns that reach it) and registers a distinct future
+  device: a cross-turn state tracker that re-reads earlier review rounds before accusing. Not built here.
+- **SWR-Bench** (arXiv:2509.01494) defines multi-review aggregation as concatenating `n` independent reviews and
+  spending **one additional LLM call** to synthesize them, filtering invalid points. It reports F1 `19.38 % → 23.84 %`
+  for Gemini-2.5-Pro Self-Agg at `n = 5`, and `15.25 % → 21.91 %` (recall `13.91 % → 30.44 %`) for Flash at `n = 10`.
+  We already ship the union of two reviewers (§56) and multi-lane `agreement` (§69), **but not the synthesis call** -
+  the step that decides which of the concatenated points survives. This is a public-family gap, registered as a future
+  device (R-180 candidate), not claimed as ours here.
+- **Cross-tool recall ceiling** (Qodo 1.0 / Martian 2026 / the seven-tool study): the field agrees that precision is
+  tunable after the fact and recall is bounded by context retrieval - dependencies, type definitions, caller/callee
+  chains, tests, and prior-change history that the reviewer never saw. This is the same diagnosis as R-178's gap
+  (detection, not ranking) and fixes the optimization direction: feed the lanes more of the repository, not more
+  adjectives in the prompt.
+
+**No figure above is claimed as ours.** Each is a competitor or field number under its own harness and model; they are
+recorded as the evidence for which device to price next, under the same rule this campaign applies throughout - a
+target is set by a competitor measured under our LLM, never by a self-reported number.
+
+### 182.3 Claim R-179 was bought, and the instrument says it did not hold
+
+Dispatch `46094042846` read the pinned 50 pull requests under `lane_set=stateful` at the same six calls, judge and
+budget as R-178. The Runner published artifact `15244209329`; `aacr-bench-audit --check` reads `15 checks · all
+consistent`, so the figure is sound. `scripts/lib/device-price.mjs` prices it against R-178's artifact
+(`15203661416`), explicitly declaring `competitorMode` as a dispatch-entailed field - the only extra difference,
+because this dispatch bought `competitor=off` while R-178 recorded it.
+
+| price                             | R-178 `reviewer` | R-179 `stateful` |       delta |
+| --------------------------------- | ---------------: | ---------------: | ----------: |
+| overall F1                        |           0.3280 |           0.3437 | **+0.0157** |
+| reconciled `Code Defect` (bug) TP |               86 |               85 |      **−1** |
+| covered `(PR, golden)` rows       |              123 |              127 |          +4 |
+| McNemar on the paired rows        |                — |                — |  `p = 0.72` |
+
+**R-179 is refuted on the claim that was registered.** §181.3 required credited `Code Defect` goldens to rise with
+`p ≤ 0.05` and F1 not to fall more than `0.01`. The defect TP instead fell by one, the paired test is nowhere near
+significant (`p = 0.7202` on 90 shared rows), and the `+0.0157` F1 is smaller than the campaign's measured `0.07`
+same-configuration day-to-day drift - a cross-dispatch movement the instrument labels as exactly that, not as a
+within-run gain. The state lane reaches four more goldens overall but not more `Code Defect` ones: this is the sixth
+downstream device to fail to move the defect recall, and it joins §180.2's refusals rather than the banked `crosscheck`
+of R-178.
+
+**Decision.** `state` stays switchable as `lane_set=stateful` and as an ablation reference; it is **not** promoted into
+any shipped set, and no further arm is bought for it. This is the S63 branch "if refuted, retire it and record." The
+target is untouched: overall F1 `0.3739`, `Code Defect` recall `0.4641`, still the competitor under our DeepSeek and
+still unmet (`0.3437` / defect recall below `0.4593`). The recall gap is a detection gap, and six devices have now
+shown that adding questions to the reviewer does not close it - which is why §182.2's context-retrieval and
+synthesis-call directions, not a ninth lane, are the next device to price.
+
+**A process defect this run found.** The dispatch used `competitor=off`, which makes the category-gap step exit 2
+("a run that did not buy the arm has no rows here"), so the job reports `failure` even though the evaluation is
+complete and consistent. The device price is unaffected (the competitor arm is a separate ours-vs-them decomposition),
+but a future paired arm should dispatch `competitor=replay` as R-178 did, so the auxiliary pages are built and the job
+is green. The price tool caught the resulting `competitorMode` difference and required it to be declared rather than
+silently ignored.

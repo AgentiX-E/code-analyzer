@@ -57,20 +57,20 @@
   point — a row without one is not accepted, whatever its unit coverage, because the last three defects here were joins
   between components that each passed their own tests.</p>
   <ul class="tiles">
-    <li><b>63</b><span>capabilities</span></li>
-    <li><b>53</b><span>done</span></li>
-    <li><b>8</b><span>partial</span></li>
+    <li><b>64</b><span>capabilities</span></li>
+    <li><b>55</b><span>done</span></li>
+    <li><b>7</b><span>partial</span></li>
     <li><b>2</b><span>not built</span></li>
-    <li><b>53</b><span>with an end-to-end case</span></li>
-    <li><b>49</b><span>ours only</span></li>
+    <li><b>54</b><span>with an end-to-end case</span></li>
+    <li><b>50</b><span>ours only</span></li>
     <li><b>2</b><span>competitor only</span></li>
   </ul>
 </header>
 <nav>
-  <button data-filter="all" aria-pressed="true">All <span style="opacity:.6">63</span></button>
+  <button data-filter="all" aria-pressed="true">All <span style="opacity:.6">64</span></button>
   <button data-filter="NONE" aria-pressed="false">Not built <span style="opacity:.6">2</span></button>
-  <button data-filter="PART" aria-pressed="false">Partial <span style="opacity:.6">8</span></button>
-  <button data-filter="DONE" aria-pressed="false">Done <span style="opacity:.6">53</span></button>
+  <button data-filter="PART" aria-pressed="false">Partial <span style="opacity:.6">7</span></button>
+  <button data-filter="DONE" aria-pressed="false">Done <span style="opacity:.6">55</span></button>
   <button data-filter="C" aria-pressed="false">Competitor only <span style="opacity:.6">2</span></button>
   <button data-filter="no-e2e" aria-pressed="false">No end-to-end case <span style="opacity:.6">10</span></button>
   <input id="q" type="search" placeholder="filter by capability, file or surface" aria-label="filter">
@@ -423,7 +423,7 @@
     </table>
   </section>
   <section>
-    <h2>researcher, I want every number to be reproducible and every difference to be real<span class="count">29</span></h2>
+    <h2>researcher, I want every number to be reproducible and every difference to be real<span class="count">30</span></h2>
     <table>
       <thead><tr><th>#</th><th>Capability</th><th>Ships at</th><th>Unit</th><th>End-to-end</th><th>State</th><th>What the state means</th></tr></thead>
       <tbody>
@@ -679,14 +679,23 @@
         <td><span class="state DONE">DONE</span></td>
         <td class="why">DONE (§180) — §178.3 classified all 452 missed-golden notes by keyword and published them as a partition of 209 Code Defect goldens, never joining the corpus category: 243 records (53.8 %) were from other categories, and &quot;error path first&quot; was aimed at a bucket inflated by Maintainability notes. The new module joins on pr#goldenIndex, keeps only Code Defect (hit 112 / rejected 83 / silent 3 / unreachable 11), reports contamination, and refuses a partition that does not reconcile. Six cases written red first; wired into aacr-bench.yml so the figure is recomputed on the Runner; self-contained docs/defect-shapes.html. No F1 claim — this prices the S63 target, not a device.</td>
       </tr>
-      <tr data-state="PART" data-who="O" data-e2e="true">
+      <tr data-state="DONE" data-who="O" data-e2e="true">
         <td class="id">63</td>
         <td class="cap">An eighth lane asks whether the state a change touches is whole on every path — a swap at the same six-call bill, not a seventh call<span class="surface">GitHub App, CLI, harness</span></td>
         <td><span class="tag O">ours only</span></td>
         <td class="proof"><code>a-lane-that-asks-whether-state-is-whole, a-state-lane-is-dispatchable-and-priced-against-the-banked-arm</code></td>
-        <td class="proof"><code>— (the paired arm buys the E2E case; claim R-179 is registered before it)</code></td>
-        <td><span class="state PART">PART</span></td>
-        <td class="why">PART — a device under test, not a default (§181). The lane is built red-first and dispatchable as lane_set=stateful, swapping crosscheck for state at six calls so it can be priced against R-178's banked 83. It is grounded in the 19 actionable-but-rejected state goldens (uninitialised members, leaks on throw, flags never reset, cleanup outside the lock, partial records), a family no one of the seven other lanes asks. Absent from FUSED_QUESTIONS so R-47 is not re-priced, and absent from every shipped set. No F1 is claimed until the Runner arm measures it.</td>
+        <td class="proof"><code>a-device-is-priced-on-the-rows-both-arms-read (the Runner arm 46094042846 / artifact 15244209329 bought the E2E case)</code></td>
+        <td><span class="state DONE">DONE</span></td>
+        <td class="why">DONE (§182.3) — measured and retired, not promoted. The R-179 arm read the pinned 50 PRs at six calls and the same judge: F1 0.3280 → 0.3437 (+0.0157, under the 0.07 cross-dispatch drift), reconciled Code Defect TP 86 → 85 (−1), McNemar p = 0.7202 on 90 shared rows. The registered claim required credits to rise at p ≤ 0.05; it did not. state stays switchable as lane_set=stateful and an ablation reference; no shipped set contains it and no further arm is bought — the S63 &quot;refuted, retire and record&quot; branch. Every number above is re-derived from the two artifacts by the price tool, not re-typed from a report (whose &quot;83&quot; is not an artifact field). The evaluation itself audited 15 checks · all consistent; a competitor=off dispatch choice made only the category-gap page step exit 2. The lane is built red-first and dispatchable as lane_set=stateful, swapping crosscheck for state at six calls so it can be priced against R-178's banked 83. It is grounded in the 19 actionable-but-rejected state goldens (uninitialised members, leaks on throw, flags never reset, cleanup outside the lock, partial records), a family no one of the seven other lanes asks. Absent from FUSED_QUESTIONS so R-47 is not re-priced, and absent from every shipped set. No F1 is claimed until the Runner arm measures it.</td>
+      </tr>
+      <tr data-state="DONE" data-who="O" data-e2e="true">
+        <td class="id">64</td>
+        <td class="cap">A device is priced from the fields the two artifacts declare, not from a figure re-typed from a report or a cross-day delta read as a paired test<span class="surface">harness</span></td>
+        <td><span class="tag O">ours only</span></td>
+        <td class="proof"><code>a-device-is-priced-on-the-rows-both-arms-read</code></td>
+        <td class="proof"><code>— (harness, not product)</code></td>
+        <td><span class="state DONE">DONE</span></td>
+        <td class="why">DONE (§182) — scripts/lib/device-price.mjs reads the reconciled byCategory bug TP (totals.agrees) and top-level F1, refuses a pair that differs in more than laneSet, refuses different PR sets or different corpora, requires the caller to declare dispatch-entailed fields (competitorMode) rather than silently ignoring them, and labels a two-day comparison cross-dispatch with the measured 0.07 F1 drift. It found that the report's &quot;83 credited Code Defect&quot; is not a field of the R-178 artifact (its reconciled bug TP is 86) and that R-179's extra competitorMode difference was a dispatch choice, not the device. 11 cases written red first; §182 also records why MCR-Bench's cross-turn state tracking and SWR-Bench's synthesis call are the next devices, not another lane.</td>
       </tr>
       </tbody>
     </table>
